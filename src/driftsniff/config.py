@@ -52,8 +52,7 @@ def _parse_log_level(value: str) -> str:
 
 def _parse_base_url(value: str) -> str:
     message = (
-        f"{ENV_PREFIX}BASE_URL must be an http or https URL "
-        "without credentials, query or fragment"
+        f"{ENV_PREFIX}BASE_URL must be an http or https URL without credentials, query or fragment"
     )
     try:
         parts = urlsplit(value)

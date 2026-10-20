@@ -62,7 +62,9 @@ def request_json(
             body = response.read().decode("utf-8", errors="replace")
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")[:500]
-        raise DokployError(f"Dokploy API {method} {path} failed with HTTP {exc.code}: {detail}") from exc
+        raise DokployError(
+            f"Dokploy API {method} {path} failed with HTTP {exc.code}: {detail}"
+        ) from exc
     except (TimeoutError, urllib.error.URLError) as exc:
         raise DokployError(f"Dokploy API {method} {path} failed: {exc}") from exc
     if not body.strip():
@@ -149,7 +151,9 @@ def wait_health(url: str, timeout_seconds: int, expected_commit: str) -> None:
             last = str(exc)
         print(f"WAIT: {url} {last}")
         time.sleep(5)
-    raise DokployError(f"Health check timed out for {url} (expected commit {expected_commit}): {last}")
+    raise DokployError(
+        f"Health check timed out for {url} (expected commit {expected_commit}): {last}"
+    )
 
 
 def deploy(args: argparse.Namespace) -> None:
