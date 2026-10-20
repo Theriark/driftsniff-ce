@@ -4,7 +4,7 @@ Audited ref: `development` at `05d1e5cc1e5d0a9fe445e51f00a1302dedff39c9`. Audit 
 
 The repository holds two workflow files, one helper script and no application code. There is no `AGENTS.md`, no Dockerfile, no `pyproject.toml`, no `LICENSE` and no Dependabot file. `main`, `stage` and `production` all exist and point at the README-only baseline commit `25bd02b0`.
 
-Sections 1 and 2 are the P1-T1 audit as it was; sections 2.1 (P1-T5) and 2.2 (P1-T6) record what changed afterwards. Sections 3 and 7 describe the current workflows.
+Sections 1 and 2 are the P1-T1 audit as it was; sections 2.1 (P1-T5) and 2.2 (P1-T6) record what changed afterwards. Sections 3 and 7 describe the current workflows; section 8 (P2-T4) describes the coverage gate and the migration job.
 
 ## 1. Workflows
 
@@ -90,7 +90,8 @@ A pull request into `development` needs every job below to be green. The names a
 | `CI / Gate` | `gate` | The run was requested by the `ci-go` label, a push to `development` or a manual `mode=test` dispatch | none |
 | `CI / Lint` | `lint` | `deploy/dokploy.json` is valid; `ruff check` and `ruff format --check` pass; `actionlint` accepts every workflow file | `gate` |
 | `CI / Types` | `types` | `mypy` passes | `gate` |
-| `CI / Tests` | `test` | `pytest` passes with coverage settings from `pyproject.toml` | `gate` |
+| `CI / Tests` | `test` | `pytest` passes with coverage settings from `pyproject.toml`, and the step `Coverage gate and job summary` finds at least 90 percent on each of `driftsniff.core`, `driftsniff.secrets` and `driftsniff.rules` (section 8) | `gate` |
+| `CI / Migrations` | `migration` | A database copy at every earlier revision upgrades to head with the same schema as an empty database, and a downgrade from every revision is refused (section 8) | `gate` |
 | `CI / Dependency audit` | `audit` | `pip-audit` finds no known vulnerability in the hashed `requirements.txt` | `gate` |
 | `CI / Secret scan` | `secrets` | `gitleaks` finds no secret in the files or in the commits of the pull request | `gate` |
 | `CI / Licences` | `licences` | The GPL negative test passes (`tests/unit/test_check_licenses.py`) and `scripts/check_licenses.py` accepts every dependency licence | `gate` |
@@ -99,11 +100,11 @@ A pull request into `development` needs every job below to be green. The names a
 | `CI / Container smoke` | `smoke` | `scripts/container-smoke.sh` passes on the image from `build` | `build` |
 | `CI / SBOM` | `sbom` | Syft writes a CycloneDX document with components for the image from `build`; it is uploaded as artifact `driftsniff-sbom` | `build` |
 
-Other jobs of the same workflow are not pull request checks: `Publish and deploy Development` (`deploy-development`) runs only after a push to `development`, only while `DEPLOY_DEVELOPMENT_ENABLED` is `true`, and only after all ten check jobs above succeed; `Lock hashed requirements` (`lock-requirements`) runs only for a manual `mode=lock` dispatch.
+Other jobs of the same workflow are not pull request checks: `Publish and deploy Development` (`deploy-development`) runs only after a push to `development`, only while `DEPLOY_DEVELOPMENT_ENABLED` is `true`, and only after all eleven check jobs above succeed; `Lock hashed requirements` (`lock-requirements`) runs only for a manual `mode=lock` dispatch.
 
 Concurrency: a newer `ci-go` run of the same pull request cancels the older one (group `pr-<ref>`). Deployments use the group `driftsniff-ce-pipeline` and are never cancelled.
 
-To make this list binding, a repository admin sets these eleven names as required status checks on `development` (section 4). The crew cannot read or change that setting. Later phases add the migration job (P2), canary job (P3) and e2e and accessibility jobs (P10); add each to this table when it appears.
+To make this list binding, a repository admin sets these twelve names as required status checks on `development` (section 4). The crew cannot read or change that setting. The migration job (P2-T4) is in the table above. Later phases add the canary job (P3) and e2e and accessibility jobs (P10); add each to this table when it appears.
 
 ## 4. Settings the crew cannot read or change (for the Delivery lead)
 
@@ -143,7 +144,7 @@ The workflow directory of `nowlert-ce` was listed read-only (names only: `ci.yml
 
 1. `build` builds `driftsniff:ci` once, with build argument `SOURCE_SHA` set to the commit, and uploads it as the artifact `driftsniff-ci-image`.
 2. `scan` (Trivy), `smoke` (container smoke) and `sbom` (Syft) all read that artifact. Nothing else builds the image.
-3. `deploy-development` starts after the ten check jobs succeeded and only while `DEPLOY_DEVELOPMENT_ENABLED` is `true`. It loads the artifact, fails if the image revision label differs from the commit, logs in to GHCR with the workflow token and pushes the image as `ghcr.io/theriark/driftsniff-ce:sha-<12>`.
+3. `deploy-development` starts after the eleven check jobs succeeded and only while `DEPLOY_DEVELOPMENT_ENABLED` is `true`. It loads the artifact, fails if the image revision label differs from the commit, logs in to GHCR with the workflow token and pushes the image as `ghcr.io/theriark/driftsniff-ce:sha-<12>`.
 4. It reads the digest from the registry with `docker buildx imagetools inspect`, requires it to equal the digest printed by `docker push`, writes it to the job summary and to `image-digest.txt`, and uploads the file as the artifact `driftsniff-image-digest`.
 5. It runs `dokploy_release.py deploy` with `ghcr.io/theriark/driftsniff-ce@<digest>`.
 
@@ -181,3 +182,35 @@ The four deployment secrets are now passed only to the two steps that use them (
 It then re-reads the Dokploy application and requires its image to equal the pushed `image@digest`. It does not read `version`. The request carries no Cloudflare Access headers, so `/healthz` must be reachable without them.
 
 `scripts/container-smoke.sh` (the `smoke` job) requires `status` equal to `ok` and a non-empty `version`. Together: the body needs `status`, `version` and `commit`. The plan says only `status` and `version`.
+
+## 8. Coverage gate and migration job (P2-T4)
+
+Both are part of the pull request checks in `ci.yml`; no new workflow file exists.
+
+### 8.1 Coverage gate
+
+| Item | Rule |
+|---|---|
+| Where | Job `test` (`CI / Tests`): `pytest` writes `coverage.json`, then the step `Coverage gate and job summary` runs `scripts/check_coverage.py coverage.json`. The step runs even when a test failed, as long as the report exists. |
+| Gate | At least 90 percent on each of `driftsniff.core`, `driftsniff.secrets` and `driftsniff.rules`. Statements and branches are counted together, the way `pyproject.toml` measures them (`branch = true`). The step exits 1 and prints `::error::` for each package below the minimum. |
+| Empty package | A gated package without any statement passes and is shown as `no statements`. |
+| Not gated | The rest of `driftsniff` and the grand total are shown but do not fail the check. The 95 percent target of P2-T2 for `core/canonical.py` and `core/normalize.py` is a task acceptance check, not a CI gate; the per-module table shows it. |
+| Summary | The job summary (Actions run page, no log access needed) holds the table `Package`, `Statements`, `Branches`, `Missed`, `Coverage`, `Gate` with a `TOTAL` row, and a collapsed table with the same columns for every module. |
+| Change | The minimum and the gated packages are constants in `scripts/check_coverage.py` (`MINIMUM_PERCENT`, `GATED_PACKAGES`); the script tests in `tests/unit/test_check_coverage.py` cover them. A new package is gated by adding it to `GATED_PACKAGES`. |
+
+To see the gate fail once, push a throwaway branch that adds a module of untested statements to `driftsniff.core` and request CI; close its pull request and delete the branch afterwards.
+
+### 8.2 Migration job
+
+Job `migration` (`CI / Migrations`) runs `tests/unit/test_db_migrations.py`, `tests/unit/test_check_migrations.py` and `scripts/check_migrations.py`. The script works only on throw-away database files and never on real data.
+
+1. The revisions form one line (exactly one head).
+2. An empty database upgrades to head. Its schema is the reference.
+3. For every revision that is not head (today `0001`; `0002` becomes an earlier revision when `0003` exists): a database is built at that revision, the file is copied, the copy is upgraded to head, and the copy must end at head, have the reference schema, pass `PRAGMA integrity_check` and `PRAGMA foreign_key_check`, while the original file stays at its revision. Until a release exists the earlier schemas are those of the repository history; once a release exists its schema stays in the chain, so it keeps being tested.
+4. For every revision, a downgrade of a copy must fail and leave the copy at the same revision with the same schema. Every migration therefore keeps `downgrade()` raising `NotImplementedError` (restore a backup instead); a migration with a working `downgrade()` fails this job.
+
+The result is written to the job summary as a table (`Check`, `Result`, `Detail`). The application's own refusal of a database from a newer version (exit code 3) is covered by `tests/unit/test_db_migrations.py`, which the same job runs.
+
+Required check: `CI / Migrations` is in the list of section 3. A reserved revision `0003` (sessions, P9) needs no change here: it joins the chain automatically.
+
+Limits: the job exercises schema upgrades on empty tables, not data migration of large real databases; a migration that changes data needs its own test in the pull request that adds it.
