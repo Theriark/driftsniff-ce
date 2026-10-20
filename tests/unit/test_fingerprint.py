@@ -6,7 +6,6 @@ import hmac
 import pytest
 
 from driftsniff.core.canonical import JsonValue, canonical_dumps
-from driftsniff.secrets import fingerprint
 from driftsniff.secrets.fingerprint import (
     DISPLAY_MAX_CHARS,
     DISPLAY_MIN_CHARS,
@@ -151,7 +150,7 @@ def test_digests_are_compared_in_constant_time(monkeypatch: pytest.MonkeyPatch) 
         calls.append((left, right))
         return real(left, right)
 
-    monkeypatch.setattr(fingerprint.hmac, "compare_digest", spy)
+    monkeypatch.setattr(hmac, "compare_digest", spy)
     first = FINGERPRINTER.fingerprint("wlan", "psk", CANARY)
     assert first.same_as(FINGERPRINTER.fingerprint("wlan", "psk", CANARY)) is True
     assert first.same_as(FINGERPRINTER.fingerprint("wlan", "psk", "CANARY-0002")) is False

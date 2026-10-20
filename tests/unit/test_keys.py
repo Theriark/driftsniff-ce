@@ -7,6 +7,7 @@ import logging
 import os
 import stat
 import threading
+import time
 import traceback
 from pathlib import Path
 
@@ -406,7 +407,7 @@ def test_a_key_that_is_still_being_written_is_waited_for(
         path.write_bytes(TEST_MATERIAL)
         path.chmod(0o400)
 
-    monkeypatch.setattr(keys.time, "sleep", finish_writing)
+    monkeypatch.setattr(time, "sleep", finish_writing)
     master = ensure_master_key(path, fingerprints_exist=True)
     assert master.key_id == MasterKey(TEST_MATERIAL).key_id
     assert len(sleeps) == 1
