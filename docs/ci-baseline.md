@@ -56,9 +56,40 @@ Each gap is a proposal for the Delivery lead. Owner role in brackets. "Plan" mea
 
 Checks that already match the plan: actions pinned by SHA with version comment; pull request runs only on the `ci-go` label; superseded PR runs are cancelled while deployments are never cancelled; deploys use an immutable digest and verify both the Dokploy image and the reported commit; promotion never rebuilds and supports rollback to an earlier approved digest; hashed lock files are produced by CI, not by hand; secrets are referenced only through `secrets.NAME`.
 
+### 2.1 Status after P1-T5 (THE-434)
+
+The audit above describes `development` as of P1-T1. P1-T5 changes `ci.yml`, so these rows are now different:
+
+| Id | Status | What changed |
+|---|---|---|
+| G5 | Closed | The single `tests` job is replaced by separate jobs (section 3). One failure no longer hides another. |
+| G6 | Closed for actionlint, gitleaks, Trivy and the Dockerfile credential-name check | `lint` runs actionlint; `secrets` runs gitleaks on the files and on the pull request commits; `scan` runs Trivy for HIGH and CRITICAL findings that have a fix; `build` runs `scripts/check_dockerfile_credentials.py`. The notices artifact (P1-T3) is not part of this task and stays open. |
+| G7 | Closed | The `smoke` job runs `scripts/container-smoke.sh` against the image built by the `build` job. |
+| G8 | Partly closed | The pull request jobs build the image once and pass it to `scan` and `smoke` as an artifact. `deploy-development` still rebuilds the image from the same SHA; that stays with P1-T6. |
+| G14 | Dependabot closed | `.github/dependabot.yml` covers `github-actions` only. |
+
 ## 3. Required checks list
 
-One pull request check exists today: `CI / Tests and scans` (job `tests`). Later phases add the migration job (P2), canary job (P3) and e2e and accessibility jobs (P10). This file lists them as they appear.
+A pull request into `development` needs every job below to be green. The names are the job names as GitHub shows them under the workflow `CI`. The job `Gate` only records why the run started; every other job needs it.
+
+| Check name | Job id | What it proves | Needs |
+|---|---|---|---|
+| `CI / Gate` | `gate` | The run was requested by the `ci-go` label, a push to `development` or a manual `mode=test` dispatch | none |
+| `CI / Lint` | `lint` | `deploy/dokploy.json` is valid; `ruff check` and `ruff format --check` pass; `actionlint` accepts every workflow file | `gate` |
+| `CI / Types` | `types` | `mypy` passes | `gate` |
+| `CI / Tests` | `test` | `pytest` passes with coverage settings from `pyproject.toml` | `gate` |
+| `CI / Dependency audit` | `audit` | `pip-audit` finds no known vulnerability in the hashed `requirements.txt` | `gate` |
+| `CI / Secret scan` | `secrets` | `gitleaks` finds no secret in the files or in the commits of the pull request | `gate` |
+| `CI / Licences` | `licences` | The GPL negative test passes (`tests/unit/test_check_licenses.py`) and `scripts/check_licenses.py` accepts every dependency licence | `gate` |
+| `CI / Build image` | `build` | The Dockerfile has no credential-like `ARG` or `ENV`, `compose.yaml` is valid, and the image builds (no push) | `gate` |
+| `CI / Image scan` | `scan` | Trivy finds no HIGH or CRITICAL vulnerability that has a fix | `build` |
+| `CI / Container smoke` | `smoke` | `scripts/container-smoke.sh` passes on the image from `build` | `build` |
+
+Other jobs of the same workflow are not pull request checks: `Build and deploy Development` (`deploy-development`) runs only after a push to `development` and only after all nine check jobs above succeed; `Lock hashed requirements` (`lock-requirements`) runs only for a manual `mode=lock` dispatch.
+
+Concurrency: a newer `ci-go` run of the same pull request cancels the older one (group `pr-<ref>`). Deployments use the group `driftsniff-ce-pipeline` and are never cancelled.
+
+To make this list binding, a repository admin sets these ten names as required status checks on `development` (section 4). The crew cannot read or change that setting. Later phases add the migration job (P2), canary job (P3) and e2e and accessibility jobs (P10); add each to this table when it appears.
 
 ## 4. Settings the crew cannot read or change (for the Delivery lead)
 
@@ -66,7 +97,7 @@ The crew's GitHub tools can read files and refs; they cannot read or write repos
 
 | Setting | Why it matters | Who can act |
 |---|---|---|
-| Branch protection or rulesets on `development`, `main`, `stage`, `production` (required check `Tests and scans`, pull request required, force-push and deletion blocked) | Plan says never push to these branches; nothing enforces it if no rule exists | Repository admin (founders) |
+| Branch protection or rulesets on `development`, `main`, `stage`, `production` (required checks from section 3, pull request required, force-push and deletion blocked) | Plan says never push to these branches; nothing enforces it if no rule exists | Repository admin (founders) |
 | Default branch (plan says `main`; the plan's setup record says `main`) | Not read here | Repository admin |
 | Environment protection (required reviewers, wait timer) for `development`, `stage`, `production`; `production` environment does not exist yet (G13) | Stage and production promotions should need an approver | Repository admin / setup broker |
 | Repository variables `DEPLOY_DEVELOPMENT_ENABLED`, `PROMOTE_STAGE_ENABLED` (current values unknown) | They switch deployments on | Delivery through the controller action; crew cannot read values |
