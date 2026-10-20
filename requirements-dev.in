@@ -1,0 +1,7 @@
+-r requirements.in
+hypothesis
+mypy
+pip-audit
+pytest
+pytest-cov
+ruff

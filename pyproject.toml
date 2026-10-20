@@ -1,0 +1,77 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "driftsniff"
+description = "Records changes to UniFi Network and Xen Orchestra configuration with before and after values and an explainable risk label."
+requires-python = ">=3.12,<3.13"
+license = "MIT"
+dynamic = ["version", "dependencies"]
+
+[project.scripts]
+driftsniff = "driftsniff.cli:main"
+
+[tool.setuptools.dynamic]
+version = {attr = "driftsniff.__version__"}
+dependencies = {file = ["requirements.in"]}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "scripts"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S", "C4"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["driftsniff", "check_licenses", "check_lock_hashes"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S603", "S607"]
+# Platform-owned deploy helper: it calls a fixed Dokploy HTTPS URL from the workflow, never user input.
+".github/scripts/*.py" = ["S310", "E501"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src", "tests", "scripts"]
+mypy_path = ["src", "scripts"]
+check_untyped_defs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+
+# Strict checking for the packages that hold the security-relevant logic (empty until their phase).
+[[tool.mypy.overrides]]
+module = [
+    "driftsniff.core",
+    "driftsniff.core.*",
+    "driftsniff.secrets",
+    "driftsniff.secrets.*",
+    "driftsniff.rules",
+    "driftsniff.rules.*",
+    "driftsniff.sources",
+    "driftsniff.sources.*",
+]
+disallow_any_generics = true
+disallow_subclassing_any = true
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_untyped_decorators = true
+warn_return_any = true
+no_implicit_reexport = true
+strict_equality = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "scripts"]
+
+[tool.coverage.run]
+source = ["driftsniff"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true

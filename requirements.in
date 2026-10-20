@@ -1,0 +1,11 @@
+alembic
+argon2-cffi
+cryptography
+fastapi
+httpx
+jinja2
+pydantic
+pyyaml
+sqlalchemy
+uvicorn
+zstandard
