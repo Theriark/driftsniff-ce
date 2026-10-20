@@ -1,0 +1,220 @@
+name: Promote - Production
+
+# Promotes the immutable image that Stage already runs to Production; never rebuilds.
+# NOT enabled: the first job (guard) fails the run before any deploy step unless the repository
+# variable PROMOTE_PRODUCTION_ENABLED is exactly 'true'. It stays unset until a production
+# promotion is separately authorised by the founders. The Production application id and host
+# come from the variables DOKPLOY_PRODUCTION_APPLICATION_ID and PRODUCTION_HOST of the
+# production environment; the run fails if either is missing.
+# Rollback is this workflow run again with an earlier approved source_sha and its digest.
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Full commit SHA that Stage runs (a normal promotion) or an earlier approved commit (rollback)
+        required: true
+        type: string
+      digest:
+        description: sha256 digest of the approved image published for that commit
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: driftsniff-ce-pipeline
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    name: Promotion switch is on
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+
+    permissions:
+      contents: read
+
+    env:
+      PROMOTE_PRODUCTION_ENABLED: ${{ vars.PROMOTE_PRODUCTION_ENABLED }}
+
+    steps:
+      - name: Checkout guard script
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Stop unless PROMOTE_PRODUCTION_ENABLED is true
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/guard_enabled.py PROMOTE_PRODUCTION_ENABLED
+
+  promote:
+    name: Promote image to Production
+    needs: guard
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: production
+
+    permissions:
+      contents: write
+      packages: write
+
+    env:
+      IMAGE: ghcr.io/theriark/driftsniff-ce
+      SOURCE_SHA: ${{ inputs.source_sha }}
+      INPUT_DIGEST: ${{ inputs.digest }}
+      DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
+      DOKPLOY_API_KEY: ${{ secrets.DOKPLOY_API_KEY }}
+      CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+      CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+      DOKPLOY_STAGE_APPLICATION_ID: lhB_AOqk4FTEaHhEQcPKj
+      STAGE_HOST: ce-stg-driftsniff.theriark.dev
+      DOKPLOY_PRODUCTION_APPLICATION_ID: ${{ vars.DOKPLOY_PRODUCTION_APPLICATION_ID }}
+      PRODUCTION_HOST: ${{ vars.PRODUCTION_HOST }}
+
+    steps:
+      - name: Checkout pipeline code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Validate promotion source and target
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "${SOURCE_SHA}" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "::error::source_sha must be a full 40-character commit SHA"
+            exit 1
+          }
+          [[ "${INPUT_DIGEST}" =~ ^sha256:[0-9a-f]{64}$ ]] || {
+            echo "::error::digest must be sha256:<64 lowercase hex characters>"
+            exit 1
+          }
+          [[ "${GITHUB_REF}" == "refs/heads/development" ]] || {
+            echo "::error::Production promotion must run from development; received ${GITHUB_REF}"
+            exit 1
+          }
+          for required in DOKPLOY_URL DOKPLOY_API_KEY CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET DOKPLOY_PRODUCTION_APPLICATION_ID PRODUCTION_HOST; do
+            [[ -n "${!required}" ]] || {
+              echo "::error::${required} is missing"
+              exit 1
+            }
+          done
+          [[ "${PRODUCTION_HOST}" =~ ^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$ ]] || {
+            echo "::error::PRODUCTION_HOST must be a plain host name"
+            exit 1
+          }
+          [[ "${DOKPLOY_PRODUCTION_APPLICATION_ID}" =~ ^[A-Za-z0-9_-]+$ ]] || {
+            echo "::error::DOKPLOY_PRODUCTION_APPLICATION_ID has unexpected characters"
+            exit 1
+          }
+          [[ "${PRODUCTION_HOST}" != "${STAGE_HOST}" && "${DOKPLOY_PRODUCTION_APPLICATION_ID}" != "${DOKPLOY_STAGE_APPLICATION_ID}" ]] || {
+            echo "::error::the production target must differ from the Stage target"
+            exit 1
+          }
+          git fetch origin \
+            +refs/heads/stage:refs/remotes/origin/stage \
+            +refs/heads/production:refs/remotes/origin/production
+          git cat-file -e "${SOURCE_SHA}^{commit}" || {
+            echo "::error::${SOURCE_SHA} does not exist in this repository"
+            exit 1
+          }
+          STAGE_SHA="$(git rev-parse refs/remotes/origin/stage)"
+          git merge-base --is-ancestor "${SOURCE_SHA}" "${STAGE_SHA}" || {
+            echo "::error::${SOURCE_SHA} is not the Stage-approved commit or an earlier commit of the stage branch"
+            exit 1
+          }
+          if [[ "${SOURCE_SHA}" == "${STAGE_SHA}" ]]; then
+            echo "MODE=promotion" >> "${GITHUB_ENV}"
+          else
+            echo "MODE=rollback" >> "${GITHUB_ENV}"
+          fi
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+
+      - name: Resolve the published digest for the commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="sha-${SOURCE_SHA::12}"
+          resolved="$(docker buildx imagetools inspect "${IMAGE}:${tag}" --format '{{.Manifest.Digest}}')"
+          [[ "${resolved}" =~ ^sha256:[0-9a-f]{64}$ ]] || {
+            echo "::error::no published image ${IMAGE}:${tag} for ${SOURCE_SHA}"
+            exit 1
+          }
+          if [[ "${INPUT_DIGEST}" != "${resolved}" ]]; then
+            echo "::error::digest ${INPUT_DIGEST} does not match the image published for ${SOURCE_SHA} (${resolved})"
+            exit 1
+          fi
+          echo "IMAGE_REF=${IMAGE}@${resolved}" >> "${GITHUB_ENV}"
+          echo "Resolved ${IMAGE}@${resolved}"
+
+      - name: Confirm Stage runs this exact image
+        if: ${{ env.MODE == 'promotion' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/dokploy_release.py assert-image \
+            --application-id "${DOKPLOY_STAGE_APPLICATION_ID}" \
+            --image "${IMAGE_REF}"
+          python3 .github/scripts/dokploy_release.py health \
+            --health-url "https://${STAGE_HOST}/healthz" \
+            --expected-commit "${SOURCE_SHA}"
+
+      - name: Deploy exact digest to Production and verify runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/dokploy_release.py deploy \
+            --application-id "${DOKPLOY_PRODUCTION_APPLICATION_ID}" \
+            --image "${IMAGE_REF}" \
+            --health-url "https://${PRODUCTION_HOST}/healthz" \
+            --expected-commit "${SOURCE_SHA}" \
+            --title "Production ${SOURCE_SHA}" \
+            --description "GitHub Actions run ${GITHUB_RUN_ID}" \
+            --noop-ok
+
+      - name: Tag the promoted image as production
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker buildx imagetools create --tag "${IMAGE}:production" "${IMAGE_REF}"
+
+      - name: Advance the production branch to the promoted commit
+        if: ${{ env.MODE == 'promotion' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api --method PATCH "repos/${GITHUB_REPOSITORY}/git/refs/heads/production" \
+            -f sha="${SOURCE_SHA}" -F force=false >/dev/null
+          PRODUCTION_SHA="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/production" --jq '.object.sha')"
+          [[ "${PRODUCTION_SHA}" == "${SOURCE_SHA}" ]] || {
+            echo "::error::production branch did not advance to ${SOURCE_SHA}"
+            exit 1
+          }
+
+      - name: Record immutable Production result
+        shell: bash
+        run: |
+          {
+            echo "## driftsniff-ce Production promotion completed"
+            echo
+            echo "- Source commit: \`${SOURCE_SHA}\`"
+            echo "- Immutable image: \`${IMAGE_REF}\`"
+            echo "- Production URL: https://${PRODUCTION_HOST}/"
+            echo "- Rebuild performed: no"
+            echo "- Mode: ${MODE}"
+          } >> "${GITHUB_STEP_SUMMARY}"
