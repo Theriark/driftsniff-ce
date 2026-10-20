@@ -12,8 +12,8 @@ BAD_DOCKERFILE = """\
 FROM python:3.12-slim
 ARG SOURCE_SHA=unknown
 ARG GITHUB_TOKEN
-ENV APP_SECRET=abc \\
-    DB_PASSWORD=abc \\
+ENV APP_SECRET=dummy \\
+    DB_PASSWORD=dummy \\
     PORT=8080
 ENV api_key legacy value
 """
@@ -78,6 +78,6 @@ def test_shipped_dockerfile_declares_the_runtime_contract() -> None:
         "PYTHONUNBUFFERED=1",
         'ENTRYPOINT ["python", "-m", "driftsniff", "serve"]',
         '"python", "-m", "driftsniff", "healthcheck"',
-        "org.opencontainers.image.licenses=\"MIT\"",
+        'org.opencontainers.image.licenses="MIT"',
     ):
         assert expected in text

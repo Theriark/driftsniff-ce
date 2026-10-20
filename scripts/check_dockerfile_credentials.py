@@ -67,9 +67,7 @@ def check_text(text: str) -> list[str]:
             problems.append(f"line {number}: cannot parse {instruction} instruction")
             continue
         problems.extend(
-            f"line {number}: {instruction} {name} {REASON}"
-            for name in names
-            if is_sensitive(name)
+            f"line {number}: {instruction} {name} {REASON}" for name in names if is_sensitive(name)
         )
     return problems
 
