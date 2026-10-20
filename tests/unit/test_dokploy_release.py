@@ -86,18 +86,14 @@ def test_empty_previous_image_updates_and_deploys(
 
 def test_same_image_with_noop_ok_skips_update_and_deploy(monkeypatch: pytest.MonkeyPatch) -> None:
     module = load_module()
-    fake = install_fake(
-        monkeypatch, module, [{"dockerImage": IMAGE}, {"dockerImage": IMAGE}]
-    )
+    fake = install_fake(monkeypatch, module, [{"dockerImage": IMAGE}, {"dockerImage": IMAGE}])
     module.deploy(make_args(noop_ok=True))
     assert fake.posts == []
 
 
 def test_same_image_without_noop_ok_still_deploys(monkeypatch: pytest.MonkeyPatch) -> None:
     module = load_module()
-    fake = install_fake(
-        monkeypatch, module, [{"dockerImage": IMAGE}, {"dockerImage": IMAGE}]
-    )
+    fake = install_fake(monkeypatch, module, [{"dockerImage": IMAGE}, {"dockerImage": IMAGE}])
     module.deploy(make_args())
     assert fake.posts == ["application.update", "application.deploy"]
 
