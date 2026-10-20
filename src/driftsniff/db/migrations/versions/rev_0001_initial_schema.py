@@ -186,9 +186,7 @@ def upgrade() -> None:
         "change_events",
         ["source_id", sa.text("created_at DESC")],
     )
-    op.create_index(
-        "ix_change_events_severity_status", "change_events", ["max_severity", "status"]
-    )
+    op.create_index("ix_change_events_severity_status", "change_events", ["max_severity", "status"])
 
     op.create_table(
         "change_items",

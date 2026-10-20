@@ -49,6 +49,16 @@ def _id() -> sa.Column[int]:
     return sa.Column("id", sa.Integer, primary_key=True)
 
 
+def _cascade_fk(name: str, target: str) -> sa.Column[int]:
+    """A required foreign key whose rows are deleted together with the row they point to."""
+    return sa.Column(
+        name,
+        sa.Integer,
+        sa.ForeignKey(target, ondelete="CASCADE"),
+        nullable=False,
+    )
+
+
 workspaces = sa.Table(
     "workspaces",
     metadata,
@@ -76,7 +86,7 @@ api_tokens = sa.Table(
     "api_tokens",
     metadata,
     _id(),
-    sa.Column("user_id", sa.Integer, sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+    _cascade_fk("user_id", "users.id"),
     sa.Column("name", sa.Text, nullable=False),
     sa.Column("token_prefix", sa.Text, nullable=False),
     sa.Column("token_hash", sa.Text, nullable=False),
@@ -112,7 +122,7 @@ runs = sa.Table(
     "runs",
     metadata,
     _id(),
-    sa.Column("source_id", sa.Integer, sa.ForeignKey("sources.id", ondelete="CASCADE"), nullable=False),
+    _cascade_fk("source_id", "sources.id"),
     sa.Column("started_at", sa.Text, nullable=False),
     sa.Column("finished_at", sa.Text),
     # NULL while the run is still going.
@@ -128,7 +138,7 @@ runs = sa.Table(
 resource_coverage = sa.Table(
     "resource_coverage",
     metadata,
-    sa.Column("source_id", sa.Integer, sa.ForeignKey("sources.id", ondelete="CASCADE"), nullable=False),
+    _cascade_fk("source_id", "sources.id"),
     sa.Column("resource", sa.Text, nullable=False),
     # 200, 403, 404 or error
     sa.Column("last_status", sa.Text, nullable=False),
@@ -142,7 +152,7 @@ objects = sa.Table(
     "objects",
     metadata,
     _id(),
-    sa.Column("source_id", sa.Integer, sa.ForeignKey("sources.id", ondelete="CASCADE"), nullable=False),
+    _cascade_fk("source_id", "sources.id"),
     sa.Column("resource", sa.Text, nullable=False),
     sa.Column("object_key", sa.Text, nullable=False),
     sa.Column("display_name", sa.Text),
@@ -165,7 +175,7 @@ snapshots = sa.Table(
     "snapshots",
     metadata,
     _id(),
-    sa.Column("source_id", sa.Integer, sa.ForeignKey("sources.id", ondelete="CASCADE"), nullable=False),
+    _cascade_fk("source_id", "sources.id"),
     sa.Column("taken_at", sa.Text, nullable=False),
     # Not unique per source: a manifest may legitimately return to an older state (A, B, A).
     sa.Column("manifest_hash", sa.Text, nullable=False),
@@ -181,7 +191,7 @@ change_events = sa.Table(
     "change_events",
     metadata,
     _id(),
-    sa.Column("source_id", sa.Integer, sa.ForeignKey("sources.id", ondelete="CASCADE"), nullable=False),
+    _cascade_fk("source_id", "sources.id"),
     sa.Column("snapshot_id", sa.Integer, sa.ForeignKey("snapshots.id"), nullable=False),
     sa.Column("previous_snapshot_id", sa.Integer, sa.ForeignKey("snapshots.id")),
     sa.Column("window_start", sa.Text, nullable=False),
@@ -202,7 +212,7 @@ change_items = sa.Table(
     "change_items",
     metadata,
     _id(),
-    sa.Column("event_id", sa.Integer, sa.ForeignKey("change_events.id", ondelete="CASCADE"), nullable=False),
+    _cascade_fk("event_id", "change_events.id"),
     # NULL for items that belong to no single object (for example a schema drift item).
     sa.Column("object_id", sa.Integer, sa.ForeignKey("objects.id")),
     sa.Column("resource", sa.Text, nullable=False),
@@ -228,7 +238,7 @@ acknowledgements = sa.Table(
     "acknowledgements",
     metadata,
     _id(),
-    sa.Column("event_id", sa.Integer, sa.ForeignKey("change_events.id", ondelete="CASCADE"), nullable=False),
+    _cascade_fk("event_id", "change_events.id"),
     sa.Column("user_id", sa.Integer, sa.ForeignKey("users.id"), nullable=False),
     sa.Column("comment", sa.Text, nullable=False),
     sa.Column("created_at", sa.Text, nullable=False),
@@ -238,7 +248,7 @@ notes = sa.Table(
     "notes",
     metadata,
     _id(),
-    sa.Column("event_id", sa.Integer, sa.ForeignKey("change_events.id", ondelete="CASCADE"), nullable=False),
+    _cascade_fk("event_id", "change_events.id"),
     sa.Column("user_id", sa.Integer, sa.ForeignKey("users.id"), nullable=False),
     sa.Column("body", sa.Text, nullable=False),
     sa.Column("created_at", sa.Text, nullable=False),
@@ -248,7 +258,7 @@ enrichments = sa.Table(
     "enrichments",
     metadata,
     _id(),
-    sa.Column("event_id", sa.Integer, sa.ForeignKey("change_events.id", ondelete="CASCADE"), nullable=False),
+    _cascade_fk("event_id", "change_events.id"),
     sa.Column("token_id", sa.Integer, sa.ForeignKey("api_tokens.id"), nullable=False),
     sa.Column("provider_label", sa.Text, nullable=False),
     sa.Column("summary", sa.Text, nullable=False),
@@ -286,13 +296,8 @@ notification_deliveries = sa.Table(
     "notification_deliveries",
     metadata,
     _id(),
-    sa.Column("event_id", sa.Integer, sa.ForeignKey("change_events.id", ondelete="CASCADE"), nullable=False),
-    sa.Column(
-        "channel_id",
-        sa.Integer,
-        sa.ForeignKey("notification_channel.id", ondelete="CASCADE"),
-        nullable=False,
-    ),
+    _cascade_fk("event_id", "change_events.id"),
+    _cascade_fk("channel_id", "notification_channel.id"),
     sa.Column("attempt", sa.Integer, nullable=False),
     sa.Column("status", sa.Text, nullable=False),
     sa.Column("http_status", sa.Integer),

@@ -77,12 +77,8 @@ def test_write_rolls_back_changes_and_ddl_on_error(database: Database) -> None:
         raise RuntimeError("boom")
     with database.read() as connection:
         count = connection.exec_driver_sql("SELECT count(*) FROM kept").scalar_one()
-        tables = {
-            name
-            for (name,) in connection.exec_driver_sql(
-                "SELECT name FROM sqlite_master WHERE type = 'table'"
-            )
-        }
+        rows = connection.exec_driver_sql("SELECT name FROM sqlite_master WHERE type = 'table'")
+        tables = {name for (name,) in rows}
     assert count == 0
     assert "lost" not in tables
 

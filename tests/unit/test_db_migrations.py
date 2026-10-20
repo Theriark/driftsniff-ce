@@ -58,6 +58,11 @@ def stamp_unknown_revision(data_dir: Path, revision: str = "9999_from_the_future
         raw.commit()
 
 
+def metadata_index_columns(index: sa.Index) -> tuple[str, ...]:
+    """Column names in order; a text expression such as 'taken_at DESC' counts as its column."""
+    return tuple(str(expression).split()[0].split(".")[-1] for expression in index.expressions)
+
+
 def schema_from_database(connection: sa.Connection) -> dict[str, dict[str, object]]:
     inspector = sa.inspect(connection)
     schema: dict[str, dict[str, object]] = {}
@@ -71,9 +76,7 @@ def schema_from_database(connection: sa.Connection) -> dict[str, dict[str, objec
                 (i["name"], tuple(i["column_names"]), bool(i["unique"]))
                 for i in inspector.get_indexes(name)
             },
-            "uniques": {
-                tuple(u["column_names"]) for u in inspector.get_unique_constraints(name)
-            },
+            "uniques": {tuple(u["column_names"]) for u in inspector.get_unique_constraints(name)},
             "foreign_keys": {
                 (
                     tuple(fk["constrained_columns"]),
@@ -93,7 +96,7 @@ def schema_from_metadata() -> dict[str, dict[str, object]]:
             "columns": {column.name: column.nullable for column in table.columns},
             "primary_key": sorted(column.name for column in table.primary_key.columns),
             "indexes": {
-                (index.name, tuple(column.name for column in index.columns), bool(index.unique))
+                (index.name, metadata_index_columns(index), bool(index.unique))
                 for index in table.indexes
             },
             "uniques": {
