@@ -1,0 +1,364 @@
+name: CI
+
+# Tests run only when the ci-go label is added to a pull request (one explicit request,
+# one run), on pushes to development, and on manual dispatch. mode=lock compiles the
+# hashed requirement files and nothing else.
+
+on:
+  pull_request:
+    types:
+      - labeled
+  push:
+    branches:
+      - development
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "test runs the checks; lock compiles hashed requirements and commits them to this branch"
+        required: false
+        default: test
+        type: choice
+        options:
+          - test
+          - lock
+
+permissions:
+  contents: read
+
+# Superseded pull request checks are cancelled. Other labels get their own group so they
+# can never cancel a real run. Deployments use the shared pipeline group below and are
+# never cancelled.
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.ref }}-${{ github.event.label.name || 'none' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  tests:
+    name: Tests and scans
+    if: ${{ (github.event_name == 'pull_request' && github.event.label.name == 'ci-go') || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.mode == 'test') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Validate pipeline definitions and runtime manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          for workflow in .github/workflows/*.yml; do
+            yq e '.' "${workflow}" >/dev/null
+            echo "valid ${workflow}"
+          done
+          jq -e '
+            (.database == null or .database == "postgres16")
+            and (.volumes | (type == "array" and length > 0 and all(.[]; type == "string" and startswith("/"))))
+            and (.env | (type == "array" and all(.[];
+              (.name | test("^[A-Z][A-Z0-9_]*$"))
+              and (.kind | IN("hex32", "hex64", "fernet", "token24", "postgres_url", "base_url", "literal"))
+              and ((.kind != "literal") or ((.value | type == "string") and (.value | test("^[A-Za-z0-9+/=_-]{32,}$") | not)))
+            )))
+          ' deploy/dokploy.json >/dev/null
+          echo "valid deploy/dokploy.json"
+
+      - name: Scan tracked files for committed secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          pattern='-----BEGIN ([A-Z]+ )?PRIVATE KEY-----|AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{50,}|xox[baprs]-[A-Za-z0-9-]{10,}'
+          if git grep -nIE "${pattern}" -- . ':(exclude)tests' ':(exclude).github/workflows/ci.yml'; then
+            echo "::error::possible committed secret found (file and line listed above)"
+            exit 1
+          fi
+          echo "no secret patterns found"
+
+      - name: Detect application code and Dockerfile
+        id: detect
+        shell: bash
+        run: |
+          set -euo pipefail
+          app=false
+          dockerfile=false
+          if [[ -f pyproject.toml || -d src ]]; then app=true; fi
+          if [[ -f Dockerfile ]]; then dockerfile=true; fi
+          echo "app=${app}" >> "${GITHUB_OUTPUT}"
+          echo "dockerfile=${dockerfile}" >> "${GITHUB_OUTPUT}"
+          if [[ "${app}" == "false" ]]; then
+            echo "::notice::No application code yet; only pipeline-definition and secret checks ran"
+          fi
+
+      - name: Install locked dependencies
+        if: steps.detect.outputs.app == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -f requirements-dev.txt ]] || {
+            echo "::error::requirements-dev.txt is missing; run the CI workflow with mode=lock"
+            exit 1
+          }
+          python3 -m venv .venv
+          .venv/bin/python -m pip install --require-hashes --no-deps -r requirements-dev.txt
+          .venv/bin/python -m pip check
+
+      - name: Lint and format check
+        if: steps.detect.outputs.app == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          .venv/bin/python -m ruff check .
+          .venv/bin/python -m ruff format --check .
+
+      - name: Type check
+        if: steps.detect.outputs.app == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          .venv/bin/python -m mypy
+
+      - name: Run automated tests
+        if: steps.detect.outputs.app == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -q '^\[tool\.coverage' pyproject.toml; then
+            .venv/bin/python -m pytest -q --cov --cov-report=term-missing
+          else
+            .venv/bin/python -m pytest -q
+          fi
+
+      - name: Audit dependencies
+        if: steps.detect.outputs.app == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          .venv/bin/python -m pip_audit --requirement requirements.txt --require-hashes --disable-pip --progress-spinner off
+
+      - name: Check dependency licences
+        if: steps.detect.outputs.app == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -f scripts/check_licenses.py ]] || {
+            echo "::error::scripts/check_licenses.py is missing"
+            exit 1
+          }
+          .venv/bin/python scripts/check_licenses.py
+
+      - name: Build image
+        if: steps.detect.outputs.dockerfile == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build --build-arg SOURCE_SHA="${GITHUB_SHA}" --tag driftsniff:ci .
+
+      - name: Container smoke test (non-root, read-only root file system)
+        if: steps.detect.outputs.dockerfile == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          user="$(docker image inspect --format '{{.Config.User}}' driftsniff:ci)"
+          case "${user}" in
+            "" | 0 | root | 0:* | root:*)
+              echo "::error::image must run as a non-root user (User='${user}')"
+              exit 1
+              ;;
+          esac
+          docker volume create driftsniff_ci_data >/dev/null
+          docker volume create driftsniff_ci_keys >/dev/null
+          trap 'rc=$?; if [[ ${rc} -ne 0 ]]; then docker logs driftsniff-ci || true; fi; docker rm -f driftsniff-ci >/dev/null 2>&1 || true' EXIT
+          docker run --detach --name driftsniff-ci \
+            --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges --memory 512m \
+            --publish 127.0.0.1:8080:8080 \
+            --volume driftsniff_ci_data:/data --volume driftsniff_ci_keys:/keys \
+            --env DRIFTSNIFF_BASE_URL=http://127.0.0.1:8080 \
+            --env DRIFTSNIFF_TRUSTED_PROXY=false \
+            --env DRIFTSNIFF_LOG_LEVEL=info \
+            --env DRIFTSNIFF_PORT=8080 \
+            --env DRIFTSNIFF_DATA_DIR=/data \
+            --env DRIFTSNIFF_KEY_FILE=/keys/master.key \
+            driftsniff:ci >/dev/null
+          for attempt in {1..30}; do
+            if curl --fail --silent --show-error http://127.0.0.1:8080/healthz >/dev/null; then
+              echo "container answered /healthz"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::container did not answer /healthz within 60 seconds"
+          exit 1
+
+  deploy-development:
+    name: Build and deploy Development
+    needs: tests
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/development' && vars.DEPLOY_DEVELOPMENT_ENABLED == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    environment: development
+
+    permissions:
+      contents: read
+      packages: write
+
+    # Shared by every deployment and promotion job of this repository; queued, never cancelled.
+    concurrency:
+      group: driftsniff-ce-pipeline
+      cancel-in-progress: false
+
+    env:
+      IMAGE: ghcr.io/theriark/driftsniff-ce
+      SOURCE_SHA: ${{ github.sha }}
+      DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
+      DOKPLOY_API_KEY: ${{ secrets.DOKPLOY_API_KEY }}
+      CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+      CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+      DOKPLOY_DEVELOPMENT_APPLICATION_ID: VmPHofibLNZ_eYa6y6r8R
+      DEVELOPMENT_HOST: ce-dev-driftsniff.theriark.dev
+
+    steps:
+      - name: Verify Development source branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "${GITHUB_REF}" == "refs/heads/development" ]] || {
+            echo "::error::Development deployment must run from development; received ${GITHUB_REF}"
+            exit 1
+          }
+
+      - name: Checkout tested source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+
+      - name: Detect Dockerfile
+        id: detect
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -f Dockerfile ]]; then
+            echo "dockerfile=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "dockerfile=false" >> "${GITHUB_OUTPUT}"
+            echo "::notice::No Dockerfile yet; nothing to build or deploy"
+          fi
+
+      - name: Verify protected deployment configuration
+        if: steps.detect.outputs.dockerfile == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          for required in DOKPLOY_URL DOKPLOY_API_KEY CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET; do
+            [[ -n "${!required}" ]] || {
+              echo "::error::${required} is missing"
+              exit 1
+            }
+          done
+
+      - name: Log in to GitHub Container Registry
+        if: steps.detect.outputs.dockerfile == 'true'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        if: steps.detect.outputs.dockerfile == 'true'
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+
+      - name: Build and publish Development image
+        id: build
+        if: steps.detect.outputs.dockerfile == 'true'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+        with:
+          context: .
+          push: true
+          build-args: |
+            SOURCE_SHA=${{ env.SOURCE_SHA }}
+          tags: |
+            ${{ env.IMAGE }}:development
+            ${{ env.IMAGE }}:sha-${{ env.SOURCE_SHA }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Deploy exact digest to Development and verify runtime
+        if: steps.detect.outputs.dockerfile == 'true'
+        shell: bash
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/dokploy_release.py deploy \
+            --application-id "${DOKPLOY_DEVELOPMENT_APPLICATION_ID}" \
+            --image "${IMAGE}@${DIGEST}" \
+            --health-url "https://${DEVELOPMENT_HOST}/healthz" \
+            --expected-commit "${SOURCE_SHA}" \
+            --title "Development ${SOURCE_SHA}" \
+            --description "GitHub Actions run ${GITHUB_RUN_ID}"
+
+      - name: Record immutable Development result
+        if: steps.detect.outputs.dockerfile == 'true'
+        shell: bash
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          {
+            echo "## driftsniff-ce Development deployed"
+            echo
+            echo "- Source commit: \`${SOURCE_SHA}\`"
+            echo "- Promotion tag: \`${IMAGE}:sha-${SOURCE_SHA}\`"
+            echo "- Immutable image: \`${IMAGE}@${DIGEST}\`"
+            echo "- Runtime verified: Dokploy image equals digest; https://${DEVELOPMENT_HOST}/healthz reports the commit"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+  lock-requirements:
+    name: Lock hashed requirements
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'lock' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Refuse protected branches
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${GITHUB_REF_NAME}" in
+            main | development | stage | production)
+              echo "::error::lock runs only on a feature branch, not ${GITHUB_REF_NAME}"
+              exit 1
+              ;;
+          esac
+
+      - name: Checkout branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Compile hashed requirement files
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -f requirements.in && -f requirements-dev.in ]] || {
+            echo "::error::requirements.in and requirements-dev.in must exist"
+            exit 1
+          }
+          python3 -m venv .lock-venv
+          .lock-venv/bin/python -m pip install --quiet 'pip-tools==7.4.1'
+          .lock-venv/bin/pip-compile --quiet --generate-hashes --allow-unsafe --output-file requirements.txt requirements.in
+          .lock-venv/bin/pip-compile --quiet --generate-hashes --allow-unsafe --output-file requirements-dev.txt requirements-dev.in
+          rm -rf .lock-venv
+
+      - name: Commit lock files to the dispatching branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add requirements.txt requirements-dev.txt
+          if git diff --cached --quiet; then
+            echo "Lock files already current"
+            exit 0
+          fi
+          git commit -m "Lock hashed requirements"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
