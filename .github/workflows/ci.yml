@@ -3,7 +3,8 @@ name: CI
 # Pull request checks run only when the ci-go label is added to a pull request (one explicit
 # request, one run), on pushes to development, and on manual dispatch. mode=lock compiles the
 # hashed requirement files and nothing else. The check jobs are independent so one failure
-# never hides another; deploy-development waits for all of them.
+# never hides another; deploy-development waits for all of them. The image is built once by the
+# build job; scan, smoke and sbom test that same image and deploy-development pushes exactly it.
 
 on:
   pull_request:
@@ -274,7 +275,7 @@ jobs:
           docker build --build-arg SOURCE_SHA="${GITHUB_SHA}" --tag driftsniff:ci .
           docker save driftsniff:ci | gzip --fast > "${RUNNER_TEMP}/driftsniff-ci-image.tar.gz"
 
-      - name: Upload image for the scan and smoke jobs
+      - name: Upload image for the scan, smoke, sbom and publish steps
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: driftsniff-ci-image
@@ -349,8 +350,58 @@ jobs:
           set -euo pipefail
           bash scripts/container-smoke.sh
 
+  sbom:
+    name: SBOM
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Download image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: driftsniff-ci-image
+          path: ${{ runner.temp }}/image
+
+      - name: Unpack image archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          gunzip --stdout "${RUNNER_TEMP}/image/driftsniff-ci-image.tar.gz" > "${RUNNER_TEMP}/driftsniff-ci-image.tar"
+
+      - name: Generate CycloneDX SBOM with Syft (version pinned)
+        shell: bash
+        env:
+          SYFT_IMAGE: ghcr.io/anchore/syft:v1.18.1
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/sbom"
+          chmod 0777 "${RUNNER_TEMP}/sbom"
+          docker run --rm \
+            --volume "${RUNNER_TEMP}:/work:ro" \
+            --volume "${RUNNER_TEMP}/sbom:/out" \
+            --env SYFT_CHECK_FOR_APP_UPDATE=false \
+            "${SYFT_IMAGE}" \
+              docker-archive:/work/driftsniff-ci-image.tar \
+              --output cyclonedx-json=/out/sbom.cdx.json
+
+      - name: Check the SBOM is a CycloneDX document with components
+        shell: bash
+        run: |
+          set -euo pipefail
+          jq -e '.bomFormat == "CycloneDX" and (.components | length) > 0' "${RUNNER_TEMP}/sbom/sbom.cdx.json" >/dev/null
+          echo "SBOM components: $(jq '.components | length' "${RUNNER_TEMP}/sbom/sbom.cdx.json")"
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: driftsniff-sbom
+          path: ${{ runner.temp }}/sbom/sbom.cdx.json
+          retention-days: 30
+          if-no-files-found: error
+
   deploy-development:
-    name: Build and deploy Development
+    name: Publish and deploy Development
     needs:
       - lint
       - types
@@ -361,6 +412,8 @@ jobs:
       - build
       - scan
       - smoke
+      - sbom
+    # Never on a pull request: only a push to development, and only while the switch is true.
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/development' && vars.DEPLOY_DEVELOPMENT_ENABLED == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 60
@@ -378,10 +431,6 @@ jobs:
     env:
       IMAGE: ghcr.io/theriark/driftsniff-ce
       SOURCE_SHA: ${{ github.sha }}
-      DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
-      DOKPLOY_API_KEY: ${{ secrets.DOKPLOY_API_KEY }}
-      CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
-      CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
       DOKPLOY_DEVELOPMENT_APPLICATION_ID: VmPHofibLNZ_eYa6y6r8R
       DEVELOPMENT_HOST: ce-dev-driftsniff.theriark.dev
 
@@ -400,21 +449,13 @@ jobs:
         with:
           ref: ${{ env.SOURCE_SHA }}
 
-      - name: Detect Dockerfile
-        id: detect
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [[ -f Dockerfile ]]; then
-            echo "dockerfile=true" >> "${GITHUB_OUTPUT}"
-          else
-            echo "dockerfile=false" >> "${GITHUB_OUTPUT}"
-            echo "::notice::No Dockerfile yet; nothing to build or deploy"
-          fi
-
       - name: Verify protected deployment configuration
-        if: steps.detect.outputs.dockerfile == 'true'
         shell: bash
+        env:
+          DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
+          DOKPLOY_API_KEY: ${{ secrets.DOKPLOY_API_KEY }}
+          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
         run: |
           set -euo pipefail
           for required in DOKPLOY_URL DOKPLOY_API_KEY CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET; do
@@ -424,8 +465,24 @@ jobs:
             }
           done
 
+      - name: Download the tested image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: driftsniff-ci-image
+          path: ${{ runner.temp }}/image
+
+      - name: Load the tested image and check it was built from this commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          gunzip --stdout "${RUNNER_TEMP}/image/driftsniff-ci-image.tar.gz" | docker load
+          revision="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' driftsniff:ci)"
+          [[ "${revision}" == "${SOURCE_SHA}" ]] || {
+            echo "::error::tested image revision label '${revision}' is not ${SOURCE_SHA}"
+            exit 1
+          }
+
       - name: Log in to GitHub Container Registry
-        if: steps.detect.outputs.dockerfile == 'true'
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
         with:
           registry: ghcr.io
@@ -433,29 +490,68 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
-        if: steps.detect.outputs.dockerfile == 'true'
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
 
-      - name: Build and publish Development image
-        id: build
-        if: steps.detect.outputs.dockerfile == 'true'
-        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+      - name: Push the tested image and record its digest
+        id: publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="sha-${SOURCE_SHA::12}"
+          mode=pushed
+          if existing="$(docker buildx imagetools inspect "${IMAGE}:${tag}" --format '{{.Manifest.Digest}}' 2>/dev/null)"; then
+            # The tag of a commit is never overwritten: a re-run reuses the image already published.
+            digest="${existing}"
+            mode=reused
+            echo "::notice::${IMAGE}:${tag} already exists; reusing ${digest} without a new push"
+          else
+            docker tag driftsniff:ci "${IMAGE}:${tag}"
+            docker push "${IMAGE}:${tag}" | tee "${RUNNER_TEMP}/push.log"
+            push_digest="$(sed -n 's/.*digest: \(sha256:[0-9a-f]\{64\}\).*/\1/p' "${RUNNER_TEMP}/push.log" | tail -n 1)"
+            digest="$(docker buildx imagetools inspect "${IMAGE}:${tag}" --format '{{.Manifest.Digest}}')"
+            [[ "${digest}" =~ ^sha256:[0-9a-f]{64}$ ]] || {
+              echo "::error::registry returned no digest for ${IMAGE}:${tag}"
+              exit 1
+            }
+            [[ "${push_digest}" == "${digest}" ]] || {
+              echo "::error::pushed digest '${push_digest}' differs from registry digest '${digest}'"
+              exit 1
+            }
+          fi
+          [[ "${digest}" =~ ^sha256:[0-9a-f]{64}$ ]] || {
+            echo "::error::no valid digest for ${IMAGE}:${tag}"
+            exit 1
+          }
+          printf '%s\n' "${digest}" > image-digest.txt
+          {
+            echo "digest=${digest}"
+            echo "tag=${tag}"
+          } >> "${GITHUB_OUTPUT}"
+          {
+            echo "## driftsniff-ce Development image"
+            echo
+            echo "- Source commit: \`${SOURCE_SHA}\`"
+            echo "- Tag: \`${IMAGE}:${tag}\` (${mode})"
+            echo "- Digest: \`${digest}\`"
+            echo "- Immutable image: \`${IMAGE}@${digest}\`"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload image digest
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          context: .
-          push: true
-          build-args: |
-            SOURCE_SHA=${{ env.SOURCE_SHA }}
-          tags: |
-            ${{ env.IMAGE }}:development
-            ${{ env.IMAGE }}:sha-${{ env.SOURCE_SHA }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          name: driftsniff-image-digest
+          path: image-digest.txt
+          retention-days: 30
+          if-no-files-found: error
 
       - name: Deploy exact digest to Development and verify runtime
-        if: steps.detect.outputs.dockerfile == 'true'
         shell: bash
         env:
-          DIGEST: ${{ steps.build.outputs.digest }}
+          DIGEST: ${{ steps.publish.outputs.digest }}
+          DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
+          DOKPLOY_API_KEY: ${{ secrets.DOKPLOY_API_KEY }}
+          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
         run: |
           set -euo pipefail
           python3 .github/scripts/dokploy_release.py deploy \
@@ -467,16 +563,16 @@ jobs:
             --description "GitHub Actions run ${GITHUB_RUN_ID}"
 
       - name: Record immutable Development result
-        if: steps.detect.outputs.dockerfile == 'true'
         shell: bash
         env:
-          DIGEST: ${{ steps.build.outputs.digest }}
+          DIGEST: ${{ steps.publish.outputs.digest }}
+          TAG: ${{ steps.publish.outputs.tag }}
         run: |
           {
             echo "## driftsniff-ce Development deployed"
             echo
             echo "- Source commit: \`${SOURCE_SHA}\`"
-            echo "- Promotion tag: \`${IMAGE}:sha-${SOURCE_SHA}\`"
+            echo "- Promotion tag: \`${IMAGE}:${TAG}\`"
             echo "- Immutable image: \`${IMAGE}@${DIGEST}\`"
             echo "- Runtime verified: Dokploy image equals digest; https://${DEVELOPMENT_HOST}/healthz reports the commit"
           } >> "${GITHUB_STEP_SUMMARY}"
