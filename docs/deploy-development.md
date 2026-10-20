@@ -27,6 +27,19 @@ The container runs as a non-root user with a read-only root file system; only `/
 
 The file on the key volume is the data encryption key for stored credentials. Do not delete, regenerate or replace it as cleanup, and do not rebuild the key volume. Losing it makes stored credentials and secret fingerprints unrecoverable. Back it up separately from the data volume.
 
+## Runtime preparation state
+
+The Development runtime was prepared once with the repository's existing `dokploy_prepare` step, which reads `deploy/dokploy.json` and only adds what is missing; it never replaces an existing value. Names only are listed here; no value is recorded in this file.
+
+| Item | State |
+|---|---|
+| Prepared settings | `DRIFTSNIFF_BASE_URL`, `DRIFTSNIFF_DATA_DIR`, `DRIFTSNIFF_KEY_FILE`, `DRIFTSNIFF_LOG_LEVEL`, `DRIFTSNIFF_PORT`, `DRIFTSNIFF_TRUSTED_PROXY` |
+| Database resource | None. The product declares no database; state lives on the data volume. |
+| Switch | The repository variable `DEPLOY_DEVELOPMENT_ENABLED` is set to `true`. While it is unset or not `true`, the `deploy-development` job is skipped. |
+| First image | None is published yet. A push to `development` made while the switch was unset skipped the job, so the first image and the first deployment happen on the next merge into `development`. |
+
+One deployment at a time. Workflows of this repository share one concurrency group and a running deployment is never cancelled. Before merging, check that no `CI` run of the repository is queued or running; do not dispatch a workflow by hand, and do not retry a deployment while another is active. After a merge, wait for the `deploy-development` job to finish and confirm the result with the passive smoke check below before the next merge.
+
 ## Rollback rule
 
 Redeploy the previous approved digest. Nothing is rebuilt.
