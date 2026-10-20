@@ -24,6 +24,11 @@ The schema is created and upgraded by numbered Alembic revisions that ship insid
   database backup made by this version.
 - Downgrades are not supported.
 
+## Stored configuration
+
+States, manifests and snapshots, and how little a run without changes stores, are described in
+[snapshots.md](snapshots.md).
+
 ## Exit codes
 
 | Code | Meaning |
