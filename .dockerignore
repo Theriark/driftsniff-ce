@@ -1,0 +1,34 @@
+# Keep local state, secrets and tooling out of the build context.
+# Platform may tighten this file when the Dockerfile exists.
+.git/
+.github/
+.venv/
+.lock-venv/
+venv/
+**/__pycache__/
+**/*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+THIRD_PARTY_NOTICES
+/data/
+/keys/
+master.key
+*.db
+*.db-shm
+*.db-wal
+.env
+.env.*
+scratch/
+previews/
+node_modules/
+.idea/
+.vscode/
+*.swp
+.DS_Store
