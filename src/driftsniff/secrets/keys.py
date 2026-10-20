@@ -117,9 +117,7 @@ def load_master_key(path: Path) -> MasterKey:
             f"cannot read master key file {path}: {error.strerror}"
         ) from None
     if len(material) != KEY_BYTES:
-        raise MasterKeyInvalidError(
-            f"master key file {path} must hold exactly {KEY_BYTES} bytes"
-        )
+        raise MasterKeyInvalidError(f"master key file {path} must hold exactly {KEY_BYTES} bytes")
     return MasterKey(material)
 
 
@@ -154,9 +152,7 @@ def ensure_master_key(path: Path, *, fingerprints_exist: bool) -> MasterKey:
         return load_master_key(path)
     except MasterKeyMissingError:
         if fingerprints_exist:
-            raise MasterKeyMissingError(
-                _MISSING_WITH_FINGERPRINTS.format(path=path)
-            ) from None
+            raise MasterKeyMissingError(_MISSING_WITH_FINGERPRINTS.format(path=path)) from None
     try:
         return _create_key_file(path)
     except FileExistsError:

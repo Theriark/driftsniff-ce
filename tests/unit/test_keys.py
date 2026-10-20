@@ -249,9 +249,8 @@ def test_a_key_created_by_another_process_in_the_meantime_is_used(
         raise FileExistsError(str(target))
 
     monkeypatch.setattr(keys, "_create_key_file", other_process_won)
-    assert ensure_master_key(path, fingerprints_exist=False).key_id == MasterKey(
-        TEST_MATERIAL
-    ).key_id
+    master = ensure_master_key(path, fingerprints_exist=False)
+    assert master.key_id == MasterKey(TEST_MATERIAL).key_id
     assert path.read_bytes() == TEST_MATERIAL
 
 
