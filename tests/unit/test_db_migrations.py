@@ -1,4 +1,4 @@
-"""Tests for the schema, migration 0001, and the refusal of a database from a newer version."""
+"""Tests for the schema, the migrations and the refusal of a database from a newer version."""
 
 import os
 import sqlite3
@@ -11,10 +11,11 @@ from pathlib import Path
 import pytest
 import sqlalchemy as sa
 import uvicorn
+from alembic import command
 from sqlalchemy.exc import IntegrityError
 
 from driftsniff.cli import main
-from driftsniff.db import tables
+from driftsniff.db import migrate, tables
 from driftsniff.db.engine import Database, database_path
 from driftsniff.db.migrate import (
     DatabaseTooNewError,
@@ -178,10 +179,30 @@ def test_the_report_indexes_exist(migrated: Database) -> None:
 
 
 def test_migrate_records_the_head_revision_and_is_repeatable(migrated: Database) -> None:
-    assert head_revision() == "0001"
-    assert current_revisions(migrated) == ("0001",)
-    assert upgrade_to_head(migrated) == "0001"
-    assert current_revisions(migrated) == ("0001",)
+    assert head_revision() == "0002"
+    assert current_revisions(migrated) == ("0002",)
+    assert upgrade_to_head(migrated) == "0002"
+    assert current_revisions(migrated) == ("0002",)
+
+
+def test_migration_0002_adds_the_size_columns_to_existing_runs(database: Database) -> None:
+    config = migrate._config()
+    with database.write() as connection:
+        config.attributes["connection"] = connection
+        command.upgrade(config, "0001")
+    with database.write() as connection:
+        connection.exec_driver_sql("INSERT INTO sources (id, name, type) VALUES (1, 's', 'push')")
+        connection.exec_driver_sql(
+            "INSERT INTO runs (source_id, started_at, bytes_fetched) "
+            "VALUES (1, '2026-10-20T00:00:00Z', 7)"
+        )
+    assert current_revisions(database) == ("0001",)
+    assert upgrade_to_head(database) == "0002"
+    with database.read() as connection:
+        row = connection.exec_driver_sql(
+            "SELECT bytes_fetched, new_state_bytes, manifest_bytes FROM runs"
+        ).one()
+    assert tuple(row) == (7, 0, 0)
 
 
 def test_migrate_inserts_the_single_workspace(migrated: Database) -> None:
@@ -301,7 +322,7 @@ def test_migrate_command_creates_the_database_and_can_run_twice(
     monkeypatch.setenv("DRIFTSNIFF_DATA_DIR", str(data_dir))
     assert main(["migrate"]) == 0
     assert main(["migrate"]) == 0
-    assert "revision 0001" in capsys.readouterr().out
+    assert "revision 0002" in capsys.readouterr().out
     assert database_path(data_dir).is_file()
 
 
