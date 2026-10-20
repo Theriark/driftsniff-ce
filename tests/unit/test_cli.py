@@ -95,7 +95,7 @@ def test_no_command_exits_with_code_2() -> None:
     assert main([]) == 2
 
 
-@pytest.mark.parametrize("command", ["migrate", "backup", "rekey", "create-admin-code"])
+@pytest.mark.parametrize("command", ["backup", "rekey", "create-admin-code"])
 def test_later_phase_commands_say_not_implemented(
     command: str, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -103,7 +103,9 @@ def test_later_phase_commands_say_not_implemented(
     assert "not implemented yet" in capsys.readouterr().err
 
 
-def test_serve_passes_the_settings_to_uvicorn(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_serve_passes_the_settings_to_uvicorn(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     calls: list[dict[str, object]] = []
 
     def fake_run(app: object, **kwargs: object) -> None:
@@ -112,6 +114,7 @@ def test_serve_passes_the_settings_to_uvicorn(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setattr(uvicorn, "run", fake_run)
     monkeypatch.setenv("DRIFTSNIFF_PORT", "9500")
     monkeypatch.setenv("DRIFTSNIFF_TRUSTED_PROXY", "true")
+    monkeypatch.setenv("DRIFTSNIFF_DATA_DIR", str(tmp_path))
     assert main(["serve"]) == 0
     assert len(calls) == 1
     assert calls[0]["port"] == 9500
