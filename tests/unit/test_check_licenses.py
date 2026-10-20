@@ -12,6 +12,8 @@ from check_licenses import find_problems, licence_allowed, licence_candidates, m
     [
         "MIT",
         "MIT License",
+        "MIT-0",
+        "MIT No Attribution",
         "BSD-3-Clause",
         "BSD License",
         "Apache-2.0",
