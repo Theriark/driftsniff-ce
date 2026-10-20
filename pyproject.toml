@@ -19,6 +19,9 @@ dependencies = {file = ["requirements.in"]}
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+"driftsniff.rules" = ["*.yaml"]
+
 [tool.ruff]
 line-length = 100
 target-version = "py312"
@@ -64,6 +67,11 @@ disallow_untyped_decorators = true
 warn_return_any = true
 no_implicit_reexport = true
 strict_equality = true
+
+# PyYAML reads the reviewed overrides file; its type stubs are not in the hashed lock.
+[[tool.mypy.overrides]]
+module = ["yaml"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
