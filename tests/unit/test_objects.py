@@ -114,7 +114,7 @@ def test_resources_are_tracked_separately_and_only_those_in_the_manifest(store: 
 
 
 def test_many_removals_are_applied_in_batches(store: Database) -> None:
-    keys = {f"n{number}": None for number in range(1200)}
+    keys: dict[str, str | None] = {f"n{number}": None for number in range(1200)}
     apply(store, manifest_of(keys), T1)
     changes = apply(store, manifest_of({}), T2)
     assert changes == ObjectChanges(added=0, removed=1200, reappeared=0)

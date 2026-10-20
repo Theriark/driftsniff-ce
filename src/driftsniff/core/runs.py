@@ -8,9 +8,10 @@ from driftsniff.db.tables import RUN_STATUSES, runs
 
 def start_run(connection: Connection, source_id: int, started_at: str) -> int:
     """Open a run record (status NULL until it finishes) and return its id."""
-    return connection.execute(
+    run_id = connection.execute(
         sa.insert(runs).values(source_id=source_id, started_at=started_at).returning(runs.c.id)
     ).scalar_one()
+    return int(run_id)
 
 
 def finish_run(

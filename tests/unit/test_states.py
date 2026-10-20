@@ -7,7 +7,7 @@ import sqlalchemy as sa
 import zstandard
 
 from driftsniff.core import states
-from driftsniff.core.canonical import canonical_dumps
+from driftsniff.core.canonical import JsonValue, canonical_dumps
 from driftsniff.core.states import (
     StateCorruptError,
     StateMissingError,
@@ -20,7 +20,12 @@ from driftsniff.core.states import (
 from driftsniff.db import tables
 from driftsniff.db.engine import Database
 
-STATE = {"_id": "n-1", "name": "Lab LAN", "vlan": 20, "dns": ["192.0.2.53", "192.0.2.54"]}
+STATE: dict[str, JsonValue] = {
+    "_id": "n-1",
+    "name": "Lab LAN",
+    "vlan": 20,
+    "dns": ["192.0.2.53", "192.0.2.54"],
+}
 
 
 def state_rows(database: Database) -> list[tuple[str, bytes, int, int]]:
@@ -81,7 +86,11 @@ def test_the_normaliser_version_is_recorded(store: Database) -> None:
 
 
 def test_get_state_returns_what_was_put(store: Database) -> None:
-    nested = {"a": {"b": [1, 2, {"c": "é"}]}, "n": 12345678901234567890, "e": []}
+    nested: dict[str, JsonValue] = {
+        "a": {"b": [1, 2, {"c": "é"}]},
+        "n": 12345678901234567890,
+        "e": [],
+    }
     with store.write() as connection:
         written = put_state(connection, nested)
     with store.read() as connection:
