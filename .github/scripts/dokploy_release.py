@@ -110,12 +110,20 @@ def validate_commit(commit: str) -> None:
         raise DokployError("Expected commit must be a full lowercase 40-character SHA")
 
 
-def current_image(application_id: str) -> str:
+def current_image(application_id: str, *, allow_missing: bool = False) -> str:
+    """Return the application's dockerImage.
+
+    Strict by default: an absent, null or blank image raises. With allow_missing=True such a
+    value returns "" instead (an application that has never been deployed has no image yet).
+    A value of any other type always raises.
+    """
     response = request_json("GET", "application.one", query={"applicationId": application_id})
     image = find_key(response, "dockerImage")
-    if not isinstance(image, str) or not image.strip():
-        raise DokployError(f"Could not read dockerImage for Dokploy application {application_id}")
-    return image.strip()
+    if isinstance(image, str) and image.strip():
+        return image.strip()
+    if allow_missing and (image is None or isinstance(image, str)):
+        return ""
+    raise DokployError(f"Could not read dockerImage for Dokploy application {application_id}")
 
 
 def wait_health(url: str, timeout_seconds: int, expected_commit: str) -> None:
@@ -158,9 +166,12 @@ def wait_health(url: str, timeout_seconds: int, expected_commit: str) -> None:
 
 def deploy(args: argparse.Namespace) -> None:
     validate_image(args.image)
-    previous = current_image(args.application_id)
+    # A freshly prepared application has no image yet: that is a first deploy, never a no-op.
+    previous = current_image(args.application_id, allow_missing=True)
     write_output("previous_image", previous)
     write_output("deployed_image", args.image)
+    if not previous:
+        print(f"No previous image for {args.application_id}; first deployment")
     if previous == args.image and args.noop_ok:
         print(f"No image change required for {args.application_id}")
     else:
