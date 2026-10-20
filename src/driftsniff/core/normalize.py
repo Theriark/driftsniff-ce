@@ -32,7 +32,7 @@ class FieldClass(StrEnum):
     """How a field is treated: ``ignore`` fields are dropped here, the others are kept."""
 
     CONFIG = "config"
-    SECRET = "secret"
+    SECRET = "secret"  # noqa: S105 - the name of a field class, not a password
     IGNORE = "ignore"
     UNCLASSIFIED = "unclassified"
 
