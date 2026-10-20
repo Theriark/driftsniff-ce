@@ -58,6 +58,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
+      - name: Verify brand files against MANIFEST.sha256
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd brand
+          sha256sum -c MANIFEST.sha256
+
       - name: Validate runtime manifest
         shell: bash
         run: |
