@@ -132,6 +132,9 @@ runs = sa.Table(
     sa.Column("object_count", sa.Integer, nullable=False, server_default=sa.text("0")),
     sa.Column("bytes_fetched", sa.Integer, nullable=False, server_default=sa.text("0")),
     sa.Column("stored_new_snapshot", sa.Boolean, nullable=False, server_default=sa.false()),
+    # Compressed bytes this run added to object_states and to snapshots (migration 0002).
+    sa.Column("new_state_bytes", sa.Integer, nullable=False, server_default=sa.text("0")),
+    sa.Column("manifest_bytes", sa.Integer, nullable=False, server_default=sa.text("0")),
     sa.CheckConstraint(_in("status", RUN_STATUSES), name="status"),
 )
 
