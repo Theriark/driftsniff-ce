@@ -163,7 +163,46 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          .venv/bin/python -m pytest -q --cov --cov-report=term-missing
+          .venv/bin/python -m pytest -q --cov --cov-report=term-missing --cov-report=json:coverage.json
+
+      # Fails when driftsniff.core, driftsniff.secrets or driftsniff.rules is below 90 percent and
+      # writes the total, the per-package and the per-module lines to the job summary.
+      - name: Coverage gate and job summary
+        if: ${{ !cancelled() && hashFiles('coverage.json') != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          .venv/bin/python scripts/check_coverage.py coverage.json
+
+  migration:
+    name: Migrations
+    needs: gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install locked dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv .venv
+          .venv/bin/python -m pip install --require-hashes --no-deps -r requirements-dev.txt
+          .venv/bin/python -m pip check
+
+      - name: Migration tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          .venv/bin/python -m pytest -q -o addopts="" tests/unit/test_db_migrations.py tests/unit/test_check_migrations.py
+
+      - name: Upgrade from every earlier schema on a copy, refuse every downgrade
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH=src .venv/bin/python scripts/check_migrations.py
 
   audit:
     name: Dependency audit
@@ -413,6 +452,7 @@ jobs:
       - lint
       - types
       - test
+      - migration
       - audit
       - secrets
       - licences
