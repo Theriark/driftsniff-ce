@@ -12,10 +12,12 @@ A finding forces the secret class on the value, so only its fingerprint is store
 - ``fingerprint_marker``: text shaped like a stored fingerprint. Such text could only come from
   a controller trying to pass itself off as one, so it is fingerprinted again.
 
-The entropy rule looks at words (runs of characters between white space, quotes, brackets,
-commas and semicolons), not at the whole string: a plain sentence such as a network description
-has an entropy above 4.2 bits per character and would otherwise always count as a secret. A
-single-word value is judged as a whole, as the plan words it.
+A value that contains no white space is judged as a whole, as the plan words it, whatever
+punctuation it holds: a random token such as ``aB3x(Qz9;Lm2&Kp7!RtWv`` is one secret, not
+several short pieces. A text that does contain white space is judged word by word (runs of
+characters between white space, quotes, brackets, commas and semicolons): a plain sentence such
+as a network description has an entropy above 4.2 bits per character and would otherwise always
+count as a secret.
 
 A path that is known to hold harmless text that trips a rule is listed in ``rules/overrides.yaml``
 (:class:`Overrides`). Every entry names the rules it silences and gives a reason; the
@@ -85,6 +87,7 @@ MARKER_LOOKALIKE = re.compile(MARKER_PATTERN)
 _AUTHORITY = re.compile(r"[^/?#\s\x22\x27<>]*")
 # A word: everything between white space, quotes, angle brackets, brackets, commas, semicolons.
 _WORDS = re.compile(r"[^\s\x22\x27<>(),;]+")
+_WHITE_SPACE = re.compile(r"\s")
 _UUID = re.compile(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
 _HEX = re.compile(r"[0-9a-fA-F]+")
 
@@ -104,14 +107,23 @@ def _is_exempt(word: str) -> bool:
     return len(word) in EXEMPT_HEX_LENGTHS and _HEX.fullmatch(word) is not None
 
 
-def entropy_spans(text: str) -> Iterator[tuple[int, int]]:
-    """Spans of the words that the high-entropy rule flags."""
+def _candidate_spans(text: str) -> Iterator[tuple[int, int]]:
+    """The spans the entropy rule judges: the whole value if it has no white space, else words."""
+    if text and _WHITE_SPACE.search(text) is None:
+        yield 0, len(text)
+        return
     for match in _WORDS.finditer(text):
-        word = match.group()
+        yield match.span()
+
+
+def entropy_spans(text: str) -> Iterator[tuple[int, int]]:
+    """Spans that the high-entropy rule flags: the whole value, or the words of a text."""
+    for start, end in _candidate_spans(text):
+        word = text[start:end]
         if len(word) < ENTROPY_MIN_LENGTH or _is_exempt(word):
             continue
         if shannon_entropy(word) > ENTROPY_THRESHOLD:
-            yield match.span()
+            yield start, end
 
 
 def url_credential_spans(text: str) -> Iterator[tuple[int, int]]:
