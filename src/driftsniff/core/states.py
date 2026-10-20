@@ -6,6 +6,9 @@ in many, are stored once. The bytes are compressed with zstd level 3.
 
 All writes go through ``Database.write()``, which holds the single writer lock, so the
 "already stored?" check and the insert cannot interleave with another writer.
+
+A state that holds a secret fingerprint sets the ``fp_in_use`` flag in the same transaction,
+before it is inserted: the key file must never be replaceable while a fingerprint exists.
 """
 
 import io
@@ -21,6 +24,8 @@ from sqlalchemy import Connection
 from driftsniff.core.canonical import JsonValue, canonical_dumps
 from driftsniff.core.normalize import NORMALISER_VERSION
 from driftsniff.db.tables import object_states
+from driftsniff.secrets.fingerprint import contains_fingerprint
+from driftsniff.secrets.keys import mark_fingerprints_in_use_in
 
 ZSTD_LEVEL = 3
 MAX_STATE_BYTES = 32 * 1024 * 1024
@@ -89,12 +94,18 @@ def put_canonical_state(
     *,
     normaliser_version: int = NORMALISER_VERSION,
 ) -> StateWrite:
-    """Store canonical state bytes under their address unless they are already stored."""
+    """Store canonical state bytes under their address unless they are already stored.
+
+    When the state holds a secret fingerprint, the ``fp_in_use`` flag is set first, in the
+    same transaction as the insert.
+    """
     exists = connection.execute(
         sa.select(object_states.c.state_hash).where(object_states.c.state_hash == state_hash)
     ).first()
     if exists is not None:
         return StateWrite(state_hash, is_new=False, stored_bytes=0)
+    if contains_fingerprint(body):
+        mark_fingerprints_in_use_in(connection)
     compressed = compress_bytes(body)
     connection.execute(
         sa.insert(object_states).values(
