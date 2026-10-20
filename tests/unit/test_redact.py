@@ -52,7 +52,8 @@ def marker_of(path: str, value: JsonValue, resource_type: str = RESOURCE) -> str
 
 def test_secret_class_values_are_replaced_by_their_fingerprint() -> None:
     result = redact({"_id": "w1", "name": "Guest", "psk": "CANARY-psk-0001"})
-    assert result.value == {"_id": "w1", "name": "Guest", "psk": marker_of("psk", "CANARY-psk-0001")}
+    marker = marker_of("psk", "CANARY-psk-0001")
+    assert result.value == {"_id": "w1", "name": "Guest", "psk": marker}
     assert "CANARY-psk-0001" not in json.dumps(result.value)
     assert result.fingerprints == 1
     assert result.has_fingerprints is True

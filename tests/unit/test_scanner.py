@@ -289,6 +289,7 @@ def test_two_entries_for_one_path_are_refused() -> None:
 
 
 HEAD = "version: 1\noverrides:\n"
+ENTRY = "  - resource_type: a\n    path: b\n    reason: r\n"
 
 
 @pytest.mark.parametrize(
@@ -303,18 +304,12 @@ HEAD = "version: 1\noverrides:\n"
         (HEAD + "  - nope\n", "override 1 must be a mapping"),
         (HEAD + "  - resource_type: a\n    path: b\n", "reason must be non-empty text"),
         (HEAD + "  - resource_type: a\n    path: ' '\n    reason: r\n", "path must be non-empty"),
-        (HEAD + "  - resource_type: a\n    path: b\n    reason: r\n    color: red\n", "unknown keys color"),
-        (HEAD + "  - resource_type: a\n    path: b\n    reason: r\n    rules: []\n", "non-empty list"),
-        (HEAD + "  - resource_type: a\n    path: b\n    reason: r\n    rules: jwt\n", "non-empty list"),
-        (HEAD + "  - resource_type: a\n    path: b\n    reason: r\n    rules: [nope]\n", "unknown rule"),
-        (
-            HEAD + "  - resource_type: a\n    path: b\n    reason: r\n    rules: [fingerprint_marker]\n",
-            "cannot be overridden",
-        ),
-        (
-            HEAD + "  - resource_type: a\n    path: b\n    reason: r\n" * 2,
-            "duplicate override",
-        ),
+        (HEAD + ENTRY + "    color: red\n", "unknown keys color"),
+        (HEAD + ENTRY + "    rules: []\n", "non-empty list"),
+        (HEAD + ENTRY + "    rules: jwt\n", "non-empty list"),
+        (HEAD + ENTRY + "    rules: [nope]\n", "unknown rule"),
+        (HEAD + ENTRY + "    rules: [fingerprint_marker]\n", "cannot be overridden"),
+        (HEAD + ENTRY * 2, "duplicate override"),
     ],
 )
 def test_a_bad_overrides_file_is_refused_with_a_clear_message(text: str, message: str) -> None:

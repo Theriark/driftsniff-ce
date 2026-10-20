@@ -156,8 +156,9 @@ def load_master_key(path: Path) -> MasterKey:
                 f"cannot read master key file {path}: {error.strerror}"
             ) from None
     if len(material) != KEY_BYTES:
-        error_class = MasterKeyTruncatedError if len(material) < KEY_BYTES else MasterKeyInvalidError
-        raise error_class(_WRONG_SIZE.format(path=path))
+        if len(material) < KEY_BYTES:
+            raise MasterKeyTruncatedError(_WRONG_SIZE.format(path=path))
+        raise MasterKeyInvalidError(_WRONG_SIZE.format(path=path))
     return MasterKey(material)
 
 
@@ -289,5 +290,6 @@ def master_key_or_exit(path: Path, database: Database) -> MasterKey:
         print(f"driftsniff: {error}", file=sys.stderr)
         raise SystemExit(EXIT_KEY_UNUSABLE) from None
     except OSError as error:
-        print(f"driftsniff: cannot create master key file {path}: {error.strerror}", file=sys.stderr)
+        message = f"driftsniff: cannot create master key file {path}: {error.strerror}"
+        print(message, file=sys.stderr)
         raise SystemExit(EXIT_KEY_UNUSABLE) from None

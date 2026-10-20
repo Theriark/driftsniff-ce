@@ -91,7 +91,9 @@ def test_a_second_fingerprint_keeps_one_flag_row(store: Database) -> None:
         assert flag_rows(connection) == ["1"]
 
 
-def test_a_missing_key_is_refused_once_a_fingerprint_is_stored(store: Database, tmp_path: Path) -> None:
+def test_a_missing_key_is_refused_once_a_fingerprint_is_stored(
+    store: Database, tmp_path: Path
+) -> None:
     path = tmp_path / "keys" / "master.key"
     with store.write() as connection:
         put_state(connection, stored_object("CANARY-psk-0001"))

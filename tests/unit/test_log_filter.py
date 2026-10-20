@@ -28,6 +28,7 @@ def prefixed_credential() -> str:
 
 
 LONG_WORD = "Zx9Qp4Lm7Vb2Nc8Kd5Rt1Yw6Hs3"
+QUERY_LINE = "GET https://svc.example.invalid/api/v1/items?api_key=CANARY-q-0001&page=2 failed"
 
 SEEDS = [
     ("key follows " + pem_block() + " and more", "Q0FOQVJZ"),
@@ -35,7 +36,7 @@ SEEDS = [
     ("connecting to " + url_with_credentials(), "CANARY-pw-0001"),
     ("found " + prefixed_credential() + " in a response", prefixed_credential()),
     ("unexpected value " + LONG_WORD + " in a field", LONG_WORD),
-    ("GET https://svc.example.invalid/api/v1/items?api_key=CANARY-q-0001&page=2 failed", "CANARY-q-0001"),
+    (QUERY_LINE, "CANARY-q-0001"),
 ]
 
 
@@ -113,9 +114,7 @@ def test_exception_text_is_scrubbed(captured: pytest.LogCaptureFixture) -> None:
 
 
 def test_cached_exception_text_and_the_stack_are_scrubbed() -> None:
-    record = logging.LogRecord(
-        "driftsniff.test", logging.ERROR, __file__, 1, "failed", None, None
-    )
+    record = logging.LogRecord("driftsniff.test", logging.ERROR, __file__, 1, "failed", None, None)
     record.exc_text = "error at " + url_with_credentials()
     record.stack_info = "stack " + prefixed_credential()
     assert RedactingFilter().filter(record) is True
@@ -124,7 +123,7 @@ def test_cached_exception_text_and_the_stack_are_scrubbed() -> None:
 
 
 def test_ordinary_log_lines_are_not_changed() -> None:
-    line = "collected 12 objects from src/driftsniff/core/states.py in 0.3 s (ce-dev-driftsniff.theriark.dev)"
+    line = "collected 12 objects from src/driftsniff/core/states.py in 0.3 s (host.example.invalid)"
     assert scrub_text(line) == line
     assert scrub_text("") == ""
     assert scrub_text("what?really") == "what?really"
