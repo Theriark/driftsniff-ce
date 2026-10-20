@@ -1,0 +1,185 @@
+name: Promote - Stage
+
+# Promotes the immutable image already built for a tested commit to Stage; never rebuilds.
+# NOT enabled: the job runs only when the repository variable PROMOTE_STAGE_ENABLED is
+# 'true', which stays unset until Stage promotion is separately authorised.
+# Rollback is this workflow run again with an earlier approved source_sha (and its digest).
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Full commit SHA whose published image is promoted (current development for a normal promotion)
+        required: true
+        type: string
+      digest:
+        description: Optional sha256 digest of an earlier approved image (rollback); empty for a normal promotion
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: driftsniff-ce-pipeline
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    name: Promote image to Stage
+    if: ${{ vars.PROMOTE_STAGE_ENABLED == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: stage
+
+    env:
+      IMAGE: ghcr.io/theriark/driftsniff-ce
+      SOURCE_SHA: ${{ inputs.source_sha }}
+      INPUT_DIGEST: ${{ inputs.digest }}
+      DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
+      DOKPLOY_API_KEY: ${{ secrets.DOKPLOY_API_KEY }}
+      CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+      CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+      DOKPLOY_DEVELOPMENT_APPLICATION_ID: VmPHofibLNZ_eYa6y6r8R
+      DOKPLOY_STAGE_APPLICATION_ID: lhB_AOqk4FTEaHhEQcPKj
+      DEVELOPMENT_HOST: ce-dev-driftsniff.theriark.dev
+      STAGE_HOST: ce-stg-driftsniff.theriark.dev
+
+    steps:
+      - name: Checkout pipeline code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Validate promotion source
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "${SOURCE_SHA}" =~ ^[0-9a-f]{40}$ ]] || {
+            echo "::error::source_sha must be a full 40-character commit SHA"
+            exit 1
+          }
+          [[ -z "${INPUT_DIGEST}" || "${INPUT_DIGEST}" =~ ^sha256:[0-9a-f]{64}$ ]] || {
+            echo "::error::digest must be empty or sha256:<64 lowercase hex characters>"
+            exit 1
+          }
+          [[ "${GITHUB_REF}" == "refs/heads/development" ]] || {
+            echo "::error::Stage promotion must run from development; received ${GITHUB_REF}"
+            exit 1
+          }
+          for required in DOKPLOY_URL DOKPLOY_API_KEY CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET; do
+            [[ -n "${!required}" ]] || {
+              echo "::error::${required} is missing"
+              exit 1
+            }
+          done
+          git fetch origin \
+            +refs/heads/development:refs/remotes/origin/development \
+            +refs/heads/main:refs/remotes/origin/main
+          git cat-file -e "${SOURCE_SHA}^{commit}" || {
+            echo "::error::${SOURCE_SHA} does not exist in this repository"
+            exit 1
+          }
+          if [[ -z "${INPUT_DIGEST}" ]]; then
+            DEVELOPMENT_SHA="$(git rev-parse refs/remotes/origin/development)"
+            [[ "${SOURCE_SHA}" == "${DEVELOPMENT_SHA}" ]] || {
+              echo "::error::Stage source ${SOURCE_SHA} is not current development ${DEVELOPMENT_SHA}"
+              exit 1
+            }
+            git merge-base --is-ancestor refs/remotes/origin/main "${SOURCE_SHA}" || {
+              echo "::error::development must contain current main before Stage promotion"
+              exit 1
+            }
+          else
+            git merge-base --is-ancestor "${SOURCE_SHA}" refs/remotes/origin/development || {
+              echo "::error::rollback source ${SOURCE_SHA} is not in development history"
+              exit 1
+            }
+          fi
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+
+      - name: Resolve the published digest for the commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          resolved="$(docker buildx imagetools inspect "${IMAGE}:sha-${SOURCE_SHA}" --format '{{.Manifest.Digest}}')"
+          [[ "${resolved}" =~ ^sha256:[0-9a-f]{64}$ ]] || {
+            echo "::error::no published image for ${SOURCE_SHA}"
+            exit 1
+          }
+          if [[ -n "${INPUT_DIGEST}" && "${INPUT_DIGEST}" != "${resolved}" ]]; then
+            echo "::error::digest ${INPUT_DIGEST} does not match the image published for ${SOURCE_SHA} (${resolved})"
+            exit 1
+          fi
+          echo "IMAGE_REF=${IMAGE}@${resolved}" >> "${GITHUB_ENV}"
+          echo "Resolved ${IMAGE}@${resolved}"
+
+      - name: Confirm Development runs this exact image
+        if: ${{ inputs.digest == '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/dokploy_release.py assert-image \
+            --application-id "${DOKPLOY_DEVELOPMENT_APPLICATION_ID}" \
+            --image "${IMAGE_REF}"
+          python3 .github/scripts/dokploy_release.py health \
+            --health-url "https://${DEVELOPMENT_HOST}/healthz" \
+            --expected-commit "${SOURCE_SHA}"
+
+      - name: Deploy exact digest to Stage and verify runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/dokploy_release.py deploy \
+            --application-id "${DOKPLOY_STAGE_APPLICATION_ID}" \
+            --image "${IMAGE_REF}" \
+            --health-url "https://${STAGE_HOST}/healthz" \
+            --expected-commit "${SOURCE_SHA}" \
+            --title "Stage ${SOURCE_SHA}" \
+            --description "GitHub Actions run ${GITHUB_RUN_ID}" \
+            --noop-ok
+
+      - name: Tag the promoted image as stage
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker buildx imagetools create --tag "${IMAGE}:stage" "${IMAGE_REF}"
+
+      - name: Advance the stage branch to the promoted commit
+        if: ${{ inputs.digest == '' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api --method PATCH "repos/${GITHUB_REPOSITORY}/git/refs/heads/stage" \
+            -f sha="${SOURCE_SHA}" -F force=false >/dev/null
+          STAGE_SHA="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/stage" --jq '.object.sha')"
+          [[ "${STAGE_SHA}" == "${SOURCE_SHA}" ]] || {
+            echo "::error::stage branch did not advance to ${SOURCE_SHA}"
+            exit 1
+          }
+
+      - name: Record immutable Stage result
+        shell: bash
+        run: |
+          {
+            echo "## driftsniff-ce Stage promotion completed"
+            echo
+            echo "- Source commit: \`${SOURCE_SHA}\`"
+            echo "- Immutable image: \`${IMAGE_REF}\`"
+            echo "- Stage URL: https://${STAGE_HOST}/"
+            echo "- Rebuild performed: no"
+            echo "- Mode: $([[ -n \"${INPUT_DIGEST}\" ]] && echo rollback || echo promotion)"
+          } >> "${GITHUB_STEP_SUMMARY}"

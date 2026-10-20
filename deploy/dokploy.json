@@ -1,0 +1,12 @@
+{
+  "database": null,
+  "volumes": ["/data", "/keys"],
+  "env": [
+    {"name": "DRIFTSNIFF_BASE_URL", "kind": "base_url"},
+    {"name": "DRIFTSNIFF_TRUSTED_PROXY", "kind": "literal", "value": "true"},
+    {"name": "DRIFTSNIFF_LOG_LEVEL", "kind": "literal", "value": "info"},
+    {"name": "DRIFTSNIFF_PORT", "kind": "literal", "value": "8080"},
+    {"name": "DRIFTSNIFF_DATA_DIR", "kind": "literal", "value": "/data"},
+    {"name": "DRIFTSNIFF_KEY_FILE", "kind": "literal", "value": "/keys/master.key"}
+  ]
+}
