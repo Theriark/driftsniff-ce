@@ -31,13 +31,32 @@ def test_factory_reads_the_environment_by_default(monkeypatch: pytest.MonkeyPatc
     assert create_app().state.settings.port == 9400
 
 
-def test_healthz_returns_status_and_version_only() -> None:
+COMMIT = "0123456789abcdef0123456789abcdef01234567"
+
+
+def test_healthz_reports_the_build_commit(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DRIFTSNIFF_COMMIT", COMMIT)
     response = make_client().get("/healthz")
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("application/json")
     body = response.json()
-    assert set(body) == {"status", "version"}
-    assert body == {"status": "ok", "version": __version__}
+    assert set(body) == {"status", "version", "commit"}
+    assert body == {"status": "ok", "version": __version__, "commit": COMMIT}
+
+
+def test_healthz_commit_is_unknown_when_unset(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("DRIFTSNIFF_COMMIT", raising=False)
+    response = make_client().get("/healthz")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok", "version": __version__, "commit": "unknown"}
+
+
+@pytest.mark.parametrize("value", ["", "   ", "has space", "semi;colon", "x" * 65, "unknown"])
+def test_healthz_commit_is_unknown_when_blank_or_malformed(
+    monkeypatch: pytest.MonkeyPatch, value: str
+) -> None:
+    monkeypatch.setenv("DRIFTSNIFF_COMMIT", value)
+    assert make_client().get("/healthz").json()["commit"] == "unknown"
 
 
 @pytest.mark.parametrize("path", ["/", "/docs", "/redoc", "/openapi.json"])

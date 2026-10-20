@@ -28,9 +28,11 @@ LABEL org.opencontainers.image.title="driftsniff" \
       org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.revision="${SOURCE_SHA}"
 
+# The build commit is public information; /healthz reports it so a release can verify the runtime.
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/app/src
+    PYTHONPATH=/app/src \
+    DRIFTSNIFF_COMMIT=${SOURCE_SHA}
 
 # Fixed ids so volume ownership is the same on every host. /keys and /data are the only
 # writable places besides the /tmp tmpfs; the root file system is run read-only.
