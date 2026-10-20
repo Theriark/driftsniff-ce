@@ -7,11 +7,16 @@ import logging
 import sys
 from collections.abc import Sequence
 
+from sqlalchemy.exc import SQLAlchemyError
+
 from driftsniff import __version__
 from driftsniff.config import ConfigError, Settings
+from driftsniff.db.engine import Database, database_path
+from driftsniff.db.migrate import DatabaseTooNewError, upgrade_to_head
 
 EXIT_CONFIG = 1
 EXIT_NOT_IMPLEMENTED = 2
+EXIT_DATABASE_TOO_NEW = 3
 HEALTHCHECK_HOST = "127.0.0.1"
 HEALTHCHECK_TIMEOUT_SECONDS = 3.0
 
@@ -23,6 +28,7 @@ COMMANDS = {
     "create-admin-code": "Print a one-time code for creating the first admin.",
     "healthcheck": "Exit 0 when the local server answers /healthz (container health check).",
 }
+NOT_IMPLEMENTED_COMMANDS = ("backup", "rekey", "create-admin-code")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -43,11 +49,33 @@ def _not_implemented(command: str) -> int:
     return EXIT_NOT_IMPLEMENTED
 
 
+def _migrate(settings: Settings) -> int:
+    """Upgrade the database to the newest revision; refuse one written by a newer version."""
+    try:
+        settings.data_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+        database = Database(database_path(settings.data_dir))
+        try:
+            revision = upgrade_to_head(database)
+        finally:
+            database.close()
+    except DatabaseTooNewError as error:
+        print(f"driftsniff: {error}", file=sys.stderr)
+        return EXIT_DATABASE_TOO_NEW
+    except (OSError, SQLAlchemyError) as error:
+        print(f"driftsniff: database error: {error}", file=sys.stderr)
+        return EXIT_CONFIG
+    print(f"database is at revision {revision}")
+    return 0
+
+
 def _serve(settings: Settings) -> int:
     import uvicorn
 
     from driftsniff.main import create_app
 
+    status = _migrate(settings)
+    if status != 0:
+        return status
     logging.basicConfig(
         level=settings.log_level.upper(),
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
@@ -95,11 +123,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     if command is None:
         parser.print_usage(sys.stderr)
         return EXIT_NOT_IMPLEMENTED
-    if command not in ("serve", "healthcheck"):
+    if command in NOT_IMPLEMENTED_COMMANDS:
         return _not_implemented(command)
     try:
         settings = Settings.from_env()
     except ConfigError as error:
         print(f"driftsniff: {error}", file=sys.stderr)
         return EXIT_CONFIG
-    return _serve(settings) if command == "serve" else _healthcheck(settings)
+    if command == "healthcheck":
+        return _healthcheck(settings)
+    if command == "migrate":
+        return _migrate(settings)
+    return _serve(settings)
