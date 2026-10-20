@@ -69,7 +69,7 @@ def test_guard_job_comes_first_and_the_deploy_job_waits_for_it(name: str, variab
     text = read_workflow(name)
     assert f"python3 scripts/guard_enabled.py {variable}" in text
     assert variable + ": ${{ vars." + variable + " }}" in text
-    jobs = text.split("\njobs:\n", 1)[1]
+    jobs = "\n" + text.split("\njobs:\n", 1)[1]
     start = jobs.index("\n  promote:")
     guard_part = jobs[:start]
     promote_part = jobs[start:]
