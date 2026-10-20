@@ -302,13 +302,21 @@ jobs:
           gunzip --stdout "${RUNNER_TEMP}/image/driftsniff-ci-image.tar.gz" > "${RUNNER_TEMP}/driftsniff-ci-image.tar"
 
       - name: Trivy scan, HIGH and CRITICAL with a fix
-        uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
-        with:
-          input: ${{ runner.temp }}/driftsniff-ci-image.tar
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
-          exit-code: "1"
-          format: table
+        shell: bash
+        env:
+          TRIVY_IMAGE: ghcr.io/aquasecurity/trivy:0.65.0
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            --volume "${RUNNER_TEMP}:/work:ro" \
+            --env TRIVY_CACHE_DIR=/tmp/trivy-cache \
+            "${TRIVY_IMAGE}" image \
+              --input /work/driftsniff-ci-image.tar \
+              --severity HIGH,CRITICAL \
+              --ignore-unfixed \
+              --exit-code 1 \
+              --format table \
+              --no-progress
 
   smoke:
     name: Container smoke
