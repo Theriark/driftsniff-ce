@@ -1,0 +1,49 @@
+# driftsniff CE: one service, two named volumes, hardened runtime.
+#
+#   docker compose up --build -d
+#
+# Settings (all optional; defaults shown). Put them in the shell or an .env file next to this
+# file. Never put a secret value in this file.
+#   DRIFTSNIFF_IMAGE           image to run or to tag the local build (default driftsniff:local)
+#   DRIFTSNIFF_BASE_URL        address users open, used for links (default http://localhost:8080)
+#   DRIFTSNIFF_TRUSTED_PROXY   true only behind a reverse proxy you control (default false)
+#   DRIFTSNIFF_LOG_LEVEL       debug, info, warning, error or critical (default info)
+# Fixed by this file and the image: DRIFTSNIFF_PORT=8080, DRIFTSNIFF_DATA_DIR=/data and
+# DRIFTSNIFF_KEY_FILE=/keys/master.key. The master key is created on the keys volume at first
+# start. Back it up separately from the data volume: losing it makes stored credentials and
+# secret fingerprints unrecoverable.
+
+name: driftsniff
+
+services:
+  driftsniff:
+    image: ${DRIFTSNIFF_IMAGE:-driftsniff:local}
+    build:
+      context: .
+      args:
+        SOURCE_SHA: ${SOURCE_SHA:-local}
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      DRIFTSNIFF_BASE_URL: ${DRIFTSNIFF_BASE_URL:-http://localhost:8080}
+      DRIFTSNIFF_TRUSTED_PROXY: ${DRIFTSNIFF_TRUSTED_PROXY:-false}
+      DRIFTSNIFF_LOG_LEVEL: ${DRIFTSNIFF_LOG_LEVEL:-info}
+      DRIFTSNIFF_PORT: "8080"
+      DRIFTSNIFF_DATA_DIR: /data
+      DRIFTSNIFF_KEY_FILE: /keys/master.key
+    volumes:
+      - data:/data
+      - keys:/keys
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+    restart: unless-stopped
+
+volumes:
+  data:
+  keys:

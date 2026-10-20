@@ -145,6 +145,20 @@ jobs:
           }
           .venv/bin/python scripts/check_licenses.py
 
+      - name: Check Dockerfile for credential-like ARG and ENV names
+        if: steps.detect.outputs.dockerfile == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/check_dockerfile_credentials.py Dockerfile
+
+      - name: Validate compose file
+        if: steps.detect.outputs.dockerfile == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker compose -f compose.yaml config --quiet
+
       - name: Build image
         if: steps.detect.outputs.dockerfile == 'true'
         shell: bash
@@ -152,41 +166,15 @@ jobs:
           set -euo pipefail
           docker build --build-arg SOURCE_SHA="${GITHUB_SHA}" --tag driftsniff:ci .
 
-      - name: Container smoke test (non-root, read-only root file system)
+      - name: Container smoke test (non-root, read-only root file system, size, health)
         if: steps.detect.outputs.dockerfile == 'true'
         shell: bash
+        env:
+          IMAGE: driftsniff:ci
+          SKIP_BUILD: "1"
         run: |
           set -euo pipefail
-          user="$(docker image inspect --format '{{.Config.User}}' driftsniff:ci)"
-          case "${user}" in
-            "" | 0 | root | 0:* | root:*)
-              echo "::error::image must run as a non-root user (User='${user}')"
-              exit 1
-              ;;
-          esac
-          docker volume create driftsniff_ci_data >/dev/null
-          docker volume create driftsniff_ci_keys >/dev/null
-          trap 'rc=$?; if [[ ${rc} -ne 0 ]]; then docker logs driftsniff-ci || true; fi; docker rm -f driftsniff-ci >/dev/null 2>&1 || true' EXIT
-          docker run --detach --name driftsniff-ci \
-            --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges --memory 512m \
-            --publish 127.0.0.1:8080:8080 \
-            --volume driftsniff_ci_data:/data --volume driftsniff_ci_keys:/keys \
-            --env DRIFTSNIFF_BASE_URL=http://127.0.0.1:8080 \
-            --env DRIFTSNIFF_TRUSTED_PROXY=false \
-            --env DRIFTSNIFF_LOG_LEVEL=info \
-            --env DRIFTSNIFF_PORT=8080 \
-            --env DRIFTSNIFF_DATA_DIR=/data \
-            --env DRIFTSNIFF_KEY_FILE=/keys/master.key \
-            driftsniff:ci >/dev/null
-          for attempt in {1..30}; do
-            if curl --fail --silent --show-error http://127.0.0.1:8080/healthz >/dev/null; then
-              echo "container answered /healthz"
-              exit 0
-            fi
-            sleep 2
-          done
-          echo "::error::container did not answer /healthz within 60 seconds"
-          exit 1
+          bash scripts/container-smoke.sh
 
   deploy-development:
     name: Build and deploy Development
