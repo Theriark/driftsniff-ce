@@ -12,6 +12,7 @@ from driftsniff.secrets.scanner import (
     OverrideFileError,
     Overrides,
     ScanRule,
+    entropy_spans,
     load_overrides,
     parse_overrides,
     scan_text,
@@ -163,6 +164,30 @@ def test_a_long_word_inside_a_sentence_is_flagged() -> None:
     assert ScanRule.HIGH_ENTROPY in scan_text(f"temporary code {word} for guests")
     assert ScanRule.HIGH_ENTROPY in scan_text(f'value="{word}"')
     assert ScanRule.HIGH_ENTROPY in scan_text(word)
+
+
+PUNCTUATED_TOKENS = ["aB3x(Qz9;Lm2&Kp7!RtWv", "aB3x,Qz9;Lm2(Kp7)RtWvXy", "aB3x<Qz9>Lm2<Kp7>RtWvXy"]
+
+
+@pytest.mark.parametrize("token", PUNCTUATED_TOKENS)
+def test_a_punctuated_single_token_is_judged_as_a_whole(token: str) -> None:
+    assert ScanRule.HIGH_ENTROPY in scan_text(token)
+    assert list(entropy_spans(token)) == [(0, len(token))]
+
+
+def test_a_short_punctuated_token_is_not_flagged() -> None:
+    assert scan_text("aB3x(Qz9;Lm2&Kp7") == ()
+    assert list(entropy_spans("aB3x(Qz9;Lm2&Kp7")) == []
+
+
+def test_text_with_white_space_is_still_judged_word_by_word() -> None:
+    sentence = "Guest WiFi - Building 2 (temporary)"
+    assert list(entropy_spans(sentence)) == []
+    word = "Zx9Qp4Lm7Vb2Nc8Kd5Rt1Yw6Hs3"
+    text = f"temporary code {word} for guests"
+    assert list(entropy_spans(text)) == [(15, 15 + len(word))]
+    assert list(entropy_spans(f'value="{word}" ok')) == [(7, 7 + len(word))]
+    assert list(entropy_spans("aB3x(Qz9; Lm2&Kp7!RtWv")) == []
 
 
 def test_uuids_and_hex_digests_are_exempt(monkeypatch: pytest.MonkeyPatch) -> None:
