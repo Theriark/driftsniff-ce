@@ -51,7 +51,10 @@ def _parse_log_level(value: str) -> str:
 
 
 def _parse_base_url(value: str) -> str:
-    message = f"{ENV_PREFIX}BASE_URL must be an http or https URL without credentials, query or fragment"
+    message = (
+        f"{ENV_PREFIX}BASE_URL must be an http or https URL "
+        "without credentials, query or fragment"
+    )
     try:
         parts = urlsplit(value)
         port = parts.port
@@ -87,7 +90,10 @@ class Settings:
         port_text = _raw(source, "PORT")
         port = DEFAULT_PORT if port_text is None else _parse_port(port_text)
         base_url_text = _raw(source, "BASE_URL")
-        base_url = f"http://localhost:{port}" if base_url_text is None else _parse_base_url(base_url_text)
+        if base_url_text is None:
+            base_url = f"http://localhost:{port}"
+        else:
+            base_url = _parse_base_url(base_url_text)
         proxy_text = _raw(source, "TRUSTED_PROXY")
         trusted_proxy = False if proxy_text is None else _parse_bool("TRUSTED_PROXY", proxy_text)
         level_text = _raw(source, "LOG_LEVEL")

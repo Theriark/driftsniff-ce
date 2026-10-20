@@ -50,7 +50,8 @@ def test_blocked_or_unrecognised_licences(text: str) -> None:
 
 
 def test_a_gpl_package_in_the_runtime_lock_is_reported() -> None:
-    problems = find_problems({"fine": ["MIT"], "copyleft": ["GNU General Public License v3 (GPLv3)"]})
+    gpl = "GNU General Public License v3 (GPLv3)"
+    problems = find_problems({"fine": ["MIT"], "copyleft": [gpl]})
     assert len(problems) == 1
     assert problems[0].startswith("copyleft:")
 
