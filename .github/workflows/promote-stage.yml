@@ -1,8 +1,9 @@
 name: Promote - Stage
 
 # Promotes the immutable image already built for a tested commit to Stage; never rebuilds.
-# NOT enabled: the job runs only when the repository variable PROMOTE_STAGE_ENABLED is
-# 'true', which stays unset until Stage promotion is separately authorised.
+# NOT enabled: the first job (guard) fails the run before any deploy step unless the repository
+# variable PROMOTE_STAGE_ENABLED is exactly 'true'. It stays unset until Stage promotion is
+# separately authorised.
 # Rollback is this workflow run again with an earlier approved source_sha (and its digest).
 
 on:
@@ -19,20 +20,46 @@ on:
         type: string
 
 permissions:
-  contents: write
-  packages: write
+  contents: read
 
 concurrency:
   group: driftsniff-ce-pipeline
   cancel-in-progress: false
 
 jobs:
+  guard:
+    name: Promotion switch is on
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+
+    permissions:
+      contents: read
+
+    env:
+      PROMOTE_STAGE_ENABLED: ${{ vars.PROMOTE_STAGE_ENABLED }}
+
+    steps:
+      - name: Checkout guard script
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Stop unless PROMOTE_STAGE_ENABLED is true
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/guard_enabled.py PROMOTE_STAGE_ENABLED
+
   promote:
     name: Promote image to Stage
-    if: ${{ vars.PROMOTE_STAGE_ENABLED == 'true' }}
+    needs: guard
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment: stage
+
+    permissions:
+      contents: write
+      packages: write
 
     env:
       IMAGE: ghcr.io/theriark/driftsniff-ce
