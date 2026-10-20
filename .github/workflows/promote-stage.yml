@@ -113,9 +113,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          resolved="$(docker buildx imagetools inspect "${IMAGE}:sha-${SOURCE_SHA}" --format '{{.Manifest.Digest}}')"
+          tag="sha-${SOURCE_SHA::12}"
+          resolved="$(docker buildx imagetools inspect "${IMAGE}:${tag}" --format '{{.Manifest.Digest}}')"
           [[ "${resolved}" =~ ^sha256:[0-9a-f]{64}$ ]] || {
-            echo "::error::no published image for ${SOURCE_SHA}"
+            echo "::error::no published image ${IMAGE}:${tag} for ${SOURCE_SHA}"
             exit 1
           }
           if [[ -n "${INPUT_DIGEST}" && "${INPUT_DIGEST}" != "${resolved}" ]]; then

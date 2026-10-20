@@ -4,6 +4,8 @@ Audited ref: `development` at `05d1e5cc1e5d0a9fe445e51f00a1302dedff39c9`. Audit 
 
 The repository holds two workflow files, one helper script and no application code. There is no `AGENTS.md`, no Dockerfile, no `pyproject.toml`, no `LICENSE` and no Dependabot file. `main`, `stage` and `production` all exist and point at the README-only baseline commit `25bd02b0`.
 
+Sections 1 and 2 are the P1-T1 audit as it was; sections 2.1 (P1-T5) and 2.2 (P1-T6) record what changed afterwards. Sections 3 and 7 describe the current workflows.
+
 ## 1. Workflows
 
 | Workflow (file) | Trigger | Jobs | Concurrency | What it checks or does |
@@ -68,6 +70,17 @@ The audit above describes `development` as of P1-T1. P1-T5 changes `ci.yml`, so 
 | G8 | Partly closed | The pull request jobs build the image once and pass it to `scan` and `smoke` as an artifact. `deploy-development` still rebuilds the image from the same SHA; that stays with P1-T6. |
 | G14 | Dependabot closed | `.github/dependabot.yml` covers `github-actions` only. |
 
+### 2.2 Status after P1-T6 (THE-437)
+
+| Id | Status | What changed |
+|---|---|---|
+| G8 | Closed | `deploy-development` no longer builds. It downloads the image artifact the `build` job produced (the image `scan`, `smoke` and `sbom` tested), checks its `org.opencontainers.image.revision` label equals the commit, and pushes that exact image. There is no rebuild. |
+| G9 | Closed, with one decision recorded | Tag is `ghcr.io/theriark/driftsniff-ce:sha-<first 12 characters of the commit>`; the mutable `development` tag is gone and there is no `latest`. `promote-stage.yml` now resolves the image by the same 12 character tag. The digest is written to the job summary and to `image-digest.txt` (artifact `driftsniff-image-digest`, 30 days). A CycloneDX SBOM made by Syft is the artifact `driftsniff-sbom` (30 days). |
+| G10 | Decided, not changed | Delivery decision: the push stays behind `DEPLOY_DEVELOPMENT_ENABLED` (section 7.4). While it is not `true`, no image is pushed, so no digest exists. The SBOM job runs on every CI run, so an SBOM of the tested image exists even then. |
+| G4 | Decided | The concurrency group stays `driftsniff-ce-pipeline`, shared with `promote-stage.yml`, so a deployment and a promotion can never run together. The task text named `driftsniff-ce-deploy`; using that name in `ci.yml` alone would have broken the serialisation. |
+| G1 | Open | Listed for Delivery in section 7.5. |
+| G13 | Open | Not re-read in this task; the guard variable and the four secrets are still prepared outside it. |
+
 ## 3. Required checks list
 
 A pull request into `development` needs every job below to be green. The names are the job names as GitHub shows them under the workflow `CI`. The job `Gate` only records why the run started; every other job needs it.
@@ -84,12 +97,13 @@ A pull request into `development` needs every job below to be green. The names a
 | `CI / Build image` | `build` | The Dockerfile has no credential-like `ARG` or `ENV`, `compose.yaml` is valid, and the image builds (no push) | `gate` |
 | `CI / Image scan` | `scan` | Trivy finds no HIGH or CRITICAL vulnerability that has a fix | `build` |
 | `CI / Container smoke` | `smoke` | `scripts/container-smoke.sh` passes on the image from `build` | `build` |
+| `CI / SBOM` | `sbom` | Syft writes a CycloneDX document with components for the image from `build`; it is uploaded as artifact `driftsniff-sbom` | `build` |
 
-Other jobs of the same workflow are not pull request checks: `Build and deploy Development` (`deploy-development`) runs only after a push to `development` and only after all nine check jobs above succeed; `Lock hashed requirements` (`lock-requirements`) runs only for a manual `mode=lock` dispatch.
+Other jobs of the same workflow are not pull request checks: `Publish and deploy Development` (`deploy-development`) runs only after a push to `development`, only while `DEPLOY_DEVELOPMENT_ENABLED` is `true`, and only after all ten check jobs above succeed; `Lock hashed requirements` (`lock-requirements`) runs only for a manual `mode=lock` dispatch.
 
 Concurrency: a newer `ci-go` run of the same pull request cancels the older one (group `pr-<ref>`). Deployments use the group `driftsniff-ce-pipeline` and are never cancelled.
 
-To make this list binding, a repository admin sets these ten names as required status checks on `development` (section 4). The crew cannot read or change that setting. Later phases add the migration job (P2), canary job (P3) and e2e and accessibility jobs (P10); add each to this table when it appears.
+To make this list binding, a repository admin sets these eleven names as required status checks on `development` (section 4). The crew cannot read or change that setting. Later phases add the migration job (P2), canary job (P3) and e2e and accessibility jobs (P10); add each to this table when it appears.
 
 ## 4. Settings the crew cannot read or change (for the Delivery lead)
 
@@ -112,11 +126,58 @@ The crew's GitHub tools can read files and refs; they cannot read or write repos
 Status: **unverified, no blocker found yet**. Report only; no credential was created or changed.
 
 1. `deploy-development` already declares `packages: write` and logs in to `ghcr.io` with the workflow `GITHUB_TOKEN` (no personal token). That is the supported way to publish a repository's first package from Actions; the package is created on the first push if the organisation allows it.
-2. Nothing has been pushed yet (no Dockerfile exists), so no package `driftsniff-ce` exists to inspect. The crew's tools cannot list organisation packages or read the organisation's package settings.
+2. Nothing has been pushed yet (no Dockerfile existed at audit time), so no package `driftsniff-ce` exists to inspect. The crew's tools cannot list organisation packages or read the organisation's package settings.
 3. The first real proof is the first successful push after P1-T4 and P1-T6. A `403` or `denied: permission_denied` at that step means an organisation admin must allow package creation by workflows or link the package to the repository; the crew must not create credentials to work around it.
-4. The Dockerfile must set the label `org.opencontainers.image.source` to the repository URL so the package links to the repository (plan P1-T4 already lists this label).
+4. The Dockerfile must set the label `org.opencontainers.image.source` to the repository URL so the package links to the repository (plan P1-T4 already lists this label). The Dockerfile on `development` sets it.
 5. Dokploy pull: the repository is public. If the package becomes private (organisation default), Dokploy would need registry credentials, which is a credential decision for the Delivery lead and the founders. The rollout of D2 should confirm the package is public or that Dokploy can pull it.
+
+P1-T6 status: the push step of `deploy-development` is the step that will exercise D3. It has not run (the guard variable is not `true` and the job does not run on pull requests), so D3 stays unproven. The run summary and the step `Push the tested image and record its digest` will show the outcome of the first real push.
 
 ## 6. Reference repositories
 
 The workflow directory of `nowlert-ce` was listed read-only (names only: `ci.yml`, `finalize-release.yml`, `promote-stage.yml`) to confirm the same three-part shape (CI, Stage promotion, release or production promotion). Nothing was copied: no ids, endpoints or credentials. The Theriark Website repository was not needed for this audit.
+
+## 7. Development publish job (P1-T6)
+
+### 7.1 Flow on a push to `development`
+
+1. `build` builds `driftsniff:ci` once, with build argument `SOURCE_SHA` set to the commit, and uploads it as the artifact `driftsniff-ci-image`.
+2. `scan` (Trivy), `smoke` (container smoke) and `sbom` (Syft) all read that artifact. Nothing else builds the image.
+3. `deploy-development` starts after the ten check jobs succeeded and only while `DEPLOY_DEVELOPMENT_ENABLED` is `true`. It loads the artifact, fails if the image revision label differs from the commit, logs in to GHCR with the workflow token and pushes the image as `ghcr.io/theriark/driftsniff-ce:sha-<12>`.
+4. It reads the digest from the registry with `docker buildx imagetools inspect`, requires it to equal the digest printed by `docker push`, writes it to the job summary and to `image-digest.txt`, and uploads the file as the artifact `driftsniff-image-digest`.
+5. It runs `dokploy_release.py deploy` with `ghcr.io/theriark/driftsniff-ce@<digest>`.
+
+### 7.2 Tags
+
+| Rule | Value |
+|---|---|
+| Tag | `sha-` plus the first 12 characters of the commit; the same commit always gets the same tag |
+| Mutable tags | none (`latest` and `development` are not pushed); `stage` is set only by `promote-stage.yml` |
+| Existing tag | a re-run for the same commit does not overwrite the tag; it reuses the digest already published and the summary says `reused`. The image is then the one an earlier run of this commit tested and pushed, not the one built in the re-run |
+| Deploy reference | always the digest (`image@sha256:...`), never the tag |
+
+### 7.3 Artifacts
+
+| Artifact | Made by | Content | Retention |
+|---|---|---|---|
+| `driftsniff-ci-image` | `build` | `docker save` archive of the tested image | 1 day |
+| `driftsniff-sbom` | `sbom` (every CI run) | `sbom.cdx.json`, CycloneDX JSON from Syft `v1.18.1` run as a container, scanned from the image archive | 30 days |
+| `driftsniff-image-digest` | `deploy-development` (push to `development` with the guard on) | `image-digest.txt`, one line `sha256:<64 hex>` | 30 days |
+
+### 7.4 Guard
+
+`deploy-development` is skipped unless the event is a push to `development` and `vars.DEPLOY_DEVELOPMENT_ENABLED == 'true'`. It never runs on a pull request or a manual dispatch. With the variable unset, nothing is pushed to GHCR and nothing is deployed. The variable is set later by the `dokploy_prepare` step, which is outside this task. There is no image-only path before that; if Delivery wants the first image earlier, that needs a decision, not a workaround.
+
+The four deployment secrets are now passed only to the two steps that use them (`Verify protected deployment configuration` and `Deploy exact digest`), not to the whole job.
+
+### 7.5 What the deploy job expects from `/healthz` (input for known gap G1)
+
+`dokploy_release.py deploy` polls `https://ce-dev-driftsniff.theriark.dev/healthz` every 5 seconds, for up to 600 seconds, and passes only after two consecutive answers that each have:
+
+1. HTTP status 200 and a JSON body;
+2. `status` equal to `ok`;
+3. `commit` equal to the full 40 character commit SHA (the `SOURCE_SHA` build argument, which the Dockerfile writes to the revision label; the application must also read it at runtime).
+
+It then re-reads the Dokploy application and requires its image to equal the pushed `image@digest`. It does not read `version`. The request carries no Cloudflare Access headers, so `/healthz` must be reachable without them.
+
+`scripts/container-smoke.sh` (the `smoke` job) requires `status` equal to `ok` and a non-empty `version`. Together: the body needs `status`, `version` and `commit`. The plan says only `status` and `version`.
