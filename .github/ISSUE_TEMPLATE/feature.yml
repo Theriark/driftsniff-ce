@@ -1,0 +1,50 @@
+name: Feature request
+description: Suggest an improvement
+title: "[feature] "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea. Describe the problem first; the solution can follow.
+
+        **Do not paste credentials, API keys, tokens, real addresses or private configuration.**
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do, and what gets in the way?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - UniFi Network
+        - Xen Orchestra
+        - Risk rules
+        - Web interface
+        - Notifications and API
+        - Deployment and documentation
+        - Other
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you submit
+      options:
+        - label: I searched the existing issues for this idea.
+          required: true

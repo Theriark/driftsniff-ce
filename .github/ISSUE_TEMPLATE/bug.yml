@@ -1,0 +1,71 @@
+name: Bug report
+description: Something does not work as documented
+title: "[bug] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. driftsniff is pre-release software.
+
+        **Do not paste credentials, API keys, tokens, real addresses or private configuration.**
+        Security problems go through private reporting, see SECURITY.md.
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: The version shown by /healthz, or the commit of the image or checkout you run.
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: Describe the problem and what you saw.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Numbered steps, with synthetic data only.
+    validations:
+      required: true
+  - type: dropdown
+    id: source
+    attributes:
+      label: Which source is involved
+      options:
+        - UniFi Network
+        - Xen Orchestra
+        - Push source
+        - Not specific to a source
+    validations:
+      required: true
+  - type: input
+    id: vendor-version
+    attributes:
+      label: Vendor version
+      description: UniFi Network or Xen Orchestra version, if a source is involved.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log lines
+      description: Redact anything sensitive first.
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you submit
+      options:
+        - label: I removed every secret, token and real address from this report.
+          required: true
+        - label: This is not a security vulnerability (those use private reporting).
+          required: true
