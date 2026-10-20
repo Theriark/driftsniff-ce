@@ -1,10 +1,14 @@
-"""Master key management: derivation, key id, file mode, refusal and no overwrite."""
+"""Master key management: derivation, key id, file mode, atomic creation, refusal, no overwrite."""
 
+import base64
 import hashlib
 import hmac
 import logging
 import os
 import stat
+import threading
+import time
+import traceback
 from pathlib import Path
 
 import pytest
@@ -18,12 +22,14 @@ from driftsniff.secrets.keys import (
     EXIT_KEY_UNUSABLE,
     KEY_BYTES,
     MasterKey,
+    MasterKeyError,
     MasterKeyInvalidError,
     MasterKeyMissingError,
     ensure_master_key,
     fingerprints_in_use,
     load_master_key,
     mark_fingerprints_in_use,
+    mark_fingerprints_in_use_in,
     master_key_or_exit,
 )
 
@@ -34,6 +40,12 @@ LABELS = (
     "driftsniff/session/v1",
     "driftsniff/webhook/v1",
 )
+
+
+@pytest.fixture(autouse=True)
+def no_settle_delay(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A key file that is too short is re-read a few times; tests need not wait for that."""
+    monkeypatch.setattr(keys, "_SETTLE_DELAY_SECONDS", 0.0)
 
 
 def _write_key(path: Path, material: bytes = TEST_MATERIAL) -> None:
@@ -147,6 +159,18 @@ def test_fingerprint_marker_defaults_to_false_and_is_idempotent(store: Database)
     assert fingerprints_in_use(store) is True
 
 
+def test_the_flag_is_part_of_the_transaction_that_sets_it(store: Database) -> None:
+    with pytest.raises(RuntimeError, match="rollback"):
+        with store.write() as connection:
+            mark_fingerprints_in_use_in(connection)
+            raise RuntimeError("rollback")
+    assert fingerprints_in_use(store) is False
+    with store.write() as connection:
+        mark_fingerprints_in_use_in(connection)
+        mark_fingerprints_in_use_in(connection)
+    assert fingerprints_in_use(store) is True
+
+
 def test_startup_exits_with_code_4_when_the_key_is_missing(
     store: Database, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -183,7 +207,7 @@ def test_a_key_file_of_the_wrong_size_is_refused_and_kept(tmp_path: Path, size: 
     material = os.urandom(size)
     _write_key(path, material)
     for fingerprints_exist in (False, True):
-        with pytest.raises(MasterKeyInvalidError) as raised:
+        with pytest.raises(MasterKeyInvalidError, match="exactly 32 bytes") as raised:
             ensure_master_key(path, fingerprints_exist=fingerprints_exist)
         assert material.hex() not in str(raised.value) or size == 0
     assert path.read_bytes() == material
@@ -199,6 +223,24 @@ def test_startup_exits_with_code_1_for_an_unusable_key(
     assert raised.value.code == EXIT_KEY_UNUSABLE
     assert "exactly 32 bytes" in capsys.readouterr().err
     assert path.read_bytes() == b"short"
+
+
+def test_startup_exits_with_code_1_when_the_key_cannot_be_created(
+    store: Database,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def fail(_descriptor: int) -> None:
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(os, "fsync", fail)
+    path = tmp_path / "keys" / "master.key"
+    with pytest.raises(SystemExit) as raised:
+        master_key_or_exit(path, store)
+    assert raised.value.code == EXIT_KEY_UNUSABLE
+    assert "cannot create master key file" in capsys.readouterr().err
+    assert not path.exists()
 
 
 def test_a_dangling_symbolic_link_is_refused_and_its_target_not_created(tmp_path: Path) -> None:
@@ -226,7 +268,56 @@ def test_a_directory_in_place_of_the_key_is_refused(tmp_path: Path) -> None:
         ensure_master_key(path, fingerprints_exist=False)
 
 
-def test_a_failed_write_leaves_no_partial_key(
+def test_a_named_pipe_in_place_of_the_key_is_refused_without_blocking(tmp_path: Path) -> None:
+    path = tmp_path / "master.key"
+    os.mkfifo(path)
+    with pytest.raises(MasterKeyInvalidError, match="not a regular file"):
+        load_master_key(path)
+
+
+# --- key file mode -----------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("mode", [0o400, 0o600])
+def test_a_key_file_with_an_allowed_mode_loads(tmp_path: Path, mode: int) -> None:
+    path = tmp_path / "master.key"
+    _write_key(path)
+    path.chmod(mode)
+    assert load_master_key(path).key_id == MasterKey(TEST_MATERIAL).key_id
+
+
+@pytest.mark.parametrize(
+    "mode", [0o640, 0o644, 0o440, 0o660, 0o604, 0o700, 0o500, 0o755, 0o777, 0o666]
+)
+def test_a_key_file_with_any_other_mode_is_refused_and_kept(tmp_path: Path, mode: int) -> None:
+    path = tmp_path / "master.key"
+    _write_key(path)
+    path.chmod(mode)
+    for fingerprints_exist in (False, True):
+        with pytest.raises(MasterKeyInvalidError, match="0400 or 0600") as raised:
+            ensure_master_key(path, fingerprints_exist=fingerprints_exist)
+        assert f"{mode:04o}" in str(raised.value)
+    assert path.read_bytes() == TEST_MATERIAL
+    assert stat.S_IMODE(path.stat().st_mode) == mode
+
+
+def test_startup_exits_with_code_1_for_a_key_file_others_can_read(
+    store: Database, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    path = tmp_path / "master.key"
+    _write_key(path)
+    path.chmod(0o644)
+    mark_fingerprints_in_use(store)
+    with pytest.raises(SystemExit) as raised:
+        master_key_or_exit(path, store)
+    assert raised.value.code == EXIT_KEY_UNUSABLE
+    assert "0400 or 0600" in capsys.readouterr().err
+
+
+# --- atomic creation ---------------------------------------------------------------------
+
+
+def test_a_failed_write_leaves_no_partial_key_and_no_temporary_file(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     def fail(_descriptor: int) -> None:
@@ -237,6 +328,55 @@ def test_a_failed_write_leaves_no_partial_key(
     with pytest.raises(OSError, match="disk full"):
         ensure_master_key(path, fingerprints_exist=False)
     assert not path.exists()
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_creation_publishes_the_complete_key_at_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "keys" / "master.key"
+    seen: list[tuple[int, int]] = []
+    real_link = os.link
+
+    def spy(source: Path, destination: Path) -> None:
+        seen.append((os.stat(source).st_size, stat.S_IMODE(os.stat(source).st_mode)))
+        assert not destination.exists()
+        real_link(source, destination)
+
+    monkeypatch.setattr(os, "link", spy)
+    ensure_master_key(path, fingerprints_exist=False)
+    assert seen == [(32, 0o400)]
+    assert [item.name for item in path.parent.iterdir()] == ["master.key"]
+
+
+def test_a_file_system_without_hard_links_still_gets_a_key(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def refuse(source: Path, destination: Path) -> None:
+        raise PermissionError(1, "Operation not permitted")
+
+    monkeypatch.setattr(os, "link", refuse)
+    path = tmp_path / "keys" / "master.key"
+    master = ensure_master_key(path, fingerprints_exist=False)
+    assert master.key_id == hashlib.sha256(path.read_bytes()).hexdigest()[:8]
+    assert stat.S_IMODE(path.stat().st_mode) == 0o400
+    assert [item.name for item in path.parent.iterdir()] == ["master.key"]
+
+
+def test_the_loser_of_a_race_removes_its_temporary_file_and_uses_the_winner(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "master.key"
+
+    def winner_first(source: Path, destination: Path) -> None:
+        _write_key(Path(destination))
+        raise FileExistsError(str(destination))
+
+    monkeypatch.setattr(os, "link", winner_first)
+    master = ensure_master_key(path, fingerprints_exist=False)
+    assert master.key_id == MasterKey(TEST_MATERIAL).key_id
+    assert path.read_bytes() == TEST_MATERIAL
+    assert [item.name for item in tmp_path.iterdir()] == ["master.key"]
 
 
 def test_a_key_created_by_another_process_in_the_meantime_is_used(
@@ -254,7 +394,90 @@ def test_a_key_created_by_another_process_in_the_meantime_is_used(
     assert path.read_bytes() == TEST_MATERIAL
 
 
-def test_no_key_material_in_repr_errors_logs_or_output(
+def test_a_key_that_is_still_being_written_is_waited_for(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "master.key"
+    _write_key(path, TEST_MATERIAL[:10])
+    sleeps: list[float] = []
+
+    def finish_writing(seconds: float) -> None:
+        sleeps.append(seconds)
+        path.chmod(0o600)
+        path.write_bytes(TEST_MATERIAL)
+        path.chmod(0o400)
+
+    monkeypatch.setattr(time, "sleep", finish_writing)
+    master = ensure_master_key(path, fingerprints_exist=True)
+    assert master.key_id == MasterKey(TEST_MATERIAL).key_id
+    assert len(sleeps) == 1
+
+
+def _start_together(path: Path, count: int) -> tuple[list[str], list[Exception]]:
+    """Run ensure_master_key in ``count`` threads that are released at the same moment."""
+    barrier = threading.Barrier(count)
+    key_ids: list[str] = []
+    errors: list[Exception] = []
+
+    def start() -> None:
+        try:
+            barrier.wait(timeout=30)
+            key_ids.append(ensure_master_key(path, fingerprints_exist=False).key_id)
+        except Exception as error:
+            errors.append(error)
+
+    threads = [threading.Thread(target=start) for _ in range(count)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=60)
+    return key_ids, errors
+
+
+def test_processes_that_start_together_agree_on_one_key(tmp_path: Path) -> None:
+    for round_number in range(20):
+        path = tmp_path / f"round{round_number}" / "master.key"
+        key_ids, errors = _start_together(path, 8)
+        assert errors == []
+        assert len(key_ids) == 8
+        assert set(key_ids) == {hashlib.sha256(path.read_bytes()).hexdigest()[:8]}
+        assert len(path.read_bytes()) == 32
+        assert [item.name for item in path.parent.iterdir()] == ["master.key"]
+
+
+# --- nothing leaks -----------------------------------------------------------------------
+
+
+def _forms(material: bytes) -> list[str]:
+    """Every way the bytes could be printed, and the first half of the hex form."""
+    return [
+        material.hex(),
+        material.hex()[:16],
+        base64.b64encode(material).decode(),
+        base64.urlsafe_b64encode(material).decode(),
+        repr(material),
+    ]
+
+
+def _failures(tmp_path: Path, material: bytes) -> list[Exception]:
+    """One error of each kind, raised while the master key and a short key file exist."""
+    short = tmp_path / "short" / "master.key"
+    _write_key(short, material[:31])
+    loose = tmp_path / "loose" / "master.key"
+    _write_key(loose, material)
+    loose.chmod(0o644)
+    missing = tmp_path / "missing" / "master.key"
+    errors: list[Exception] = []
+    for target, fingerprints_exist in ((short, False), (loose, True), (missing, True)):
+        try:
+            ensure_master_key(target, fingerprints_exist=fingerprints_exist)
+        except MasterKeyError as error:
+            errors.append(error)
+    return errors
+
+
+def test_no_key_material_in_repr_errors_logs_output_or_tracebacks(
+    store: Database,
     tmp_path: Path,
     caplog: pytest.LogCaptureFixture,
     capsys: pytest.CaptureFixture[str],
@@ -263,22 +486,23 @@ def test_no_key_material_in_repr_errors_logs_or_output(
     with caplog.at_level(logging.DEBUG):
         master = ensure_master_key(path, fingerprints_exist=False)
         derived = master.derived_keys()
-        with pytest.raises(MasterKeyMissingError) as missing:
-            ensure_master_key(tmp_path / "other" / "master.key", fingerprints_exist=True)
-    material = path.read_bytes()
-    visible = [
-        repr(master),
-        repr(derived),
-        str(missing.value),
-        caplog.text,
-        capsys.readouterr().out,
-        capsys.readouterr().err,
-    ]
-    secrets_in_hex = [material.hex()] + [
-        value.hex() for value in (derived.fingerprint, derived.credential, derived.session)
-    ]
+        material = path.read_bytes()
+        errors = _failures(tmp_path, material)
+        for target in (tmp_path / "short" / "master.key", tmp_path / "loose" / "master.key"):
+            with pytest.raises(SystemExit):
+                master_key_or_exit(target, store)
+    assert len(errors) == 3
+    visible = [repr(master), repr(derived), str(derived)]
+    for error in errors:
+        visible.append(str(error))
+        visible.append(repr(error))
+        visible.append("".join(traceback.format_exception(error)))
+    captured = capsys.readouterr()
+    visible.extend([caplog.text, captured.out, captured.err])
+    forbidden = _forms(material) + _forms(material[:31])
+    for purpose_key in (derived.fingerprint, derived.credential, derived.session, derived.webhook):
+        forbidden.extend(_forms(purpose_key))
     for text in visible:
-        for secret_hex in secrets_in_hex:
-            assert secret_hex not in text
-        assert repr(material) not in text
+        for form in forbidden:
+            assert form not in text
     assert master.key_id in repr(master)

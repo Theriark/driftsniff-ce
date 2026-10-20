@@ -1,0 +1,14 @@
+# Reviewed false positives of the secret scanner (P3-T2).
+#
+# The scanner forces the secret class on a value that looks like a credential. When a field is
+# known to hold harmless text that trips a rule, list its path here instead of loosening the
+# scanner. Every entry needs a reason that a reviewer can check.
+#
+#   - resource_type: unifi-wlan      # or "*" for every resource type
+#     path: description              # dot separated field path, no list indices
+#     rules: [high_entropy]          # optional; default is every rule but fingerprint_marker
+#     reason: Free text written by the administrator; long product codes are normal here.
+#
+# A field of the secret class is never affected, and fingerprint_marker cannot be listed.
+version: 1
+overrides: []

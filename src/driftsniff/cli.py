@@ -13,6 +13,8 @@ from driftsniff import __version__
 from driftsniff.config import ConfigError, Settings
 from driftsniff.db.engine import Database, database_path
 from driftsniff.db.migrate import DatabaseTooNewError, upgrade_to_head
+from driftsniff.secrets.keys import MasterKey, master_key_or_exit
+from driftsniff.secrets.redact import install_log_filter
 
 EXIT_CONFIG = 1
 EXIT_NOT_IMPLEMENTED = 2
@@ -68,6 +70,15 @@ def _migrate(settings: Settings) -> int:
     return 0
 
 
+def _prepare_master_key(settings: Settings) -> MasterKey:
+    """Load or create the master key; stops the process with exit code 4 or 1 when it cannot."""
+    database = Database(database_path(settings.data_dir))
+    try:
+        return master_key_or_exit(settings.key_file, database)
+    finally:
+        database.close()
+
+
 def _serve(settings: Settings) -> int:
     import uvicorn
 
@@ -76,14 +87,16 @@ def _serve(settings: Settings) -> int:
     status = _migrate(settings)
     if status != 0:
         return status
+    master_key = _prepare_master_key(settings)
     logging.basicConfig(
         level=settings.log_level.upper(),
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
+    install_log_filter()
     # The container must listen on all interfaces; the platform routes to the published port.
     host = "0.0.0.0"  # noqa: S104
     uvicorn.run(
-        create_app(settings),
+        create_app(settings, master_key),
         host=host,
         port=settings.port,
         log_level=settings.log_level,

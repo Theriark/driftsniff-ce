@@ -1,7 +1,10 @@
 """Tests for the command line interface."""
 
+import hashlib
+import logging
 import os
 import socket
+import stat
 import subprocess
 import sys
 import threading
@@ -12,8 +15,13 @@ from pathlib import Path
 
 import pytest
 import uvicorn
+from fastapi import FastAPI
 
 from driftsniff.cli import COMMANDS, main
+from driftsniff.db.engine import Database, database_path
+from driftsniff.db.migrate import upgrade_to_head
+from driftsniff.secrets.keys import mark_fingerprints_in_use
+from driftsniff.secrets.redact import RedactingFilter
 
 SRC = Path(__file__).resolve().parents[2] / "src"
 
@@ -48,6 +56,27 @@ def unused_port() -> int:
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         return int(sock.getsockname()[1])
+
+
+@pytest.fixture(autouse=True)
+def clean_root_log_filters() -> Iterator[None]:
+    """serve installs the log filter on the root handlers; do not leave it for other tests."""
+    yield
+    for handler in logging.getLogger().handlers:
+        for item in list(handler.filters):
+            if isinstance(item, RedactingFilter):
+                handler.removeFilter(item)
+
+
+def database_with_a_fingerprint(data_dir: Path) -> None:
+    """A migrated database in which the first fingerprint has been stored."""
+    data_dir.mkdir(parents=True, exist_ok=True)
+    database = Database(database_path(data_dir))
+    try:
+        upgrade_to_head(database)
+        mark_fingerprints_in_use(database)
+    finally:
+        database.close()
 
 
 def test_there_are_six_commands() -> None:
@@ -114,12 +143,109 @@ def test_serve_passes_the_settings_to_uvicorn(
     monkeypatch.setattr(uvicorn, "run", fake_run)
     monkeypatch.setenv("DRIFTSNIFF_PORT", "9500")
     monkeypatch.setenv("DRIFTSNIFF_TRUSTED_PROXY", "true")
-    monkeypatch.setenv("DRIFTSNIFF_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("DRIFTSNIFF_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("DRIFTSNIFF_KEY_FILE", str(tmp_path / "keys" / "master.key"))
     assert main(["serve"]) == 0
     assert len(calls) == 1
     assert calls[0]["port"] == 9500
     assert calls[0]["proxy_headers"] is True
     assert calls[0]["access_log"] is False
+
+
+def test_serve_creates_the_master_key_and_gives_it_to_the_app(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    apps: list[FastAPI] = []
+
+    def fake_run(app: FastAPI, **kwargs: object) -> None:
+        apps.append(app)
+
+    key_file = tmp_path / "keys" / "master.key"
+    monkeypatch.setattr(uvicorn, "run", fake_run)
+    monkeypatch.setenv("DRIFTSNIFF_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("DRIFTSNIFF_KEY_FILE", str(key_file))
+    assert main(["serve"]) == 0
+    assert stat.S_IMODE(key_file.stat().st_mode) == 0o400
+    expected_id = hashlib.sha256(key_file.read_bytes()).hexdigest()[:8]
+    assert len(apps) == 1
+    assert apps[0].state.master_key.key_id == expected_id
+
+
+def test_serve_installs_the_log_filter(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    def fake_run(app: object, **kwargs: object) -> None:
+        return None
+
+    monkeypatch.setattr(uvicorn, "run", fake_run)
+    monkeypatch.setenv("DRIFTSNIFF_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("DRIFTSNIFF_KEY_FILE", str(tmp_path / "keys" / "master.key"))
+    assert main(["serve"]) == 0
+    filters = [item for handler in logging.getLogger().handlers for item in handler.filters]
+    assert any(isinstance(item, RedactingFilter) for item in filters)
+
+
+def test_serve_exits_with_code_4_when_fingerprints_exist_and_the_key_is_gone(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    calls: list[object] = []
+
+    def fake_run(app: object, **kwargs: object) -> None:
+        calls.append(app)
+
+    key_file = tmp_path / "keys" / "master.key"
+    database_with_a_fingerprint(tmp_path / "data")
+    monkeypatch.setattr(uvicorn, "run", fake_run)
+    monkeypatch.setenv("DRIFTSNIFF_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("DRIFTSNIFF_KEY_FILE", str(key_file))
+    with pytest.raises(SystemExit) as raised:
+        main(["serve"])
+    assert raised.value.code == 4
+    assert "never creates a replacement" in capsys.readouterr().err
+    assert not key_file.exists()
+    assert calls == []
+
+
+def test_serve_exits_with_code_1_for_a_key_file_others_can_read(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    calls: list[object] = []
+
+    def fake_run(app: object, **kwargs: object) -> None:
+        calls.append(app)
+
+    key_file = tmp_path / "keys" / "master.key"
+    key_file.parent.mkdir()
+    key_file.write_bytes(bytes(range(32)))
+    key_file.chmod(0o644)
+    monkeypatch.setattr(uvicorn, "run", fake_run)
+    monkeypatch.setenv("DRIFTSNIFF_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("DRIFTSNIFF_KEY_FILE", str(key_file))
+    with pytest.raises(SystemExit) as raised:
+        main(["serve"])
+    assert raised.value.code == 1
+    assert "0400 or 0600" in capsys.readouterr().err
+    assert calls == []
+
+
+def test_serve_exits_with_code_4_end_to_end(tmp_path: Path) -> None:
+    key_file = tmp_path / "keys" / "master.key"
+    database_with_a_fingerprint(tmp_path / "data")
+    result = subprocess.run(
+        [sys.executable, "-m", "driftsniff", "serve"],
+        capture_output=True,
+        text=True,
+        env={
+            **os.environ,
+            "PYTHONPATH": str(SRC),
+            "DRIFTSNIFF_DATA_DIR": str(tmp_path / "data"),
+            "DRIFTSNIFF_KEY_FILE": str(key_file),
+            "DRIFTSNIFF_PORT": str(unused_port()),
+        },
+        timeout=120,
+        check=False,
+    )
+    assert result.returncode == 4
+    assert "never creates a replacement" in result.stderr
+    assert not key_file.exists()
 
 
 def test_serve_and_healthcheck_reject_a_bad_port(
