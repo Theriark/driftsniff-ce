@@ -116,8 +116,8 @@ pass "gcc, cc and make are absent"
 host_port="$(docker inspect --format '{{(index (index .NetworkSettings.Ports "8080/tcp") 0).HostPort}}' "${container}")"
 [[ -n "${host_port}" ]] || fail "no published port for 8080/tcp"
 body="$(curl --fail --silent --show-error --max-time 5 "http://127.0.0.1:${host_port}/healthz")"
-python3 -c 'import json, sys; data = json.loads(sys.argv[1]); assert data["status"] == "ok" and data["version"]' "${body}" \
-  || fail "/healthz body is not ok with a version: ${body}"
+python3 -c 'import json, sys; data = json.loads(sys.argv[1]); assert data["status"] == "ok" and data["version"] and data["commit"] == sys.argv[2]' "${body}" "${revision}" \
+  || fail "/healthz body is not ok with a version and commit ${revision}: ${body}"
 pass "/healthz answered ${body}"
 
 echo "container smoke test passed for ${IMAGE}"
