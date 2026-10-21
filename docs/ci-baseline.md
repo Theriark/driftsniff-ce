@@ -233,3 +233,67 @@ The job is part of the pull request checks in `ci.yml`; no new workflow file exi
 Required check: `CI / Canary leak harness` is in the list of section 3. It becomes binding only when a repository admin adds it to the branch protection of `development` (section 4); the crew cannot do that.
 
 Limits: the job exercises the surfaces that exist today. Notifications, API output and exports (P9) and the real collectors (P7 and P8) extend the harness when they exist, in the pull requests that add them; a new surface needs no change to `ci.yml` as long as its tests live under `tests/security`.
+
+## 10. Property tests and the nightly profile (P4-T3)
+
+The property tests live in `tests/properties/` and use Hypothesis. They run inside the existing `CI / Tests` job (`pytest` collects `tests/`); no workflow file was changed.
+
+| Property | Test | What it proves |
+|---|---|---|
+| 1 | `test_the_diff_of_a_state_with_itself_is_empty` | `compare(x, x)` returns no item, secrets in the state included |
+| 2 | `test_applying_the_diff_to_the_old_state_gives_the_new_state` | the items of an object, applied to its old state by a helper that lives in the tests, give its new state (modulo ignored fields, list order of membership lists and empty-versus-missing containers) |
+| 3 | `test_shuffling_sets_never_changes_the_diff` | shuffling set members, keyed lists and the order of objects and resources leaves the items equal |
+| extra | `test_a_secret_value_never_appears_in_an_item`, `test_diff_order_leaves_the_common_keys_in_one_order_apart_from_the_moves` | no `CANARY-` value in any item; `diff_order` inserts, deletes and moves are consistent |
+
+### 10.1 Profiles
+
+Profiles are registered in `tests/properties/conftest.py` and selected with the environment variable `HYPOTHESIS_PROFILE`.
+
+| Profile | Cases per property | Seed | Used by |
+|---|---|---|---|
+| `ci` (default) | 500 | fixed (`derandomize=True`), no example database | every `CI / Tests` run, so the result is reproducible |
+| `nightly` | 5000 | new random seed on every run (`derandomize=False`) | the nightly job (section 10.5), report only |
+
+`test_each_property_ran_at_least_the_profile_budget` fails the `ci` run if a property ran fewer than 500 cases.
+
+### 10.2 Exact command for the nightly job
+
+```
+HYPOTHESIS_PROFILE=nightly python -m pytest -q -o addopts="" -p no:cacheprovider tests/properties
+```
+
+Run it in the same environment as the `test` job (hashed `requirements-dev.txt` installed). The job must be report only: it must not be a required check and must not block a merge or a deployment. On a failure Hypothesis prints the minimal failing example and a `@reproduce_failure` blob; copy both into the report. To replay locally, run the command with `HYPOTHESIS_PROFILE=ci` after adding the printed `@reproduce_failure` decorator to the failing test, or add the minimal example as a regular unit test.
+
+### 10.3 Fixtures
+
+`tests/properties/fixtures.py` holds the synthetic type table, inventories (resource, object key, state), `manifest_of`, `diff` (the real `compare` on two inventories) and the Hypothesis strategies. Everything is made up; every secret-like value starts with `CANARY-`. Later phases import it with `from properties.fixtures import ...` or the relative form inside the package.
+
+### 10.4 Limits
+
+- States use small value domains (integers 0 to 2, four words) so that two draws often agree on some fields; large real-world states are not generated.
+- Schema drift is not generated (the controller version is the same on both sides); it stays covered by `tests/unit/test_diff.py`.
+- Property 2 cannot tell an empty container from a missing one, because `compare` reports both the same way when the other side has members. That is by design of the diff, not a defect.
+- `compare_order` (manifest positions, `order_changed`) is covered by `tests/unit/test_order.py`; only `diff_order` has a property here.
+
+### 10.5 Nightly job (P4-T3b)
+
+Job `nightly-properties` ("Nightly property tests") in `ci.yml`. It is **not a required check** and must never be added to the branch protection of `development`. The three-workflow-file rule keeps it inside `ci.yml` instead of a new file.
+
+| Item | Rule |
+|---|---|
+| Runs when | `schedule` once a day at 03:23 UTC, or `workflow_dispatch` with `mode` = `nightly`. Never on `pull_request` or `push`. With `mode` = `nightly` only this job runs; `gate` and every other job are skipped |
+| Independence | No other job lists it in `needs`; `gate` and `deploy-development` do not depend on it. Its failure blocks no merge and no deployment |
+| Setup | Checkout, a virtual environment, hashed install of `requirements-dev.txt` with `--require-hashes --no-deps`, `pip check` (the same as the `test` job) |
+| Command | The command of section 10.2, run from the repository root with the interpreter of the locked virtual environment (`.venv/bin/python` instead of `python`) |
+| Permissions | `contents: read` |
+| Concurrency | Own group `driftsniff-ce-nightly-properties`, `cancel-in-progress: false`. It never uses `driftsniff-ce-pipeline` and never cancels a running deployment |
+| Time limit | 30 minutes |
+
+Where to read the result: open the workflow `CI` in the Actions tab, filter by event `schedule` (or open the manual run), and open the job `Nightly property tests`. A red job is the report: the job summary shows the result, the source commit and, on a failure, the lines around `Falsifying example`, `@reproduce_failure`, any seed Hypothesis printed and the failed test names; an `::error::` annotation points to it. The full pytest output is the artifact `nightly-properties-pytest-output` (30 days). To act on a failure, copy the minimal example and the `@reproduce_failure` blob into a report and add the example as a regular unit test, as section 10.2 says.
+
+Limits:
+
+- GitHub starts scheduled workflows only from the default branch, which is `main` in the plan. Until `ci.yml` with this job exists on the default branch (it reaches `main` with the first production promotion), no scheduled run starts; a manual dispatch can run it on `development` before that.
+- Scheduled runs can be delayed or skipped by GitHub under load, and GitHub disables a schedule after 60 days without repository activity. A missing night is not a pass.
+- A failing night shows as a red `CI` run with event `schedule`; it is not tied to a commit that someone just pushed, so read the job summary before assuming a regression.
+- Nobody is notified by the job itself; reading the Actions tab is part of the weekly Delivery check.
