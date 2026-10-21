@@ -581,6 +581,31 @@ def test_drift_covers_a_new_field_and_leaves_the_added_members_per_object() -> N
     ]
 
 
+def test_drift_is_reported_beside_an_added_and_a_removed_object() -> None:
+    previous = build(
+        {"network": [obj("a", vlan=1), obj("b", vlan=1), obj("gone")]},
+        controller="1.0",
+    )
+    new = build(
+        {"network": [obj("a", vlan=1, fresh=1), obj("b", vlan=1, fresh=1), obj("new")]},
+        controller="2.0",
+    )
+    items = run(previous, new)
+    assert [(item.change_kind, item.object_key, item.path) for item in items] == [
+        ("added", "new", ""),
+        ("removed", "gone", ""),
+        ("schema_drift", None, "fresh"),
+    ]
+    assert items[-1].order_detail is not None and items[-1].order_detail["object_count"] == 2
+
+
+def test_a_scalar_list_that_gains_an_entry_on_every_object_is_still_schema_drift() -> None:
+    previous = build({"network": [obj(k, dns=["a", "b"]) for k in "ab"]}, controller="1.0")
+    new = build({"network": [obj(k, dns=["a", "b", "c"]) for k in "ab"]}, controller="2.0")
+    item = one(run(previous, new))
+    assert (item.change_kind, item.object_key, item.path) == ("schema_drift", None, "dns.2")
+
+
 # ---- baseline and resources ---------------------------------------------------------------
 
 

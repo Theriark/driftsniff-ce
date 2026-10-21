@@ -66,8 +66,9 @@ later position. Fields inside a list member are classified by the path without t
 as the normaliser writes them.
 
 The order of whole collections (the position lists in a manifest) is not read here, and neither is
-the order of the members of an `ordered-keyed` or `vendor-index` list. That belongs to
-`core/order.py`.
+the order of the members of an `ordered-keyed` list. That belongs to `core/order.py`, which reports
+moves as `moved` items; see [order.md](order.md). The order of a `vendor-index` list is data: its
+index field is compared like any other field.
 
 ## What an item shows
 
@@ -121,8 +122,12 @@ it. The diff starts again from the baseline on the next collection.
 
 ## Limits
 
-- A scalar list that gains an entry at the front reports every later position as modified. Moves
-  and inserts in ordered collections are reported properly by the order engine of phase 4.
-- A keyed list whose order alone changed gives no item here; the order engine reports it.
+- A scalar list (`ordered-scalar`) is compared position by position, so an entry added at the front
+  reports every later position as modified. The order engine does not read such a list.
+- A keyed list whose order alone changed gives no item here; `compare_order` reports it, see
+  [order.md](order.md).
+- An `ordered-scalar` list that gains an entry on every object at once (a third resolver, `dns.2`)
+  still collapses into one `schema_drift` item after a controller version change: its position path
+  looks like a new field. The path is in the drift item and the value is not.
 - Values are not truncated. A very long free-text field is shown in full in the item; the stored
   state remains the source of truth.
