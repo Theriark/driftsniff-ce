@@ -13,7 +13,7 @@ import random
 import threading
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Final, TypeVar
+from typing import Any, Final
 
 import pytest
 import sqlalchemy as sa
@@ -50,7 +50,6 @@ from driftsniff.sources.service import (
     interval_of,
 )
 
-T = TypeVar("T")
 WAIT_SECONDS: Final = 10.0
 ADDRESS = "https://203.0.113.10:8443"
 ACTOR = "admin"
@@ -189,7 +188,7 @@ def make_scheduler(
     )
 
 
-def run_async(test: Callable[[], Awaitable[T]]) -> T:
+def run_async[T](test: Callable[[], Awaitable[T]]) -> T:
     return asyncio.run(asyncio.wait_for(test(), timeout=60))
 
 
