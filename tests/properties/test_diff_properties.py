@@ -242,11 +242,11 @@ def test_shuffling_sets_never_changes_the_diff(
 # and it checks the budget of whatever profile is active (500 in ``ci``, 5000 in ``nightly``).
 # The cost is that the three properties run once more.
 
-NON_EMPTY_SHARE: Final = 0.70
-"""At least this share of the generated pairs must give a diff with items. Two independent
-draws of 0 to 4 objects, each with about ten optional fields, are almost never equal; 70 percent
-leaves room for Hypothesis' bias to small examples. If it is missed, widen the generators in
-fixtures.py; do not lower this number."""
+NON_EMPTY_SHARE: Final = 0.90
+"""At least this share of the generated pairs must give a diff with items. Measured in CI on the
+``ci`` profile (500 examples, THE-592): 466 of 500 pairs, 93.2 percent. The bar sits just under
+that value, so a generator change that makes pairs equal more often fails the test. If it is
+missed, widen the generators in fixtures.py; do not lower this number."""
 
 
 def _budget() -> int:
