@@ -254,7 +254,7 @@ Profiles are registered in `tests/properties/conftest.py` and selected with the 
 | `ci` (default) | 500 | fixed (`derandomize=True`), no example database | every `CI / Tests` run, so the result is reproducible |
 | `nightly` | 5000 | new random seed on every run (`derandomize=False`) | the nightly job (section 10.5), report only |
 
-`test_each_property_ran_at_least_the_profile_budget` fails the `ci` run if a property ran fewer than 500 cases.
+The tests `test_the_identity_property_runs_its_whole_budget`, `test_the_apply_property_runs_its_whole_budget` and `test_the_shuffle_property_runs_its_whole_budget` each run the property body once more through a counter and fail if it ran fewer cases than `max_examples` of the active profile (500 in `ci`, 5000 in `nightly`). They are standalone: no file order, shared counter or profile check is involved, so they also pass alone, with `-k`, in random order and under xdist. `test_most_generated_pairs_give_a_non_empty_diff` fails if fewer than 70 percent of the generated pairs give a diff with items (Hypothesis records the split with `event()`; the failure message shows the counts). If that share drops, widen the generators in `fixtures.py`; do not lower the bar. The extra runs roughly double the time of the property tests in the nightly job.
 
 ### 10.2 Exact command for the nightly job
 
@@ -266,7 +266,7 @@ Run it in the same environment as the `test` job (hashed `requirements-dev.txt` 
 
 ### 10.3 Fixtures
 
-`tests/properties/fixtures.py` holds the synthetic type table, inventories (resource, object key, state), `manifest_of`, `diff` (the real `compare` on two inventories) and the Hypothesis strategies. Everything is made up; every secret-like value starts with `CANARY-`. Later phases import it with `from properties.fixtures import ...` or the relative form inside the package.
+`tests/properties/fixtures.py` holds the synthetic type table, inventories (resource, object key, state), `manifest_of`, `diff` (the real `compare` on two inventories) and the Hypothesis strategies. Everything is made up; every secret-like value starts with `CANARY-`. Inside `tests/properties` import it with the relative form, `from .fixtures import ...`, which is what the existing tests use and what CI runs. An absolute `from properties.fixtures import ...` is not used anywhere and is not verified (`pyproject.toml` adds only `src` and `scripts` to `pythonpath`); from another test directory, verify the import before relying on it.
 
 ### 10.4 Limits
 
