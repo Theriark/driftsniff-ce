@@ -8,8 +8,15 @@ classes from [secrets-handling.md](secrets-handling.md).
 ## The call
 
 ```python
-compare(previous_manifest, new_manifest, states,
-        window_start=..., window_end=..., fingerprinter=..., type_tables=...)
+compare(
+    previous_manifest,
+    new_manifest,
+    states,
+    window_start=...,
+    window_end=...,
+    fingerprinter=...,
+    type_tables=...,
+)
 ```
 
 - `states` is a function from a state hash to the normalised state. It is called only for objects
