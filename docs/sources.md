@@ -3,7 +3,7 @@
 A source is one system driftsniff watches: a UniFi Network controller (`unifi`), a Xen
 Orchestra server (`xo`), or a sender that pushes its own documents (`push`). The source service
 (`driftsniff.sources.service`) creates, updates, enables, disables and deletes them. The
-collector, run pipeline and scheduler of the next tasks build on it.
+collector and run pipeline (`collectors.md`) and the scheduler (`scheduler.md`) build on it.
 
 ## What a source holds
 
@@ -13,7 +13,7 @@ collector, run pipeline and scheduler of the next tasks build on it.
 | type | `unifi`, `xo` or `push`; it cannot change later |
 | base address | `unifi` and `xo` only; `https://`, no user name, password, query or fragment, trailing slashes removed |
 | credential | `unifi` and `xo` only; required; encrypted before it is stored |
-| options | only `allow_plain_http` (true or false) today; an unknown option or a wrong type is refused |
+| options | `allow_plain_http` (true or false) and `interval_seconds` (whole seconds, 60 to 3600, default 300, polled sources only); an unknown option, a wrong type or an interval out of range is refused |
 | enabled | a disabled source is not collected |
 
 A `push` source has no address and no credential. Its sender key is added with the push
