@@ -1,0 +1,4 @@
+# Fake probe header used as a test fixture in commit 175fd716 of PR 35 (THE-620).
+# It is a made-up value, not a credential; the next commit of the PR renamed it.
+# One exact fingerprint only; do not add patterns or paths here.
+175fd7161d460cc768e3e66328ac0f13d8c2aa3a:tests/unit/test_collector_base.py:generic-api-key:35

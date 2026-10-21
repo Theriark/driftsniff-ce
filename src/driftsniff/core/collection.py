@@ -39,8 +39,14 @@ def record_collection(
     bytes_fetched: int,
     finished_at: str,
     status: Literal["ok", "partial"] = "ok",
+    error_class: str | None = None,
+    error_summary: str | None = None,
 ) -> CollectionResult:
-    """Store the collection's manifest if it changed and close its run record."""
+    """Store the collection's manifest if it changed and close its run record.
+
+    A partial run says which resources failed in ``error_class`` and ``error_summary``: a class
+    word and a short text, never a payload.
+    """
     snapshot = store_if_changed(connection, source_id, manifest, taken_at=finished_at)
     object_changes = None
     if snapshot.stored:
@@ -61,5 +67,7 @@ def record_collection(
         stored_new_snapshot=snapshot.stored,
         new_state_bytes=snapshot.new_state_bytes,
         manifest_bytes=snapshot.manifest_bytes,
+        error_class=error_class,
+        error_summary=error_summary,
     )
     return CollectionResult(run_id, snapshot, object_changes, bytes_fetched)
