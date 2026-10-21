@@ -22,8 +22,8 @@ from driftsniff.db.migrate import upgrade_to_head
 from driftsniff.secrets.crypto import MAX_CREDENTIAL_BYTES, CredentialCipher
 from driftsniff.secrets.fingerprint import MARKER_PREFIX, Fingerprinter
 from driftsniff.secrets.keys import MasterKey
-from driftsniff.secrets.redact import NO_OVERRIDES, RedactionResult, redact_object
-from driftsniff.secrets.scanner import ENTROPY_THRESHOLD, Overrides, shannon_entropy
+from driftsniff.secrets.redact import RedactionResult, redact_object
+from driftsniff.secrets.scanner import ENTROPY_THRESHOLD, NO_OVERRIDES, Overrides, shannon_entropy
 
 from . import canary as harness
 from .canary import (
