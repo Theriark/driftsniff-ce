@@ -15,14 +15,16 @@ What is compared
   as removed: the collection could not read it. A resource only in the new manifest is all added.
 - Fields of the ``ignore`` class are skipped. Null and a missing field are the same state, so
   neither side's nulls count as a change (list members are values and keep their nulls).
-- Paths are dot separated. A list adds no index to the path, except a list that is not a ``set``
-  (ordered-scalar, ordered-keyed, vendor-index): it is compared position by position and the
-  position is part of the path (``dns.servers.0``). Fields of a member are looked up in the type
-  table by the path without the index, as the normaliser writes them.
-- A ``set`` list is compared by membership: a member that is gone is ``removed``, a new one is
-  ``added``, and a member with a declared item key whose content changed is one ``modified`` item.
-  The order of the members never matters. The order of whole collections (the position lists of a
-  manifest) is not read here; ``core/order.py`` owns it.
+- Paths are dot separated. A list adds no index to the path, except an ``ordered-scalar`` list: it
+  is compared position by position and the position is part of the path (``dns.servers.0``).
+  Fields of a member are looked up in the type table by the path without the index, as the
+  normaliser writes them.
+- Every other list (``set``, ``ordered-keyed``, ``vendor-index``) is compared by membership: a
+  member that is gone is ``removed``, a new one is ``added``, and a member with a declared item
+  key whose content changed is one ``modified`` item. Members are matched by that key (by content
+  when none is declared), never by position, so an insert at the top is one ``added`` item. The
+  order of the members is not read here, and neither is the order of whole collections (the
+  position lists of a manifest); ``core/order.py`` owns both.
 
 What is shown
 -------------
@@ -42,7 +44,9 @@ When the controller version differs (both versions known), at least two objects 
 exist in both manifests, every one of them changed, and the same new field path appeared on every
 one of them, the per-object ``added`` items of those paths are replaced by one ``schema_drift``
 item for the resource (severity LOW). The new paths are listed in its ``path`` and in the order
-detail. A new field on only some objects is an ordinary change, reported per object.
+detail. A new field on only some objects is an ordinary change, reported per object. A list member
+that is added is never a new field path: a member added to every object (an admin, a tag) stays an
+ordinary item on each object.
 
 Baseline
 --------
@@ -52,6 +56,7 @@ compared with the previous ones, so ``compare`` returns no items.
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from dataclasses import field as dataclass_field
 from typing import Final, Literal
 
 from driftsniff.core.canonical import JsonValue, canonical_dumps
@@ -122,6 +127,7 @@ class _Field:
     after_value: str | None
     before_fp: str | None
     after_fp: str | None
+    list_member: bool = False
 
 
 def _drop_nulls(value: JsonValue) -> JsonValue:
@@ -179,31 +185,51 @@ class _Walker:
         if isinstance(before, list | _Missing) and isinstance(after, list | _Missing):
             old_list: list[JsonValue] = before if isinstance(before, list) else []
             new_list: list[JsonValue] = after if isinstance(after, list) else []
-            if self._table.collection_mode(cls_path) is CollectionMode.SET:
-                self._set_members(cls_path, shown_path, old_list, new_list)
-            else:
+            mode = self._table.collection_mode(cls_path)
+            if mode is CollectionMode.ORDERED_SCALAR:
                 for index in range(max(len(old_list), len(new_list))):
                     old_member = old_list[index] if index < len(old_list) else _MISSING
                     new_member = new_list[index] if index < len(new_list) else _MISSING
                     self.walk(cls_path, f"{shown_path}.{index}", old_member, new_member)
+            else:
+                self._members(cls_path, shown_path, mode, old_list, new_list)
             return not either_missing or bool(old_list) or bool(new_list)
         return False
 
-    def _set_members(
-        self, cls_path: str, shown_path: str, old: list[JsonValue], new: list[JsonValue]
+    def _members(
+        self,
+        cls_path: str,
+        shown_path: str,
+        mode: CollectionMode,
+        old: list[JsonValue],
+        new: list[JsonValue],
     ) -> None:
+        """Compare a list by membership: members are matched by key, never by position.
+
+        A set counts a duplicate member once. An ordered list can repeat a key, so its n-th
+        member with that key is matched with the n-th one on the other side.
+        """
         key_field = self._table.item_key_field(cls_path)
-        old_by_identity = {_identity(key_field, member): member for member in old}
-        new_by_identity = {_identity(key_field, member): member for member in new}
+        count_duplicates = mode is not CollectionMode.SET
+        old_by_identity = _by_identity(key_field, old, count_duplicates)
+        new_by_identity = _by_identity(key_field, new, count_duplicates)
         for identity in sorted(old_by_identity.keys() | new_by_identity.keys()):
             before = old_by_identity.get(identity, _MISSING)
             after = new_by_identity.get(identity, _MISSING)
             if not isinstance(before, _Missing) and not isinstance(after, _Missing):
                 if _same(before, after):
                     continue
-            self._leaf(cls_path, shown_path, before, after)
+            self._leaf(cls_path, shown_path, before, after, list_member=True)
 
-    def _leaf(self, cls_path: str, shown_path: str, before: _Value, after: _Value) -> None:
+    def _leaf(
+        self,
+        cls_path: str,
+        shown_path: str,
+        before: _Value,
+        after: _Value,
+        *,
+        list_member: bool = False,
+    ) -> None:
         kind: ChangeKind
         if isinstance(before, _Missing):
             kind = "added"
@@ -215,7 +241,16 @@ class _Walker:
         before_value, before_fp = self._render(field_class, cls_path, before)
         after_value, after_fp = self._render(field_class, cls_path, after)
         self.fields.append(
-            _Field(kind, shown_path, field_class, before_value, after_value, before_fp, after_fp)
+            _Field(
+                kind,
+                shown_path,
+                field_class,
+                before_value,
+                after_value,
+                before_fp,
+                after_fp,
+                list_member,
+            )
         )
 
     def _leaf_class(self, cls_path: str, before: _Value, after: _Value) -> FieldClass:
@@ -259,12 +294,28 @@ class _Walker:
 
 
 def _identity(key_field: str | None, member: JsonValue) -> tuple[str, str]:
-    """How a member of a set list is told apart: by its declared key, else by its content."""
+    """How a list member is told apart: by its declared key, else by its content."""
     if key_field is not None and isinstance(member, Mapping):
         key = member.get(key_field)
         if isinstance(key, str):
             return ("key", key)
+        if isinstance(key, int) and not isinstance(key, bool):
+            return ("key", str(key))
     return ("content", canonical_dumps(member).decode("utf-8"))
+
+
+def _by_identity(
+    key_field: str | None, members: list[JsonValue], count_duplicates: bool
+) -> dict[tuple[str, str, int], JsonValue]:
+    """Index the members by identity; the third part counts repeats when ``count_duplicates``."""
+    indexed: dict[tuple[str, str, int], JsonValue] = {}
+    seen: dict[tuple[str, str], int] = {}
+    for member in members:
+        identity = _identity(key_field, member)
+        position = seen.get(identity, 0) if count_duplicates else 0
+        seen[identity] = position + 1
+        indexed[(*identity, position)] = member
+    return indexed
 
 
 @dataclass(frozen=True)
@@ -276,11 +327,19 @@ class _Context:
     window_end: str
     fingerprinter: Fingerprinter
     controller_changed: bool
+    loaded: dict[str, dict[str, JsonValue]] = dataclass_field(
+        default_factory=dict, init=False, repr=False, compare=False
+    )
 
     def load(self, state_hash: str) -> dict[str, JsonValue]:
+        """The state with its nulls dropped; each state is read once per comparison."""
+        cached = self.loaded.get(state_hash)
+        if cached is not None:
+            return cached
         state = _drop_nulls(dict(self.states(state_hash)))
         if not isinstance(state, dict):  # pragma: no cover - _drop_nulls keeps a dict a dict
             raise TypeError("a state must be a mapping")
+        self.loaded[state_hash] = state
         return state
 
     def name_of(self, table: TypeTable, resource: str, key: str, state_hash: str) -> str | None:
@@ -346,12 +405,17 @@ def _compare_resource(
     for key in changed:
         name = context.name_of(table, resource, key, new[key])
         for field in fields_by_key[key]:
-            if drift and field.change_kind == "added" and field.path in drift:
+            if drift and _is_new_path(field) and field.path in drift:
                 continue
             items.append(context.item(resource, key, name, field))
     if drift:
         items.append(_drift_item(context, resource, drift, fields_by_key))
     return items
+
+
+def _is_new_path(field: _Field) -> bool:
+    """A field that appeared. A member added to a list is a value, not a new field path."""
+    return field.change_kind == "added" and not field.list_member
 
 
 def _drift_paths(
@@ -366,8 +430,7 @@ def _drift_paths(
     if len(fields_by_key) != len(new.keys() & old.keys()):
         return set()
     appeared = [
-        {field.path for field in fields if field.change_kind == "added"}
-        for fields in fields_by_key.values()
+        {field.path for field in fields if _is_new_path(field)} for fields in fields_by_key.values()
     ]
     return set.intersection(*appeared)
 
@@ -379,7 +442,7 @@ def _drift_item(
     first = next(
         field
         for field in next(iter(fields_by_key.values()))
-        if field.change_kind == "added" and field.path == paths[0]
+        if _is_new_path(field) and field.path == paths[0]
     )
     detail: dict[str, JsonValue] = {
         "controller_version_before": context.previous.controller_version,

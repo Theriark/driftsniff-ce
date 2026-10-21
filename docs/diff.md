@@ -53,15 +53,20 @@ Paths are dot separated field names, such as `wan.dns.primary`. Lists work as fo
 
 | List mode | How it is compared | Path |
 |---|---|---|
-| `set` | by membership; the order never matters | the path of the list |
-| every other mode | position by position | the path of the list plus the index, such as `dns.1` |
+| `set`, `ordered-keyed`, `vendor-index` | by membership; members are matched by item key | the path of the list |
+| `ordered-scalar` | position by position | the path of the list plus the index, such as `dns.1` |
 
-For a `set` list, a member that is gone is `removed`, a new one is `added`, and a member that has a
-declared item key and changed content is one `modified` item whose before and after values are the
-whole member. Duplicate members count once. Fields inside a list member are classified by the path
-without the index, exactly as the normaliser writes them.
+For a list compared by membership, a member that is gone is `removed`, a new one is `added`, and a
+member that has a declared item key and changed content is one `modified` item whose before and
+after values are the whole member. A member without a declared key is matched by its content, so a
+change to it shows as one removed and one added member. Duplicate members of a `set` count once; in
+an `ordered-keyed` or `vendor-index` list the n-th member with a key is matched with the n-th one on
+the other side. An insert at the top of such a list is one `added` item, not a change at every
+later position. Fields inside a list member are classified by the path without the index, exactly
+as the normaliser writes them.
 
-The order of whole collections (the position lists in a manifest) is not read here. It belongs to
+The order of whole collections (the position lists in a manifest) is not read here, and neither is
+the order of the members of an `ordered-keyed` or `vendor-index` list. That belongs to
 `core/order.py`.
 
 ## What an item shows
@@ -103,6 +108,11 @@ holds the two controller versions, the object count and the list of paths. Anoth
 of the objects is still reported for that object. A new field on only some objects, an unchanged
 object in the set, or a single object is an ordinary change, reported per object.
 
+A member added to a list is a value, not a new field path. If every object gains a member of a
+list (an admin in `members`, a tag in `tags`), each object keeps its own `added` item, so a rule
+can still see it. Drift items carry no values: a risky new field that appears on every object after
+an upgrade is reported at `low` with its path only, and the paths are in the order detail.
+
 ## Baselines
 
 The first snapshot of a source, and the first one after a normaliser version change, is a
@@ -113,5 +123,6 @@ it. The diff starts again from the baseline on the next collection.
 
 - A scalar list that gains an entry at the front reports every later position as modified. Moves
   and inserts in ordered collections are reported properly by the order engine of phase 4.
+- A keyed list whose order alone changed gives no item here; the order engine reports it.
 - Values are not truncated. A very long free-text field is shown in full in the item; the stored
   state remains the source of truth.
