@@ -18,10 +18,12 @@ skipped or repaired. Besides the schema (``rules/schema.py``) the load refuses:
 
 The rule pack version is the first 12 hex characters of one SHA-256 over every file read, in the
 order of their paths relative to the root; for each file the hash takes the relative path in
-UTF-8, a zero byte, the bytes of the file and a zero byte. It changes when any pack or type file
+UTF-8, a zero byte, the bytes of the file with every CRLF and CR turned into LF and a zero byte.
+It changes when any pack or type file
 changes, and it is meant to be stored with each change event (``change_events.rule_pack_version``).
 """
 
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from hashlib import sha256
@@ -127,6 +129,29 @@ def _line(node: yaml.Node) -> int:
     return int(node.start_mark.line) + 1
 
 
+_BOOL_TAG: Final = "tag:yaml.org,2002:bool"
+
+
+class _SafeLoader12(yaml.SafeLoader):
+    """``SafeLoader`` whose only booleans are ``true`` and ``false`` (YAML 1.2 style).
+
+    PyYAML follows YAML 1.1, where the bare words ``yes``, ``no``, ``on``, ``off``, ``y`` and ``n``
+    are booleans too, so ``from: [on]`` would load as ``True`` and a rule would silently never
+    match the vendor value ``"on"``. Here those words stay text. A quoted ``'on'`` is text in both.
+    """
+
+    # A copy of the resolvers without the 1.1 boolean, so the base class is left untouched.
+    yaml_implicit_resolvers = {
+        first: [(tag, pattern) for tag, pattern in resolvers if tag != _BOOL_TAG]
+        for first, resolvers in yaml.SafeLoader.yaml_implicit_resolvers.items()
+    }
+
+
+_SafeLoader12.add_implicit_resolver(
+    _BOOL_TAG, re.compile(r"^(?:true|True|TRUE|false|False|FALSE)$"), list("tTfF")
+)
+
+
 class _Reader:
     """Turns a composed YAML tree into plain values, keeping the line of every mapping key.
 
@@ -185,7 +210,7 @@ def _parse(path: Path, data: bytes) -> object:
     except UnicodeDecodeError:
         raise RuleLoadError(path, None, "the file is not valid UTF-8") from None
     try:
-        loader = yaml.SafeLoader(text)
+        loader = _SafeLoader12(text)
     except yaml.YAMLError as error:
         raise RuleLoadError(path, _yaml_line(error), _yaml_message(error)) from None
     try:
@@ -265,7 +290,9 @@ def _version(files: list[tuple[str, bytes]]) -> str:
     for relative, data in files:
         digest.update(relative.encode("utf-8"))
         digest.update(b"\0")
-        digest.update(data)
+        # YAML reads CRLF and CR as a line break like LF, so a checkout with other line endings
+        # has the same meaning and must have the same version.
+        digest.update(data.replace(b"\r\n", b"\n").replace(b"\r", b"\n"))
         digest.update(b"\0")
     return digest.hexdigest()[:VERSION_LENGTH]
 

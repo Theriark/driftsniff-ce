@@ -17,6 +17,7 @@ from driftsniff.rules.loader import (
     compute_pack_version,
     load_rules,
 )
+from driftsniff.rules.predicates import Predicate
 from driftsniff.rules.schema import ResourceTable
 
 TYPES = """\
@@ -288,6 +289,97 @@ def test_equal_predicates_that_do_not_exclude_each_other_are_a_tie(root: Path) -
         pack(entry("one", "secureBoot", when=flip), entry("two", "secureBoot", when=flip)),
     )
     assert isinstance(load_error(root), RuleTieError)
+
+
+# --- YAML booleans: only true and false (YAML 1.2), never on, off, yes, no, y or n -------
+
+WORDS = ["on", "off", "yes", "no", "y", "n", "On", "OFF", "Yes", "NO", "Y", "N"]
+
+
+def only_predicate(root: Path, when: str) -> Predicate:
+    write(root, "packs/xo/a.yaml", pack(entry("a", "secureBoot", when=when)))
+    predicate = load_rules(root).rules[0].predicate
+    assert predicate is not None
+    return predicate
+
+
+@pytest.mark.parametrize("word", WORDS)
+def test_a_yaml_11_boolean_word_in_enum_transition_lists_stays_text(root: Path, word: str) -> None:
+    predicate = only_predicate(root, f"{{name: enum_transition, from: [{word}], to: [x]}}")
+    assert predicate.args == {"from": [word], "to": ["x"]}
+    assert predicate(word, "x") is True
+    assert predicate(True, "x") is False
+    predicate = only_predicate(root, f"{{name: enum_transition, from: [x], to: [{word}]}}")
+    assert predicate.args == {"from": ["x"], "to": [word]}
+    assert predicate("x", word) is True
+    assert predicate("x", False) is False
+
+
+@pytest.mark.parametrize("word", WORDS)
+def test_a_yaml_11_boolean_word_as_a_predicate_value_stays_text(root: Path, word: str) -> None:
+    predicate = only_predicate(root, f"{{name: any_to_value, value: {word}}}")
+    assert predicate.args == {"value": word}
+    assert predicate("x", word) is True
+    assert predicate("x", True) is False
+    assert predicate("x", False) is False
+
+
+@pytest.mark.parametrize("word", ["yes", "no", "on", "off"])
+def test_a_yaml_11_boolean_word_is_not_a_boolean_argument(root: Path, word: str) -> None:
+    text = pack(entry("a", "secureBoot", when=f"{{name: boolean_flips_to, value: {word}}}"))
+    write(root, "packs/xo/a.yaml", text)
+    error = load_error(root)
+    assert error.line == line_of(text, "when:")
+    assert "must be true or false" in error.message
+
+
+@pytest.mark.parametrize(
+    ("text", "value"),
+    [("true", True), ("True", True), ("TRUE", True), ("false", False), ("FALSE", False)],
+)
+def test_true_and_false_still_load_as_booleans(root: Path, text: str, value: bool) -> None:
+    flips = only_predicate(root, f"{{name: boolean_flips_to, value: {text}}}")
+    assert flips.args == {"value": value}
+    assert flips(not value, value) is True
+    target = only_predicate(root, f"{{name: any_to_value, value: {text}}}")
+    assert target.args == {"value": value}
+    assert target("x", value) is True
+    members = only_predicate(root, f"{{name: enum_transition, from: [{text}], to: [x]}}")
+    assert members.args == {"from": [value], "to": ["x"]}
+
+
+@pytest.mark.parametrize("quote", ["'", '"'])
+def test_a_quoted_word_stays_text(root: Path, quote: str) -> None:
+    word = f"{quote}on{quote}"
+    predicate = only_predicate(root, f"{{name: enum_transition, from: [{word}], to: [x]}}")
+    assert predicate.args == {"from": ["on"], "to": ["x"]}
+    predicate = only_predicate(root, f"{{name: any_to_value, value: {quote}true{quote}}}")
+    assert predicate.args == {"value": "true"}
+
+
+@pytest.mark.parametrize("word", ["on", "off", "yes", "no", "y", "n"])
+def test_yaml_boolean_words_as_rule_ids_load_as_text(root: Path, word: str) -> None:
+    write(root, "packs/xo/a.yaml", pack(entry(word, "secureBoot"), entry("other", "name_label")))
+    index = load_rules(root)
+    assert sorted(compiled.rule.id for compiled in index.rules) == sorted([word, "other"])
+    assert all(isinstance(compiled.rule.id, str) for compiled in index.rules)
+
+
+@pytest.mark.parametrize("word", ["on", "off", "yes", "no", "y", "n"])
+def test_yaml_boolean_words_as_field_names_of_a_type_table_load_as_text(
+    root: Path, word: str
+) -> None:
+    types = (
+        "version: 1\ntypes:\n"
+        f"  - resource: gadgets\n    key_field: {word}\n    name_field: {word}\n"
+        f"    fields:\n      {word}: config\n      other: ignore\n"
+    )
+    write(root, "types/gadgets.yaml", types)
+    table = load_rules(root).type_tables["gadgets"]
+    assert table.object_key_field == word
+    assert table.name_field == word
+    assert table.field_class(word) == "config"
+    assert table.field_class("other") == "ignore"
 
 
 # --- errors name the file and the line ---------------------------------------------------
@@ -585,6 +677,27 @@ def test_the_version_changes_when_a_file_changes(root: Path) -> None:
     after = load_rules(root).pack_version
     assert after != before
     path.write_text(pack(entry("a", "name_label", "low")), encoding="utf-8")
+    assert load_rules(root).pack_version == before
+
+
+def test_the_version_does_not_depend_on_the_line_endings(root: Path) -> None:
+    text = pack(entry("a", "name_label"))
+    path = write(root, "packs/xo/a.yaml", text)
+    types = root / "types" / "test.yaml"
+    lf = load_rules(root).pack_version
+    path.write_bytes(text.replace("\n", "\r\n").encode("utf-8"))
+    types.write_bytes(TYPES.replace("\n", "\r\n").encode("utf-8"))
+    assert compute_pack_version(root) == lf
+    assert load_rules(root).pack_version == lf
+    path.write_bytes(text.replace("\n", "\r").encode("utf-8"))
+    assert compute_pack_version(root) == lf
+    path.write_bytes(text.replace("low", "high").replace("\n", "\r\n").encode("utf-8"))
+    assert compute_pack_version(root) != lf
+
+
+def test_the_version_of_a_yml_file_is_not_part_of_it(root: Path) -> None:
+    before = load_rules(root).pack_version
+    write(root, "packs/xo/a.yml", pack(entry("a", "name_label")))
     assert load_rules(root).pack_version == before
 
 
