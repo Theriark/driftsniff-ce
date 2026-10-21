@@ -1,0 +1,62 @@
+# Xen Orchestra rules for backup jobs, their per schedule settings, schedules, repositories and
+# proxies (P5-T3). Backup repositories have the object floor high in rules/types/xo.yaml.
+version: 1
+rules:
+  - id: xo.backup_jobs.remotes
+    resource: backup-jobs
+    path: remotes
+    severity: medium
+    rationale: The backup destinations of a job changed, so backups may now be written somewhere else.
+  - id: xo.backup_jobs.mode
+    resource: backup-jobs
+    path: mode
+    severity: medium
+    rationale: The backup mode of a job changed, which changes what is stored and how often.
+  - id: xo.backup_jobs.compression
+    resource: backup-jobs
+    path: compression
+    severity: low
+    rationale: The compression of a backup job changed, which affects size and speed only.
+  - id: xo.backup_job_settings.export_retention
+    resource: backup-job-settings
+    path: exportRetention
+    severity: medium
+    rationale: The number of backups kept by a job changed.
+  - id: xo.backup_job_settings.export_retention_drop
+    resource: backup-job-settings
+    path: exportRetention
+    when: {name: decreases_below, n: 2}
+    severity: high
+    rationale: A job now keeps fewer than two backups, so one bad run can leave nothing to restore.
+  - id: xo.backup_job_settings.report_recipients
+    resource: backup-job-settings
+    path: reportRecipients
+    severity: medium
+    rationale: The people who receive backup reports changed, so failures may reach someone else or nobody.
+  - id: xo.schedules.enabled
+    resource: schedules
+    path: enabled
+    when: {name: boolean_flips_to, value: false}
+    severity: high
+    rationale: A backup schedule was switched off, so its backups stop running.
+  - id: xo.schedules.cron
+    resource: schedules
+    path: cron
+    severity: medium
+    rationale: The timing of a backup schedule changed, which changes when backups run.
+  - id: xo.backup_repositories.url
+    resource: backup-repositories
+    path: url
+    severity: high
+    rationale: The backup destination points to a different target, so backups are written somewhere else.
+  - id: xo.backup_repositories.enabled
+    resource: backup-repositories
+    path: enabled
+    when: {name: boolean_flips_to, value: false}
+    severity: high
+    rationale: A backup repository was disabled, so jobs that use it cannot store backups.
+  - id: xo.proxies.address
+    resource: proxies
+    path: address
+    severity: medium
+    rationale: The address of a backup proxy changed, so backups may run through another machine.

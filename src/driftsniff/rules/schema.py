@@ -282,6 +282,8 @@ class TypeSpec(BaseModel):
         if self.action_field is None:
             if self.blocking_actions is not None:
                 raise ValueError("blocking_actions needs an action_field")
+            if self.first_match or any(spec.first_match for spec in self.lists.values()):
+                raise ValueError("first_match needs an action_field")
             return self
         action = self.action_field
         shown = [action] if self.first_match else []

@@ -1,0 +1,111 @@
+# Xen Orchestra rules for virtual machines, hosts, pools and storage repositories (P5-T3).
+# A field that has no rule here is MEDIUM, unclassified, until it is reviewed.
+version: 1
+rules:
+  - id: xo.vms.secure_boot_off
+    resource: vms
+    path: secureBoot
+    when: {name: boolean_flips_to, value: false}
+    severity: high
+    rationale: Secure boot was switched off, so the guest can now start unsigned boot code.
+  - id: xo.vms.secure_boot_on
+    resource: vms
+    path: secureBoot
+    when: {name: boolean_flips_to, value: true}
+    severity: low
+    rationale: Secure boot was switched on, which tightens how the guest starts.
+  - id: xo.vms.high_availability
+    resource: vms
+    path: high_availability
+    severity: medium
+    rationale: The restart policy of the virtual machine changed, so it may no longer come back after a host failure.
+  - id: xo.vms.blocked_operations
+    resource: vms
+    path: blockedOperations.**
+    severity: medium
+    rationale: The operations that are blocked on the virtual machine changed, which can remove a protection against deletion or shutdown.
+  - id: xo.vms.pv_args
+    resource: vms
+    path: PV_args
+    severity: medium
+    rationale: The kernel arguments of the virtual machine changed, and they can alter how the guest boots.
+  - id: xo.vms.notes
+    resource: vms
+    path: notes
+    severity: low
+    rationale: The notes of the virtual machine changed, which is documentation only.
+  - id: xo.vms.name_label
+    resource: vms
+    path: name_label
+    severity: low
+    rationale: The virtual machine was renamed, which changes only how people find it.
+  - id: xo.vms.memory
+    resource: vms
+    path: memory.**
+    severity: medium
+    rationale: A memory limit of the virtual machine changed, which affects capacity on its host.
+  - id: xo.vms.cpus
+    resource: vms
+    path: CPUs.**
+    severity: medium
+    rationale: The processor count of the virtual machine changed, which affects capacity on its host.
+  - id: xo.hosts.supplemental_packs
+    resource: hosts
+    path: supplementalPacks
+    severity: medium
+    rationale: A supplemental pack was added, changed or removed, so the patch level of the host differs.
+  - id: xo.hosts.enabled
+    resource: hosts
+    path: enabled
+    when: {name: boolean_flips_to, value: false}
+    severity: medium
+    rationale: The host was disabled and no longer accepts virtual machines.
+  - id: xo.hosts.multipathing
+    resource: hosts
+    path: multipathing
+    when: {name: boolean_flips_to, value: false}
+    severity: medium
+    rationale: Multipathing was switched off, so storage loses its redundant paths.
+  - id: xo.hosts.logging
+    resource: hosts
+    path: logging
+    severity: medium
+    rationale: The log forwarding settings of the host changed, so its logs may go somewhere else or nowhere.
+  - id: xo.hosts.name_label
+    resource: hosts
+    path: name_label
+    severity: low
+    rationale: The host was renamed, which changes only how people find it.
+  - id: xo.pools.ha_enabled
+    resource: pools
+    path: HA_enabled
+    when: {name: boolean_flips_to, value: false}
+    severity: high
+    rationale: High availability was switched off for the pool, so failed hosts no longer restart their virtual machines.
+  - id: xo.pools.ha_srs
+    resource: pools
+    path: haSrs
+    severity: medium
+    rationale: The heartbeat storage of the pool changed, which can weaken its failure detection.
+  - id: xo.pools.name_label
+    resource: pools
+    path: name_label
+    severity: low
+    rationale: The pool was renamed, which changes only how people find it.
+  - id: xo.srs.in_maintenance
+    resource: srs
+    path: inMaintenanceMode
+    when: {name: boolean_flips_to, value: true}
+    severity: medium
+    rationale: The storage repository was put into maintenance mode, so its disks may become unavailable.
+  - id: xo.srs.shared
+    resource: srs
+    path: shared
+    when: {name: boolean_flips_to, value: false}
+    severity: medium
+    rationale: The storage repository stopped being shared, so virtual machines on it can no longer move between hosts.
+  - id: xo.srs.name_label
+    resource: srs
+    path: name_label
+    severity: low
+    rationale: The storage repository was renamed, which changes only how people find it.
