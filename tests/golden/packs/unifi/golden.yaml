@@ -1,0 +1,32 @@
+# Test-only rules for the UniFi rows of the golden table (P5-T4). Rows 21 and 22 (a deleted and a
+# moved firewall policy) have no rule: they are decided by the object floor and the move floor of
+# the type table. The shipped pack is rules/packs/unifi and is run against the rows in P7-T4.
+version: 1
+rules:
+  - id: golden.generic_name.unifi_networks
+    resource: unifi-networks
+    path: name
+    severity: low
+    rationale: The network was renamed, which changes only how people find it.
+  - id: golden.cosmetic_text.unifi_site_settings
+    resource: unifi-site-settings
+    path: guest_portal.title
+    severity: low
+    rationale: The title of the guest portal changed, which is wording only.
+  - id: golden.generic_enabled.unifi_site_settings
+    resource: unifi-site-settings
+    path: mgmt.led_enabled
+    severity: low
+    rationale: A device light was switched on or off, which changes nothing about traffic or access.
+  - id: golden.wifi_security.unifi_wlans
+    resource: unifi-wlans
+    path: security
+    when: {name: enum_transition, from: [wpa2, wpa3], to: [open]}
+    severity: critical
+    rationale: A secured wireless network became open, so anyone in range can join it.
+  - id: golden.wifi_secret.unifi_wlans
+    resource: unifi-wlans
+    path: passphrase
+    when: changed
+    severity: critical
+    rationale: The passphrase of a wireless network changed, so its access control changed.

@@ -1,0 +1,86 @@
+# Test-only rules for the Xen Orchestra rows of the golden table (P5-T4). One rule per family named
+# in section 15 of the plan; the id is golden.<family>.<resource>. The shipped pack is
+# rules/packs/xo and is run against the same rows in P8-T3.
+version: 1
+rules:
+  - id: golden.generic_name.xo_networks
+    resource: networks
+    path: name_label
+    severity: low
+    rationale: The network was renamed, which changes only how people find it.
+  - id: golden.network_limits.xo_vifs
+    resource: vifs
+    path: rateLimit
+    severity: medium
+    rationale: The bandwidth limit of a network interface changed, which changes how much traffic it carries.
+  - id: golden.backup_reporting.xo_backup_jobs
+    resource: backup-jobs
+    path: settings.reportRecipients
+    severity: medium
+    rationale: The people who receive backup reports changed, so failures may reach someone else or nobody.
+  - id: golden.generic_enabled.xo_vms
+    resource: vms
+    path: docker.enabled
+    severity: low
+    rationale: A switch of the virtual machine was turned on or off, which changes one optional feature.
+  - id: golden.boot_security.xo_vms
+    resource: vms
+    path: secure_boot
+    when: {name: boolean_flips_to, value: false}
+    severity: high
+    rationale: Secure boot was switched off, so the guest can now start unsigned boot code.
+  - id: golden.optional_text.xo_vms
+    resource: vms
+    path: notes
+    severity: low
+    rationale: The notes of the virtual machine changed or were removed, which is documentation only.
+  - id: golden.privilege_escalation.xo_users
+    resource: users
+    path: permission
+    when: {name: enum_transition, from: [none, user], to: [admin]}
+    severity: critical
+    rationale: A user became an administrator, which gives full control of Xen Orchestra.
+  - id: golden.user_secret.xo_users
+    resource: users
+    path: pw_hash
+    when: changed
+    severity: critical
+    rationale: The stored password of a user changed, so someone may have taken over the account.
+  - id: golden.xo_server_floor.xo_servers
+    resource: servers
+    path: readOnly
+    when: {name: boolean_flips_to, value: false}
+    severity: high
+    rationale: A pool connection is no longer read only, so Xen Orchestra gained write access to it.
+  - id: golden.tls_verification.xo_servers
+    resource: servers
+    path: allowUnauthorized
+    when: {name: boolean_flips_to, value: true}
+    severity: critical
+    rationale: Certificate checks were switched off for a pool connection, so anyone on the path can pose as the pool.
+  - id: golden.retention_changed.xo_backup_jobs
+    resource: backup-jobs
+    path: settings.exportRetention
+    severity: medium
+    rationale: The number of backups kept by a job changed.
+  - id: golden.retention.xo_backup_jobs
+    resource: backup-jobs
+    path: settings.exportRetention
+    when: {name: decreases_below, n: 2}
+    severity: high
+    rationale: A job now keeps fewer than two backups, so one bad run can leave nothing to restore.
+  - id: golden.backup_destination.xo_backup_repositories
+    resource: backup-repositories
+    path: url
+    severity: high
+    rationale: The backup destination points to a different target, so backups are written somewhere else.
+  - id: golden.patch_level.xo_hosts
+    resource: hosts
+    path: supplementalPacks
+    severity: medium
+    rationale: A supplemental pack was added, changed or removed, so the patch level of the host differs.
+  - id: golden.permission_change.xo_groups
+    resource: groups
+    path: aclRoleIds
+    severity: critical
+    rationale: The access roles of a group changed, which changes the permissions of every member.
