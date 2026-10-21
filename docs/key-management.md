@@ -39,8 +39,9 @@ missing key file stops the application at start with **exit code 4** and a messa
 never creates a replacement, because a new key would make every stored fingerprint and
 encrypted credential unverifiable. Restore the file from your backup of the key volume.
 
-The database backup command does not include the key. Back up the key volume separately and
-keep it apart from the database backup.
+The database backup command (`python -m driftsniff backup`, see `retention-and-backup.md`) does
+not include the key. Back up the key volume separately and keep it apart from the database
+backup.
 
 ## Derived keys
 

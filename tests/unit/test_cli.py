@@ -22,6 +22,7 @@ from driftsniff.db.engine import Database, database_path
 from driftsniff.db.migrate import upgrade_to_head
 from driftsniff.secrets.keys import mark_fingerprints_in_use
 from driftsniff.secrets.redact import RedactingFilter
+from driftsniff.sources.retention import RetentionJob
 
 SRC = Path(__file__).resolve().parents[2] / "src"
 
@@ -124,11 +125,8 @@ def test_no_command_exits_with_code_2() -> None:
     assert main([]) == 2
 
 
-@pytest.mark.parametrize("command", ["backup", "create-admin-code"])
-def test_later_phase_commands_say_not_implemented(
-    command: str, capsys: pytest.CaptureFixture[str]
-) -> None:
-    assert main([command]) == 2
+def test_later_phase_commands_say_not_implemented(capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["create-admin-code"]) == 2
     assert "not implemented yet" in capsys.readouterr().err
 
 
@@ -169,6 +167,22 @@ def test_serve_creates_the_master_key_and_gives_it_to_the_app(
     expected_id = hashlib.sha256(key_file.read_bytes()).hexdigest()[:8]
     assert len(apps) == 1
     assert apps[0].state.master_key.key_id == expected_id
+
+
+def test_serve_gives_the_app_the_daily_retention_job(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    apps: list[FastAPI] = []
+
+    def fake_run(app: FastAPI, **kwargs: object) -> None:
+        apps.append(app)
+
+    monkeypatch.setattr(uvicorn, "run", fake_run)
+    monkeypatch.setenv("DRIFTSNIFF_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("DRIFTSNIFF_KEY_FILE", str(tmp_path / "keys" / "master.key"))
+    assert main(["serve"]) == 0
+    assert len(apps) == 1
+    assert isinstance(apps[0].state.retention, RetentionJob)
 
 
 def test_serve_installs_the_log_filter(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
