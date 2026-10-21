@@ -22,9 +22,11 @@ depend on them.
 * Raw objects go to the pipeline untouched. Only the paging envelope and the object key are read
   through pydantic (``models.py``).
 
-Not done here (other tasks): TLS modes (P7-T3), the ordering lists of firewall policies and ACL
-rules (P7-T4) and the factory that builds a client from a stored source and saves the detected base
-path and the state ``unsupported``.
+TLS modes come from ``collectors/tls.py`` (P7-T3): the caller passes the settings of the source.
+
+Not done here (other tasks): the ordering lists of firewall policies and ACL rules (P7-T4) and the
+factory that builds a client from a stored source and saves the detected base path and the state
+``unsupported``.
 
 A host name is resolved once, before the first request, and every address is checked with
 ``blocked_reason``. The connection then resolves the name again, so a name that changes its answer
@@ -35,6 +37,7 @@ import ipaddress
 import re
 import socket
 from collections.abc import Callable, Sequence
+from pathlib import Path
 from typing import Any, Final
 from urllib.parse import quote, urlsplit
 
@@ -53,6 +56,7 @@ from driftsniff.collectors.base import (
     fetch_json,
     make_client,
 )
+from driftsniff.collectors.tls import TlsSettings
 from driftsniff.collectors.unifi.models import InfoAnswer, ObjectRef, PageEnvelope
 from driftsniff.collectors.unifi.resources import (
     API_VERSION_PREFIX,
@@ -62,6 +66,7 @@ from driftsniff.collectors.unifi.resources import (
     RESOURCES,
     SITES_PATH,
 )
+from driftsniff.config import DEFAULT_DATA_DIR
 from driftsniff.core.canonical import JsonValue
 from driftsniff.sources.addresses import blocked_reason, validate_base_url
 
@@ -138,6 +143,8 @@ class UnifiClient(Collector):
         transport: httpx.BaseTransport | None = None,
         request_timeout: float = REQUEST_TIMEOUT_SECONDS,
         resolver: Resolver | None = None,
+        tls: TlsSettings | None = None,
+        data_dir: Path | str = DEFAULT_DATA_DIR,
     ) -> None:
         if not api_key or any(ord(char) < 0x21 or ord(char) > 0x7E for char in api_key):
             raise ValueError("the API key is blank or has characters a header cannot carry")
@@ -145,7 +152,7 @@ class UnifiClient(Collector):
         self._headers = {API_KEY_HEADER: api_key}
         self._hint = base_path if base_path in BASE_PATHS else None
         self._resolver = resolver or _system_resolver
-        self._client = make_client(transport=transport)
+        self._client = make_client(transport=transport, tls=tls, data_dir=data_dir)
         self._client.timeout = httpx.Timeout(request_timeout)
         self._base_path: str | None = None
         self._version: str | None = None

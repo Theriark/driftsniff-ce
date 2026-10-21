@@ -28,10 +28,19 @@ import json
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Final
 
 import httpx
 
+from driftsniff.collectors.tls import (
+    ERROR_TLS,
+    ERROR_TLS_PIN,
+    TlsSettings,
+    build_transport,
+    classify_failure,
+)
+from driftsniff.config import DEFAULT_DATA_DIR
 from driftsniff.core.canonical import JsonValue
 from driftsniff.sources.addresses import FOLLOW_REDIRECTS
 
@@ -49,6 +58,10 @@ ERROR_HTTP: Final = "http_error"
 ERROR_REDIRECT: Final = "redirect_refused"
 ERROR_BODY_TOO_LARGE: Final = "body_too_large"
 ERROR_BAD_JSON: Final = "bad_json"
+_TLS_TEXT: Final = {
+    ERROR_TLS: "the TLS certificate of the controller was not accepted",
+    ERROR_TLS_PIN: "the certificate of the controller is not the pinned one; nothing was sent",
+}
 
 
 def is_retryable(status: str, error_class: str | None) -> bool:
@@ -148,12 +161,23 @@ class Collector(ABC):
         return None
 
 
-def make_client(*, transport: httpx.BaseTransport | None = None) -> httpx.Client:
+def make_client(
+    *,
+    transport: httpx.BaseTransport | None = None,
+    tls: TlsSettings | None = None,
+    data_dir: Path | str = DEFAULT_DATA_DIR,
+) -> httpx.Client:
     """An HTTP client with the limits of this module: 30 second timeout, no redirects.
 
-    The environment is not consulted (no proxy settings from variables). A caller adds its own
-    certificate settings and credential header; ``transport`` is there for tests.
+    The environment is not consulted (no proxy settings from variables). ``tls`` selects the TLS
+    mode of the source (``driftsniff.collectors.tls``; without it the default trust store is
+    used); ``transport`` is there for tests and excludes ``tls``. A caller adds its own credential
+    header.
     """
+    if tls is not None:
+        if transport is not None:
+            raise ValueError("a transport and TLS settings exclude each other")
+        transport = build_transport(tls, data_dir)
     return httpx.Client(
         timeout=REQUEST_TIMEOUT_SECONDS,
         follow_redirects=FOLLOW_REDIRECTS,
@@ -208,7 +232,10 @@ def fetch_json(
             body = read_limited(response, max_bytes=max_bytes)
     except httpx.TimeoutException:
         raise CollectorError(ERROR_TIMEOUT, "the controller did not answer in time") from None
-    except httpx.HTTPError:
+    except httpx.HTTPError as error:
+        tls_class = classify_failure(error)
+        if tls_class is not None:
+            raise CollectorError(tls_class, _TLS_TEXT[tls_class]) from None
         raise CollectorError(ERROR_CONNECTION, "the controller could not be reached") from None
     try:
         parsed: JsonValue = json.loads(body)

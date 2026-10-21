@@ -9,6 +9,10 @@ Rules this module enforces (docs/sources.md has the user view):
 * A base address must be https unless the source has the option ``allow_plain_http``. Setting
   that option writes the audit event ``source.allow_plain_http``. Addresses in the metadata and
   link-local ranges are refused in every case (``driftsniff.sources.addresses``).
+* TLS options (``tls_mode``, ``tls_ca_file``, ``tls_pin``, see ``driftsniff.collectors.tls``) are
+  for polled sources. The mode ``insecure`` needs the confirmation text the caller passes as
+  ``tls_confirmation``, sets the flag option ``insecure`` (the interface shows it as a badge) and
+  writes the audit event ``source.tls_insecure_enabled``.
 * A push source is read through a sender key. ``set_push_key`` makes a new random key, stores
   only its SHA-256 (``push_token_hash``), returns the key once and writes the audit event
   ``source.push_key``; ``push_target`` hands the endpoint the hash and the declared field
@@ -31,6 +35,18 @@ from datetime import UTC, datetime
 import sqlalchemy as sa
 from sqlalchemy import Connection
 
+from driftsniff.collectors.tls import (
+    INSECURE_CONFIRMATION,
+    MODE_INSECURE,
+    MODE_VERIFY,
+    OPTION_INSECURE,
+    OPTION_TLS_CA_FILE,
+    OPTION_TLS_MODE,
+    OPTION_TLS_PIN,
+    TLS_OPTIONS,
+    TlsConfigError,
+    check_options,
+)
 from driftsniff.core.snapshots import gc_unreferenced_states
 from driftsniff.db.engine import Database
 from driftsniff.db.tables import (
@@ -66,6 +82,10 @@ ALLOWED_OPTIONS: Mapping[str, type] = {
     OPTION_ALLOW_PLAIN_HTTP: bool,
     OPTION_INTERVAL_SECONDS: int,
     OPTION_PUSH_FIELDS: dict,
+    OPTION_TLS_MODE: str,
+    OPTION_TLS_CA_FILE: str,
+    OPTION_TLS_PIN: str,
+    OPTION_INSECURE: bool,
 }
 MAX_PUSH_RESOURCES = 100
 MAX_PUSH_FIELDS_PER_RESOURCE = 200
@@ -85,6 +105,7 @@ ACTION_DISABLE = "source.disable"
 ACTION_DELETE = "source.delete"
 ACTION_ALLOW_PLAIN_HTTP = "source.allow_plain_http"
 ACTION_PUSH_ROTATE = "source.push_key"
+ACTION_TLS_INSECURE = "source.tls_insecure_enabled"
 
 
 class SourceError(Exception):
@@ -175,7 +196,41 @@ def _check_options(options: Mapping[str, object]) -> dict[str, object]:
                 f"to {MAX_INTERVAL_SECONDS} seconds"
             )
         checked[key] = _check_push_fields(value) if key == OPTION_PUSH_FIELDS else value
+    return _check_tls_options(checked)
+
+
+def _check_tls_options(checked: dict[str, object]) -> dict[str, object]:
+    """Validate the TLS options and keep the flag ``insecure`` in line with the mode."""
+    if not any(key in checked for key in TLS_OPTIONS):
+        return checked
+    insecure = checked.get(OPTION_TLS_MODE) == MODE_INSECURE
+    if checked.get(OPTION_INSECURE, insecure) is not insecure:
+        raise SourceValidationError(
+            "the insecure flag is set exactly when the TLS mode is insecure"
+        )
+    if insecure:
+        checked[OPTION_INSECURE] = True
+    else:
+        checked.pop(OPTION_INSECURE, None)
+    try:
+        settings = check_options(checked)
+    except TlsConfigError as error:
+        raise SourceValidationError(str(error)) from None
+    if settings.pin is not None:
+        checked[OPTION_TLS_PIN] = settings.pin
     return checked
+
+
+def _is_insecure(options: Mapping[str, object]) -> bool:
+    return options.get(OPTION_TLS_MODE, MODE_VERIFY) == MODE_INSECURE
+
+
+def _require_confirmation(confirmation: str | None) -> None:
+    if confirmation is None or confirmation.strip() != INSECURE_CONFIRMATION:
+        raise SourceValidationError(
+            "the mode insecure turns certificate checks off: "
+            f"type {INSECURE_CONFIRMATION!r} to confirm"
+        )
 
 
 _PUSH_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.:-]*")
@@ -275,6 +330,10 @@ def _audit_plain_http(connection: Connection, at: str, actor: str, source_id: in
     _audit(connection, at, actor, ACTION_ALLOW_PLAIN_HTTP, source_id, {"set": True})
 
 
+def _audit_tls_insecure(connection: Connection, at: str, actor: str, source_id: int) -> None:
+    _audit(connection, at, actor, ACTION_TLS_INSECURE, source_id, {"set": True})
+
+
 def interval_of(options: Mapping[str, object]) -> int:
     """The seconds between two runs of a source: its ``interval_seconds`` option, else 300.
 
@@ -309,6 +368,7 @@ class SourceService:
         base_url: str | None = None,
         credential: str | bytes | None = None,
         options: Mapping[str, object] | None = None,
+        tls_confirmation: str | None = None,
     ) -> SourceView:
         """Add a source. unifi and xo need an address and a credential; push takes neither."""
         if source_type not in SOURCE_TYPES:
@@ -317,6 +377,10 @@ class SourceService:
         checked_options = _check_options(options or {})
         if OPTION_PUSH_FIELDS in checked_options and source_type != "push":
             raise SourceValidationError(f"only a push source has the option {OPTION_PUSH_FIELDS}")
+        if source_type not in POLLED_TYPES and any(key in checked_options for key in TLS_OPTIONS):
+            raise SourceValidationError("only a unifi or xo source has TLS options")
+        if _is_insecure(checked_options):
+            _require_confirmation(tls_confirmation)
         address: str | None = None
         sealed_input: bytes | None = None
         if source_type in POLLED_TYPES:
@@ -350,6 +414,8 @@ class SourceService:
                 _audit(connection, now, actor, ACTION_CREATE, source_id, detail)
                 if checked_options.get(OPTION_ALLOW_PLAIN_HTTP) is True:
                     _audit_plain_http(connection, now, actor, source_id)
+                if _is_insecure(checked_options):
+                    _audit_tls_insecure(connection, now, actor, source_id)
                 view = self._view(connection, source_id)
         except sa.exc.IntegrityError:
             raise SourceNameTakenError("another source already has that name") from None
@@ -365,11 +431,13 @@ class SourceService:
         base_url: str | None = None,
         credential: str | bytes | None = None,
         options: Mapping[str, object] | None = None,
+        tls_confirmation: str | None = None,
     ) -> SourceView:
         """Change the given fields of a source; a field left as None stays as it is.
 
         ``options`` replaces all options. A new credential replaces the stored one; there is no
-        way to remove a credential, delete the source instead.
+        way to remove a credential, delete the source instead. Switching a source to the TLS mode
+        insecure needs ``tls_confirmation``; a source that is already insecure does not.
         """
         cleaned_name = None if name is None else _check_name(name)
         checked_options = None if options is None else _check_options(options)
@@ -388,6 +456,15 @@ class SourceService:
                 has_polled_fields = base_url is not None or credential is not None
                 if row.type not in POLLED_TYPES and has_polled_fields:
                     raise SourceValidationError("a push source has no address and no credential")
+                if (
+                    row.type not in POLLED_TYPES
+                    and checked_options is not None
+                    and any(key in checked_options for key in TLS_OPTIONS)
+                ):
+                    raise SourceValidationError("only a unifi or xo source has TLS options")
+                became_insecure = _is_insecure(effective) and not _is_insecure(row.options)
+                if became_insecure:
+                    _require_confirmation(tls_confirmation)
                 if (
                     checked_options is not None
                     and OPTION_PUSH_FIELDS in checked_options
@@ -420,6 +497,8 @@ class SourceService:
                     and row.options.get(OPTION_ALLOW_PLAIN_HTTP) is not True
                 ):
                     _audit_plain_http(connection, now, actor, source_id)
+                if became_insecure:
+                    _audit_tls_insecure(connection, now, actor, source_id)
                 view = self._view(connection, source_id)
         except sa.exc.IntegrityError:
             raise SourceNameTakenError("another source already has that name") from None

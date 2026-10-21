@@ -61,6 +61,7 @@ list is read once per run. A site id that is not letters, digits, `_` or `-` is 
 | JSON that is not a page of objects | failure `bad_payload` | `error` | no |
 | body cut short | failure `connection` | `error` | no |
 | repeated page | failure `paging_loop` | `error` | no |
+| certificate refused (docs/tls.md) | failure `tls_error` or `tls_pin_mismatch` | `error` | no |
 
 A failed resource keeps its previous state in the pipeline, so nothing is reported as removed.
 Objects reach the pipeline as raw dictionaries; only the paging envelope and the object key are
@@ -68,7 +69,8 @@ read through pydantic (`collectors/unifi/models.py`).
 
 ## What is not here
 
-- TLS modes (P7-T3): the client uses the system trust store only.
+- TLS modes are in `collectors/tls.py` (P7-T3, `docs/tls.md`); the client takes the settings as an
+  argument. Nothing builds those settings from a stored source yet (the factory below).
 - The ordering lists of firewall policies and ACL rules and the rule pack (P7-T4).
 - The factory that builds a client from a stored source and saves the detected base path and the
   state `unsupported`. The source option for the base path does not exist yet; the factory adds
