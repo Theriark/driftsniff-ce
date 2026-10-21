@@ -1,0 +1,370 @@
+name: Finalize release
+
+run-name: publishing:${{ inputs.request_id }}
+
+# Publishes the stable release v27.<minor>.<patch> from the exact commit and image that Stage
+# already runs; never rebuilds, never deploys and never creates an RC or a latest alias. The
+# private publisher dispatches it only after the separate native release approval, with the
+# Stage promotion run it verified. The run re-verifies the existing RC tag (annotated, pointing at
+# source_commit, JSON message matching the inputs), the successful Promote - Stage run and that
+# Stage still holds this digest, then reconciles and writes, in this order: the GHCR version
+# alias (same digest), the annotated stable tag and the non-draft, non-prerelease GitHub release.
+# An existing alias, tag or release is reused only when it already matches; anything else fails
+# the run. No production deployment, environment or credential is involved.
+# Execution ref: development (the registered ref), or stage once it is at source_commit. A run
+# from stage must be at exactly source_commit.
+
+on:
+  workflow_dispatch:
+    inputs:
+      request_id:
+        description: Publisher request identifier (also the run name)
+        required: true
+        type: string
+      version:
+        description: Stable version to publish, for example 27.1.0 or v27.1.0
+        required: true
+        type: string
+      source_commit:
+        description: Full commit SHA that Stage runs and the RC tag points at
+        required: true
+        type: string
+      image:
+        description: Immutable image Stage runs, ghcr.io/theriark/driftsniff-ce@sha256:<digest> or sha256:<digest>
+        required: true
+        type: string
+      development_run_id:
+        description: Run ID of the successful Development run recorded in the RC
+        required: true
+        type: string
+      documentation_manifest_sha256:
+        description: SHA-256 of the reviewed documentation manifest recorded in the RC
+        required: true
+        type: string
+      rc_tag:
+        description: Existing annotated RC tag, v27.<minor>.<patch>-rc.<number>
+        required: true
+        type: string
+      stage_promotion_run_id:
+        description: Run ID of the successful Promote - Stage run for this candidate
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: driftsniff-ce-pipeline
+  cancel-in-progress: false
+
+jobs:
+  finalize:
+    name: Publish stable release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    permissions:
+      actions: read
+      contents: write
+      packages: write
+
+    env:
+      IMAGE: ghcr.io/theriark/driftsniff-ce
+      REQUEST_ID: ${{ inputs.request_id }}
+      VERSION_INPUT: ${{ inputs.version }}
+      SOURCE_COMMIT: ${{ inputs.source_commit }}
+      IMAGE_INPUT: ${{ inputs.image }}
+      DEVELOPMENT_RUN_ID: ${{ inputs.development_run_id }}
+      DOCUMENTATION_MANIFEST_SHA256: ${{ inputs.documentation_manifest_sha256 }}
+      RC_TAG: ${{ inputs.rc_tag }}
+      STAGE_PROMOTION_RUN_ID: ${{ inputs.stage_promotion_run_id }}
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Checkout pipeline code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Validate inputs, execution ref and source commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          fail() {
+            echo "::error::$1"
+            exit 1
+          }
+          [[ "${REQUEST_ID}" =~ ^[A-Za-z0-9._:-]{1,128}$ ]] || fail "request_id has unexpected characters"
+          [[ "${SOURCE_COMMIT}" =~ ^[0-9a-f]{40}$ ]] || fail "source_commit must be a full 40-character commit SHA"
+          [[ "${DEVELOPMENT_RUN_ID}" =~ ^[1-9][0-9]{0,17}$ ]] || fail "development_run_id must be a run ID integer"
+          [[ "${STAGE_PROMOTION_RUN_ID}" =~ ^[1-9][0-9]{0,17}$ ]] || fail "stage_promotion_run_id must be a run ID integer"
+          [[ "${DOCUMENTATION_MANIFEST_SHA256}" =~ ^[0-9a-f]{64}$ ]] || fail "documentation_manifest_sha256 must be 64 lowercase hex characters"
+          [[ "${RC_TAG}" =~ ^v27\.[0-9]+\.[0-9]+-rc\.[0-9]+$ ]] || fail "rc_tag must look like v27.<minor>.<patch>-rc.<number>"
+          [[ "${VERSION_INPUT}" =~ ^v?27\.[0-9]+\.[0-9]+$ ]] || fail "version must be 27.<minor>.<patch>"
+          version_base="${VERSION_INPUT#v}"
+          rc_base="${RC_TAG#v}"
+          rc_base="${rc_base%%-rc.*}"
+          [[ "${version_base}" == "${rc_base}" ]] || fail "version ${VERSION_INPUT} does not belong to ${RC_TAG}"
+          digest="${IMAGE_INPUT#"${IMAGE}@"}"
+          [[ "${digest}" =~ ^sha256:[0-9a-f]{64}$ ]] || fail "image must be ${IMAGE}@sha256:<64 lowercase hex characters>"
+          case "${GITHUB_REF}" in
+            refs/heads/development) ;;
+            refs/heads/stage)
+              [[ "${GITHUB_SHA}" == "${SOURCE_COMMIT}" ]] || fail "a run from stage must be at ${SOURCE_COMMIT}; found ${GITHUB_SHA}"
+              ;;
+            *) fail "release finalization must run from development or stage; received ${GITHUB_REF}" ;;
+          esac
+          git fetch origin \
+            +refs/heads/development:refs/remotes/origin/development \
+            +refs/heads/stage:refs/remotes/origin/stage
+          git cat-file -e "${SOURCE_COMMIT}^{commit}" || fail "${SOURCE_COMMIT} does not exist in this repository"
+          git merge-base --is-ancestor "${SOURCE_COMMIT}" refs/remotes/origin/development || fail "${SOURCE_COMMIT} is not in development history"
+          git merge-base --is-ancestor "${SOURCE_COMMIT}" refs/remotes/origin/stage || fail "${SOURCE_COMMIT} has not reached the stage branch"
+          {
+            echo "DIGEST=${digest}"
+            echo "IMAGE_REF=${IMAGE}@${digest}"
+            echo "STABLE_TAG=v${version_base}"
+          } >> "${GITHUB_ENV}"
+
+      - name: Verify the existing reviewed RC and the Stage promotion run
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          import subprocess
+          import sys
+
+
+          def fail(message):
+              print("::error::" + message)
+              sys.exit(1)
+
+
+          def run(*args):
+              return subprocess.run(args, check=True, capture_output=True, text=True).stdout.strip()
+
+
+          tag = os.environ["RC_TAG"]
+          source = os.environ["SOURCE_COMMIT"]
+          digest = os.environ["DIGEST"]
+          development_run = int(os.environ["DEVELOPMENT_RUN_ID"])
+          stage_run = int(os.environ["STAGE_PROMOTION_RUN_ID"])
+          manifest = os.environ["DOCUMENTATION_MANIFEST_SHA256"]
+          repository = os.environ["GITHUB_REPOSITORY"]
+          ref = "refs/tags/" + tag
+
+          try:
+              kind = run("git", "cat-file", "-t", ref)
+          except subprocess.CalledProcessError:
+              fail("RC tag " + tag + " does not exist; this workflow never creates an RC")
+          if kind != "tag":
+              fail("RC tag " + tag + " is not an annotated tag")
+          if run("git", "rev-parse", ref + "^{commit}") != source:
+              fail("RC tag " + tag + " does not point at " + source)
+          try:
+              meta = json.loads(run("git", "tag", "-l", "--format=%(contents)", tag))
+          except ValueError:
+              fail("the message of " + tag + " is not JSON")
+          if not isinstance(meta, dict):
+              fail("the message of " + tag + " is not a JSON object")
+          expected = {
+              "sourceCommit": source,
+              "imageDigest": digest,
+              "developmentRunId": development_run,
+              "documentationManifestSha256": manifest,
+          }
+          for key, value in expected.items():
+              found = meta.get(key)
+              if found != value or type(found) is not type(value):
+                  fail("RC tag " + tag + " field " + key + " does not match the dispatch inputs")
+
+          try:
+              dev = json.loads(run("gh", "api", "repos/" + repository + "/actions/runs/" + str(development_run)))
+          except (subprocess.CalledProcessError, ValueError):
+              fail("Development run " + str(development_run) + " was not found in this repository")
+          if dev.get("status") != "completed" or dev.get("conclusion") != "success":
+              fail("Development run " + str(development_run) + " did not complete successfully")
+          if dev.get("head_sha") != source:
+              fail("Development run " + str(development_run) + " did not run " + source)
+
+          try:
+              stage = json.loads(run("gh", "api", "repos/" + repository + "/actions/runs/" + str(stage_run)))
+          except (subprocess.CalledProcessError, ValueError):
+              fail("Stage promotion run " + str(stage_run) + " was not found in this repository")
+          if stage.get("status") != "completed" or stage.get("conclusion") != "success":
+              fail("Stage promotion run " + str(stage_run) + " did not complete successfully")
+          if stage.get("event") != "workflow_dispatch":
+              fail("Stage promotion run " + str(stage_run) + " was not a dispatched run")
+          if str(stage.get("path", "")).split("@")[0] != ".github/workflows/promote-stage.yml":
+              fail("run " + str(stage_run) + " is not a Promote - Stage run")
+
+          gate_cycle = meta.get("gateCycle")
+          if type(gate_cycle) is int:
+              with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env_file:
+                  env_file.write("GATE_CYCLE=" + str(gate_cycle) + "\n")
+          print("RC " + tag + " and Stage promotion run " + str(stage_run) + " verified for " + source)
+          PY
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+
+      - name: Confirm Stage runs the RC digest published for the commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          fail() {
+            echo "::error::$1"
+            exit 1
+          }
+          tag="sha-${SOURCE_COMMIT::12}"
+          resolved="$(docker buildx imagetools inspect "${IMAGE}:${tag}" --format '{{.Manifest.Digest}}')"
+          [[ "${resolved}" == "${DIGEST}" ]] || fail "RC digest ${DIGEST} does not match the image published for ${SOURCE_COMMIT} (${resolved})"
+          stage_alias="$(docker buildx imagetools inspect "${IMAGE}:stage" --format '{{.Manifest.Digest}}')"
+          [[ "${stage_alias}" == "${DIGEST}" ]] || fail "${IMAGE}:stage resolves to ${stage_alias}, not ${DIGEST}; Stage no longer runs this candidate"
+          echo "Stage runs ${IMAGE_REF}"
+
+      - name: Reconcile the GHCR version alias
+        shell: bash
+        run: |
+          set -euo pipefail
+          if existing="$(docker buildx imagetools inspect "${IMAGE}:${STABLE_TAG}" --format '{{.Manifest.Digest}}' 2> /dev/null)"; then
+            [[ "${existing}" == "${DIGEST}" ]] || {
+              echo "::error::${IMAGE}:${STABLE_TAG} already points at ${existing}, not ${DIGEST}"
+              exit 1
+            }
+            echo "::notice::${IMAGE}:${STABLE_TAG} already points at ${DIGEST}; reused"
+          else
+            docker buildx imagetools create --tag "${IMAGE}:${STABLE_TAG}" "${IMAGE_REF}"
+            created="$(docker buildx imagetools inspect "${IMAGE}:${STABLE_TAG}" --format '{{.Manifest.Digest}}')"
+            [[ "${created}" == "${DIGEST}" ]] || {
+              echo "::error::${IMAGE}:${STABLE_TAG} resolves to ${created}, not ${DIGEST}"
+              exit 1
+            }
+          fi
+
+      - name: Reconcile or create the annotated stable tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          import subprocess
+          import sys
+
+
+          def fail(message):
+              print("::error::" + message)
+              sys.exit(1)
+
+
+          def run(*args):
+              return subprocess.run(args, check=True, capture_output=True, text=True).stdout.strip()
+
+
+          tag = os.environ["STABLE_TAG"]
+          source = os.environ["SOURCE_COMMIT"]
+          ref = "refs/tags/" + tag
+          expected = {
+              "sourceCommit": source,
+              "imageDigest": os.environ["DIGEST"],
+              "developmentRunId": int(os.environ["DEVELOPMENT_RUN_ID"]),
+              "workflowRunId": int(os.environ["GITHUB_RUN_ID"]),
+              "documentationManifestSha256": os.environ["DOCUMENTATION_MANIFEST_SHA256"],
+              "stagePromotionRunId": int(os.environ["STAGE_PROMOTION_RUN_ID"]),
+              "rcTag": os.environ["RC_TAG"],
+          }
+          if os.environ.get("GATE_CYCLE"):
+              expected["gateCycle"] = int(os.environ["GATE_CYCLE"])
+
+          remote = subprocess.run(
+              ["git", "ls-remote", "--exit-code", "--tags", "origin", ref],
+              capture_output=True,
+              text=True,
+          )
+          if remote.returncode == 0:
+              run("git", "fetch", "origin", ref + ":" + ref)
+              if run("git", "cat-file", "-t", ref) != "tag":
+                  fail("existing tag " + tag + " is not an annotated tag")
+              if run("git", "rev-parse", ref + "^{commit}") != source:
+                  fail("existing tag " + tag + " does not point at " + source)
+              try:
+                  existing = json.loads(run("git", "tag", "-l", "--format=%(contents)", tag))
+              except ValueError:
+                  fail("the message of existing tag " + tag + " is not JSON")
+              if not isinstance(existing, dict):
+                  fail("the message of existing tag " + tag + " is not a JSON object")
+              if type(existing.get("workflowRunId")) is not int:
+                  fail("existing tag " + tag + " has no integer workflowRunId")
+              for key, value in expected.items():
+                  if key == "workflowRunId":
+                      continue
+                  found = existing.get(key)
+                  if found != value or type(found) is not type(value):
+                      fail("existing tag " + tag + " field " + key + " differs from this release")
+              print("existing tag " + tag + " matches this release; reused")
+          elif remote.returncode == 2:
+              path = os.path.join(os.environ["RUNNER_TEMP"], "stable-tag.json")
+              with open(path, "w", encoding="utf-8") as handle:
+                  handle.write(json.dumps(expected, sort_keys=True, separators=(",", ":")) + "\n")
+              run("git", "config", "user.name", "github-actions[bot]")
+              run("git", "config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com")
+              run("git", "tag", "-a", tag, source, "-F", path)
+              run("git", "push", "origin", ref)
+              print("created annotated tag " + tag + " at " + source)
+          else:
+              fail("could not read the remote tags: " + remote.stderr.strip())
+          PY
+
+      - name: Reconcile or create the GitHub release
+        shell: bash
+        run: |
+          set -euo pipefail
+          errors="${RUNNER_TEMP}/release-view.err"
+          if state="$(gh release view "${STABLE_TAG}" --json isDraft,isPrerelease --jq '[.isDraft,.isPrerelease]|map(tostring)|join(",")' 2> "${errors}")"; then
+            [[ "${state}" == "false,false" ]] || {
+              echo "::error::release ${STABLE_TAG} exists but is a draft or prerelease (${state}); not changing it"
+              exit 1
+            }
+            echo "::notice::release ${STABLE_TAG} already published; reused"
+          else
+            grep -qi 'release not found' "${errors}" || {
+              echo "::error::could not read release ${STABLE_TAG}"
+              exit 1
+            }
+            notes="${RUNNER_TEMP}/release-notes.md"
+            {
+              echo "Stable release ${STABLE_TAG} of driftsniff-ce, promoted from the reviewed candidate ${RC_TAG} without a rebuild."
+              echo
+              echo "- Source commit: ${SOURCE_COMMIT}"
+              echo "- Immutable image: ${IMAGE_REF}"
+              echo "- Documentation manifest SHA-256: ${DOCUMENTATION_MANIFEST_SHA256}"
+              echo "- Stage promotion run: ${STAGE_PROMOTION_RUN_ID}"
+            } > "${notes}"
+            gh release create "${STABLE_TAG}" --verify-tag --title "driftsniff-ce ${STABLE_TAG}" --notes-file "${notes}" --latest=false
+          fi
+
+      - name: Record immutable release result
+        shell: bash
+        run: |
+          {
+            echo "## driftsniff-ce stable release published"
+            echo
+            echo "- Request: \`${REQUEST_ID}\`"
+            echo "- Release: \`${STABLE_TAG}\`"
+            echo "- Source commit: \`${SOURCE_COMMIT}\`"
+            echo "- Immutable image: \`${IMAGE_REF}\`"
+            echo "- RC tag: \`${RC_TAG}\`"
+            echo "- Stage promotion run: \`${STAGE_PROMOTION_RUN_ID}\`"
+            echo "- Documentation manifest SHA-256: \`${DOCUMENTATION_MANIFEST_SHA256}\`"
+            echo "- Rebuild performed: no"
+          } >> "${GITHUB_STEP_SUMMARY}"
