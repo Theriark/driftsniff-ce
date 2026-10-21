@@ -1,0 +1,198 @@
+# Type tables of the UniFi collector (P7-T1). Notes with sources: docs/vendor-notes/unifi.md.
+#
+# Every field name below is UNVERIFIED. Gate A is waived for development, dependency D5 (the vendor
+# API reference) is still open, and no name was checked against a lab controller. The names come
+# from third party descriptions of the UniFi Network Integration API (see the notes, section
+# "Sources"). Until D5 and the lab fixtures confirm a name, a field that is not listed here is
+# unclassified and shows as a fingerprint only. The notes list every doubtful name.
+#
+# The resource names carry the prefix unifi- because a resource can be defined only once across
+# all type files and the Xen Orchestra tables already use networks and users.
+#
+# Two decisions that the table makes visible to the collector (P7-T4):
+# - The action of a firewall policy is nested in the vendor object (action.type). The order
+#   detail of the engine reads a flat top level field, so the table names a derived top level
+#   field actionType as its action_field. The collector copies action.type to actionType before
+#   it normalises; action.type itself is ignore class so a change is reported once.
+# - Firewall policies are ordered per pair of zones by the vendor. The position list of the
+#   collection (one list for the resource) is built by the collector from those per pair lists.
+#
+# Security sensitive objects (zones, firewall policies, ACL rules, WiFi broadcasts, RADIUS
+# profiles, VPN servers and tunnels) have the object floor high; the removal of a zone, a firewall
+# policy or an ACL rule is critical. Fields classed secret are the WiFi passphrase, the RADIUS
+# shared secret and the VPN pre-shared key; any other credential field the API may return is
+# unclassified, so it is shown as a fingerprint and never as a value.
+version: 1
+types:
+  - resource: unifi-sites
+    key_field: id
+    name_field: name
+    fields:
+      id: config
+      name: config
+      internalReference: config
+  - resource: unifi-site-settings
+    key_field: id
+    fields:
+      # No site settings endpoint is confirmed (notes, section "Site settings"); only the key is
+      # classified so that a later P7 task can add the fields it verifies.
+      id: config
+  - resource: unifi-networks
+    key_field: id
+    name_field: name
+    fields:
+      id: config
+      name: config
+      enabled: config
+      management: config
+      vlanId: config
+      internetAccessEnabled: config
+      dhcpGuarding.trustedDhcpServerIpAddresses: config
+      dhcpConfig.dnsServers: config
+    lists:
+      dhcpGuarding.trustedDhcpServerIpAddresses: set
+      dhcpConfig.dnsServers: ordered-scalar
+  - resource: unifi-wifi-broadcasts
+    key_field: id
+    name_field: name
+    floor: high
+    fields:
+      id: config
+      name: config
+      enabled: config
+      type: config
+      network.networkId: config
+      securityConfiguration.type: config
+      securityConfiguration.passphrase: secret
+      broadcastingFrequenciesGHz: config
+      hideName: config
+      clientIsolationEnabled: config
+    lists:
+      broadcastingFrequenciesGHz: set
+  - resource: unifi-firewall-zones
+    key_field: id
+    name_field: name
+    floors: {added: high, removed: critical, modified: high, moved: high}
+    fields:
+      id: config
+      name: config
+      networkIds: config
+    lists:
+      networkIds: set
+  - resource: unifi-firewall-policies
+    collection: ordered-keyed
+    key_field: id
+    name_field: name
+    action_field: actionType
+    blocking_actions: [block, reject]
+    first_match: true
+    floors: {added: high, removed: critical, modified: high, moved: high}
+    fields:
+      id: config
+      name: config
+      description: config
+      enabled: config
+      actionType: config
+      action.type: ignore
+      action.allowReturnTraffic: config
+      source.zoneId: config
+      destination.zoneId: config
+      ipProtocolScope: config
+      connectionStateFilter: config
+      ipsecFilter: config
+      loggingEnabled: config
+      index: ignore
+    lists:
+      connectionStateFilter: set
+  - resource: unifi-acl-rules
+    collection: ordered-keyed
+    key_field: id
+    name_field: name
+    action_field: action
+    blocking_actions: [block]
+    first_match: true
+    floors: {added: high, removed: critical, modified: high, moved: high}
+    fields:
+      id: config
+      name: config
+      description: config
+      type: config
+      enabled: config
+      action: config
+      index: ignore
+  - resource: unifi-dns-policies
+    key_field: id
+    name_field: domain
+    fields:
+      id: config
+      type: config
+      enabled: config
+      domain: config
+  - resource: unifi-traffic-matching-lists
+    key_field: id
+    name_field: name
+    fields:
+      id: config
+      name: config
+      type: config
+      items: config
+    lists:
+      items: set
+  - resource: unifi-wans
+    key_field: id
+    name_field: name
+    fields:
+      id: config
+      name: config
+      dnsServers: config
+    lists:
+      dnsServers: ordered-scalar
+  - resource: unifi-vpn-site-to-site-tunnels
+    key_field: id
+    name_field: name
+    floor: high
+    fields:
+      id: config
+      name: config
+      type: config
+      enabled: config
+      preSharedKey: secret
+  - resource: unifi-vpn-servers
+    key_field: id
+    name_field: name
+    floor: high
+    fields:
+      id: config
+      name: config
+      type: config
+      enabled: config
+      preSharedKey: secret
+  - resource: unifi-radius-profiles
+    key_field: id
+    name_field: name
+    floor: high
+    fields:
+      id: config
+      name: config
+      sharedSecret: secret
+  - resource: unifi-device-tags
+    key_field: id
+    name_field: name
+    fields:
+      id: config
+      name: config
+      deviceIds: config
+    lists:
+      deviceIds: set
+  - resource: unifi-devices
+    key_field: id
+    name_field: name
+    fields:
+      id: config
+      name: config
+      model: config
+      firmwareVersion: config
+      state: config
+      uptimeSec: ignore
+      lastHeartbeatAt: ignore
+      statistics: ignore
