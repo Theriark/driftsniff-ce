@@ -1,0 +1,84 @@
+# Test-only type tables for the golden table (P5-T4), in the shipped file format.
+#
+# They declare exactly the fields the golden rows name, with the resource names of the shipped
+# Xen Orchestra tables, plus two fields the shipped table deliberately does not collect
+# (vms docker.enabled, users pw_hash) so that rows 8 and 18 can run. Nothing here is loaded by the
+# application: tests/golden/support.py loads this folder as a rules root.
+version: 1
+types:
+  - resource: vms
+    key_field: id
+    name_field: name_label
+    fields:
+      id: config
+      name_label: config
+      notes: config
+      secureBoot: config
+      docker.enabled: config
+      memory.usage: ignore
+  - resource: vifs
+    key_field: id
+    fields:
+      id: config
+      rateLimit: config
+  - resource: networks
+    key_field: id
+    name_field: name_label
+    fields:
+      id: config
+      name_label: config
+  - resource: hosts
+    key_field: id
+    name_field: name_label
+    fields:
+      id: config
+      name_label: config
+      supplementalPacks: config
+    lists:
+      supplementalPacks: set
+  - resource: backup-jobs
+    key_field: id
+    name_field: name
+    fields:
+      id: config
+      name: config
+      settings.exportRetention: config
+      settings.reportRecipients: config
+    lists:
+      settings.reportRecipients: set
+  - resource: backup-repositories
+    key_field: id
+    name_field: name
+    floor: high
+    fields:
+      id: config
+      name: config
+      url: config
+  - resource: servers
+    key_field: id
+    name_field: label
+    floor: high
+    fields:
+      id: config
+      label: config
+      readOnly: config
+      allowUnauthorized: config
+  - resource: users
+    key_field: id
+    name_field: email
+    floor: high
+    fields:
+      id: config
+      email: config
+      permission: config
+      pw_hash: secret
+  - resource: groups
+    key_field: id
+    name_field: name
+    floor: high
+    fields:
+      id: config
+      name: config
+      aclRoleIds: config
+    lists:
+      aclRoleIds: set

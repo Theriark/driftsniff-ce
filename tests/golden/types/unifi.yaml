@@ -1,0 +1,46 @@
+# Test-only type tables for the UniFi rows of the golden table (P5-T4), in the shipped file format.
+#
+# The field names are illustrative: the plan says the shipped run maps them to the real names of
+# the vendor reference (P7-T1). The resource names carry the prefix unifi- because the loader
+# refuses a resource defined twice and the Xen Orchestra tables already use networks and users.
+version: 1
+types:
+  - resource: unifi-networks
+    key_field: id
+    name_field: name
+    fields:
+      id: config
+      name: config
+  - resource: unifi-devices
+    key_field: id
+    name_field: name
+    fields:
+      id: config
+      name: config
+      radio.channel: ignore
+  - resource: unifi-site-settings
+    key_field: id
+    fields:
+      id: config
+      guest_portal.title: config
+      mgmt.led_enabled: config
+  - resource: unifi-wlans
+    key_field: id
+    name_field: name
+    floor: high
+    fields:
+      id: config
+      name: config
+      security: config
+      passphrase: secret
+  - resource: unifi-firewall-policies
+    collection: ordered-keyed
+    key_field: id
+    name_field: name
+    action_field: action
+    first_match: true
+    floors: {added: high, removed: critical, modified: high, moved: high}
+    fields:
+      id: config
+      name: config
+      action: config
