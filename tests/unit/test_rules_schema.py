@@ -6,6 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from driftsniff.core import diff
+from driftsniff.core.canonical import JsonValue
 from driftsniff.core.normalize import (
     CollectionMode,
     FieldClass,
@@ -332,7 +333,7 @@ def test_a_resource_table_can_be_used_as_a_type_table() -> None:
         )
     )
     table: TypeTable = spec.to_table()
-    raw = {
+    raw: dict[str, JsonValue] = {
         "id": "vm-1",
         "name_label": "web",
         "memory": {"usage": 123},

@@ -247,7 +247,7 @@ class TypeSpec(BaseModel):
         """The floor of each kind of change: ``floor`` applies to all four kinds."""
         floor = self.floor
         if floor is not None:
-            return {kind: floor for kind in FLOOR_KINDS}
+            return dict.fromkeys(FLOOR_KINDS, floor)
         return {str(kind): severity for kind, severity in self.floors.items()}
 
     def to_table(self) -> ResourceTable:

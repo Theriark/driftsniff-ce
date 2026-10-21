@@ -263,8 +263,8 @@ def test_rules_whose_predicates_exclude_each_other_do_not_tie(root: Path) -> Non
         root,
         "packs/xo/a.yaml",
         pack(
-            entry("on", "secureBoot", "high", when="{name: boolean_flips_to, value: false}"),
-            entry("off", "secureBoot", "low", when="{name: boolean_flips_to, value: true}"),
+            entry("to_off", "secureBoot", "high", when="{name: boolean_flips_to, value: false}"),
+            entry("to_on", "secureBoot", "low", when="{name: boolean_flips_to, value: true}"),
             entry(
                 "down",
                 "settings.exportRetention",
