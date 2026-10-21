@@ -56,3 +56,39 @@ Four purpose keys are derived with HKDF-SHA256 (no salt, 32 bytes, the label as 
 The master key and the derived keys are never logged, shown in an error message or returned by
 the interface. A test checks the hex, base64 and bytes forms of every key against the
 representations, error texts, tracebacks, log output and standard streams of every failure path.
+
+## Credential encryption
+
+A source credential is encrypted with AES-256-GCM under the credential key. The stored value
+is the base64 text of a version byte (`1`), a 12 byte random nonce and the ciphertext with its
+16 byte tag. The associated data is `driftsniff-credential-v1/source/<source id>/key/<key id>`,
+so a value copied to another source, or one whose `key_id` column was edited, does not decrypt.
+The key id is stored next to the value in the `key_id` column of the source. A wrong key, a
+wrong source and damaged data all fail with one clean error that never contains the credential.
+A credential is limited to 64 KiB.
+
+## Rekey
+
+Use it when the master key must change. A secret fingerprint is a keyed hash and the secret is
+not stored, so fingerprints cannot be converted; they are re-stamped by one collection cycle.
+
+1. Move the old key file aside, keep it, and run
+   `DRIFTSNIFF_OLD_KEY_FILE=<old file> driftsniff rekey`. The new master key is the file named
+   by `DRIFTSNIFF_KEY_FILE`; it is created (mode `0400`) when it does not exist. In one
+   transaction every stored credential is re-encrypted with the new key and the rekey state is
+   saved. A credential made with a third key stops the rekey and nothing changes.
+2. For one full collection cycle the old key file stays available through
+   `DRIFTSNIFF_OLD_KEY_FILE`. For each stored fingerprint the collector computes it again with
+   the key that made it. Equal: the secret did not change, so it is stored again under the new
+   key with no change item. Different: a real change, shown as usual.
+3. When every enabled source has finished one clean cycle, one system event `fingerprint_rekey`
+   is written and the old key file can be removed.
+
+If the old key is lost, run `driftsniff rekey --old-key-lost`. One system event
+`baseline_reestablished` is written (secret changes during the gap are unknown), fingerprints
+are re-stamped without a comparison, and credentials made with the lost key cannot be recovered:
+enter them again.
+
+Limits: only one rekey runs at a time; a source that is disabled when the rekey starts is not
+waited for, so its fingerprints are re-stamped without a comparison if it is enabled later. The
+collection runs that call the re-stamp check arrive with the collectors (phases 6 to 8).
