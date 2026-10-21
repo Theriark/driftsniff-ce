@@ -120,9 +120,7 @@ def test_it_gives_up_after_three_attempts_with_the_real_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     module = load_module()
-    transport = Transport(
-        module, [TimeoutError("The read operation timed out")] * 3, monkeypatch
-    )
+    transport = Transport(module, [TimeoutError("The read operation timed out")] * 3, monkeypatch)
     with pytest.raises(module.DokployError, match="read operation timed out"):
         update(module)
     assert len(transport.timeouts) == 3
