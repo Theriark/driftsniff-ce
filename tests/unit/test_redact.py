@@ -133,6 +133,15 @@ def test_ordinary_values_are_left_alone() -> None:
     assert result.fingerprints == 0
 
 
+def test_a_punctuated_random_token_in_a_config_field_is_not_stored_in_plaintext() -> None:
+    candidate = "aB3x(Qz9;Lm2&Kp7!RtWv"
+    result = redact({"_id": "w1", "notes": candidate, "name": "Guest WiFi (temporary)"})
+    assert result.value["notes"] == marker_of("notes", candidate)
+    assert candidate not in json.dumps(result.value)
+    assert result.value["name"] == "Guest WiFi (temporary)"
+    assert result.forced == (ForcedSecret("notes", ScanRule.HIGH_ENTROPY),)
+
+
 def test_the_input_is_not_changed() -> None:
     raw: dict[str, JsonValue] = {
         "_id": "w1",
