@@ -9,13 +9,21 @@ Rules this module enforces (docs/sources.md has the user view):
 * A base address must be https unless the source has the option ``allow_plain_http``. Setting
   that option writes the audit event ``source.allow_plain_http``. Addresses in the metadata and
   link-local ranges are refused in every case (``driftsniff.sources.addresses``).
+* A push source is read through a sender key. ``set_push_key`` makes a new random key, stores
+  only its SHA-256 (``push_token_hash``), returns the key once and writes the audit event
+  ``source.push_key``; ``push_target`` hands the endpoint the hash and the declared field
+  allow-list, never a key.
 * Deleting a source removes every row that belongs to it and the states that no snapshot refers
   to any more, in one transaction, and writes the audit event ``source.delete``.
 
 Every change is a single transaction on the one writer connection (``Database.write()``).
 """
 
+import hashlib
+import hmac
 import logging
+import re
+import secrets
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -49,11 +57,24 @@ logger = logging.getLogger(__name__)
 MAX_NAME_CHARS = 100
 OPTION_ALLOW_PLAIN_HTTP = "allow_plain_http"
 OPTION_INTERVAL_SECONDS = "interval_seconds"
+OPTION_PUSH_FIELDS = "push_fields"
 DEFAULT_INTERVAL_SECONDS = 300
 MIN_INTERVAL_SECONDS = 60
 MAX_INTERVAL_SECONDS = 3600
 # Option name to the type its value must have. Later phases add their options here.
-ALLOWED_OPTIONS: Mapping[str, type] = {OPTION_ALLOW_PLAIN_HTTP: bool, OPTION_INTERVAL_SECONDS: int}
+ALLOWED_OPTIONS: Mapping[str, type] = {
+    OPTION_ALLOW_PLAIN_HTTP: bool,
+    OPTION_INTERVAL_SECONDS: int,
+    OPTION_PUSH_FIELDS: dict,
+}
+MAX_PUSH_RESOURCES = 100
+MAX_PUSH_FIELDS_PER_RESOURCE = 200
+MAX_PUSH_NAME_CHARS = 100
+PUSH_KEY_PREFIX = "dsp_"
+PUSH_KEY_BYTES = 32
+# Compared against when a source does not exist or has no key, so that a request for such a
+# source takes as long as one for a source with a key.
+_ABSENT_HASH = hashlib.sha256(b"driftsniff: no push key").hexdigest()
 # Source types that read a controller and therefore need an address and a credential.
 POLLED_TYPES = ("unifi", "xo")
 
@@ -63,6 +84,7 @@ ACTION_ENABLE = "source.enable"
 ACTION_DISABLE = "source.disable"
 ACTION_DELETE = "source.delete"
 ACTION_ALLOW_PLAIN_HTTP = "source.allow_plain_http"
+ACTION_PUSH_ROTATE = "source.push_key"
 
 
 class SourceError(Exception):
@@ -101,6 +123,21 @@ class SourceView:
     last_checked_at: str | None
     last_success_at: str | None
     controller_version: str | None
+    has_push_key: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class PushTarget:
+    """What the push endpoint needs to know about a push source.
+
+    ``key_hash`` is the SHA-256 of the sender key as 64 hex characters, or None when no key has
+    been made; ``fields`` maps each resource to the top-level fields the admin declared.
+    """
+
+    source_id: int
+    enabled: bool
+    key_hash: str | None
+    fields: dict[str, list[str]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -137,8 +174,69 @@ def _check_options(options: Mapping[str, object]) -> dict[str, object]:
                 f"the source option {key} must be from {MIN_INTERVAL_SECONDS} "
                 f"to {MAX_INTERVAL_SECONDS} seconds"
             )
-        checked[key] = value
+        checked[key] = _check_push_fields(value) if key == OPTION_PUSH_FIELDS else value
     return checked
+
+
+_PUSH_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.:-]*")
+
+
+def _check_push_fields(value: object) -> dict[str, list[str]]:
+    """The declared fields of a push source: resource name to a list of top-level field names."""
+    if not isinstance(value, dict):
+        raise SourceValidationError(f"the source option {OPTION_PUSH_FIELDS} must be dict")
+    if len(value) > MAX_PUSH_RESOURCES:
+        raise SourceValidationError(
+            f"{OPTION_PUSH_FIELDS} declares at most {MAX_PUSH_RESOURCES} resources"
+        )
+    checked: dict[str, list[str]] = {}
+    for resource, names in value.items():
+        if (
+            not isinstance(resource, str)
+            or len(resource) > MAX_PUSH_NAME_CHARS
+            or _PUSH_NAME.fullmatch(resource) is None
+        ):
+            raise SourceValidationError(
+                f"{OPTION_PUSH_FIELDS} has a resource name that is not valid"
+            )
+        if not isinstance(names, list) or not names:
+            raise SourceValidationError(
+                f"{OPTION_PUSH_FIELDS} needs a non-empty list of fields for each resource"
+            )
+        if len(names) > MAX_PUSH_FIELDS_PER_RESOURCE:
+            raise SourceValidationError(
+                f"{OPTION_PUSH_FIELDS} lists at most {MAX_PUSH_FIELDS_PER_RESOURCE} fields "
+                "for a resource"
+            )
+        for name in names:
+            if (
+                not isinstance(name, str)
+                or not name
+                or len(name) > MAX_PUSH_NAME_CHARS
+                or not name.isprintable()
+            ):
+                raise SourceValidationError(
+                    f"{OPTION_PUSH_FIELDS} has a field name that is not valid"
+                )
+        if len(set(names)) != len(names):
+            raise SourceValidationError(f"{OPTION_PUSH_FIELDS} lists a field twice")
+        checked[resource] = list(names)
+    return checked
+
+
+def hash_push_key(key: str) -> str:
+    """The SHA-256 of a sender key as 64 hex characters; this is all that is stored."""
+    return hashlib.sha256(key.encode("utf-8")).hexdigest()
+
+
+def push_key_matches(presented: str, stored_hash: str | None) -> bool:
+    """Whether ``presented`` is the key whose hash is ``stored_hash``, in constant time.
+
+    A missing hash never matches, but the comparison still runs against a fixed value.
+    """
+    expected = _ABSENT_HASH if stored_hash is None else stored_hash
+    equal = hmac.compare_digest(hash_push_key(presented), expected)
+    return equal and stored_hash is not None
 
 
 def _check_credential(credential: str | bytes) -> bytes:
@@ -217,6 +315,8 @@ class SourceService:
             raise SourceValidationError(f"unknown source type {source_type!r}")
         cleaned_name = _check_name(name)
         checked_options = _check_options(options or {})
+        if OPTION_PUSH_FIELDS in checked_options and source_type != "push":
+            raise SourceValidationError(f"only a push source has the option {OPTION_PUSH_FIELDS}")
         address: str | None = None
         sealed_input: bytes | None = None
         if source_type in POLLED_TYPES:
@@ -288,6 +388,14 @@ class SourceService:
                 has_polled_fields = base_url is not None or credential is not None
                 if row.type not in POLLED_TYPES and has_polled_fields:
                     raise SourceValidationError("a push source has no address and no credential")
+                if (
+                    checked_options is not None
+                    and OPTION_PUSH_FIELDS in checked_options
+                    and row.type != "push"
+                ):
+                    raise SourceValidationError(
+                        f"only a push source has the option {OPTION_PUSH_FIELDS}"
+                    )
                 if base_url is not None or checked_options is not None:
                     current = base_url if base_url is not None else row.base_url
                     if current is not None:
@@ -360,6 +468,38 @@ class SourceService:
         logger.info("source %s deleted", source_id)
         return DeleteResult(collected.removed_count, collected.freed_bytes)
 
+    def set_push_key(self, source_id: int, *, actor: str) -> str:
+        """Make a new sender key for a push source and return it; it is shown this once.
+
+        Only the SHA-256 of the key is stored. A key made earlier stops working at once. The
+        audit event names the source and whether a key was replaced, never the key.
+        """
+        sender = PUSH_KEY_PREFIX + secrets.token_urlsafe(PUSH_KEY_BYTES)
+        now = self._clock()
+        with self._database.write() as connection:
+            row = self._row(connection, source_id)
+            if row.type != "push":
+                raise SourceValidationError("only a push source has a sender key")
+            connection.execute(
+                sa.update(sources)
+                .where(sources.c.id == source_id)
+                .values(push_token_hash=hash_push_key(sender))
+            )
+            detail: dict[str, object] = {"replaced": row.push_token_hash is not None}
+            _audit(connection, now, actor, ACTION_PUSH_ROTATE, source_id, detail)
+        logger.info("source %s got a new push key", source_id)
+        return sender
+
+    def push_target(self, source_id: int) -> PushTarget | None:
+        """The push endpoint's view of a source, or None when it is not a push source."""
+        with self._database.read() as connection:
+            row = connection.execute(sa.select(sources).where(sources.c.id == source_id)).first()
+        if row is None or row.type != "push":
+            return None
+        declared = row.options.get(OPTION_PUSH_FIELDS)
+        fields = {} if not isinstance(declared, dict) else _check_push_fields(declared)
+        return PushTarget(int(row.id), bool(row.enabled), row.push_token_hash, fields)
+
     def get(self, source_id: int) -> SourceView:
         """One source, without its credential."""
         with self._database.read() as connection:
@@ -422,4 +562,5 @@ class SourceService:
             last_checked_at=row.last_checked_at,
             last_success_at=row.last_success_at,
             controller_version=row.controller_version,
+            has_push_key=row.push_token_hash is not None,
         )
