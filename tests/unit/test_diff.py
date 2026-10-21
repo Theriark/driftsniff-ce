@@ -59,9 +59,20 @@ NETWORK = StaticTypeTable(
         "members.id": FieldClass.CONFIG,
         "members.role": FieldClass.CONFIG,
         "members.token": FieldClass.SECRET,
+        "rules": FieldClass.CONFIG,
+        "rules.id": FieldClass.CONFIG,
+        "rules.action": FieldClass.CONFIG,
+        "ports": FieldClass.CONFIG,
+        "ports.idx": FieldClass.CONFIG,
+        "ports.mode": FieldClass.CONFIG,
     },
-    collection_modes={"tags": CollectionMode.SET, "members": CollectionMode.SET},
-    item_key_fields={"members": "id"},
+    collection_modes={
+        "tags": CollectionMode.SET,
+        "members": CollectionMode.SET,
+        "rules": CollectionMode.ORDERED_KEYED,
+        "ports": CollectionMode.VENDOR_INDEX,
+    },
+    item_key_fields={"members": "id", "rules": "id", "ports": "idx"},
 )
 TABLES: Mapping[str, TypeTable] = {"network": NETWORK, "device": NETWORK, "site": NETWORK}
 
@@ -293,6 +304,59 @@ def test_a_keyed_set_member_that_is_new_or_gone_is_added_or_removed() -> None:
     assert (removed.change_kind, removed.after_value) == ("removed", None)
 
 
+def rule(key: str, action: str = "allow") -> dict[str, JsonValue]:
+    return {"id": key, "action": action}
+
+
+def test_an_ordered_keyed_list_matches_members_by_key_not_by_position() -> None:
+    before: dict[str, JsonValue] = {"rules": [rule("r1"), rule("r2"), rule("r3")]}
+    after: dict[str, JsonValue] = {"rules": [rule("r0"), rule("r1"), rule("r2"), rule("r3")]}
+    item = one(diff_one(before, after))
+    assert (item.change_kind, item.path, item.before_value) == ("added", "rules", None)
+    assert json.loads(item.after_value or "") == rule("r0")
+
+
+def test_an_ordered_keyed_member_that_changed_is_one_modified_item_without_an_index() -> None:
+    before: dict[str, JsonValue] = {"rules": [rule("r1"), rule("r2", "allow")]}
+    after: dict[str, JsonValue] = {"rules": [rule("r1"), rule("r2", "deny")]}
+    item = one(diff_one(before, after))
+    assert (item.change_kind, item.path) == ("modified", "rules")
+    assert json.loads(item.before_value or "") == rule("r2", "allow")
+    assert json.loads(item.after_value or "") == rule("r2", "deny")
+
+
+def test_the_order_of_an_ordered_keyed_list_is_not_read_here() -> None:
+    before: dict[str, JsonValue] = {"rules": [rule("r1"), rule("r2")]}
+    after: dict[str, JsonValue] = {"rules": [rule("r2"), rule("r1")]}
+    assert diff_one(before, after) == []
+
+
+def test_a_repeated_key_in_an_ordered_list_is_matched_by_occurrence() -> None:
+    before: dict[str, JsonValue] = {"rules": [rule("r1", "allow"), rule("r1", "deny")]}
+    after: dict[str, JsonValue] = {"rules": [rule("r1", "allow"), rule("r1", "allow")]}
+    item = one(diff_one(before, after))
+    assert (item.change_kind, item.path) == ("modified", "rules")
+    assert json.loads(item.before_value or "") == rule("r1", "deny")
+
+
+def test_a_vendor_index_list_is_keyed_by_its_index_field() -> None:
+    before: dict[str, JsonValue] = {"ports": [{"idx": 1, "mode": "a"}, {"idx": 2, "mode": "b"}]}
+    inserted: dict[str, JsonValue] = {
+        "ports": [{"idx": 0, "mode": "z"}, {"idx": 1, "mode": "a"}, {"idx": 2, "mode": "b"}]
+    }
+    added = one(diff_one(before, inserted))
+    assert (added.change_kind, added.path) == ("added", "ports")
+    changed: dict[str, JsonValue] = {"ports": [{"idx": 1, "mode": "a"}, {"idx": 2, "mode": "c"}]}
+    modified = one(diff_one(before, changed))
+    assert (modified.change_kind, modified.path) == ("modified", "ports")
+    assert json.loads(modified.after_value or "") == {"idx": 2, "mode": "c"}
+
+
+def test_an_ordered_scalar_list_keeps_the_position_in_the_path() -> None:
+    item = one(diff_one({"dns": ["a", "b"]}, {"dns": ["a", "c"]}))
+    assert item.path == "dns.1"
+
+
 # ---- secrets and unclassified fields ------------------------------------------------------
 
 
@@ -474,6 +538,47 @@ def test_a_field_that_changes_instead_of_appearing_is_not_drift() -> None:
     previous = build({"network": [obj("a", v=1), obj("b", v=1)]}, controller="1.0")
     new = build({"network": [obj("a", v=2), obj("b", v=2)]}, controller="2.0")
     assert {item.change_kind for item in run(previous, new)} == {"modified"}
+
+
+def test_a_set_member_added_to_every_object_is_not_schema_drift() -> None:
+    user: dict[str, JsonValue] = {"id": "m1", "role": "user"}
+    admin: dict[str, JsonValue] = {"id": "m9", "role": "admin"}
+    keys = ["a", "b", "c"]
+    previous = build({"network": [obj(k, members=[user]) for k in keys]}, controller="1.0")
+    new = build({"network": [obj(k, members=[user, admin]) for k in keys]}, controller="2.0")
+    items = run(previous, new)
+    assert {item.change_kind for item in items} == {"added"}
+    assert [(item.object_key, item.path) for item in items] == [(k, "members") for k in keys]
+    assert all(json.loads(item.after_value or "") == admin for item in items)
+
+
+def test_a_tag_added_to_every_object_is_not_schema_drift() -> None:
+    previous = build({"network": [obj(k, tags=["x"]) for k in "ab"]}, controller="1.0")
+    new = build({"network": [obj(k, tags=["x", "y"]) for k in "ab"]}, controller="2.0")
+    items = run(previous, new)
+    assert [(item.change_kind, item.object_key, item.path) for item in items] == [
+        ("added", "a", "tags"),
+        ("added", "b", "tags"),
+    ]
+
+
+def test_an_ordered_keyed_member_added_to_every_object_is_not_schema_drift() -> None:
+    previous = build({"network": [obj(k, rules=[rule("r1")]) for k in "ab"]}, controller="1.0")
+    new = build(
+        {"network": [obj(k, rules=[rule("r1"), rule("r2")]) for k in "ab"]}, controller="2.0"
+    )
+    assert {item.change_kind for item in run(previous, new)} == {"added"}
+
+
+def test_drift_covers_a_new_field_and_leaves_the_added_members_per_object() -> None:
+    previous = build({"network": [obj(k, tags=["x"]) for k in "ab"]}, controller="1.0")
+    new = build({"network": [obj(k, tags=["x", "y"], fresh=1) for k in "ab"]}, controller="2.0")
+    items = run(previous, new)
+    assert sorted((item.change_kind, item.object_key, item.path) for item in items) == [
+        ("added", "a", "tags"),
+        ("added", "b", "tags"),
+        ("schema_drift", None, "fresh"),
+    ]
 
 
 # ---- baseline and resources ---------------------------------------------------------------
