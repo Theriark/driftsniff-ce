@@ -22,9 +22,18 @@ from typing import Any
 IMAGE_RE = re.compile(r"^ghcr\.io/theriark/driftsniff-ce@sha256:[0-9a-f]{64}$")
 COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 
+# Dokploy can answer a mutating call slowly; reads stay at the shorter default.
+MUTATION_TIMEOUT = 120
+IDEMPOTENT_ATTEMPTS = 3
+RETRY_BACKOFF_SECONDS = 5
+
 
 class DokployError(RuntimeError):
     pass
+
+
+class DokployTransientError(DokployError):
+    """Transport failure or HTTP 5xx: the request may be retried when it is idempotent."""
 
 
 def required_env(name: str) -> str:
@@ -62,17 +71,31 @@ def request_json(
             body = response.read().decode("utf-8", errors="replace")
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")[:500]
-        raise DokployError(
+        error_class = DokployTransientError if exc.code >= 500 else DokployError
+        raise error_class(
             f"Dokploy API {method} {path} failed with HTTP {exc.code}: {detail}"
         ) from exc
     except (TimeoutError, urllib.error.URLError) as exc:
-        raise DokployError(f"Dokploy API {method} {path} failed: {exc}") from exc
+        raise DokployTransientError(f"Dokploy API {method} {path} failed: {exc}") from exc
     if not body.strip():
         return {}
     try:
         return json.loads(body)
     except json.JSONDecodeError:
         return body
+
+
+def request_json_idempotent(method: str, path: str, **kwargs: Any) -> Any:
+    """request_json with retries on transient failures; only for idempotent calls."""
+    for attempt in range(1, IDEMPOTENT_ATTEMPTS + 1):
+        try:
+            return request_json(method, path, **kwargs)
+        except DokployTransientError as exc:
+            if attempt == IDEMPOTENT_ATTEMPTS:
+                raise
+            print(f"WARN: {exc}; retrying ({attempt}/{IDEMPOTENT_ATTEMPTS - 1})")
+            time.sleep(RETRY_BACKOFF_SECONDS * attempt)
+    raise DokployError("unreachable")  # pragma: no cover
 
 
 def find_key(value: Any, key: str) -> Any | None:
@@ -117,7 +140,9 @@ def current_image(application_id: str, *, allow_missing: bool = False) -> str:
     value returns "" instead (an application that has never been deployed has no image yet).
     A value of any other type always raises.
     """
-    response = request_json("GET", "application.one", query={"applicationId": application_id})
+    response = request_json_idempotent(
+        "GET", "application.one", query={"applicationId": application_id}
+    )
     image = find_key(response, "dockerImage")
     if isinstance(image, str) and image.strip():
         return image.strip()
@@ -175,11 +200,14 @@ def deploy(args: argparse.Namespace) -> None:
     if previous == args.image and args.noop_ok:
         print(f"No image change required for {args.application_id}")
     else:
-        request_json(
+        # Setting the same image twice is harmless, so this call is retried on a timeout.
+        request_json_idempotent(
             "POST",
             "application.update",
             payload={"applicationId": args.application_id, "dockerImage": args.image},
+            timeout=MUTATION_TIMEOUT,
         )
+        # Not retried: a second call could queue a second deployment.
         request_json(
             "POST",
             "application.deploy",
@@ -188,6 +216,7 @@ def deploy(args: argparse.Namespace) -> None:
                 "title": args.title,
                 "description": args.description,
             },
+            timeout=MUTATION_TIMEOUT,
         )
         print(f"Deployment requested for {args.application_id}: {args.image}")
     wait_health(args.health_url, args.timeout, args.expected_commit)
