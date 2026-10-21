@@ -124,7 +124,7 @@ def test_no_command_exits_with_code_2() -> None:
     assert main([]) == 2
 
 
-@pytest.mark.parametrize("command", ["backup", "rekey", "create-admin-code"])
+@pytest.mark.parametrize("command", ["backup", "create-admin-code"])
 def test_later_phase_commands_say_not_implemented(
     command: str, capsys: pytest.CaptureFixture[str]
 ) -> None:

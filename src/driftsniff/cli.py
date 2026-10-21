@@ -6,6 +6,7 @@ import json
 import logging
 import sys
 from collections.abc import Sequence
+from datetime import UTC, datetime
 
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -13,8 +14,15 @@ from driftsniff import __version__
 from driftsniff.config import ConfigError, Settings
 from driftsniff.db.engine import Database, database_path
 from driftsniff.db.migrate import DatabaseTooNewError, upgrade_to_head
-from driftsniff.secrets.keys import MasterKey, master_key_or_exit
+from driftsniff.secrets.keys import (
+    MasterKey,
+    MasterKeyError,
+    ensure_master_key,
+    load_master_key,
+    master_key_or_exit,
+)
 from driftsniff.secrets.redact import install_log_filter
+from driftsniff.secrets.rekey import RekeyError, run_rekey
 
 EXIT_CONFIG = 1
 EXIT_NOT_IMPLEMENTED = 2
@@ -30,7 +38,7 @@ COMMANDS = {
     "create-admin-code": "Print a one-time code for creating the first admin.",
     "healthcheck": "Exit 0 when the local server answers /healthz (container health check).",
 }
-NOT_IMPLEMENTED_COMMANDS = ("backup", "rekey", "create-admin-code")
+NOT_IMPLEMENTED_COMMANDS = ("backup", "create-admin-code")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -42,7 +50,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="version", version=f"driftsniff {__version__}")
     subparsers = parser.add_subparsers(dest="command", metavar="command")
     for name, summary in COMMANDS.items():
-        subparsers.add_parser(name, help=summary, description=summary)
+        command_parser = subparsers.add_parser(name, help=summary, description=summary)
+        if name == "rekey":
+            command_parser.add_argument(
+                "--old-key-lost",
+                action="store_true",
+                help="the old master key is lost: re-stamp fingerprints without comparing them",
+            )
     return parser
 
 
@@ -67,6 +81,46 @@ def _migrate(settings: Settings) -> int:
         print(f"driftsniff: database error: {error}", file=sys.stderr)
         return EXIT_CONFIG
     print(f"database is at revision {revision}")
+    return 0
+
+
+def _rekey(settings: Settings, *, old_key_lost: bool) -> int:
+    """Start a rekey: re-encrypt the credentials and open the collection cycle.
+
+    The new master key is the file named by DRIFTSNIFF_KEY_FILE (created when it does not exist);
+    the old one is the file named by DRIFTSNIFF_OLD_KEY_FILE, or lost (--old-key-lost).
+    """
+    if old_key_lost == (settings.old_key_file is not None):
+        print(
+            "driftsniff: set DRIFTSNIFF_OLD_KEY_FILE to the old key file, or pass "
+            "--old-key-lost when it is gone (not both)",
+            file=sys.stderr,
+        )
+        return EXIT_CONFIG
+    try:
+        old = None if settings.old_key_file is None else load_master_key(settings.old_key_file)
+        new = ensure_master_key(settings.key_file, fingerprints_exist=False)
+        now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+        database = Database(database_path(settings.data_dir))
+        try:
+            result = run_rekey(database, old, new, now)
+        finally:
+            database.close()
+    except (MasterKeyError, RekeyError) as error:
+        print(f"driftsniff: {error}", file=sys.stderr)
+        return EXIT_CONFIG
+    except (OSError, SQLAlchemyError) as error:
+        print(f"driftsniff: rekey failed: {error}", file=sys.stderr)
+        return EXIT_CONFIG
+    print(f"re-encrypted {result.credentials_rekeyed} credential(s) with key {new.key_id}")
+    if old is None:
+        print("old key lost: fingerprints are re-stamped without a comparison during one cycle")
+        print("credentials made with the lost key cannot be recovered: enter them again")
+    else:
+        print(
+            "keep the old key file in place until every enabled source has finished one clean "
+            "collection cycle; a fingerprint_rekey audit event then marks the rekey complete"
+        )
     return 0
 
 
@@ -147,4 +201,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _healthcheck(settings)
     if command == "migrate":
         return _migrate(settings)
+    if command == "rekey":
+        return _rekey(settings, old_key_lost=args.old_key_lost)
     return _serve(settings)

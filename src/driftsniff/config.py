@@ -78,6 +78,8 @@ class Settings:
     key_file: Path
     data_dir: Path
     port: int
+    # The old master key during a rekey (DRIFTSNIFF_OLD_KEY_FILE); None otherwise.
+    old_key_file: Path | None = None
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> Self:
@@ -99,6 +101,7 @@ class Settings:
         log_level = DEFAULT_LOG_LEVEL if level_text is None else _parse_log_level(level_text)
         key_file_text = _raw(source, "KEY_FILE")
         data_dir_text = _raw(source, "DATA_DIR")
+        old_key_file_text = _raw(source, "OLD_KEY_FILE")
         return cls(
             base_url=base_url,
             trusted_proxy=trusted_proxy,
@@ -106,4 +109,5 @@ class Settings:
             key_file=Path(DEFAULT_KEY_FILE if key_file_text is None else key_file_text),
             data_dir=Path(DEFAULT_DATA_DIR if data_dir_text is None else data_dir_text),
             port=port,
+            old_key_file=None if old_key_file_text is None else Path(old_key_file_text),
         )
