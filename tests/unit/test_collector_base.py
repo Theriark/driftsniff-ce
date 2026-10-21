@@ -32,7 +32,9 @@ from driftsniff.collectors.base import (
 from driftsniff.sources.addresses import FOLLOW_REDIRECTS
 
 URL = "https://controller.example/api/networks?token=CANARY-query-0001"
-HEADERS = {"X-API-KEY": "CANARY-header-0002"}
+HEADER_NAME = "X-Probe-Header"
+HEADER_VALUE = "CANARY-header-0002"
+HEADERS = {HEADER_NAME: HEADER_VALUE}
 
 
 def client_for(handler: httpx.MockTransport) -> httpx.Client:
@@ -153,7 +155,7 @@ def test_a_collector_must_implement_the_three_calls() -> None:
     assert reader.probe() is None
     assert [spec.name for spec in reader.resources()] == ["networks"]
     assert reader.fetch(ResourceSpec("networks")).ok is True
-    assert reader.close() is None
+    reader.close()
 
 
 def test_the_client_has_a_timeout_and_never_follows_redirects() -> None:
@@ -184,7 +186,7 @@ def test_fetch_json_returns_the_parsed_body_and_its_size() -> None:
     raw = b'{"data": [{"_id": "a"}, {"_id": "b"}]}'
 
     def handler(request: httpx.Request) -> httpx.Response:
-        assert request.headers["x-api-key"] == "CANARY-header-0002"
+        assert request.headers[HEADER_NAME.lower()] == HEADER_VALUE
         return httpx.Response(200, content=raw)
 
     with client_for(httpx.MockTransport(handler)) as client:

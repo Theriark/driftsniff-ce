@@ -614,7 +614,9 @@ class RunPipeline:
                 sa.select(sources.c.last_success_at).where(sources.c.id == source_id)
             ).scalar_one()
             previous = latest_snapshot(connection, source_id)
-            manifest = _carry_over(connection, previous, fresh)
+            manifest = _carry_over(
+                connection, None if previous is None else previous.manifest, fresh
+            )
             finished = self._clock()
             window_start = last_success or (finished if previous is None else previous.taken_at)
             result = record_collection(
