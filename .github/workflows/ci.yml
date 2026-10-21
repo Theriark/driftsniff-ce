@@ -5,6 +5,8 @@ name: CI
 # hashed requirement files and nothing else. The check jobs are independent so one failure
 # never hides another; deploy-development waits for all of them. The image is built once by the
 # build job; scan, smoke and sbom test that same image and deploy-development pushes exactly it.
+# The nightly-properties job runs only on the daily schedule or a manual mode=nightly dispatch. It
+# is report only: no pull_request trigger, not a required check, and no other job needs it.
 
 on:
   pull_request:
@@ -13,16 +15,19 @@ on:
   push:
     branches:
       - development
+  schedule:
+    - cron: "23 3 * * *"
   workflow_dispatch:
     inputs:
       mode:
-        description: "test runs the checks; lock compiles hashed requirements and commits them to this branch"
+        description: "test runs the checks; lock compiles hashed requirements and commits them to this branch; nightly runs only the report-only property tests"
         required: false
         default: test
         type: choice
         options:
           - test
           - lock
+          - nightly
 
 permissions:
   contents: read
@@ -651,6 +656,87 @@ jobs:
             echo "- Immutable image: \`${IMAGE}@${DIGEST}\`"
             echo "- Runtime verified: Dokploy image equals digest; https://${DEVELOPMENT_HOST}/healthz reports the commit"
           } >> "${GITHUB_STEP_SUMMARY}"
+
+  nightly-properties:
+    name: Nightly property tests
+    # Report only. Runs on the daily schedule or a manual mode=nightly dispatch, never on a pull
+    # request or a push. Not a required check; gate, deploy-development and every other job ignore it.
+    if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.mode == 'nightly') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    permissions:
+      contents: read
+
+    # Its own group: it never joins driftsniff-ce-pipeline and never cancels a running deployment.
+    concurrency:
+      group: driftsniff-ce-nightly-properties
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install locked dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv .venv
+          .venv/bin/python -m pip install --require-hashes --no-deps -r requirements-dev.txt
+          .venv/bin/python -m pip check
+
+      # The documented command of docs/ci-baseline.md section 10.2, run from the repository root
+      # with the interpreter of the locked virtual environment.
+      - name: Run the nightly property tests
+        id: properties
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/nightly"
+          HYPOTHESIS_PROFILE=nightly .venv/bin/python -m pytest -q -o addopts="" -p no:cacheprovider tests/properties 2>&1 | tee "${RUNNER_TEMP}/nightly/pytest-output.txt"
+
+      # Writes the result, and on a failure the Hypothesis seed and falsifying example, to the job summary.
+      - name: Job summary
+        if: ${{ !cancelled() }}
+        shell: bash
+        env:
+          OUTCOME: ${{ steps.properties.outcome }}
+        run: |
+          set -euo pipefail
+          output="${RUNNER_TEMP}/nightly/pytest-output.txt"
+          {
+            echo "## Nightly property tests (report only)"
+            echo
+            echo "- Profile: nightly (5000 cases per property, new random seed on every run)"
+            echo "- Source commit: ${GITHUB_SHA}"
+            echo "- Result: ${OUTCOME}"
+            if [[ "${OUTCOME}" != "success" ]]; then
+              echo
+              echo "### Failing seed and example"
+              echo
+              echo '```'
+              if [[ -f "${output}" ]]; then
+                grep -E -A 30 'Falsifying example|reproduce_failure|hypothesis-seed|@seed|^FAILED ' "${output}" | head -n 200 || true
+              else
+                echo "no pytest output was written"
+              fi
+              echo '```'
+            fi
+            echo
+            echo "The full pytest output is the artifact nightly-properties-pytest-output."
+          } >> "${GITHUB_STEP_SUMMARY}"
+          if [[ "${OUTCOME}" != "success" ]]; then
+            echo "::error::nightly property tests ${OUTCOME}; see the job summary and the artifact nightly-properties-pytest-output (report only, no merge is blocked)"
+          fi
+
+      - name: Upload pytest output
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: nightly-properties-pytest-output
+          path: ${{ runner.temp }}/nightly/pytest-output.txt
+          retention-days: 30
+          if-no-files-found: warn
 
   lock-requirements:
     name: Lock hashed requirements

@@ -101,7 +101,7 @@ A pull request into `development` needs every job below to be green. The names a
 | `CI / Container smoke` | `smoke` | `scripts/container-smoke.sh` passes on the image from `build` | `build` |
 | `CI / SBOM` | `sbom` | Syft writes a CycloneDX document with components for the image from `build`; it is uploaded as artifact `driftsniff-sbom` | `build` |
 
-Other jobs of the same workflow are not pull request checks: `Publish and deploy Development` (`deploy-development`) runs only after a push to `development`, only while `DEPLOY_DEVELOPMENT_ENABLED` is `true`, and only after all twelve check jobs above succeed; `Lock hashed requirements` (`lock-requirements`) runs only for a manual `mode=lock` dispatch.
+Other jobs of the same workflow are not pull request checks: `Publish and deploy Development` (`deploy-development`) runs only after a push to `development`, only while `DEPLOY_DEVELOPMENT_ENABLED` is `true`, and only after all twelve check jobs above succeed; `Lock hashed requirements` (`lock-requirements`) runs only for a manual `mode=lock` dispatch; `Nightly property tests` (`nightly-properties`) runs only on the daily schedule or a manual `mode=nightly` dispatch and is **not a required check** (section 10.5).
 
 Concurrency: a newer `ci-go` run of the same pull request cancels the older one (group `pr-<ref>`). Deployments use the group `driftsniff-ce-pipeline` and are never cancelled.
 
@@ -252,7 +252,7 @@ Profiles are registered in `tests/properties/conftest.py` and selected with the 
 | Profile | Cases per property | Seed | Used by |
 |---|---|---|---|
 | `ci` (default) | 500 | fixed (`derandomize=True`), no example database | every `CI / Tests` run, so the result is reproducible |
-| `nightly` | 5000 | new random seed on every run (`derandomize=False`) | the nightly job (P4-T3b), report only |
+| `nightly` | 5000 | new random seed on every run (`derandomize=False`) | the nightly job (section 10.5), report only |
 
 `test_each_property_ran_at_least_the_profile_budget` fails the `ci` run if a property ran fewer than 500 cases.
 
@@ -274,3 +274,26 @@ Run it in the same environment as the `test` job (hashed `requirements-dev.txt` 
 - Schema drift is not generated (the controller version is the same on both sides); it stays covered by `tests/unit/test_diff.py`.
 - Property 2 cannot tell an empty container from a missing one, because `compare` reports both the same way when the other side has members. That is by design of the diff, not a defect.
 - `compare_order` (manifest positions, `order_changed`) is covered by `tests/unit/test_order.py`; only `diff_order` has a property here.
+
+### 10.5 Nightly job (P4-T3b)
+
+Job `nightly-properties` ("Nightly property tests") in `ci.yml`. It is **not a required check** and must never be added to the branch protection of `development`. The three-workflow-file rule keeps it inside `ci.yml` instead of a new file.
+
+| Item | Rule |
+|---|---|
+| Runs when | `schedule` once a day at 03:23 UTC, or `workflow_dispatch` with `mode` = `nightly`. Never on `pull_request` or `push`. With `mode` = `nightly` only this job runs; `gate` and every other job are skipped |
+| Independence | No other job lists it in `needs`; `gate` and `deploy-development` do not depend on it. Its failure blocks no merge and no deployment |
+| Setup | Checkout, a virtual environment, hashed install of `requirements-dev.txt` with `--require-hashes --no-deps`, `pip check` (the same as the `test` job) |
+| Command | The command of section 10.2, run from the repository root with the interpreter of the locked virtual environment (`.venv/bin/python` instead of `python`) |
+| Permissions | `contents: read` |
+| Concurrency | Own group `driftsniff-ce-nightly-properties`, `cancel-in-progress: false`. It never uses `driftsniff-ce-pipeline` and never cancels a running deployment |
+| Time limit | 30 minutes |
+
+Where to read the result: open the workflow `CI` in the Actions tab, filter by event `schedule` (or open the manual run), and open the job `Nightly property tests`. A red job is the report: the job summary shows the result, the source commit and, on a failure, the lines around `Falsifying example`, `@reproduce_failure`, any seed Hypothesis printed and the failed test names; an `::error::` annotation points to it. The full pytest output is the artifact `nightly-properties-pytest-output` (30 days). To act on a failure, copy the minimal example and the `@reproduce_failure` blob into a report and add the example as a regular unit test, as section 10.2 says.
+
+Limits:
+
+- GitHub starts scheduled workflows only from the default branch, which is `main` in the plan. Until `ci.yml` with this job exists on the default branch (it reaches `main` with the first production promotion), no scheduled run starts; a manual dispatch can run it on `development` before that.
+- Scheduled runs can be delayed or skipped by GitHub under load, and GitHub disables a schedule after 60 days without repository activity. A missing night is not a pass.
+- A failing night shows as a red `CI` run with event `schedule`; it is not tied to a commit that someone just pushed, so read the job summary before assuming a regression.
+- Nobody is notified by the job itself; reading the Actions tab is part of the weekly Delivery check.
