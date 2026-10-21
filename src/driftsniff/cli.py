@@ -7,11 +7,13 @@ import logging
 import sys
 from collections.abc import Sequence
 from datetime import UTC, datetime
+from pathlib import Path
 
 from sqlalchemy.exc import SQLAlchemyError
 
 from driftsniff import __version__
 from driftsniff.config import ConfigError, Settings
+from driftsniff.db.backup import KEY_WARNING, BackupError, backup_database, default_backup_path
 from driftsniff.db.engine import Database, database_path
 from driftsniff.db.migrate import DatabaseTooNewError, upgrade_to_head
 from driftsniff.secrets.keys import (
@@ -23,6 +25,7 @@ from driftsniff.secrets.keys import (
 )
 from driftsniff.secrets.redact import install_log_filter
 from driftsniff.secrets.rekey import RekeyError, run_rekey
+from driftsniff.sources.retention import RetentionJob
 
 EXIT_CONFIG = 1
 EXIT_NOT_IMPLEMENTED = 2
@@ -33,12 +36,12 @@ HEALTHCHECK_TIMEOUT_SECONDS = 3.0
 COMMANDS = {
     "serve": "Run the web application (one worker).",
     "migrate": "Upgrade the database schema to the latest revision.",
-    "backup": "Write a consistent backup of the database.",
+    "backup": "Write a consistent backup of the database to a new file.",
     "rekey": "Re-encrypt stored credentials with a new master key.",
     "create-admin-code": "Print a one-time code for creating the first admin.",
     "healthcheck": "Exit 0 when the local server answers /healthz (container health check).",
 }
-NOT_IMPLEMENTED_COMMANDS = ("backup", "create-admin-code")
+NOT_IMPLEMENTED_COMMANDS = ("create-admin-code",)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -51,6 +54,13 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", metavar="command")
     for name, summary in COMMANDS.items():
         command_parser = subparsers.add_parser(name, help=summary, description=summary)
+        if name == "backup":
+            command_parser.add_argument(
+                "target",
+                nargs="?",
+                type=Path,
+                help="the new file to write (default: a time-stamped file in DATA_DIR/backups)",
+            )
         if name == "rekey":
             command_parser.add_argument(
                 "--old-key-lost",
@@ -81,6 +91,19 @@ def _migrate(settings: Settings) -> int:
         print(f"driftsniff: database error: {error}", file=sys.stderr)
         return EXIT_CONFIG
     print(f"database is at revision {revision}")
+    return 0
+
+
+def _backup(settings: Settings, target: Path | None) -> int:
+    """Write a checked copy of the database to a new file; never overwrite an existing one."""
+    destination = target or default_backup_path(settings.data_dir, datetime.now(UTC))
+    try:
+        result = backup_database(database_path(settings.data_dir), destination)
+    except BackupError as error:
+        print(f"driftsniff: {error}", file=sys.stderr)
+        return EXIT_CONFIG
+    print(f"backup written to {result.path} ({result.size_bytes} bytes), integrity check passed")
+    print(f"warning: {KEY_WARNING}")
     return 0
 
 
@@ -149,17 +172,22 @@ def _serve(settings: Settings) -> int:
     install_log_filter()
     # The container must listen on all interfaces; the platform routes to the published port.
     host = "0.0.0.0"  # noqa: S104
-    uvicorn.run(
-        create_app(settings, master_key),
-        host=host,
-        port=settings.port,
-        log_level=settings.log_level,
-        log_config=None,
-        access_log=False,
-        server_header=False,
-        proxy_headers=settings.trusted_proxy,
-        forwarded_allow_ips="*",
-    )
+    # The one database of the process: the daily retention job writes through it.
+    database = Database(database_path(settings.data_dir))
+    try:
+        uvicorn.run(
+            create_app(settings, master_key, retention=RetentionJob(database)),
+            host=host,
+            port=settings.port,
+            log_level=settings.log_level,
+            log_config=None,
+            access_log=False,
+            server_header=False,
+            proxy_headers=settings.trusted_proxy,
+            forwarded_allow_ips="*",
+        )
+    finally:
+        database.close()
     return 0
 
 
@@ -201,6 +229,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _healthcheck(settings)
     if command == "migrate":
         return _migrate(settings)
+    if command == "backup":
+        return _backup(settings, args.target)
     if command == "rekey":
         return _rekey(settings, old_key_lost=args.old_key_lost)
     return _serve(settings)

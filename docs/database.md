@@ -27,7 +27,8 @@ The schema is created and upgraded by numbered Alembic revisions that ship insid
 ## Stored configuration
 
 States, manifests and snapshots, and how little a run without changes stores, are described in
-[snapshots.md](snapshots.md).
+[snapshots.md](snapshots.md). Old history is deleted every day and the database is backed up with
+`python -m driftsniff backup`: see [retention-and-backup.md](retention-and-backup.md).
 
 ## Exit codes
 
