@@ -1,22 +1,48 @@
 name: Promote - Stage
 
-# Promotes the immutable image already built for a tested commit to Stage; never rebuilds.
+run-name: "publishing:${{ inputs.request_id }}"
+
+# Promotes the immutable image of an already reviewed release candidate (RC) to Stage; never
+# rebuilds, never creates or moves an RC tag and never substitutes the newest Development image.
 # NOT enabled: the first job (guard) fails the run before any deploy step unless the repository
-# variable PROMOTE_STAGE_ENABLED is exactly 'true'. It stays unset until Stage promotion is
-# separately authorised.
-# Rollback is this workflow run again with an earlier approved source_sha (and its digest).
+# variable PROMOTE_STAGE_ENABLED is exactly 'true'. It stays unset until the separate native
+# Stage-promotion approval exists and the switch is set for that one run.
+# Inputs follow the publishing contract. The promoted digest must be the image published for
+# source_commit (tag sha-<12>), the digest sealed in the annotated rc_tag, and the image of a
+# successful push CI run (development_run_id) on that same commit.
+# Rollback is this workflow run again with the inputs of an earlier approved RC; the stage branch
+# is then left where it is.
 
 on:
   workflow_dispatch:
     inputs:
-      source_sha:
-        description: Full commit SHA whose published image is promoted (current development for a normal promotion)
+      request_id:
+        description: Publication request id; also the run name (publishing:<request_id>)
         required: true
         type: string
-      digest:
-        description: Optional sha256 digest of an earlier approved image (rollback); empty for a normal promotion
-        required: false
-        default: ""
+      version:
+        description: Release version, for example v27.0.0 or the RC version v27.0.0-rc.1
+        required: true
+        type: string
+      source_commit:
+        description: Full commit SHA of the reviewed RC and of the image to promote
+        required: true
+        type: string
+      image:
+        description: Immutable image ghcr.io/theriark/driftsniff-ce@sha256:<digest> of that commit
+        required: true
+        type: string
+      development_run_id:
+        description: Run id of the successful push CI run on development that built the image
+        required: true
+        type: string
+      documentation_manifest_sha256:
+        description: SHA-256 of the reviewed documentation manifest sealed in the RC tag
+        required: true
+        type: string
+      rc_tag:
+        description: Existing annotated RC tag, for example v27.0.0-rc.1, to verify and consume
+        required: true
         type: string
 
 permissions:
@@ -58,20 +84,24 @@ jobs:
     environment: stage
 
     permissions:
+      actions: read
       contents: write
       packages: write
 
     env:
       IMAGE: ghcr.io/theriark/driftsniff-ce
-      SOURCE_SHA: ${{ inputs.source_sha }}
-      INPUT_DIGEST: ${{ inputs.digest }}
+      REQUEST_ID: ${{ inputs.request_id }}
+      VERSION: ${{ inputs.version }}
+      SOURCE_COMMIT: ${{ inputs.source_commit }}
+      IMAGE_INPUT: ${{ inputs.image }}
+      DEVELOPMENT_RUN_ID: ${{ inputs.development_run_id }}
+      DOCUMENTATION_MANIFEST_SHA256: ${{ inputs.documentation_manifest_sha256 }}
+      RC_TAG: ${{ inputs.rc_tag }}
       DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
       DOKPLOY_API_KEY: ${{ secrets.DOKPLOY_API_KEY }}
       CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
       CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
-      DOKPLOY_DEVELOPMENT_APPLICATION_ID: VmPHofibLNZ_eYa6y6r8R
       DOKPLOY_STAGE_APPLICATION_ID: lhB_AOqk4FTEaHhEQcPKj
-      DEVELOPMENT_HOST: ce-dev-driftsniff.theriark.dev
       STAGE_HOST: ce-stg-driftsniff.theriark.dev
 
     steps:
@@ -80,51 +110,102 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Validate promotion source
+      - name: Validate inputs and branch state
         shell: bash
         run: |
           set -euo pipefail
-          [[ "${SOURCE_SHA}" =~ ^[0-9a-f]{40}$ ]] || {
-            echo "::error::source_sha must be a full 40-character commit SHA"
+          fail() {
+            echo "::error::$1"
             exit 1
           }
-          [[ -z "${INPUT_DIGEST}" || "${INPUT_DIGEST}" =~ ^sha256:[0-9a-f]{64}$ ]] || {
-            echo "::error::digest must be empty or sha256:<64 lowercase hex characters>"
-            exit 1
-          }
-          [[ "${GITHUB_REF}" == "refs/heads/development" ]] || {
-            echo "::error::Stage promotion must run from development; received ${GITHUB_REF}"
-            exit 1
-          }
-          for required in DOKPLOY_URL DOKPLOY_API_KEY CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET; do
-            [[ -n "${!required}" ]] || {
-              echo "::error::${required} is missing"
-              exit 1
-            }
-          done
-          git fetch origin \
-            +refs/heads/development:refs/remotes/origin/development \
-            +refs/heads/main:refs/remotes/origin/main
-          git cat-file -e "${SOURCE_SHA}^{commit}" || {
-            echo "::error::${SOURCE_SHA} does not exist in this repository"
-            exit 1
-          }
-          if [[ -z "${INPUT_DIGEST}" ]]; then
-            DEVELOPMENT_SHA="$(git rev-parse refs/remotes/origin/development)"
-            [[ "${SOURCE_SHA}" == "${DEVELOPMENT_SHA}" ]] || {
-              echo "::error::Stage source ${SOURCE_SHA} is not current development ${DEVELOPMENT_SHA}"
-              exit 1
-            }
-            git merge-base --is-ancestor refs/remotes/origin/main "${SOURCE_SHA}" || {
-              echo "::error::development must contain current main before Stage promotion"
-              exit 1
-            }
+          [[ "${REQUEST_ID}" =~ ^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$ ]] || fail "request_id is empty or has unexpected characters"
+          [[ "${VERSION}" =~ ^v27\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]] || fail "version must look like v27.<minor>.<patch> or v27.<minor>.<patch>-rc.<number>"
+          [[ "${RC_TAG}" =~ ^v27\.[0-9]+\.[0-9]+-rc\.[0-9]+$ ]] || fail "rc_tag must look like v27.<minor>.<patch>-rc.<number>"
+          if [[ "${VERSION}" == *-rc.* ]]; then
+            [[ "${RC_TAG}" == "${VERSION}" ]] || fail "rc_tag ${RC_TAG} is not the RC version ${VERSION}"
           else
-            git merge-base --is-ancestor "${SOURCE_SHA}" refs/remotes/origin/development || {
-              echo "::error::rollback source ${SOURCE_SHA} is not in development history"
-              exit 1
-            }
+            [[ "${RC_TAG}" == "${VERSION}"-rc.* ]] || fail "rc_tag ${RC_TAG} is not a release candidate of ${VERSION}"
           fi
+          [[ "${SOURCE_COMMIT}" =~ ^[0-9a-f]{40}$ ]] || fail "source_commit must be a full 40-character commit SHA"
+          [[ "${IMAGE_INPUT}" =~ ^ghcr\.io/theriark/driftsniff-ce@sha256:[0-9a-f]{64}$ ]] || fail "image must be ${IMAGE}@sha256:<64 lowercase hex characters>"
+          [[ "${DEVELOPMENT_RUN_ID}" =~ ^[1-9][0-9]{0,17}$ ]] || fail "development_run_id must be a positive integer"
+          [[ "${DOCUMENTATION_MANIFEST_SHA256}" =~ ^[0-9a-f]{64}$ ]] || fail "documentation_manifest_sha256 must be 64 lowercase hex characters"
+          case "${GITHUB_REF}" in
+            refs/heads/development | refs/heads/stage) ;;
+            *) fail "Stage promotion must run from development or stage; received ${GITHUB_REF}" ;;
+          esac
+          for required in DOKPLOY_URL DOKPLOY_API_KEY CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET; do
+            [[ -n "${!required}" ]] || fail "${required} is missing"
+          done
+          git fetch --no-tags origin \
+            +refs/heads/development:refs/remotes/origin/development \
+            +refs/heads/main:refs/remotes/origin/main \
+            +refs/heads/stage:refs/remotes/origin/stage
+          git cat-file -e "${SOURCE_COMMIT}^{commit}" || fail "${SOURCE_COMMIT} does not exist in this repository"
+          git merge-base --is-ancestor "${SOURCE_COMMIT}" refs/remotes/origin/development || fail "${SOURCE_COMMIT} is not in development history"
+          git merge-base --is-ancestor refs/remotes/origin/main "${SOURCE_COMMIT}" || fail "the promoted commit must contain current main"
+          STAGE_BRANCH_SHA="$(git rev-parse refs/remotes/origin/stage)"
+          if [[ "${STAGE_BRANCH_SHA}" == "${SOURCE_COMMIT}" ]]; then
+            MODE=promotion
+            ADVANCE=false
+          elif git merge-base --is-ancestor "${STAGE_BRANCH_SHA}" "${SOURCE_COMMIT}"; then
+            MODE=promotion
+            ADVANCE=true
+          elif git merge-base --is-ancestor "${SOURCE_COMMIT}" "${STAGE_BRANCH_SHA}"; then
+            MODE=rollback
+            ADVANCE=false
+          else
+            fail "stage ${STAGE_BRANCH_SHA} and ${SOURCE_COMMIT} have diverged"
+          fi
+          {
+            echo "MODE=${MODE}"
+            echo "ADVANCE=${ADVANCE}"
+            echo "DIGEST=${IMAGE_INPUT##*@}"
+          } >> "${GITHUB_ENV}"
+
+      - name: Verify the reviewed release candidate
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          fail() {
+            echo "::error::$1"
+            exit 1
+          }
+          git fetch --no-tags origin "+refs/tags/${RC_TAG}:refs/tags/${RC_TAG}" || fail "RC tag ${RC_TAG} does not exist"
+          [[ "$(git cat-file -t "refs/tags/${RC_TAG}")" == "tag" ]] || fail "${RC_TAG} is not an annotated tag"
+          [[ "$(git rev-parse "refs/tags/${RC_TAG}^{commit}")" == "${SOURCE_COMMIT}" ]] || fail "${RC_TAG} does not point to ${SOURCE_COMMIT}"
+          message="$(git for-each-ref --format='%(contents)' "refs/tags/${RC_TAG}")"
+          jq -e \
+            --arg commit "${SOURCE_COMMIT}" \
+            --arg digest "${DIGEST}" \
+            --arg manifest "${DOCUMENTATION_MANIFEST_SHA256}" \
+            --argjson development_run "${DEVELOPMENT_RUN_ID}" '
+              (.sourceCommit == $commit)
+              and ((.imageDigest | ltrimstr("sha256:")) == ($digest | ltrimstr("sha256:")))
+              and (.developmentRunId == $development_run)
+              and (.documentationManifestSha256 == $manifest)
+              and (.workflowRunId | (type == "number" and . == floor and . > 0))
+              and (.gateCycle | (type == "number" and . == floor and . >= 1))
+            ' <<<"${message}" >/dev/null || fail "the metadata of ${RC_TAG} does not match source_commit, image, development_run_id and documentation_manifest_sha256"
+          rc_run_id="$(jq -r '.workflowRunId' <<<"${message}")"
+          [[ "${rc_run_id}" =~ ^[1-9][0-9]{0,17}$ ]] || fail "the RC tag has no valid workflowRunId"
+          release="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RC_TAG}")" || fail "no GitHub release exists for ${RC_TAG}"
+          jq -e --arg tag "${RC_TAG}" '.tag_name == $tag and .prerelease == true and .draft == false' <<<"${release}" >/dev/null || fail "the release of ${RC_TAG} is not a non-draft prerelease"
+          development_run="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${DEVELOPMENT_RUN_ID}")" || fail "development run ${DEVELOPMENT_RUN_ID} was not found"
+          jq -e --arg repo "${GITHUB_REPOSITORY}" --arg sha "${SOURCE_COMMIT}" '
+            .repository.full_name == $repo and .name == "CI" and .event == "push"
+            and .head_branch == "development" and .head_sha == $sha
+            and .status == "completed" and .conclusion == "success"
+          ' <<<"${development_run}" >/dev/null || fail "development run ${DEVELOPMENT_RUN_ID} is not a successful CI push run on development for ${SOURCE_COMMIT}"
+          rc_run="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${rc_run_id}")" || fail "RC producing run ${rc_run_id} was not found"
+          jq -e --arg repo "${GITHUB_REPOSITORY}" '
+            .repository.full_name == $repo and .head_branch == "development"
+            and .status == "completed" and .conclusion == "success"
+          ' <<<"${rc_run}" >/dev/null || fail "RC producing run ${rc_run_id} is not a successful run on development"
+          echo "RC_RUN_ID=${rc_run_id}" >> "${GITHUB_ENV}"
+          echo "Verified ${RC_TAG}: commit ${SOURCE_COMMIT}, digest ${DIGEST}, RC run ${rc_run_id}, development run ${DEVELOPMENT_RUN_ID}"
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
@@ -136,34 +217,21 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
 
-      - name: Resolve the published digest for the commit
+      - name: Confirm the image is the one published for the commit
         shell: bash
         run: |
           set -euo pipefail
-          tag="sha-${SOURCE_SHA::12}"
+          tag="sha-${SOURCE_COMMIT::12}"
           resolved="$(docker buildx imagetools inspect "${IMAGE}:${tag}" --format '{{.Manifest.Digest}}')"
           [[ "${resolved}" =~ ^sha256:[0-9a-f]{64}$ ]] || {
-            echo "::error::no published image ${IMAGE}:${tag} for ${SOURCE_SHA}"
+            echo "::error::no published image ${IMAGE}:${tag} for ${SOURCE_COMMIT}"
             exit 1
           }
-          if [[ -n "${INPUT_DIGEST}" && "${INPUT_DIGEST}" != "${resolved}" ]]; then
-            echo "::error::digest ${INPUT_DIGEST} does not match the image published for ${SOURCE_SHA} (${resolved})"
+          [[ "${resolved}" == "${DIGEST}" ]] || {
+            echo "::error::image digest ${DIGEST} does not match the image published for ${SOURCE_COMMIT} (${resolved})"
             exit 1
-          fi
-          echo "IMAGE_REF=${IMAGE}@${resolved}" >> "${GITHUB_ENV}"
-          echo "Resolved ${IMAGE}@${resolved}"
-
-      - name: Confirm Development runs this exact image
-        if: ${{ inputs.digest == '' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 .github/scripts/dokploy_release.py assert-image \
-            --application-id "${DOKPLOY_DEVELOPMENT_APPLICATION_ID}" \
-            --image "${IMAGE_REF}"
-          python3 .github/scripts/dokploy_release.py health \
-            --health-url "https://${DEVELOPMENT_HOST}/healthz" \
-            --expected-commit "${SOURCE_SHA}"
+          }
+          echo "Confirmed ${IMAGE_INPUT}"
 
       - name: Deploy exact digest to Stage and verify runtime
         shell: bash
@@ -171,31 +239,31 @@ jobs:
           set -euo pipefail
           python3 .github/scripts/dokploy_release.py deploy \
             --application-id "${DOKPLOY_STAGE_APPLICATION_ID}" \
-            --image "${IMAGE_REF}" \
+            --image "${IMAGE_INPUT}" \
             --health-url "https://${STAGE_HOST}/healthz" \
-            --expected-commit "${SOURCE_SHA}" \
-            --title "Stage ${SOURCE_SHA}" \
-            --description "GitHub Actions run ${GITHUB_RUN_ID}" \
+            --expected-commit "${SOURCE_COMMIT}" \
+            --title "Stage ${SOURCE_COMMIT}" \
+            --description "${GITHUB_REPOSITORY#*/} GitHub Actions run ${GITHUB_RUN_ID}" \
             --noop-ok
 
       - name: Tag the promoted image as stage
         shell: bash
         run: |
           set -euo pipefail
-          docker buildx imagetools create --tag "${IMAGE}:stage" "${IMAGE_REF}"
+          docker buildx imagetools create --tag "${IMAGE}:stage" "${IMAGE_INPUT}"
 
       - name: Advance the stage branch to the promoted commit
-        if: ${{ inputs.digest == '' }}
+        if: ${{ env.ADVANCE == 'true' }}
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           gh api --method PATCH "repos/${GITHUB_REPOSITORY}/git/refs/heads/stage" \
-            -f sha="${SOURCE_SHA}" -F force=false >/dev/null
+            -f sha="${SOURCE_COMMIT}" -F force=false >/dev/null
           STAGE_SHA="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/stage" --jq '.object.sha')"
-          [[ "${STAGE_SHA}" == "${SOURCE_SHA}" ]] || {
-            echo "::error::stage branch did not advance to ${SOURCE_SHA}"
+          [[ "${STAGE_SHA}" == "${SOURCE_COMMIT}" ]] || {
+            echo "::error::stage branch did not advance to ${SOURCE_COMMIT}"
             exit 1
           }
 
@@ -205,9 +273,15 @@ jobs:
           {
             echo "## driftsniff-ce Stage promotion completed"
             echo
-            echo "- Source commit: \`${SOURCE_SHA}\`"
-            echo "- Immutable image: \`${IMAGE_REF}\`"
+            echo "- Request: \`${REQUEST_ID}\`"
+            echo "- Version: \`${VERSION}\` (RC tag \`${RC_TAG}\`, consumed unchanged)"
+            echo "- Source commit: \`${SOURCE_COMMIT}\`"
+            echo "- Immutable image: \`${IMAGE_INPUT}\`"
+            echo "- Documentation manifest: \`${DOCUMENTATION_MANIFEST_SHA256}\`"
+            echo "- RC producing run: \`${RC_RUN_ID}\`"
+            echo "- Development run: \`${DEVELOPMENT_RUN_ID}\`"
+            echo "- Stage promotion run: \`${GITHUB_RUN_ID}\`"
             echo "- Stage URL: https://${STAGE_HOST}/"
             echo "- Rebuild performed: no"
-            echo "- Mode: $([[ -n \"${INPUT_DIGEST}\" ]] && echo rollback || echo promotion)"
+            echo "- Mode: ${MODE}"
           } >> "${GITHUB_STEP_SUMMARY}"
