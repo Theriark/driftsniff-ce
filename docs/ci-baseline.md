@@ -4,7 +4,7 @@ Audited ref: `development` at `05d1e5cc1e5d0a9fe445e51f00a1302dedff39c9`. Audit 
 
 The repository holds two workflow files, one helper script and no application code. There is no `AGENTS.md`, no Dockerfile, no `pyproject.toml`, no `LICENSE` and no Dependabot file. `main`, `stage` and `production` all exist and point at the README-only baseline commit `25bd02b0`.
 
-Sections 1 and 2 are the P1-T1 audit as it was; sections 2.1 (P1-T5) and 2.2 (P1-T6) record what changed afterwards. Sections 3 and 7 describe the current workflows; section 8 (P2-T4) describes the coverage gate and the migration job.
+Sections 1 and 2 are the P1-T1 audit as it was; sections 2.1 (P1-T5) and 2.2 (P1-T6) record what changed afterwards. Sections 3 and 7 describe the current workflows; section 8 (P2-T4) describes the coverage gate and the migration job; section 9 (P3-T4) describes the canary leak harness job.
 
 ## 1. Workflows
 
@@ -92,6 +92,7 @@ A pull request into `development` needs every job below to be green. The names a
 | `CI / Types` | `types` | `mypy` passes | `gate` |
 | `CI / Tests` | `test` | `pytest` passes with coverage settings from `pyproject.toml`, and the step `Coverage gate and job summary` finds at least 90 percent on each of `driftsniff.core`, `driftsniff.secrets` and `driftsniff.rules` (section 8) | `gate` |
 | `CI / Migrations` | `migration` | A database copy at every earlier revision upgrades to head with the same schema as an empty database, and a downgrade from every revision is refused (section 8) | `gate` |
+| `CI / Canary leak harness` | `canary` | No synthetic `CANARY-` credential injected into a fake source is found in the database file, its rows, the logs, raised errors or the output after the real redact, normalise and store path runs, and the harness itself is shown to fail when a canary does leak (section 9) | `gate` |
 | `CI / Dependency audit` | `audit` | `pip-audit` finds no known vulnerability in the hashed `requirements.txt` | `gate` |
 | `CI / Secret scan` | `secrets` | `gitleaks` finds no secret in the files or in the commits of the pull request | `gate` |
 | `CI / Licences` | `licences` | The GPL negative test passes (`tests/unit/test_check_licenses.py`) and `scripts/check_licenses.py` accepts every dependency licence | `gate` |
@@ -100,11 +101,11 @@ A pull request into `development` needs every job below to be green. The names a
 | `CI / Container smoke` | `smoke` | `scripts/container-smoke.sh` passes on the image from `build` | `build` |
 | `CI / SBOM` | `sbom` | Syft writes a CycloneDX document with components for the image from `build`; it is uploaded as artifact `driftsniff-sbom` | `build` |
 
-Other jobs of the same workflow are not pull request checks: `Publish and deploy Development` (`deploy-development`) runs only after a push to `development`, only while `DEPLOY_DEVELOPMENT_ENABLED` is `true`, and only after all eleven check jobs above succeed; `Lock hashed requirements` (`lock-requirements`) runs only for a manual `mode=lock` dispatch.
+Other jobs of the same workflow are not pull request checks: `Publish and deploy Development` (`deploy-development`) runs only after a push to `development`, only while `DEPLOY_DEVELOPMENT_ENABLED` is `true`, and only after all twelve check jobs above succeed; `Lock hashed requirements` (`lock-requirements`) runs only for a manual `mode=lock` dispatch.
 
 Concurrency: a newer `ci-go` run of the same pull request cancels the older one (group `pr-<ref>`). Deployments use the group `driftsniff-ce-pipeline` and are never cancelled.
 
-To make this list binding, a repository admin sets these twelve names as required status checks on `development` (section 4). The crew cannot read or change that setting. The migration job (P2-T4) is in the table above. Later phases add the canary job (P3) and e2e and accessibility jobs (P10); add each to this table when it appears.
+To make this list binding, a repository admin sets these thirteen names as required status checks on `development` (section 4). The crew cannot read or change that setting. The migration job (P2-T4) and the canary job (P3-T4) are in the table above. Later phases add e2e and accessibility jobs (P10); add each to this table when it appears.
 
 ## 4. Settings the crew cannot read or change (for the Delivery lead)
 
@@ -144,7 +145,7 @@ The workflow directory of `nowlert-ce` was listed read-only (names only: `ci.yml
 
 1. `build` builds `driftsniff:ci` once, with build argument `SOURCE_SHA` set to the commit, and uploads it as the artifact `driftsniff-ci-image`.
 2. `scan` (Trivy), `smoke` (container smoke) and `sbom` (Syft) all read that artifact. Nothing else builds the image.
-3. `deploy-development` starts after the eleven check jobs succeeded and only while `DEPLOY_DEVELOPMENT_ENABLED` is `true`. It loads the artifact, fails if the image revision label differs from the commit, logs in to GHCR with the workflow token and pushes the image as `ghcr.io/theriark/driftsniff-ce:sha-<12>`.
+3. `deploy-development` starts after the twelve check jobs succeeded and only while `DEPLOY_DEVELOPMENT_ENABLED` is `true`. It loads the artifact, fails if the image revision label differs from the commit, logs in to GHCR with the workflow token and pushes the image as `ghcr.io/theriark/driftsniff-ce:sha-<12>`.
 4. It reads the digest from the registry with `docker buildx imagetools inspect`, requires it to equal the digest printed by `docker push`, writes it to the job summary and to `image-digest.txt`, and uploads the file as the artifact `driftsniff-image-digest`.
 5. It runs `dokploy_release.py deploy` with `ghcr.io/theriark/driftsniff-ce@<digest>`.
 
@@ -214,3 +215,21 @@ The result is written to the job summary as a table (`Check`, `Result`, `Detail`
 Required check: `CI / Migrations` is in the list of section 3. A reserved revision `0003` (sessions, P9) needs no change here: it joins the chain automatically.
 
 Limits: the job exercises schema upgrades on empty tables, not data migration of large real databases; a migration that changes data needs its own test in the pull request that adds it.
+
+## 9. Canary leak harness job (P3-T4)
+
+The job is part of the pull request checks in `ci.yml`; no new workflow file exists. The harness itself (what a canary is, what is injected, where it looks, its limits) is described in [canary-harness.md](canary-harness.md); this section records only how CI runs it.
+
+| Item | Rule |
+|---|---|
+| Check name | `CI / Canary leak harness` (job id `canary`, 15 minute limit, `ubuntu-24.04`) |
+| Runs when | Whenever the other check jobs run: after `gate`, so for the `ci-go` label on a pull request, a push to `development` and a manual `mode=test` dispatch |
+| Setup | The same as the `test` and `migration` jobs: checkout, a virtual environment, `pip install --require-hashes --no-deps -r requirements-dev.txt`, `pip check` |
+| Command | `python -m pytest -q -o addopts="" tests/security`, which runs `tests/security/test_canary_leaks.py` against `tests/security/canary.py`. `-o addopts=""` keeps the coverage options out of this run; the full `CI / Tests` job still collects `tests/security` too, so the harness also runs there |
+| Fails when | A canary is found on any surface (database file and its write-ahead log, table rows, logs, raised errors, output), or when a deliberate-leak test does not produce its hit, which would mean the harness has gone blind |
+| Deployment | `deploy-development` lists `canary` in `needs`, so an image is published and deployed only after the harness passed |
+| Output | The pytest summary in the job log. A leak report names the place where the canary was injected and the surface where it was found, never the canary value |
+
+Required check: `CI / Canary leak harness` is in the list of section 3. It becomes binding only when a repository admin adds it to the branch protection of `development` (section 4); the crew cannot do that.
+
+Limits: the job exercises the surfaces that exist today. Notifications, API output and exports (P9) and the real collectors (P7 and P8) extend the harness when they exist, in the pull requests that add them; a new surface needs no change to `ci.yml` as long as its tests live under `tests/security`.
