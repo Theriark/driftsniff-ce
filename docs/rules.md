@@ -2,8 +2,9 @@
 
 This page explains the files that tell driftsniff how serious a change is, and how they are read.
 It is for people who write or review rule packs and type tables. The code is
-`src/driftsniff/rules/` (`schema.py`, `predicates.py`, `loader.py`). The engine that applies the
-rules to change items is a later task (P5-T2); this page covers what is loaded and checked.
+`src/driftsniff/rules/` (`schema.py`, `predicates.py`, `loader.py`, `engine.py`). The first half
+of this page covers what is loaded and checked; the section "The engine" at the end explains how a
+change item gets its severity.
 
 ## Where the files are
 
@@ -22,7 +23,8 @@ file `*.yaml`. A file larger than 1,000,000 bytes is refused.
 Any problem stops the load with `RuleLoadError`, which names the file and the line
 (`packs/xo/a.yaml:12: rules.1.severity: Input should be 'low', 'medium', 'high' or 'critical'`).
 Nothing is skipped and nothing is repaired. The loader is not yet called by the application at
-start: the engine task wires it in, and a load error must then stop the start.
+start; the engine is not called either. The run pipeline (P6-T2) will load the rules, and a load
+error must then stop the start.
 
 Booleans are only `true` and `false` (also `True`, `TRUE`, `False`, `FALSE`), as in YAML 1.2. The
 loader does not use the YAML 1.1 rule of PyYAML, so the bare words `yes`, `no`, `on`, `off`, `y` and
@@ -145,9 +147,12 @@ types:
 | `collection` | How the objects of this resource are compared: `set` (default), `ordered-keyed`, `ordered-scalar` or `vendor-index`. `ordered-keyed` needs `key_field`. |
 | `key_field`, `name_field` | The field that identifies an object, and the one that names it. |
 | `fields` | The class of each field path: `config`, `secret`, `ignore` or `unclassified`. A field that is not listed is `unclassified`. |
-| `lists` | The mode of each list inside an object, and optionally the field that keys its members (`mode` and `key_field`). A list that is not listed keeps its order (`ordered-scalar`). |
+| `lists` | The mode of each list inside an object, and optionally the field that keys its members (`mode` and `key_field`), and `first_match: true` for an `ordered-keyed` list where the first matching entry wins. A list that is not listed keeps its order (`ordered-scalar`). |
 | `floor` | The lowest severity of an added, removed, modified or moved object of this type. |
 | `floors` | The same per kind of change (`added`, `removed`, `modified`, `moved`). Use `floor` or `floors`, not both. |
+| `first_match` | `true` when the objects of this ordered-keyed collection are an ordered list where the first matching entry wins (a firewall policy list). Default `false`. |
+| `action_field` | The field of an object, or of a list member, that holds what it does (its verdict). Read by `core/order.py` to put the actions into the order detail of a move. It must have the class `config` wherever a first-match order uses it. Optional. |
+| `blocking_actions` | The values of the action field that stop traffic or access. Compared without case or surrounding spaces. Default `deny` and `drop`. Needs `action_field`. |
 
 The four collection modes are those of `core/normalize.py`; `core/order.py` and `core/diff.py`
 read them unchanged. A loaded type table is a `ResourceTable`, a `StaticTypeTable` with the
@@ -170,3 +175,52 @@ Type tables are part of it on purpose: object floors decide severities too, so a
 is a change to the rules. The version is meant to be stored with each change event in
 `change_events.rule_pack_version`. That column already exists (migration 0001); nothing writes
 change events yet (P6-T2), so the version is not stored anywhere today and no migration is needed.
+
+## The engine
+
+`RuleEngine(index).classify(item)` gives a severity, a rule id and a rationale for one change item
+of `core/diff.py` or `core/order.py`; `apply(item)` returns a copy of the item with the three
+fields filled in. The engine knows no vendor: every rule, floor and action comes from the packs
+and the type tables.
+
+1. A `schema_drift` item keeps the classification the diff gave it (LOW, `builtin.schema_drift`).
+2. The most specific rule that applies wins: the first of `RuleIndex.candidates` whose predicate
+   holds (or that has none). A predicate reads the shown value of a `config` field before and
+   after, and the fingerprint of a `secret` or `unclassified` field, so `changed` holds for a secret
+   that changed and a predicate about numbers or networks never holds for it. An added or removed
+   whole object has no value on either side.
+3. No rule applies: MEDIUM, rule id `builtin.unclassified`, rationale `unclassified field, not
+   reviewed`.
+4. Floors only raise. The final severity is the maximum of the rule and of the floors below. When a
+   floor is higher than the rule it is the result (`floored` is true, and `matched_rule_id` keeps
+   the rule that matched); when the rule is as high as the floor, the rule is the result.
+
+| Floor | When | Severity | Rule id |
+|---|---|---|---|
+| Object floor | the type table of the resource has `floor` or `floors` for this kind of change (`added`, `removed`, `modified`, `moved`; an `order_changed` item counts as `moved`) | as declared | `builtin.floor.<kind>` |
+| Move | a `moved` or `order_changed` item in a first-match order (`first_match` on the resource for its own order, or on the list for a list inside an object) | HIGH | `builtin.move.first_match` |
+| Move across a block | a `moved` item whose `moved_actions` or `jumped_actions` hold a blocking action of the table | CRITICAL | `builtin.move.blocking` |
+
+The security sensitive objects (zones, policies and ACL rules, roles, users and permissions, auth
+providers, WiFi security, RADIUS profiles, VPN servers and tunnels, XO servers, backup
+repositories) are marked by `floor: high` in their type tables, and the removal of a firewall or
+ACL object by `floors: {removed: critical}`. The other CRITICAL cases are rules of the packs, for
+example `enum_transition` from `none` to `admin`, `boolean_flips_to: false` on the TLS verification
+field, `enum_transition` from the WPA family to `open`, and `boolean_flips_to: false` on the enabled
+flag of a firewall rule. The engine only implements the mechanism. The shipped tables and packs
+(P5-T3, P7, P8) say which fields these are.
+
+An `order_changed` item (a list of more than 5,000 entries) has no detail, so its floor is HIGH and
+never CRITICAL. If the table has no `action_field`, a move across a deny rule is HIGH, not CRITICAL.
+
+Every result has a rule id and a rationale that are not empty, and the same item always gives the
+same result.
+
+### Mutes
+
+`is_muted(severity, resource, path, mutes)` and `item_is_muted(item, mutes)` are the check for the
+list views, with `PathMute(resource, path_pattern)` standing for one row of `path_mutes`. A mute
+hides an item from a list; the item is still stored with its real severity. A mute never applies to
+a CRITICAL item, and an item without a severity is never muted. The pattern is read like the path of
+a rule (snake case, `*` for one segment, `**` for the rest); an empty pattern matches only the empty
+path of a whole object.

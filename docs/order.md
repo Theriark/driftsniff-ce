@@ -79,6 +79,23 @@ The order detail holds:
 | `to_after`, `to_before` | the same two after the move |
 | `summary` | the move in words, `r7 moved from after r2 to before r1` |
 
+### Actions, when the type table names an action field
+
+A type table can name an `action_field` (the field of an object, or of a list member, that says
+what it does, such as the verdict of a firewall rule). Only then, and only if that field has the
+class `config`, a moved item also holds these three keys. The rule engine reads them to tell a move
+across a deny rule from a harmless one (see `docs/rules.md`). Without an `action_field` the detail
+is exactly the table above.
+
+| Key | Meaning |
+|---|---|
+| `moved_actions` | the distinct values of the action field on the moved entry, before and after the change, sorted |
+| `jumped_actions` | the same for every entry the moved one passed (its place relative to the moved entry changed), sorted |
+| `jumped_count` | how many entries it passed |
+
+An entry whose action is missing or is not text has no action. The actions are read from the stored
+states, and only for the moved entries and the entries they passed.
+
 A key that is repeated in a list is told apart by its occurrence: `r1`, then `r1#2`. A member
 without a declared key, or whose key field is not `config` class, is shown as `member:` followed by
 12 hex characters of a hash and never as its content, because the content can be a secret.
