@@ -9,6 +9,7 @@ from driftsniff import __version__
 from driftsniff.config import Settings
 from driftsniff.secrets.keys import MasterKey
 from driftsniff.sources.scheduler import Scheduler
+from driftsniff.web import routes_push
 from driftsniff.web.routes_ui import router as ui_router
 
 
@@ -29,12 +30,15 @@ def create_app(
     settings: Settings | None = None,
     master_key: MasterKey | None = None,
     scheduler: Scheduler | None = None,
+    push_gateway: routes_push.PushGateway | None = None,
 ) -> FastAPI:
     """Build the application; settings default to the DRIFTSNIFF_ environment.
 
     ``master_key`` is the key ``serve`` loaded at start; it is kept in ``app.state`` for the
     modules that derive keys from it. Its repr shows only the key id. A ``scheduler`` is started
-    and stopped with the application (``serve`` passes none until the collectors exist).
+    and stopped with the application (``serve`` passes none until the collectors exist). The
+    ``push_gateway`` serves ``POST /api/v1/push/{source_id}``; without one the endpoint answers
+    503.
     """
     resolved = Settings.from_env() if settings is None else settings
     app = FastAPI(
@@ -48,5 +52,7 @@ def create_app(
     app.state.settings = resolved
     app.state.master_key = master_key
     app.state.scheduler = scheduler
+    app.state.push_gateway = push_gateway
     app.include_router(ui_router)
+    app.include_router(routes_push.router)
     return app
