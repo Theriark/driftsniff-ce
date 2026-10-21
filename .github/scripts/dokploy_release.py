@@ -22,6 +22,13 @@ from typing import Any
 IMAGE_RE = re.compile(r"^ghcr\.io/theriark/driftsniff-ce@sha256:[0-9a-f]{64}$")
 COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 
+# application.update only sets dockerImage to the same immutable digest, so repeating it is
+# idempotent. Only transient transport failures and gateway errors are retried, never 4xx.
+UPDATE_TIMEOUT_SECONDS = 90
+UPDATE_ATTEMPTS = 3
+UPDATE_BACKOFF_SECONDS = (5, 15)
+RETRYABLE_HTTP_CODES = frozenset({502, 503, 504})
+
 
 class DokployError(RuntimeError):
     pass
@@ -41,6 +48,8 @@ def request_json(
     payload: dict[str, Any] | None = None,
     query: dict[str, str] | None = None,
     timeout: int = 30,
+    attempts: int = 1,
+    backoff: tuple[int, ...] = UPDATE_BACKOFF_SECONDS,
 ) -> Any:
     url = f"{required_env('DOKPLOY_URL').rstrip('/')}/api/{path.lstrip('/')}"
     if query:
@@ -56,17 +65,32 @@ def request_json(
     if payload is not None:
         data = json.dumps(payload, separators=(",", ":")).encode("utf-8")
         headers["Content-Type"] = "application/json"
-    request = urllib.request.Request(url, data=data, headers=headers, method=method)
-    try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            body = response.read().decode("utf-8", errors="replace")
-    except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="replace")[:500]
-        raise DokployError(
-            f"Dokploy API {method} {path} failed with HTTP {exc.code}: {detail}"
-        ) from exc
-    except (TimeoutError, urllib.error.URLError) as exc:
-        raise DokployError(f"Dokploy API {method} {path} failed: {exc}") from exc
+    body = ""
+    for attempt in range(1, attempts + 1):
+        request = urllib.request.Request(url, data=data, headers=headers, method=method)
+        try:
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                body = response.read().decode("utf-8", errors="replace")
+            break
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace")[:500]
+            error = DokployError(
+                f"Dokploy API {method} {path} failed with HTTP {exc.code}: {detail}"
+            )
+            retryable = exc.code in RETRYABLE_HTTP_CODES
+            cause: Exception = exc
+        except (TimeoutError, urllib.error.URLError) as exc:
+            error = DokployError(f"Dokploy API {method} {path} failed: {exc}")
+            retryable = True
+            cause = exc
+        if not retryable or attempt >= attempts:
+            raise error from cause
+        delay = backoff[min(attempt - 1, len(backoff) - 1)]
+        print(
+            f"WARN: {error}; attempt {attempt}/{attempts}, retrying in {delay}s",
+            file=sys.stderr,
+        )
+        time.sleep(delay)
     if not body.strip():
         return {}
     try:
@@ -179,7 +203,10 @@ def deploy(args: argparse.Namespace) -> None:
             "POST",
             "application.update",
             payload={"applicationId": args.application_id, "dockerImage": args.image},
+            timeout=UPDATE_TIMEOUT_SECONDS,
+            attempts=UPDATE_ATTEMPTS,
         )
+        # Not retried: a repeated deploy request could queue a second deployment.
         request_json(
             "POST",
             "application.deploy",
