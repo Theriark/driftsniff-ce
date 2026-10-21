@@ -64,7 +64,7 @@ from driftsniff.core.normalize import CollectionMode, FieldClass, StaticTypeTabl
 from driftsniff.core.snapshots import Manifest
 from driftsniff.secrets.fingerprint import Fingerprint, Fingerprinter
 
-type ChangeKind = Literal["added", "removed", "modified", "schema_drift"]
+type ChangeKind = Literal["added", "removed", "modified", "schema_drift", "moved", "order_changed"]
 type Severity = Literal["low", "medium", "high", "critical"]
 type StateLookup = Callable[[str], Mapping[str, JsonValue]]
 
