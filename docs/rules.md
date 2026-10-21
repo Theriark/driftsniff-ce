@@ -151,7 +151,7 @@ types:
 | `floor` | The lowest severity of an added, removed, modified or moved object of this type. |
 | `floors` | The same per kind of change (`added`, `removed`, `modified`, `moved`). Use `floor` or `floors`, not both. |
 | `first_match` | `true` when the objects of this ordered-keyed collection are an ordered list where the first matching entry wins (a firewall policy list). Default `false`. |
-| `action_field` | The field of an object, or of a list member, that holds what it does (its verdict). Read by `core/order.py` to put the actions into the order detail of a move. It must have the class `config` wherever a first-match order uses it. Optional. |
+| `action_field` | The field of an object, or of a list member, that holds what it does (its verdict). Read by `core/order.py` to put the actions into the order detail of a move. It must have the class `config` wherever a first-match order uses it. Required when `first_match` is set on the table or on any of its lists (the load fails with `first_match needs an action_field`); optional otherwise. |
 | `blocking_actions` | The values of the action field that stop traffic or access. Compared without case or surrounding spaces. Default `deny` and `drop`. Needs `action_field`. |
 
 The four collection modes are those of `core/normalize.py`; `core/order.py` and `core/diff.py`
@@ -211,7 +211,8 @@ flag of a firewall rule. The engine only implements the mechanism. The shipped t
 (P5-T3, P7, P8) say which fields these are.
 
 An `order_changed` item (a list of more than 5,000 entries) has no detail, so its floor is HIGH and
-never CRITICAL. If the table has no `action_field`, a move across a deny rule is HIGH, not CRITICAL.
+never CRITICAL. A first-match table always has an `action_field` (the load refuses one without), so
+a move across a deny rule is CRITICAL whenever the order detail was computed.
 
 Every result has a rule id and a rationale that are not empty, and the same item always gives the
 same result.
@@ -224,3 +225,24 @@ hides an item from a list; the item is still stored with its real severity. A mu
 a CRITICAL item, and an item without a severity is never muted. The pattern is read like the path of
 a rule (snake case, `*` for one segment, `**` for the rest); an empty pattern matches only the empty
 path of a whole object.
+
+## The shipped Xen Orchestra tables and pack
+
+`rules/types/xo.yaml` holds the type tables of the XO collections and `rules/packs/xo/*.yaml` holds
+47 rules (`compute.yaml` for virtual machines, hosts, pools and storage, `network.yaml`,
+`backup.yaml` and `access.yaml` for servers, users and groups). Each rule has a one sentence
+rationale and a test with one matching and one near-miss input
+(`tests/unit/test_rules_xo_pack.py`, cases in `tests/fixtures/xo/rule_cases.json`).
+
+- XO servers, backup repositories, users, groups and ACL roles have the object floor `high`.
+  A rule on one of them only matters when it is `critical` (a user who becomes an administrator, a
+  server that stops checking certificates, a change of the access roles of a group).
+- A field that is classed but has no rule is MEDIUM, `builtin.unclassified`, until it is reviewed.
+  There is no catch-all `**` rule: the engine matches on the path only, so one would also swallow
+  the fields that are not in the table.
+- The setting map of a backup job is keyed by schedule id, and a type table names only fixed field
+  paths. The table therefore describes a derived resource, `backup-job-settings`, with one object
+  per key of the map (object id: job id, a colon, then the schedule id or `default`), and ignores
+  `settings` on the backup job itself. The XO collector (P8-T2) has to produce that resource.
+- The field names are those of the plan and are not yet checked against a live Xen Orchestra
+  (P8-T1). A field that is not in the table is unclassified and shows as a fingerprint only.

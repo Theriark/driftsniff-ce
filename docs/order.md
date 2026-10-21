@@ -102,6 +102,10 @@ without a declared key, or whose key field is not `config` class, is shown as `m
 
 ## Limits
 
+- Finding the entries a moved key passed (`jumped_actions`, `jumped_count`) scans the whole new
+  list once for every moved key, so reading the actions costs O(n) per move and O(n x m) for m
+  moves in a list of n entries. The cost is bounded by the 5,000 entry limit below, and a reversed
+  list of that size is the worst case.
 - A list of more than 5,000 entries on either side is compared as a set. If the order of the keys
   found on both sides differs, one item of kind `order_changed` says so, with `old_count`,
   `new_count` and the note `order changed, large list, detail not computed`. It does not say

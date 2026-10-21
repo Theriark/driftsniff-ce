@@ -6,6 +6,7 @@ temporary folder, then loaded with ``load_rules``. No vendor field name is used.
 
 import json
 from dataclasses import replace
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -32,7 +33,7 @@ from driftsniff.rules.engine import (
     item_is_muted,
     severity_rank,
 )
-from driftsniff.rules.loader import load_rules
+from driftsniff.rules.loader import RuleLoadError, load_rules
 from driftsniff.rules.schema import ResourceTable, Severity, TypeSpec
 
 TYPES = """\
@@ -717,6 +718,40 @@ def test_the_action_field_of_a_first_match_list_must_be_config() -> None:
     assert "the action field 'rules.action' must have the class config" in problems(error)
 
 
-def test_a_first_match_order_without_an_action_field_is_allowed() -> None:
-    table = TypeSpec.model_validate(type_data(action_field=None, fields={"id": "config"}))
-    assert table.to_table().action_field is None
+def test_a_first_match_order_needs_an_action_field() -> None:
+    with pytest.raises(ValidationError) as error:
+        TypeSpec.model_validate(type_data(action_field=None, fields={"id": "config"}))
+    assert "first_match needs an action_field" in problems(error)
+
+
+def test_a_first_match_list_needs_an_action_field() -> None:
+    data = type_data(action_field=None, collection="set", first_match=False)
+    with pytest.raises(ValidationError) as error:
+        TypeSpec.model_validate(data)
+    assert "first_match needs an action_field" in problems(error)
+
+
+def test_a_table_without_first_match_needs_no_action_field() -> None:
+    data = type_data(action_field=None, first_match=False, lists={"tags": "set"})
+    assert TypeSpec.model_validate(data).to_table().action_field is None
+
+
+def test_the_loader_names_the_file_and_line_of_a_first_match_table_without_an_action(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "types").mkdir()
+    text = (
+        "version: 1\n"
+        "types:\n"
+        "  - resource: fw_rules\n"
+        "    collection: ordered-keyed\n"
+        "    key_field: id\n"
+        "    first_match: true\n"
+        "    fields: {id: config}\n"
+    )
+    (tmp_path / "types" / "bad.yaml").write_text(text, encoding="utf-8")
+    with pytest.raises(RuleLoadError) as error:
+        load_rules(tmp_path)
+    assert error.value.file == tmp_path / "types" / "bad.yaml"
+    assert error.value.line is not None
+    assert "first_match needs an action_field" in error.value.message
