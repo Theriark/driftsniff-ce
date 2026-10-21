@@ -14,6 +14,9 @@ from driftsniff.rules.engine import MOVE_BLOCKING_RULE_ID, MOVE_RULE_ID
 from .support import State, detect, golden_engine, state
 
 FIREWALL = "unifi-firewall-policies"
+# A move among allow policies is HIGH by two floors at once (the object floor of the table and the
+# first-match move floor); the engine takes the first of equal floors, so either id may decide.
+HIGH_MOVE_RULE_IDS = {"builtin.floor.moved", MOVE_RULE_ID}
 
 
 def policies(*entries: tuple[str, str]) -> list[State]:
@@ -50,7 +53,7 @@ def test_swapping_two_neighbours_is_one_move_and_at_least_high() -> None:
     assert kinds(items) == {"moved": 1}
     result = golden_engine().classify(only(items))
     assert result.severity == "high"
-    assert result.rule_id == MOVE_RULE_ID
+    assert result.rule_id in HIGH_MOVE_RULE_IDS
 
 
 def test_swapping_a_deny_policy_with_its_neighbour_is_critical() -> None:
