@@ -1,0 +1,58 @@
+# Xen Orchestra rules for XO servers, users and groups (P5-T3). These resources have the object
+# floor high in rules/types/xo.yaml, so a rule here only matters when it is critical or explains why.
+# The permission values none, user and admin are the ones the plan names and are checked in P8-T1.
+version: 1
+rules:
+  - id: xo.servers.allow_unauthorized
+    resource: servers
+    path: allowUnauthorized
+    when: {name: boolean_flips_to, value: true}
+    severity: critical
+    rationale: Certificate checks were switched off for a pool connection, so anyone on the path can pose as the pool.
+  - id: xo.servers.read_only
+    resource: servers
+    path: readOnly
+    when: {name: boolean_flips_to, value: false}
+    severity: high
+    rationale: A pool connection is no longer read only, so Xen Orchestra gained write access to it.
+  - id: xo.servers.host
+    resource: servers
+    path: host
+    severity: high
+    rationale: A pool connection points to a different host, so Xen Orchestra now talks to another machine.
+  - id: xo.servers.http_proxy
+    resource: servers
+    path: httpProxy
+    severity: high
+    rationale: The web proxy used for a pool connection changed, so its traffic takes another route.
+  - id: xo.users.permission_to_admin
+    resource: users
+    path: permission
+    when: {name: enum_transition, from: [none, user], to: [admin]}
+    severity: critical
+    rationale: A user became an administrator, which gives full control of Xen Orchestra.
+  - id: xo.users.permission
+    resource: users
+    path: permission
+    severity: high
+    rationale: The permission level of a user changed.
+  - id: xo.users.groups
+    resource: users
+    path: groups
+    severity: high
+    rationale: A user joined or left a group, which changes what the user may do.
+  - id: xo.users.auth_providers
+    resource: users
+    path: authProviders
+    severity: high
+    rationale: The sign in methods linked to a user changed, so someone else may now be able to sign in as that user.
+  - id: xo.groups.acl_role_ids
+    resource: groups
+    path: aclRoleIds
+    severity: critical
+    rationale: The access roles of a group changed, which changes the permissions of every member.
+  - id: xo.groups.users
+    resource: groups
+    path: users
+    severity: high
+    rationale: A member joined or left a group, which changes what that person may do.

@@ -1,0 +1,406 @@
+# Type tables of the Xen Orchestra collector (P5-T3, a skeleton that P8-T1 completes).
+#
+# Field names are the ones the plan lists for each collection (dev-work-plan, P8-T1). They have not
+# been checked against a live Xen Orchestra yet: until P8-T1 and the lab fixtures confirm them, a
+# field that is not listed here is unclassified and shows as a fingerprint only.
+#
+# The backup job setting map of Xen Orchestra is keyed by schedule id, and a type table can only
+# name fixed field paths. The XO collector therefore reads each key of the settings map of a
+# backup job as one object of the derived resource backup-job-settings (the object id is the job
+# id, a colon and the schedule id, or the word default for the key that has no schedule) and the
+# settings field of the backup job itself is ignored.
+#
+# Security sensitive objects (XO servers, backup repositories, users, groups, ACL roles) have the
+# object floor high. The only fields classed secret are the sign in methods of a user and the device
+# configuration of a storage connection. A credential field that is not listed (a server password
+# or token, a password hash) is unclassified, so it is shown as a fingerprint and never as a value.
+version: 1
+types:
+  - resource: vms
+    key_field: id
+    name_field: name_label
+    fields:
+      id: config
+      name_label: config
+      name_description: config
+      notes: config
+      tags: config
+      auto_poweron: config
+      high_availability: config
+      secureBoot: config
+      virtualizationMode: config
+      boot.firmware: config
+      boot.order: config
+      blockedOperations: config
+      affinityHost: config
+      startDelay: config
+      nicType: config
+      vga: config
+      videoram: config
+      viridian: config
+      resourceSet: config
+      suspendSr: config
+      PV_args: config
+      cpuCap: config
+      cpuMask: config
+      cpuWeight: config
+      coresPerSocket: config
+      CPUs.max: config
+      CPUs.number: config
+      memory.static: config
+      memory.dynamic: config
+      memory.size: ignore
+      memory.usage: ignore
+      uuid: ignore
+      type: ignore
+      _xapiRef: ignore
+      $pool: ignore
+      $poolId: ignore
+      $container: ignore
+      power_state: ignore
+      startTime: ignore
+      agentStartTime: ignore
+      installTime: ignore
+      current_operations: ignore
+      addresses: ignore
+      mainIpAddress: ignore
+      os_version: ignore
+      xenTools: ignore
+      vulnerabilities: ignore
+      docker: ignore
+      snapshots: ignore
+      VDIs: ignore
+      parent: ignore
+    lists:
+      tags: set
+  - resource: vm-templates
+    key_field: id
+    name_field: name_label
+    fields:
+      id: config
+      name_label: config
+      name_description: config
+      notes: config
+      tags: config
+      virtualizationMode: config
+      boot.firmware: config
+      boot.order: config
+      PV_args: config
+      CPUs.max: config
+      CPUs.number: config
+      memory.static: config
+      memory.dynamic: config
+      memory.size: ignore
+      memory.usage: ignore
+      uuid: ignore
+      type: ignore
+      _xapiRef: ignore
+      $pool: ignore
+      $poolId: ignore
+      snapshots: ignore
+      VDIs: ignore
+      parent: ignore
+    lists:
+      tags: set
+  - resource: hosts
+    key_field: id
+    name_field: name_label
+    fields:
+      id: config
+      name_label: config
+      name_description: config
+      hostname: config
+      enabled: config
+      version: config
+      build: config
+      productBrand: config
+      multipathing: config
+      powerOnMode: config
+      supplementalPacks: config
+      certificates.notAfter: config
+      license_expiry: config
+      logging: config
+      otherConfig: config
+      memory.size: ignore
+      memory.usage: ignore
+      uuid: ignore
+      type: ignore
+      _xapiRef: ignore
+      $pool: ignore
+      $poolId: ignore
+      power_state: ignore
+      startTime: ignore
+      agentStartTime: ignore
+      current_operations: ignore
+      rebootRequired: ignore
+      residentVms: ignore
+    lists:
+      supplementalPacks: set
+      certificates: set
+  - resource: pools
+    key_field: id
+    name_field: name_label
+    fields:
+      id: config
+      name_label: config
+      name_description: config
+      HA_enabled: config
+      haSrs: config
+      default_SR: config
+      crashDumpSr: config
+      suspendSr: config
+      migrationCompression: config
+      platform_version: config
+      otherConfig: config
+      uuid: ignore
+      type: ignore
+      _xapiRef: ignore
+      current_operations: ignore
+    lists:
+      haSrs: set
+  - resource: networks
+    key_field: id
+    name_field: name_label
+    fields:
+      id: config
+      name_label: config
+      name_description: config
+      MTU: config
+      bridge: config
+      automatic: config
+      defaultIsLocked: config
+      isBonded: config
+      nbd: config
+      insecureNbd: config
+      other_config: config
+      uuid: ignore
+      type: ignore
+      _xapiRef: ignore
+      $pool: ignore
+      $poolId: ignore
+      current_operations: ignore
+  - resource: pifs
+    key_field: id
+    fields:
+      id: config
+      device: config
+      vlan: config
+      mode: config
+      ip: config
+      netmask: config
+      gateway: config
+      dns: config
+      currently_attached: ignore
+      attached: ignore
+      uuid: ignore
+      type: ignore
+      _xapiRef: ignore
+      $pool: ignore
+      $poolId: ignore
+  - resource: pbds
+    key_field: id
+    fields:
+      id: config
+      device_config: secret
+      currently_attached: ignore
+      attached: ignore
+      uuid: ignore
+      type: ignore
+      _xapiRef: ignore
+      $pool: ignore
+      $poolId: ignore
+  - resource: srs
+    key_field: id
+    name_field: name_label
+    fields:
+      id: config
+      name_label: config
+      name_description: config
+      SR_type: config
+      content_type: config
+      shared: config
+      allocationStrategy: config
+      inMaintenanceMode: config
+      is_tools_sr: config
+      size: ignore
+      usage: ignore
+      physical_usage: ignore
+      uuid: ignore
+      type: ignore
+      _xapiRef: ignore
+      $pool: ignore
+      $poolId: ignore
+      current_operations: ignore
+      VDIs: ignore
+  - resource: vifs
+    key_field: id
+    fields:
+      id: config
+      MAC: config
+      MTU: config
+      device: config
+      lockingMode: config
+      allowedIpv4Addresses: config
+      allowedIpv6Addresses: config
+      rateLimit: config
+      txChecksumming: config
+      attached: ignore
+      currently_attached: ignore
+      uuid: ignore
+      type: ignore
+      _xapiRef: ignore
+      $pool: ignore
+      $poolId: ignore
+    lists:
+      allowedIpv4Addresses: set
+      allowedIpv6Addresses: set
+  - resource: vbds
+    key_field: id
+    fields:
+      id: config
+      bootable: config
+      device: config
+      is_cd_drive: config
+      position: config
+      read_only: config
+      attached: ignore
+      currently_attached: ignore
+      uuid: ignore
+      type: ignore
+      _xapiRef: ignore
+      $pool: ignore
+      $poolId: ignore
+      parent: ignore
+  - resource: vdis
+    key_field: id
+    name_field: name_label
+    fields:
+      id: config
+      name_label: config
+      VDI_type: config
+      size: config
+      cbt_enabled: config
+      image_format: config
+      usage: ignore
+      physical_usage: ignore
+      uuid: ignore
+      type: ignore
+      _xapiRef: ignore
+      $pool: ignore
+      $poolId: ignore
+      current_operations: ignore
+      snapshots: ignore
+      parent: ignore
+  - resource: backup-jobs
+    key_field: id
+    name_field: name
+    fields:
+      id: config
+      name: config
+      type: config
+      mode: config
+      compression: config
+      proxy: config
+      remotes: config
+      srs: config
+      vms: config
+      settings: ignore
+      userId: ignore
+    lists:
+      remotes: set
+      srs: set
+  - resource: backup-job-settings
+    key_field: id
+    fields:
+      id: config
+      jobId: config
+      scheduleId: config
+      exportRetention: config
+      snapshotRetention: config
+      copyRetention: config
+      reportRecipients: config
+      reportWhen: config
+      timeout: config
+      concurrency: config
+      offlineBackup: config
+      offlineSnapshot: config
+      fullInterval: config
+      checkpointSnapshot: config
+    lists:
+      reportRecipients: set
+  - resource: schedules
+    key_field: id
+    name_field: name
+    fields:
+      id: config
+      jobId: config
+      cron: config
+      enabled: config
+      name: config
+      timezone: config
+  - resource: backup-repositories
+    key_field: id
+    name_field: name
+    floor: high
+    fields:
+      id: config
+      name: config
+      enabled: config
+      url: config
+      options: config
+  - resource: proxies
+    key_field: id
+    name_field: name
+    fields:
+      id: config
+      name: config
+      address: config
+      version: config
+  - resource: servers
+    key_field: id
+    name_field: label
+    floor: high
+    fields:
+      id: config
+      label: config
+      host: config
+      username: config
+      httpProxy: config
+      allowUnauthorized: config
+      readOnly: config
+      enabled: config
+      status: ignore
+      error: ignore
+  - resource: users
+    key_field: id
+    name_field: email
+    floor: high
+    fields:
+      id: config
+      email: config
+      permission: config
+      groups: config
+      authProviders: secret
+      last_uses: ignore
+    lists:
+      groups: set
+  - resource: groups
+    key_field: id
+    name_field: name
+    floor: high
+    fields:
+      id: config
+      name: config
+      provider: config
+      users: config
+      aclRoleIds: config
+    lists:
+      users: set
+      aclRoleIds: set
+  - resource: acl-roles
+    key_field: id
+    name_field: name
+    floor: high
+    fields:
+      id: config
+      name: config
