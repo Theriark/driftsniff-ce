@@ -29,6 +29,13 @@ UPDATE_ATTEMPTS = 3
 UPDATE_BACKOFF_SECONDS = (5, 15)
 RETRYABLE_HTTP_CODES = frozenset({502, 503, 504})
 
+# Read calls (GET) are side-effect free, so they are always safe to repeat. Dokploy answers an
+# occasional HTTP 401 on a read although the credentials are valid, so a read also retries
+# on 401: up to 3 retries (4 calls). A 401 on a mutation is never retried.
+READ_ATTEMPTS = 4
+READ_BACKOFF_SECONDS = (3, 10, 20)
+READ_RETRYABLE_HTTP_CODES = RETRYABLE_HTTP_CODES | frozenset({401})
+
 
 class DokployError(RuntimeError):
     pass
@@ -65,6 +72,7 @@ def request_json(
     if payload is not None:
         data = json.dumps(payload, separators=(",", ":")).encode("utf-8")
         headers["Content-Type"] = "application/json"
+    retryable_codes = READ_RETRYABLE_HTTP_CODES if method == "GET" else RETRYABLE_HTTP_CODES
     body = ""
     for attempt in range(1, attempts + 1):
         request = urllib.request.Request(url, data=data, headers=headers, method=method)
@@ -77,7 +85,7 @@ def request_json(
             error = DokployError(
                 f"Dokploy API {method} {path} failed with HTTP {exc.code}: {detail}"
             )
-            retryable = exc.code in RETRYABLE_HTTP_CODES
+            retryable = exc.code in retryable_codes
             cause: Exception = exc
         except (TimeoutError, urllib.error.URLError) as exc:
             error = DokployError(f"Dokploy API {method} {path} failed: {exc}")
@@ -139,9 +147,16 @@ def current_image(application_id: str, *, allow_missing: bool = False) -> str:
 
     Strict by default: an absent, null or blank image raises. With allow_missing=True such a
     value returns "" instead (an application that has never been deployed has no image yet).
-    A value of any other type always raises.
+    A value of any other type always raises. The read is retried on HTTP 401, gateway errors
+    and transport failures (see READ_ATTEMPTS).
     """
-    response = request_json("GET", "application.one", query={"applicationId": application_id})
+    response = request_json(
+        "GET",
+        "application.one",
+        query={"applicationId": application_id},
+        attempts=READ_ATTEMPTS,
+        backoff=READ_BACKOFF_SECONDS,
+    )
     image = find_key(response, "dockerImage")
     if isinstance(image, str) and image.strip():
         return image.strip()
@@ -218,6 +233,7 @@ def deploy(args: argparse.Namespace) -> None:
         )
         print(f"Deployment requested for {args.application_id}: {args.image}")
     wait_health(args.health_url, args.timeout, args.expected_commit)
+    # The deployment is already live and healthy here; the re-read retries like every read.
     observed = current_image(args.application_id)
     if observed != args.image:
         raise DokployError(

@@ -225,6 +225,13 @@ def test_retry_constants_match_the_reviewed_design() -> None:
     assert module.RETRYABLE_HTTP_CODES == frozenset({502, 503, 504})
 
 
+def test_read_retry_constants_match_the_design() -> None:
+    module = load_module()
+    assert module.READ_ATTEMPTS == 4
+    assert module.READ_BACKOFF_SECONDS == (3, 10, 20)
+    assert module.READ_RETRYABLE_HTTP_CODES == frozenset({401, 502, 503, 504})
+
+
 @pytest.mark.parametrize("code", [502, 503, 504])
 def test_retryable_http_status_is_retried_then_succeeds(
     monkeypatch: pytest.MonkeyPatch, code: int
@@ -428,4 +435,233 @@ def test_success_path_is_unchanged_and_never_sleeps(monkeypatch: pytest.MonkeyPa
         "title": "title",
         "description": "description",
     }
+    assert sleeps == []
+
+
+# --- HTTP 401 retry on read calls (THE-692) -------------------------------------------------
+
+
+def test_read_retried_after_a_401_then_succeeds(monkeypatch: pytest.MonkeyPatch) -> None:
+    module = load_module()
+    fake, sleeps = install_http(
+        monkeypatch, module, {"application.one": [http_error(401), {"dockerImage": IMAGE}]}
+    )
+    assert module.current_image(APP) == IMAGE
+    assert fake.count("application.one") == 2
+    assert sleeps == [3]
+
+
+def test_read_recovers_on_the_last_allowed_attempt(monkeypatch: pytest.MonkeyPatch) -> None:
+    module = load_module()
+    fake, sleeps = install_http(
+        monkeypatch,
+        module,
+        {
+            "application.one": [
+                http_error(401),
+                http_error(401),
+                http_error(401),
+                {"dockerImage": IMAGE},
+            ]
+        },
+    )
+    assert module.current_image(APP) == IMAGE
+    assert fake.count("application.one") == 4
+    assert sleeps == [3, 10, 20]
+
+
+def test_read_fails_after_four_consecutive_401s(monkeypatch: pytest.MonkeyPatch) -> None:
+    module = load_module()
+    fake, sleeps = install_http(
+        monkeypatch,
+        module,
+        {
+            "application.one": [
+                http_error(401),
+                http_error(401),
+                http_error(401),
+                http_error(401),
+                {"dockerImage": IMAGE},
+            ]
+        },
+    )
+    with pytest.raises(module.DokployError, match="HTTP 401") as raised:
+        module.current_image(APP)
+    assert isinstance(raised.value.__cause__, urllib.error.HTTPError)
+    assert fake.count("application.one") == 4
+    assert sleeps == [3, 10, 20]
+
+
+@pytest.mark.parametrize("code", [400, 403, 404, 409, 422, 500])
+def test_read_does_not_retry_other_client_errors(
+    monkeypatch: pytest.MonkeyPatch, code: int
+) -> None:
+    module = load_module()
+    fake, sleeps = install_http(
+        monkeypatch, module, {"application.one": [http_error(code), {"dockerImage": IMAGE}]}
+    )
+    with pytest.raises(module.DokployError, match=f"HTTP {code}"):
+        module.current_image(APP)
+    assert fake.count("application.one") == 1
+    assert sleeps == []
+
+
+@pytest.mark.parametrize(
+    "failure", [http_error(503), TimeoutError("timed out"), urllib.error.URLError("reset")]
+)
+def test_read_is_also_retried_on_gateway_and_transport_errors(
+    monkeypatch: pytest.MonkeyPatch, failure: BaseException
+) -> None:
+    module = load_module()
+    fake, sleeps = install_http(
+        monkeypatch, module, {"application.one": [failure, {"dockerImage": IMAGE}]}
+    )
+    assert module.current_image(APP) == IMAGE
+    assert fake.count("application.one") == 2
+    assert sleeps == [3]
+
+
+def test_assert_image_retries_a_401_read(monkeypatch: pytest.MonkeyPatch) -> None:
+    module = load_module()
+    fake, sleeps = install_http(
+        monkeypatch, module, {"application.one": [http_error(401), {"dockerImage": IMAGE}]}
+    )
+    module.assert_image(make_args())
+    assert fake.count("application.one") == 2
+    assert sleeps == [3]
+
+
+def test_a_401_on_a_mutation_is_never_retried_even_with_attempts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = load_module()
+    fake, sleeps = install_http(
+        monkeypatch, module, {"application.deploy": [http_error(401), {}]}
+    )
+    with pytest.raises(module.DokployError, match="HTTP 401"):
+        module.request_json("POST", "application.deploy", payload={"a": 1}, attempts=4)
+    assert fake.count("application.deploy") == 1
+    assert sleeps == []
+
+
+def test_a_401_on_update_stops_the_deploy_without_retry(monkeypatch: pytest.MonkeyPatch) -> None:
+    module = load_module()
+    fake, sleeps = install_http(
+        monkeypatch,
+        module,
+        {
+            "application.one": [{"dockerImage": ""}],
+            "application.update": [http_error(401), {}],
+            "application.deploy": [{}],
+        },
+    )
+    with pytest.raises(module.DokployError, match="HTTP 401"):
+        module.deploy(make_args())
+    assert fake.count("application.update") == 1
+    assert fake.count("application.deploy") == 0
+    assert sleeps == []
+
+
+def test_a_401_on_the_deploy_request_is_not_retried(monkeypatch: pytest.MonkeyPatch) -> None:
+    module = load_module()
+    fake, sleeps = install_http(
+        monkeypatch,
+        module,
+        {
+            "application.one": [{"dockerImage": ""}],
+            "application.update": [{}],
+            "application.deploy": [http_error(401), {}],
+        },
+    )
+    with pytest.raises(module.DokployError, match="HTTP 401"):
+        module.deploy(make_args())
+    assert fake.count("application.update") == 1
+    assert fake.count("application.deploy") == 1
+    assert sleeps == []
+
+
+def test_initial_read_401_is_retried_before_any_mutation(monkeypatch: pytest.MonkeyPatch) -> None:
+    module = load_module()
+    fake, sleeps = install_http(
+        monkeypatch,
+        module,
+        {
+            "application.one": [http_error(401), {"dockerImage": ""}, {"dockerImage": IMAGE}],
+            "application.update": [{}],
+            "application.deploy": [{}],
+        },
+    )
+    module.deploy(make_args())
+    assert [call[0] for call in fake.calls] == [
+        "application.one",
+        "application.one",
+        "application.update",
+        "application.deploy",
+        "application.one",
+    ]
+    assert sleeps == [3]
+
+
+def test_post_health_reread_retries_a_401_without_a_second_deployment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The failing case of run 39689087290: healthy on the exact commit, then one read 401."""
+    module = load_module()
+    fake, sleeps = install_http(
+        monkeypatch,
+        module,
+        {
+            "application.one": [{"dockerImage": ""}, http_error(401), {"dockerImage": IMAGE}],
+            "application.update": [{}],
+            "application.deploy": [{}],
+        },
+    )
+    module.deploy(make_args())
+    assert fake.count("application.one") == 3
+    assert fake.count("application.update") == 1
+    assert fake.count("application.deploy") == 1
+    assert sleeps == [3]
+
+
+def test_post_health_reread_still_fails_after_four_401s_and_never_redeploys(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = load_module()
+    fake, sleeps = install_http(
+        monkeypatch,
+        module,
+        {
+            "application.one": [
+                {"dockerImage": ""},
+                http_error(401),
+                http_error(401),
+                http_error(401),
+                http_error(401),
+            ],
+            "application.update": [{}],
+            "application.deploy": [{}],
+        },
+    )
+    with pytest.raises(module.DokployError, match="HTTP 401"):
+        module.deploy(make_args())
+    assert fake.count("application.one") == 5
+    assert fake.count("application.update") == 1
+    assert fake.count("application.deploy") == 1
+    assert sleeps == [3, 10, 20]
+
+
+def test_post_health_reread_does_not_retry_a_404(monkeypatch: pytest.MonkeyPatch) -> None:
+    module = load_module()
+    fake, sleeps = install_http(
+        monkeypatch,
+        module,
+        {
+            "application.one": [{"dockerImage": ""}, http_error(404), {"dockerImage": IMAGE}],
+            "application.update": [{}],
+            "application.deploy": [{}],
+        },
+    )
+    with pytest.raises(module.DokployError, match="HTTP 404"):
+        module.deploy(make_args())
+    assert fake.count("application.one") == 2
     assert sleeps == []
