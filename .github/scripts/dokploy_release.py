@@ -23,11 +23,17 @@ IMAGE_RE = re.compile(r"^ghcr\.io/theriark/driftsniff-ce@sha256:[0-9a-f]{64}$")
 COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 
 # application.update only sets dockerImage to the same immutable digest, so repeating it is
-# idempotent. Only transient transport failures and gateway errors are retried, never 4xx.
+# idempotent. Only transient transport failures and gateway errors are retried, never 4xx,
+# except the read-only exception below.
 UPDATE_TIMEOUT_SECONDS = 90
 UPDATE_ATTEMPTS = 3
 UPDATE_BACKOFF_SECONDS = (5, 15)
 RETRYABLE_HTTP_CODES = frozenset({502, 503, 504})
+
+# Dokploy intermittently answers HTTP 401 to a valid read. A GET changes nothing, so it is
+# retried; a 401 on a write (application.update, application.deploy) is never retried.
+READ_ATTEMPTS = 3
+READ_RETRYABLE_HTTP_CODES = frozenset({401})
 
 
 class DokployError(RuntimeError):
@@ -77,7 +83,9 @@ def request_json(
             error = DokployError(
                 f"Dokploy API {method} {path} failed with HTTP {exc.code}: {detail}"
             )
-            retryable = exc.code in RETRYABLE_HTTP_CODES
+            retryable = exc.code in RETRYABLE_HTTP_CODES or (
+                method == "GET" and exc.code in READ_RETRYABLE_HTTP_CODES
+            )
             cause: Exception = exc
         except (TimeoutError, urllib.error.URLError) as exc:
             error = DokployError(f"Dokploy API {method} {path} failed: {exc}")
@@ -139,9 +147,15 @@ def current_image(application_id: str, *, allow_missing: bool = False) -> str:
 
     Strict by default: an absent, null or blank image raises. With allow_missing=True such a
     value returns "" instead (an application that has never been deployed has no image yet).
-    A value of any other type always raises.
+    A value of any other type always raises. The read is retried (READ_ATTEMPTS), including
+    on an intermittent HTTP 401.
     """
-    response = request_json("GET", "application.one", query={"applicationId": application_id})
+    response = request_json(
+        "GET",
+        "application.one",
+        query={"applicationId": application_id},
+        attempts=READ_ATTEMPTS,
+    )
     image = find_key(response, "dockerImage")
     if isinstance(image, str) and image.strip():
         return image.strip()
