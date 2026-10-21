@@ -204,6 +204,33 @@ jobs:
           set -euo pipefail
           PYTHONPATH=src .venv/bin/python scripts/check_migrations.py
 
+  canary:
+    name: Canary leak harness
+    needs: gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install locked dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv .venv
+          .venv/bin/python -m pip install --require-hashes --no-deps -r requirements-dev.txt
+          .venv/bin/python -m pip check
+
+      # Seeds unique CANARY- values into a fake source, runs the real redact, normalise, manifest
+      # and store path, and fails when a canary is found in the database file, its rows, the logs,
+      # raised errors or the output. The tests also leak on purpose to prove the harness can fail.
+      - name: Canary leak tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          .venv/bin/python -m pytest -q -o addopts="" tests/security
+
   audit:
     name: Dependency audit
     needs: gate
@@ -453,6 +480,7 @@ jobs:
       - types
       - test
       - migration
+      - canary
       - audit
       - secrets
       - licences
