@@ -101,7 +101,7 @@ A pull request into `development` needs every job below to be green. The names a
 | `CI / Container smoke` | `smoke` | `scripts/container-smoke.sh` passes on the image from `build` | `build` |
 | `CI / SBOM` | `sbom` | Syft writes a CycloneDX document with components for the image from `build`; it is uploaded as artifact `driftsniff-sbom` | `build` |
 
-Other jobs of the same workflow are not pull request checks: `Publish and deploy Development` (`deploy-development`) runs only after a push to `development`, only while `DEPLOY_DEVELOPMENT_ENABLED` is `true`, and only after all twelve check jobs above succeed; `Lock hashed requirements` (`lock-requirements`) runs only for a manual `mode=lock` dispatch.
+Other jobs of the same workflow are not pull request checks: `Publish and deploy Development` (`deploy-development`) runs only after a push to `development`, only while `DEPLOY_DEVELOPMENT_ENABLED` is `true`, and only after all twelve check jobs above succeed; `Lock hashed requirements` (`lock-requirements`) runs only for a manual `mode=lock` dispatch; `Nightly property tests` (`nightly-properties`) runs only on the daily schedule or a manual `mode=nightly` dispatch and is **not a required check** (section 10.5).
 
 Concurrency: a newer `ci-go` run of the same pull request cancels the older one (group `pr-<ref>`). Deployments use the group `driftsniff-ce-pipeline` and are never cancelled.
 
@@ -233,44 +233,3 @@ The job is part of the pull request checks in `ci.yml`; no new workflow file exi
 Required check: `CI / Canary leak harness` is in the list of section 3. It becomes binding only when a repository admin adds it to the branch protection of `development` (section 4); the crew cannot do that.
 
 Limits: the job exercises the surfaces that exist today. Notifications, API output and exports (P9) and the real collectors (P7 and P8) extend the harness when they exist, in the pull requests that add them; a new surface needs no change to `ci.yml` as long as its tests live under `tests/security`.
-
-## 10. Property tests and the nightly profile (P4-T3)
-
-The property tests live in `tests/properties/` and use Hypothesis. They run inside the existing `CI / Tests` job (`pytest` collects `tests/`); no workflow file was changed.
-
-| Property | Test | What it proves |
-|---|---|---|
-| 1 | `test_the_diff_of_a_state_with_itself_is_empty` | `compare(x, x)` returns no item, secrets in the state included |
-| 2 | `test_applying_the_diff_to_the_old_state_gives_the_new_state` | the items of an object, applied to its old state by a helper that lives in the tests, give its new state (modulo ignored fields, list order of membership lists and empty-versus-missing containers) |
-| 3 | `test_shuffling_sets_never_changes_the_diff` | shuffling set members, keyed lists and the order of objects and resources leaves the items equal |
-| extra | `test_a_secret_value_never_appears_in_an_item`, `test_diff_order_leaves_the_common_keys_in_one_order_apart_from_the_moves` | no `CANARY-` value in any item; `diff_order` inserts, deletes and moves are consistent |
-
-### 10.1 Profiles
-
-Profiles are registered in `tests/properties/conftest.py` and selected with the environment variable `HYPOTHESIS_PROFILE`.
-
-| Profile | Cases per property | Seed | Used by |
-|---|---|---|---|
-| `ci` (default) | 500 | fixed (`derandomize=True`), no example database | every `CI / Tests` run, so the result is reproducible |
-| `nightly` | 5000 | new random seed on every run (`derandomize=False`) | the nightly job (P4-T3b), report only |
-
-`test_each_property_ran_at_least_the_profile_budget` fails the `ci` run if a property ran fewer than 500 cases.
-
-### 10.2 Exact command for the nightly job
-
-```
-HYPOTHESIS_PROFILE=nightly python -m pytest -q -o addopts="" -p no:cacheprovider tests/properties
-```
-
-Run it in the same environment as the `test` job (hashed `requirements-dev.txt` installed). The job must be report only: it must not be a required check and must not block a merge or a deployment. On a failure Hypothesis prints the minimal failing example and a `@reproduce_failure` blob; copy both into the report. To replay locally, run the command with `HYPOTHESIS_PROFILE=ci` after adding the printed `@reproduce_failure` decorator to the failing test, or add the minimal example as a regular unit test.
-
-### 10.3 Fixtures
-
-`tests/properties/fixtures.py` holds the synthetic type table, inventories (resource, object key, state), `manifest_of`, `diff` (the real `compare` on two inventories) and the Hypothesis strategies. Everything is made up; every secret-like value starts with `CANARY-`. Later phases import it with `from properties.fixtures import ...` or the relative form inside the package.
-
-### 10.4 Limits
-
-- States use small value domains (integers 0 to 2, four words) so that two draws often agree on some fields; large real-world states are not generated.
-- Schema drift is not generated (the controller version is the same on both sides); it stays covered by `tests/unit/test_diff.py`.
-- Property 2 cannot tell an empty container from a missing one, because `compare` reports both the same way when the other side has members. That is by design of the diff, not a defect.
-- `compare_order` (manifest positions, `order_changed`) is covered by `tests/unit/test_order.py`; only `diff_order` has a property here.
