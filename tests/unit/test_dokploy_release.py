@@ -535,9 +535,7 @@ def test_a_401_on_a_mutation_is_never_retried_even_with_attempts(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     module = load_module()
-    fake, sleeps = install_http(
-        monkeypatch, module, {"application.deploy": [http_error(401), {}]}
-    )
+    fake, sleeps = install_http(monkeypatch, module, {"application.deploy": [http_error(401), {}]})
     with pytest.raises(module.DokployError, match="HTTP 401"):
         module.request_json("POST", "application.deploy", payload={"a": 1}, attempts=4)
     assert fake.count("application.deploy") == 1
