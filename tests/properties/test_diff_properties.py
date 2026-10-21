@@ -19,11 +19,10 @@ that are compared by membership, and the difference between an empty container a
 
 import json
 import random
-from collections import Counter
 from collections.abc import Mapping, Sequence
 from typing import Final, cast
 
-from hypothesis import given, settings
+from hypothesis import event, given, settings
 from hypothesis import strategies as st
 
 from driftsniff.core.canonical import JsonValue
@@ -31,7 +30,6 @@ from driftsniff.core.diff import ChangeItem
 from driftsniff.core.normalize import CollectionMode
 from driftsniff.core.order import diff_order
 
-from .conftest import CI_EXAMPLES
 from .fixtures import (
     CANARY_PREFIX,
     TABLE,
@@ -41,7 +39,6 @@ from .fixtures import (
     inventory_pairs,
 )
 
-CALLS: Counter[str] = Counter()
 MEMBER_LISTS: Final = ("tags", "rules", "ports")
 IGNORED: Final = ("uptime",)
 
@@ -164,22 +161,21 @@ def _items_of(items: Sequence[ChangeItem], resource: str, key: str) -> list[Chan
 # ---- property 1: a state against itself ----------------------------------------------------
 
 
-@given(pair=inventory_pairs(secrets=True))
-def test_the_diff_of_a_state_with_itself_is_empty(pair: tuple[Inventory, Inventory]) -> None:
-    CALLS["identity"] += 1
+def _check_identity(pair: tuple[Inventory, Inventory]) -> None:
     previous, new = pair
     assert diff(previous, previous) == []
     assert diff(new, new) == []
 
 
+@given(pair=inventory_pairs(secrets=True))
+def test_the_diff_of_a_state_with_itself_is_empty(pair: tuple[Inventory, Inventory]) -> None:
+    _check_identity(pair)
+
+
 # ---- property 2: the diff turns the old state into the new one -----------------------------
 
 
-@given(pair=inventory_pairs())
-def test_applying_the_diff_to_the_old_state_gives_the_new_state(
-    pair: tuple[Inventory, Inventory],
-) -> None:
-    CALLS["apply"] += 1
+def _check_apply(pair: tuple[Inventory, Inventory]) -> None:
     previous, new = pair
     items = diff(previous, new)
     for resource, objects in new.items():
@@ -195,6 +191,13 @@ def test_applying_the_diff_to_the_old_state_gives_the_new_state(
         # every item names an object of its resource, nothing else is reported
         named = {i.object_key for i in items if i.resource == resource}
         assert named <= set(objects) | set(old_objects)
+
+
+@given(pair=inventory_pairs())
+def test_applying_the_diff_to_the_old_state_gives_the_new_state(
+    pair: tuple[Inventory, Inventory],
+) -> None:
+    _check_apply(pair)
 
 
 # ---- property 3: shuffling what compare does not read changes nothing ----------------------
@@ -220,25 +223,90 @@ def _shuffled_inventory(inventory: Inventory, rnd: random.Random) -> Inventory:
     return result
 
 
-@given(pair=inventory_pairs(), rnd=st.randoms(use_true_random=False))
-def test_shuffling_sets_never_changes_the_diff(
-    pair: tuple[Inventory, Inventory], rnd: random.Random
-) -> None:
-    CALLS["shuffle"] += 1
+def _check_shuffle(pair: tuple[Inventory, Inventory], rnd: random.Random) -> None:
     previous, new = pair
     expected = diff(previous, new)
     assert diff(_shuffled_inventory(previous, rnd), _shuffled_inventory(new, rnd)) == expected
 
 
-# ---- the budget: the profile really gave 500 cases per property ----------------------------
+@given(pair=inventory_pairs(), rnd=st.randoms(use_true_random=False))
+def test_shuffling_sets_never_changes_the_diff(
+    pair: tuple[Inventory, Inventory], rnd: random.Random
+) -> None:
+    _check_shuffle(pair, rnd)
 
 
-def test_each_property_ran_at_least_the_profile_budget() -> None:
-    """Runs after the three tests above (file order). Only checked for the ``ci`` profile."""
-    if settings().max_examples != CI_EXAMPLES:
-        return
-    for name in ("identity", "apply", "shuffle"):
-        assert CALLS[name] >= CI_EXAMPLES, (name, CALLS[name])
+# ---- the budget and the share of non-empty diffs ------------------------------------------
+# These tests are standalone: each one runs a property body itself, through a counting wrapper,
+# so it does not depend on file order, on other tests, on ``-k``, on random order or on xdist,
+# and it checks the budget of whatever profile is active (500 in ``ci``, 5000 in ``nightly``).
+# The cost is that the three properties run once more.
+
+NON_EMPTY_SHARE: Final = 0.70
+"""At least this share of the generated pairs must give a diff with items. Two independent
+draws of 0 to 4 objects, each with about ten optional fields, are almost never equal; 70 percent
+leaves room for Hypothesis' bias to small examples. If it is missed, widen the generators in
+fixtures.py; do not lower this number."""
+
+
+def _budget() -> int:
+    return settings().max_examples
+
+
+def test_the_identity_property_runs_its_whole_budget() -> None:
+    runs = 0
+
+    @given(pair=inventory_pairs(secrets=True))
+    def counted(pair: tuple[Inventory, Inventory]) -> None:
+        nonlocal runs
+        runs += 1
+        _check_identity(pair)
+
+    counted()
+    assert runs >= _budget(), runs
+
+
+def test_the_apply_property_runs_its_whole_budget() -> None:
+    runs = 0
+
+    @given(pair=inventory_pairs())
+    def counted(pair: tuple[Inventory, Inventory]) -> None:
+        nonlocal runs
+        runs += 1
+        _check_apply(pair)
+
+    counted()
+    assert runs >= _budget(), runs
+
+
+def test_the_shuffle_property_runs_its_whole_budget() -> None:
+    runs = 0
+
+    @given(pair=inventory_pairs(), rnd=st.randoms(use_true_random=False))
+    def counted(pair: tuple[Inventory, Inventory], rnd: random.Random) -> None:
+        nonlocal runs
+        runs += 1
+        _check_shuffle(pair, rnd)
+
+    counted()
+    assert runs >= _budget(), runs
+
+
+def test_most_generated_pairs_give_a_non_empty_diff() -> None:
+    total = 0
+    non_empty = 0
+
+    @given(pair=inventory_pairs())
+    def counted(pair: tuple[Inventory, Inventory]) -> None:
+        nonlocal total, non_empty
+        total += 1
+        has_items = bool(diff(*pair))
+        non_empty += has_items
+        event("non-empty diff" if has_items else "empty diff")
+
+    counted()
+    assert total >= _budget(), total
+    assert non_empty / total >= NON_EMPTY_SHARE, f"{non_empty} of {total} pairs gave items"
 
 
 # ---- secrets never reach an item -----------------------------------------------------------
