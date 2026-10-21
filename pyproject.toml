@@ -20,7 +20,7 @@ dependencies = {file = ["requirements.in"]}
 where = ["src"]
 
 [tool.setuptools.package-data]
-"driftsniff.rules" = ["*.yaml"]
+"driftsniff.rules" = ["*.yaml", "packs/*/*.yaml", "types/*.yaml"]
 
 [tool.ruff]
 line-length = 100
