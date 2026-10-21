@@ -48,8 +48,12 @@ logger = logging.getLogger(__name__)
 
 MAX_NAME_CHARS = 100
 OPTION_ALLOW_PLAIN_HTTP = "allow_plain_http"
+OPTION_INTERVAL_SECONDS = "interval_seconds"
+DEFAULT_INTERVAL_SECONDS = 300
+MIN_INTERVAL_SECONDS = 60
+MAX_INTERVAL_SECONDS = 3600
 # Option name to the type its value must have. Later phases add their options here.
-ALLOWED_OPTIONS: Mapping[str, type] = {OPTION_ALLOW_PLAIN_HTTP: bool}
+ALLOWED_OPTIONS: Mapping[str, type] = {OPTION_ALLOW_PLAIN_HTTP: bool, OPTION_INTERVAL_SECONDS: int}
 # Source types that read a controller and therefore need an address and a credential.
 POLLED_TYPES = ("unifi", "xo")
 
@@ -126,6 +130,13 @@ def _check_options(options: Mapping[str, object]) -> dict[str, object]:
             raise SourceValidationError(f"unknown source option {key!r}")
         if type(value) is not expected:
             raise SourceValidationError(f"the source option {key} must be {expected.__name__}")
+        if key == OPTION_INTERVAL_SECONDS and not (
+            isinstance(value, int) and MIN_INTERVAL_SECONDS <= value <= MAX_INTERVAL_SECONDS
+        ):
+            raise SourceValidationError(
+                f"the source option {key} must be from {MIN_INTERVAL_SECONDS} "
+                f"to {MAX_INTERVAL_SECONDS} seconds"
+            )
         checked[key] = value
     return checked
 
@@ -164,6 +175,17 @@ def _audit(
 
 def _audit_plain_http(connection: Connection, at: str, actor: str, source_id: int) -> None:
     _audit(connection, at, actor, ACTION_ALLOW_PLAIN_HTTP, source_id, {"set": True})
+
+
+def interval_of(options: Mapping[str, object]) -> int:
+    """The seconds between two runs of a source: its ``interval_seconds`` option, else 300.
+
+    A stored value outside 60 to 3600 (the service refuses to store one) also gives the default.
+    """
+    value = options.get(OPTION_INTERVAL_SECONDS)
+    if type(value) is int and MIN_INTERVAL_SECONDS <= value <= MAX_INTERVAL_SECONDS:
+        return value
+    return DEFAULT_INTERVAL_SECONDS
 
 
 class SourceService:
