@@ -61,7 +61,7 @@ def load(name: str) -> dict[Any, Any]:
 
 def dispatch_inputs(name: str) -> dict[str, Any]:
     document = load(name)
-    triggers = document.get("on", document.get(True))
+    triggers = document["on"] if "on" in document else document[True]
     assert list(triggers) == ["workflow_dispatch"]
     inputs = triggers["workflow_dispatch"]["inputs"]
     assert isinstance(inputs, dict)
