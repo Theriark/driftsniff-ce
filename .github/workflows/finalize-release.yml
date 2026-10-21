@@ -1,0 +1,372 @@
+name: Finalize Release
+
+run-name: "publishing:${{ inputs.request_id }}"
+
+# Publishes the stable release of the exact commit and image that Stage already runs; never
+# rebuilds and never deploys. It creates GHCR aliases of the same digest, an annotated stable tag
+# and a non-draft, non-prerelease GitHub release. It moves neither main nor production.
+# NOT enabled: the first job (guard) fails the run before any write unless the repository
+# variable FINALIZE_RELEASE_ENABLED is exactly 'true'. It stays unset until the separate native
+# release decision exists and the switch is set for that one run.
+# Inputs follow the publishing contract plus stage_promotion_run_id, the run id of the successful
+# Promote - Stage run. Existing tags, releases and aliases are reconciled, never overwritten.
+
+on:
+  workflow_dispatch:
+    inputs:
+      request_id:
+        description: Publication request id; also the run name (publishing:<request_id>)
+        required: true
+        type: string
+      version:
+        description: Stable release version, for example v27.0.0
+        required: true
+        type: string
+      source_commit:
+        description: Full commit SHA that Stage runs and that the RC was cut from
+        required: true
+        type: string
+      image:
+        description: Immutable image ghcr.io/theriark/driftsniff-ce@sha256:<digest> that Stage runs
+        required: true
+        type: string
+      development_run_id:
+        description: Run id of the successful push CI run on development that built the image
+        required: true
+        type: string
+      documentation_manifest_sha256:
+        description: SHA-256 of the reviewed documentation manifest sealed in the RC tag
+        required: true
+        type: string
+      rc_tag:
+        description: Existing annotated RC tag, for example v27.0.0-rc.1, that Stage promoted
+        required: true
+        type: string
+      stage_promotion_run_id:
+        description: Run id of the successful Promote - Stage run for this commit and image
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: driftsniff-ce-pipeline
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    name: Release switch is on
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+
+    permissions:
+      contents: read
+
+    env:
+      FINALIZE_RELEASE_ENABLED: ${{ vars.FINALIZE_RELEASE_ENABLED }}
+
+    steps:
+      - name: Checkout guard script
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Stop unless FINALIZE_RELEASE_ENABLED is true
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/guard_enabled.py FINALIZE_RELEASE_ENABLED
+
+  finalize:
+    name: Publish stable release
+    needs: guard
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: stage
+
+    permissions:
+      actions: read
+      contents: write
+      packages: write
+
+    env:
+      IMAGE: ghcr.io/theriark/driftsniff-ce
+      REQUEST_ID: ${{ inputs.request_id }}
+      VERSION: ${{ inputs.version }}
+      SOURCE_COMMIT: ${{ inputs.source_commit }}
+      IMAGE_INPUT: ${{ inputs.image }}
+      DEVELOPMENT_RUN_ID: ${{ inputs.development_run_id }}
+      DOCUMENTATION_MANIFEST_SHA256: ${{ inputs.documentation_manifest_sha256 }}
+      RC_TAG: ${{ inputs.rc_tag }}
+      STAGE_PROMOTION_RUN_ID: ${{ inputs.stage_promotion_run_id }}
+      DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
+      DOKPLOY_API_KEY: ${{ secrets.DOKPLOY_API_KEY }}
+      CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+      CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+      DOKPLOY_STAGE_APPLICATION_ID: lhB_AOqk4FTEaHhEQcPKj
+      STAGE_HOST: ce-stg-driftsniff.theriark.dev
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Checkout pipeline code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Validate inputs and branch state
+        shell: bash
+        run: |
+          set -euo pipefail
+          fail() {
+            echo "::error::$1"
+            exit 1
+          }
+          [[ "${REQUEST_ID}" =~ ^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$ ]] || fail "request_id is empty or has unexpected characters"
+          [[ "${VERSION}" =~ ^v27\.[0-9]+\.[0-9]+$ ]] || fail "version must be a stable v27.<minor>.<patch>"
+          [[ "${RC_TAG}" =~ ^v27\.[0-9]+\.[0-9]+-rc\.[0-9]+$ ]] || fail "rc_tag must look like v27.<minor>.<patch>-rc.<number>"
+          [[ "${RC_TAG}" == "${VERSION}"-rc.* ]] || fail "rc_tag ${RC_TAG} is not a release candidate of ${VERSION}"
+          [[ "${SOURCE_COMMIT}" =~ ^[0-9a-f]{40}$ ]] || fail "source_commit must be a full 40-character commit SHA"
+          [[ "${IMAGE_INPUT}" =~ ^ghcr\.io/theriark/driftsniff-ce@sha256:[0-9a-f]{64}$ ]] || fail "image must be ${IMAGE}@sha256:<64 lowercase hex characters>"
+          [[ "${DEVELOPMENT_RUN_ID}" =~ ^[1-9][0-9]{0,17}$ ]] || fail "development_run_id must be a positive integer"
+          [[ "${STAGE_PROMOTION_RUN_ID}" =~ ^[1-9][0-9]{0,17}$ ]] || fail "stage_promotion_run_id must be a positive integer"
+          [[ "${DOCUMENTATION_MANIFEST_SHA256}" =~ ^[0-9a-f]{64}$ ]] || fail "documentation_manifest_sha256 must be 64 lowercase hex characters"
+          case "${GITHUB_REF}" in
+            refs/heads/development | refs/heads/stage) ;;
+            *) fail "Release finalization must run from development or stage; received ${GITHUB_REF}" ;;
+          esac
+          for required in DOKPLOY_URL DOKPLOY_API_KEY CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET; do
+            [[ -n "${!required}" ]] || fail "${required} is missing"
+          done
+          git fetch --no-tags origin \
+            +refs/heads/development:refs/remotes/origin/development \
+            +refs/heads/stage:refs/remotes/origin/stage
+          git cat-file -e "${SOURCE_COMMIT}^{commit}" || fail "${SOURCE_COMMIT} does not exist in this repository"
+          STAGE_BRANCH_SHA="$(git rev-parse refs/remotes/origin/stage)"
+          [[ "${SOURCE_COMMIT}" == "${STAGE_BRANCH_SHA}" ]] || fail "release source ${SOURCE_COMMIT} is not the Stage-approved commit ${STAGE_BRANCH_SHA}"
+          git merge-base --is-ancestor "${SOURCE_COMMIT}" refs/remotes/origin/development || fail "${SOURCE_COMMIT} is not in development history"
+          echo "DIGEST=${IMAGE_INPUT##*@}" >> "${GITHUB_ENV}"
+
+      - name: Verify the release candidate and the Development and Stage runs
+        shell: bash
+        run: |
+          set -euo pipefail
+          fail() {
+            echo "::error::$1"
+            exit 1
+          }
+          git fetch --no-tags origin "+refs/tags/${RC_TAG}:refs/tags/${RC_TAG}" || fail "RC tag ${RC_TAG} does not exist"
+          [[ "$(git cat-file -t "refs/tags/${RC_TAG}")" == "tag" ]] || fail "${RC_TAG} is not an annotated tag"
+          [[ "$(git rev-parse "refs/tags/${RC_TAG}^{commit}")" == "${SOURCE_COMMIT}" ]] || fail "${RC_TAG} does not point to ${SOURCE_COMMIT}"
+          message="$(git for-each-ref --format='%(contents)' "refs/tags/${RC_TAG}")"
+          jq -e \
+            --arg commit "${SOURCE_COMMIT}" \
+            --arg digest "${DIGEST}" \
+            --arg manifest "${DOCUMENTATION_MANIFEST_SHA256}" \
+            --argjson development_run "${DEVELOPMENT_RUN_ID}" '
+              (.sourceCommit == $commit)
+              and ((.imageDigest | ltrimstr("sha256:")) == ($digest | ltrimstr("sha256:")))
+              and (.developmentRunId == $development_run)
+              and (.documentationManifestSha256 == $manifest)
+              and (.workflowRunId | (type == "number" and . == floor and . > 0))
+              and (.gateCycle | (type == "number" and . == floor and . >= 1))
+            ' <<<"${message}" >/dev/null || fail "the metadata of ${RC_TAG} does not match source_commit, image, development_run_id and documentation_manifest_sha256"
+          rc_run_id="$(jq -r '.workflowRunId' <<<"${message}")"
+          [[ "${rc_run_id}" =~ ^[1-9][0-9]{0,17}$ ]] || fail "the RC tag has no valid workflowRunId"
+          {
+            echo "RC_RUN_ID=${rc_run_id}"
+            echo "RC_IMAGE_DIGEST=$(jq -r '.imageDigest' <<<"${message}")"
+            echo "GATE_CYCLE=$(jq -r '.gateCycle' <<<"${message}")"
+          } >> "${GITHUB_ENV}"
+          release="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RC_TAG}")" || fail "no GitHub release exists for ${RC_TAG}"
+          jq -e --arg tag "${RC_TAG}" '.tag_name == $tag and .prerelease == true and .draft == false' <<<"${release}" >/dev/null || fail "the release of ${RC_TAG} is not a non-draft prerelease"
+          development_run="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${DEVELOPMENT_RUN_ID}")" || fail "development run ${DEVELOPMENT_RUN_ID} was not found"
+          jq -e --arg repo "${GITHUB_REPOSITORY}" --arg sha "${SOURCE_COMMIT}" '
+            .repository.full_name == $repo and .name == "CI" and .event == "push"
+            and .head_branch == "development" and .head_sha == $sha
+            and .status == "completed" and .conclusion == "success"
+          ' <<<"${development_run}" >/dev/null || fail "development run ${DEVELOPMENT_RUN_ID} is not a successful CI push run on development for ${SOURCE_COMMIT}"
+          rc_run="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${rc_run_id}")" || fail "RC producing run ${rc_run_id} was not found"
+          jq -e --arg repo "${GITHUB_REPOSITORY}" '
+            .repository.full_name == $repo and .head_branch == "development"
+            and .status == "completed" and .conclusion == "success"
+          ' <<<"${rc_run}" >/dev/null || fail "RC producing run ${rc_run_id} is not a successful run on development"
+          stage_run="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${STAGE_PROMOTION_RUN_ID}")" || fail "Stage promotion run ${STAGE_PROMOTION_RUN_ID} was not found"
+          jq -e --arg repo "${GITHUB_REPOSITORY}" '
+            .repository.full_name == $repo and .name == "Promote - Stage" and .event == "workflow_dispatch"
+            and .status == "completed" and .conclusion == "success"
+          ' <<<"${stage_run}" >/dev/null || fail "run ${STAGE_PROMOTION_RUN_ID} is not a successful Promote - Stage run"
+          echo "Verified ${RC_TAG}: RC run ${rc_run_id}, development run ${DEVELOPMENT_RUN_ID}, Stage run ${STAGE_PROMOTION_RUN_ID}"
+
+      - name: Verify Stage still runs this exact image
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/dokploy_release.py assert-image \
+            --application-id "${DOKPLOY_STAGE_APPLICATION_ID}" \
+            --image "${IMAGE_INPUT}"
+          python3 .github/scripts/dokploy_release.py health \
+            --health-url "https://${STAGE_HOST}/healthz" \
+            --expected-commit "${SOURCE_COMMIT}"
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+
+      - name: Confirm the image is the one published for the commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="sha-${SOURCE_COMMIT::12}"
+          resolved="$(docker buildx imagetools inspect "${IMAGE}:${tag}" --format '{{.Manifest.Digest}}')"
+          [[ "${resolved}" == "${DIGEST}" ]] || {
+            echo "::error::image digest ${DIGEST} does not match the image published for ${SOURCE_COMMIT} (${resolved})"
+            exit 1
+          }
+          echo "Confirmed ${IMAGE_INPUT}"
+
+      - name: Publish stable image aliases without rebuilding
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_version="${VERSION#v}"
+          if existing="$(docker buildx imagetools inspect "${IMAGE}:${release_version}" --format '{{.Manifest.Digest}}' 2>/dev/null)"; then
+            [[ "${existing}" == "${DIGEST}" ]] || {
+              echo "::error::${IMAGE}:${release_version} already exists with ${existing}, not ${DIGEST}"
+              exit 1
+            }
+            echo "${IMAGE}:${release_version} already points to ${DIGEST}"
+          else
+            docker buildx imagetools create --tag "${IMAGE}:${release_version}" "${IMAGE_INPUT}"
+          fi
+          docker buildx imagetools create --tag "${IMAGE}:latest" "${IMAGE_INPUT}"
+          for alias in "${release_version}" latest; do
+            actual="$(docker buildx imagetools inspect "${IMAGE}:${alias}" --format '{{.Manifest.Digest}}')"
+            [[ "${actual}" == "${DIGEST}" ]] || {
+              echo "::error::${IMAGE}:${alias} resolved to ${actual}; expected ${DIGEST}"
+              exit 1
+            }
+            echo "PASS: ${IMAGE}:${alias} -> ${actual}"
+          done
+
+      - name: Publish the annotated stable tag and the GitHub release
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          fail() {
+            echo "::error::$1"
+            exit 1
+          }
+          message="$(jq -cn \
+            --arg commit "${SOURCE_COMMIT}" \
+            --arg digest "${RC_IMAGE_DIGEST}" \
+            --arg manifest "${DOCUMENTATION_MANIFEST_SHA256}" \
+            --arg rc "${RC_TAG}" \
+            --argjson development_run "${DEVELOPMENT_RUN_ID}" \
+            --argjson run "${GITHUB_RUN_ID}" \
+            --argjson cycle "${GATE_CYCLE}" \
+            --argjson stage_run "${STAGE_PROMOTION_RUN_ID}" '{
+              sourceCommit: $commit,
+              imageDigest: $digest,
+              developmentRunId: $development_run,
+              workflowRunId: $run,
+              documentationManifestSha256: $manifest,
+              gateCycle: $cycle,
+              stagePromotionRunId: $stage_run,
+              rcTag: $rc
+            }')"
+          tag_created=false
+          cleanup_partial_publication() {
+            status=$?
+            trap - ERR
+            if [[ "${tag_created}" == "true" ]]; then
+              echo "::warning::publication failed; removing the tag created by this run"
+              gh api --method DELETE "repos/${GITHUB_REPOSITORY}/git/refs/tags/${VERSION}" >/dev/null 2>&1 || true
+            fi
+            exit "${status}"
+          }
+          trap cleanup_partial_publication ERR
+          if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${VERSION}" >/dev/null 2>&1; then
+            # Reconcile an existing tag: it must be the same annotated release, never rewritten.
+            git fetch --no-tags origin "+refs/tags/${VERSION}:refs/tags/${VERSION}"
+            [[ "$(git cat-file -t "refs/tags/${VERSION}")" == "tag" ]] || fail "${VERSION} exists and is not an annotated tag"
+            [[ "$(git rev-parse "refs/tags/${VERSION}^{commit}")" == "${SOURCE_COMMIT}" ]] || fail "${VERSION} exists and points to another commit"
+            existing_message="$(git for-each-ref --format='%(contents)' "refs/tags/${VERSION}")"
+            jq -e \
+              --arg commit "${SOURCE_COMMIT}" \
+              --arg digest "${RC_IMAGE_DIGEST}" \
+              --arg manifest "${DOCUMENTATION_MANIFEST_SHA256}" \
+              --arg rc "${RC_TAG}" \
+              --argjson stage_run "${STAGE_PROMOTION_RUN_ID}" '
+                .sourceCommit == $commit and .imageDigest == $digest
+                and .documentationManifestSha256 == $manifest
+                and .rcTag == $rc and .stagePromotionRunId == $stage_run
+              ' <<<"${existing_message}" >/dev/null || fail "${VERSION} exists with different metadata"
+            echo "${VERSION} already exists with matching metadata; reusing it"
+          else
+            tag_object_sha="$(gh api --method POST \
+              -H "Accept: application/vnd.github+json" \
+              "repos/${GITHUB_REPOSITORY}/git/tags" \
+              -f tag="${VERSION}" \
+              -f message="${message}" \
+              -f object="${SOURCE_COMMIT}" \
+              -f type="commit" \
+              -f 'tagger[name]=github-actions[bot]' \
+              -f 'tagger[email]=41898282+github-actions[bot]@users.noreply.github.com' \
+              --jq '.sha')" || fail "GITHUB_TOKEN could not create the annotated tag object"
+            [[ "${tag_object_sha}" =~ ^[0-9a-f]{40}$ ]] || fail "GitHub did not return a valid tag object SHA"
+            gh api --method POST \
+              -H "Accept: application/vnd.github+json" \
+              "repos/${GITHUB_REPOSITORY}/git/refs" \
+              -f ref="refs/tags/${VERSION}" \
+              -f sha="${tag_object_sha}" >/dev/null || fail "GITHUB_TOKEN could not create refs/tags/${VERSION}"
+            tag_created=true
+          fi
+          if existing_release="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${VERSION}" 2>/dev/null)"; then
+            jq -e --arg tag "${VERSION}" '.tag_name == $tag and .prerelease == false and .draft == false' <<<"${existing_release}" >/dev/null || fail "a release for ${VERSION} exists but is a draft or prerelease"
+            echo "GitHub release ${VERSION} already exists; reusing it"
+          else
+            {
+              echo "Driftsniff CE ${VERSION}"
+              echo
+              echo "- Source commit: ${SOURCE_COMMIT}"
+              echo "- Image: ${IMAGE_INPUT}"
+              echo "- Release candidate: ${RC_TAG}"
+              echo "- Documentation manifest SHA-256: ${DOCUMENTATION_MANIFEST_SHA256}"
+              echo "- Development run: ${DEVELOPMENT_RUN_ID}"
+              echo "- Stage promotion run: ${STAGE_PROMOTION_RUN_ID}"
+            } > "${RUNNER_TEMP}/release-notes.md"
+            gh release create "${VERSION}" \
+              --repo "${GITHUB_REPOSITORY}" \
+              --verify-tag \
+              --title "Driftsniff CE ${VERSION}" \
+              --notes-file "${RUNNER_TEMP}/release-notes.md"
+          fi
+          trap - ERR
+
+      - name: Record immutable release result
+        shell: bash
+        run: |
+          release_version="${VERSION#v}"
+          {
+            echo "## driftsniff-ce release finalized"
+            echo
+            echo "- Request: \`${REQUEST_ID}\`"
+            echo "- Version: \`${VERSION}\`"
+            echo "- Source commit: \`${SOURCE_COMMIT}\`"
+            echo "- Immutable image: \`${IMAGE_INPUT}\`"
+            echo "- RC tag: \`${RC_TAG}\` (RC producing run \`${RC_RUN_ID}\`)"
+            echo "- Documentation manifest: \`${DOCUMENTATION_MANIFEST_SHA256}\`"
+            echo "- Development run: \`${DEVELOPMENT_RUN_ID}\`"
+            echo "- Stage promotion run: \`${STAGE_PROMOTION_RUN_ID}\`"
+            echo "- Publication run: \`${GITHUB_RUN_ID}\`"
+            echo "- GHCR aliases: \`${release_version}\`, \`latest\` (same digest)"
+            echo "- Rebuild performed: no"
+            echo "- Deployment performed: no"
+          } >> "${GITHUB_STEP_SUMMARY}"
