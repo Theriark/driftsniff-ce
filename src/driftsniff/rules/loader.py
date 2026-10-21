@@ -132,24 +132,25 @@ def _line(node: yaml.Node) -> int:
 _BOOL_TAG: Final = "tag:yaml.org,2002:bool"
 
 
-class _SafeLoader12(yaml.SafeLoader):
-    """``SafeLoader`` whose only booleans are ``true`` and ``false`` (YAML 1.2 style).
+def _implicit_resolvers() -> dict[str | None, list[tuple[str, re.Pattern[str]]]]:
+    """The ``SafeLoader`` resolvers with a YAML 1.2 style boolean: only ``true`` and ``false``.
 
     PyYAML follows YAML 1.1, where the bare words ``yes``, ``no``, ``on``, ``off``, ``y`` and ``n``
     are booleans too, so ``from: [on]`` would load as ``True`` and a rule would silently never
     match the vendor value ``"on"``. Here those words stay text. A quoted ``'on'`` is text in both.
+    The result is a copy; the table of ``yaml.SafeLoader`` itself is left untouched.
     """
-
-    # A copy of the resolvers without the 1.1 boolean, so the base class is left untouched.
-    yaml_implicit_resolvers = {
-        first: [(tag, pattern) for tag, pattern in resolvers if tag != _BOOL_TAG]
-        for first, resolvers in yaml.SafeLoader.yaml_implicit_resolvers.items()
+    resolvers = {
+        first: [(tag, pattern) for tag, pattern in entries if tag != _BOOL_TAG]
+        for first, entries in yaml.SafeLoader.yaml_implicit_resolvers.items()
     }
+    boolean = re.compile(r"^(?:true|True|TRUE|false|False|FALSE)$")
+    for first in "tTfF":
+        resolvers.setdefault(first, []).append((_BOOL_TAG, boolean))
+    return resolvers
 
 
-_SafeLoader12.add_implicit_resolver(
-    _BOOL_TAG, re.compile(r"^(?:true|True|TRUE|false|False|FALSE)$"), list("tTfF")
-)
+_RESOLVERS: Final = _implicit_resolvers()
 
 
 class _Reader:
@@ -210,7 +211,8 @@ def _parse(path: Path, data: bytes) -> object:
     except UnicodeDecodeError:
         raise RuleLoadError(path, None, "the file is not valid UTF-8") from None
     try:
-        loader = _SafeLoader12(text)
+        loader = yaml.SafeLoader(text)
+        loader.yaml_implicit_resolvers = _RESOLVERS
     except yaml.YAMLError as error:
         raise RuleLoadError(path, _yaml_line(error), _yaml_message(error)) from None
     try:
