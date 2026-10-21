@@ -43,11 +43,7 @@ def overrides(test: Callable[..., Any]) -> list[str]:
     """The settings fields in which ``test`` differs from the active profile."""
     stored = _stored_settings(test)
     active = settings()
-    return [
-        field
-        for field in CHECKED_FIELDS
-        if getattr(stored, field) != getattr(active, field)
-    ]
+    return [field for field in CHECKED_FIELDS if getattr(stored, field) != getattr(active, field)]
 
 
 def test_the_real_property_tests_are_found() -> None:
