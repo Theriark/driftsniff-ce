@@ -2,3 +2,7 @@
 # It is a made-up value, not a credential; the next commit of the PR renamed it.
 # One exact fingerprint only; do not add patterns or paths here.
 175fd7161d460cc768e3e66328ac0f13d8c2aa3a:tests/unit/test_collector_base.py:generic-api-key:35
+# Fake canary header used as a test fixture in commit d0f1bdcd of PR 48 (THE-688).
+# It is a made-up value, not a credential; the next commit of the PR renamed the variable.
+# One exact fingerprint only.
+d0f1bdcd9d27dc5785e4906fdcdae6ddc39d162e:tests/contract/test_tls.py:generic-api-key:30

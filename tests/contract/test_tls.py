@@ -139,8 +139,9 @@ def test_no_test_or_fixture_holds_a_key_or_certificate() -> None:
     # Other suites keep scanner samples on purpose; the TLS tests and the fixtures must be clean.
     for folder in (root / "contract", root / "fixtures"):
         for path in folder.rglob("*"):
-            text = path.read_text(encoding="utf-8", errors="ignore") if path.is_file() else ""
-            if marker in text:
+            if not path.is_file() or path.suffix == ".pyc":
+                continue
+            if marker in path.read_text(encoding="utf-8", errors="ignore"):
                 offenders.append(str(path.relative_to(root)))
     assert offenders == []
     assert not [p for p in root.rglob("*") if p.suffix in {".pem", ".crt", ".key", ".p12"}]
