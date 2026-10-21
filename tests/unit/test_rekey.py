@@ -341,9 +341,7 @@ def test_a_source_without_a_credential_is_left_alone(store: Database) -> None:
     result = run_rekey(store, OLD, NEW, AT)
     assert result.credentials_rekeyed == 0
     with store.read() as connection:
-        row = connection.execute(
-            sa.select(sources.c.credential_ciphertext, sources.c.key_id)
-        ).one()
+        row = connection.execute(sa.select(sources.c.credential_ciphertext, sources.c.key_id)).one()
     assert tuple(row) == (None, None)
 
 
