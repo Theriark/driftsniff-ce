@@ -13,11 +13,12 @@ collector and run pipeline (`collectors.md`) and the scheduler (`scheduler.md`) 
 | type | `unifi`, `xo` or `push`; it cannot change later |
 | base address | `unifi` and `xo` only; `https://`, no user name, password, query or fragment, trailing slashes removed |
 | credential | `unifi` and `xo` only; required; encrypted before it is stored |
-| options | `allow_plain_http` (true or false) and `interval_seconds` (whole seconds, 60 to 3600, default 300, polled sources only); an unknown option, a wrong type or an interval out of range is refused |
+| options | `allow_plain_http` (true or false), `interval_seconds` (whole seconds, 60 to 3600, default 300, polled sources only) and `push_fields` (push sources only, see `push.md`); an unknown option, a wrong type or a value out of range is refused |
 | enabled | a disabled source is not collected |
 
-A `push` source has no address and no credential. Its sender key is added with the push
-endpoint (P6-T4).
+A `push` source has no address and no credential. It has a sender key instead, made with
+`set_push_key`; only the SHA-256 of the key is stored and the key itself is returned once.
+`push.md` describes the endpoint.
 
 ## Credentials
 
@@ -50,7 +51,8 @@ endpoint (P6-T4).
 
 Every change writes one event in the same transaction as the change, with the actor that was
 passed in: `source.create`, `source.update` (the detail lists the names of the fields that
-changed, never their values), `source.enable`, `source.disable`, `source.allow_plain_http` and
+changed, never their values), `source.enable`, `source.disable`, `source.allow_plain_http`,
+`source.push_key` (a sender key was made; the detail says whether it replaced one) and
 `source.delete`. A failed change writes nothing.
 
 ## Deleting a source
@@ -64,5 +66,6 @@ channels belong to no source and are kept.
 
 ## Tests
 
-`tests/unit/test_source_addresses.py` and `tests/unit/test_source_service.py`. Run with
-`pytest tests/unit/test_source_addresses.py tests/unit/test_source_service.py`.
+`tests/unit/test_source_addresses.py`, `tests/unit/test_source_service.py` and
+`tests/unit/test_push_source_service.py`. Run with
+`pytest tests/unit/test_source_addresses.py tests/unit/test_source_service.py tests/unit/test_push_source_service.py`.
