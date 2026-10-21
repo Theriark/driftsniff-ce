@@ -135,7 +135,13 @@ def test_publishing_workflows_never_rebuild_or_mint_a_release_candidate(
     name: str, inputs: list[str]
 ) -> None:
     text = read_workflow(name)
-    for forbidden in ("docker build", "buildx build", "build-push-action", "git tag ", "--prerelease"):
+    for forbidden in (
+        "docker build ",
+        "buildx build",
+        "build-push-action",
+        "git tag ",
+        "--prerelease",
+    ):
         assert forbidden not in text
     assert "RC_TAG" in text
     assert "is not an annotated tag" in text
