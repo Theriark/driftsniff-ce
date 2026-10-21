@@ -9,6 +9,13 @@ every case, whatever the options say: 169.254.0.0/16 (this includes the usual me
 resolver understands (``2852039166``, ``0xa9fea9fe``, ``169.254.43518``), so a blocked address
 cannot be written in a form this module does not recognise.
 
+An IPv6 address that carries an IPv4 address is judged by the IPv4 address inside it. Four forms
+are unwrapped: IPv4-mapped (``::ffff:a.b.c.d``), the well-known NAT64 prefix (``64:ff9b::/96``),
+the deprecated IPv4-compatible form (``::a.b.c.d``) and 6to4 (``2002::/16``). Other NAT64
+prefixes (an operator can choose its own, or use ``64:ff9b:1::/48``) cannot be told from any other
+address and are not unwrapped: a host name that resolves into one is only caught if the resolved
+address is blocked as an IPv6 address. docs/collectors.md records this decision.
+
 Only literal addresses can be checked here. A host name is resolved by the collector when it
 connects; the collector must call ``blocked_reason`` on every address the name resolves to and
 must not follow redirects (``FOLLOW_REDIRECTS``).
@@ -26,6 +33,10 @@ BLOCKED_NETWORKS = (
     ipaddress.ip_network("fe80::/10"),
     ipaddress.ip_network("100.100.100.200/32"),
 )
+
+NAT64_NETWORK = ipaddress.ip_network("64:ff9b::/96")
+IPV4_COMPATIBLE_NETWORK = ipaddress.ip_network("::/96")
+SIX_TO_FOUR_NETWORK = ipaddress.ip_network("2002::/16")
 
 MAX_BASE_URL_CHARS = 2048
 
@@ -45,18 +56,37 @@ def _literal_address(host: str) -> IPAddress | None:
         pass
     try:
         packed = socket.inet_aton(bare)
-    except OSError:
+    except (OSError, UnicodeError):
+        # OSError: not an IPv4 spelling. UnicodeError: a lone surrogate cannot be encoded.
         return None
     return ipaddress.IPv4Address(packed)
 
 
+def _embedded_ipv4(address: ipaddress.IPv6Address) -> ipaddress.IPv4Address | None:
+    """The IPv4 address an IPv6 address carries in one of the four unwrapped forms, or None."""
+    if address.ipv4_mapped is not None:
+        return address.ipv4_mapped
+    if address in NAT64_NETWORK or address in IPV4_COMPATIBLE_NETWORK:
+        return ipaddress.IPv4Address(int(address) & 0xFFFFFFFF)
+    if address in SIX_TO_FOUR_NETWORK:
+        return ipaddress.IPv4Address((int(address) >> 80) & 0xFFFFFFFF)
+    return None
+
+
 def blocked_reason(address: IPAddress) -> str | None:
-    """Why an address is never allowed, or None."""
-    if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped is not None:
-        address = address.ipv4_mapped
-    for network in BLOCKED_NETWORKS:
-        if address.version == network.version and address in network:
-            return f"addresses in {network} are never allowed"
+    """Why an address is never allowed, or None.
+
+    An IPv6 address that carries an IPv4 address is judged as the IPv4 address too.
+    """
+    candidates: list[IPAddress] = [address]
+    if isinstance(address, ipaddress.IPv6Address):
+        embedded = _embedded_ipv4(address)
+        if embedded is not None:
+            candidates.append(embedded)
+    for candidate in candidates:
+        for network in BLOCKED_NETWORKS:
+            if candidate.version == network.version and candidate in network:
+                return f"addresses in {network} are never allowed"
     return None
 
 
@@ -69,6 +99,10 @@ def validate_base_url(url: str, *, allow_plain_http: bool = False) -> str:
         raise AddressError(f"the base address is longer than {MAX_BASE_URL_CHARS} characters")
     if any(ord(char) < 0x21 or ord(char) == 0x7F for char in cleaned):
         raise AddressError("the base address must not contain spaces or control characters")
+    try:
+        cleaned.encode("utf-8")
+    except UnicodeEncodeError:
+        raise AddressError("the base address contains a character that cannot be stored") from None
     try:
         parts = urlsplit(cleaned)
         _ = parts.port  # reading the port validates it
