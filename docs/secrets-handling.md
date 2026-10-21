@@ -70,3 +70,10 @@ credential prefixes, long high-entropy words and URL query strings with `***REDA
 including in exception text. Words containing a slash, a backslash or a dot are not judged by
 entropy in logs so that file names and host names stay readable. The filter cannot recognise an
 arbitrary password that matches none of these patterns.
+
+## Leak testing
+
+`tests/security` seeds unique `CANARY-` values into the secret and free-text fields of a fake
+source, runs the collection and fails when any of them appears in the database, the logs, an error
+message or the output. It runs in CI as `CI / Canary leak harness`. See
+[canary-harness.md](canary-harness.md).
