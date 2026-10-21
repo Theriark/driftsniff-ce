@@ -211,7 +211,8 @@ class _PinningStream(httpcore.NetworkStream):
     ) -> httpcore.NetworkStream:
         secured = self._inner.start_tls(ssl_context, server_hostname, timeout)
         ssl_object = secured.get_extra_info("ssl_object")
-        der = ssl_object.getpeercert(binary_form=True) if ssl_object is not None else None
+        # binary_form is positional: the raw SSL object of the socket takes no keyword.
+        der = ssl_object.getpeercert(True) if ssl_object is not None else None
         digest = hashlib.sha256(der).digest() if der else b""
         # Always compare, so the time taken does not depend on how many bytes matched.
         matches = hmac.compare_digest(digest, self._pin)

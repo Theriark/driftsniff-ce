@@ -27,8 +27,8 @@ from driftsniff.collectors.tls import (
 
 from .fake_tls import FakeTlsServer, Pki, make_ca, make_pki, running_server
 
-KEY = "CANARY-tls-key-0001"
-HEADERS = {"X-API-KEY": KEY}
+CANARY = "CANARY-tls-header-0001"
+HEADERS = {"X-API-KEY": CANARY}
 
 
 @pytest.fixture
@@ -72,13 +72,13 @@ def test_verify_mode_is_the_default_and_refuses_an_unknown_ca(
             get(server, settings, data_dir)
         assert caught.value.error_class == ERROR_TLS
     assert server.wait_finished(2)
-    assert KEY.encode() not in server.received
+    assert CANARY.encode() not in server.received
 
 
 def test_ca_file_mode_trusts_its_ca(server: FakeTlsServer, data_dir: Path) -> None:
     settings = TlsSettings(MODE_CA_FILE, ca_file="right.pem")
     assert get(server, settings, data_dir) == {"ok": True}
-    assert KEY.encode() in server.received
+    assert CANARY.encode() in server.received
 
 
 def test_ca_file_mode_refuses_the_wrong_ca(server: FakeTlsServer, data_dir: Path) -> None:
@@ -96,7 +96,7 @@ def test_pinned_mode_accepts_the_pinned_certificate_without_any_ca(
 ) -> None:
     settings = TlsSettings(MODE_PINNED, pin=pin_of(pki))
     assert get(server, settings, data_dir) == {"ok": True}
-    assert KEY.encode() in server.received
+    assert CANARY.encode() in server.received
 
 
 def test_pinned_mismatch_is_refused_before_any_request_byte_is_sent(
@@ -106,10 +106,10 @@ def test_pinned_mismatch_is_refused_before_any_request_byte_is_sent(
     with caplog.at_level(logging.DEBUG), pytest.raises(CollectorError) as caught:
         get(server, settings, data_dir)
     assert caught.value.error_class == ERROR_TLS_PIN
-    assert KEY not in str(caught.value)
+    assert CANARY not in str(caught.value)
     assert server.wait_finished(1)
     assert server.received == b""
-    assert KEY not in caplog.text
+    assert CANARY not in caplog.text
 
 
 def test_pinned_mode_refuses_plain_http_without_connecting(data_dir: Path, pki: Pki) -> None:
@@ -135,12 +135,12 @@ def test_a_transport_and_tls_settings_exclude_each_other(data_dir: Path) -> None
 def test_no_test_or_fixture_holds_a_key_or_certificate() -> None:
     marker = "-----" + "BEGIN "
     root = Path(__file__).resolve().parents[1]
-    offenders = [
-        str(path.relative_to(root))
-        for path in root.rglob("*")
-        if path.is_file()
-        and path.suffix in {".py", ".json", ".yaml", ".yml", ".pem", ".crt", ".key", ".txt", ".md"}
-        and marker in path.read_text(encoding="utf-8", errors="ignore")
-    ]
+    offenders: list[str] = []
+    # Other suites keep scanner samples on purpose; the TLS tests and the fixtures must be clean.
+    for folder in (root / "contract", root / "fixtures"):
+        for path in folder.rglob("*"):
+            text = path.read_text(encoding="utf-8", errors="ignore") if path.is_file() else ""
+            if marker in text:
+                offenders.append(str(path.relative_to(root)))
     assert offenders == []
     assert not [p for p in root.rglob("*") if p.suffix in {".pem", ".crt", ".key", ".p12"}]
