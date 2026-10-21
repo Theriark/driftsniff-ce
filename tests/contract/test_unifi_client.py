@@ -123,7 +123,8 @@ def test_a_version_that_cannot_be_read_is_unsupported_and_is_not_echoed() -> Non
 def test_the_version_is_compared_as_integer_tuples_not_as_text() -> None:
     assert parse_version("10.10.0") == (10, 10, 0)
     assert (10, 10, 0) > FLOOR_VERSION
-    assert "10.10.0" < "10.1.84"  # the text order would get it wrong
+    assert parse_version("10.9.0") < parse_version("10.10.0")
+    assert "10.9.0" > "10.10.0"  # the text order would get it wrong
 
 
 @pytest.mark.parametrize(
