@@ -15,18 +15,22 @@ rules/types/*.yaml         type tables, one entry per resource
 
 `load_rules(root)` reads every such file, validates it and returns an index. `root` defaults to
 the `driftsniff.rules` package folder. A folder or file that is missing is not an error: a root
-without files gives an empty index. Only `*.yaml` is read; a file larger than 1,000,000 bytes is
-refused.
+without files gives an empty index. Only `*.yaml` directly in those folders is read. A `.yml` file
+or a nested folder is ignored without a message and is not part of the pack version, so name every
+file `*.yaml`. A file larger than 1,000,000 bytes is refused.
 
 Any problem stops the load with `RuleLoadError`, which names the file and the line
 (`packs/xo/a.yaml:12: rules.1.severity: Input should be 'low', 'medium', 'high' or 'critical'`).
 Nothing is skipped and nothing is repaired. The loader is not yet called by the application at
 start: the engine task wires it in, and a load error must then stop the start.
 
-YAML 1.1 turns the bare words `yes`, `no`, `on` and `off` into booleans. Quote any value that
-means text. Quote a path that is only `*` or `**` (`path: "**"`), because an unquoted `*` starts a
-YAML alias. A file may hold one document, a key may appear once, and only text, numbers, booleans
-and null are accepted as values.
+Booleans are only `true` and `false` (also `True`, `TRUE`, `False`, `FALSE`), as in YAML 1.2. The
+loader does not use the YAML 1.1 rule of PyYAML, so the bare words `yes`, `no`, `on`, `off`, `y` and
+`n` stay text: `from: [on]` is the text `on`, which is what a vendor sends. A quoted `'on'` is text
+too, and `value: yes` for `boolean_flips_to` is refused because it is not a boolean. The same
+holds in type tables, so a field called `on` needs no quotes. Quote a path that is only `*` or `**`
+(`path: "**"`), because an unquoted `*` starts a YAML alias. A file may hold one document, a key
+may appear once, and only text, numbers, booleans and null are accepted as values.
 
 ## A rule pack
 
@@ -64,7 +68,10 @@ change item it is compared with: `secureBoot` becomes `secure_boot`, `HTTPProxy`
 `http_proxy`, `other-config` becomes `other_config`. A segment `*` matches exactly one segment. A
 segment `**` is only allowed last and matches the rest of the path, which can be empty, so `**`
 alone matches every field of the resource and the empty path of an added or removed object. A path
-that comes from an ordered scalar list ends in the index (`dns.servers.0`).
+that comes from an ordered scalar list ends in the index (`dns.servers.0`). A field name that
+itself contains a dot or other symbols (a map key such as `a.b`) cannot be written as one segment:
+the diff joins keys with plain dots, so the path is split and snake-cased. Only `*` and `**` reach
+such a field, so a pack author who needs to treat it separately must say so in the rationale.
 
 ### Specificity and ties
 
@@ -154,8 +161,10 @@ walks them, with their original case (`secureBoot`), because that is how the dif
 `RuleIndex.pack_version` (also `compute_pack_version(root)`) is the first 12 lower case hex
 characters of one SHA-256. The hash is fed, for each pack and type file in the order of their
 paths relative to the root, the path in UTF-8, a zero byte, the bytes of the file and a zero byte.
-It changes when any file changes, is added, is removed or is renamed, and does not depend on where
-the root is. A root without files gives `e3b0c44298fc`.
+Every CRLF and every lone CR in the file is turned into LF first, because YAML reads them all as the
+same line break; a checkout with Windows line endings therefore has the same version. It changes
+when any file changes, is added, is removed or is renamed, and does not depend on where the root
+is. A root without files gives `e3b0c44298fc`.
 
 Type tables are part of it on purpose: object floors decide severities too, so a change to a floor
 is a change to the rules. The version is meant to be stored with each change event in
