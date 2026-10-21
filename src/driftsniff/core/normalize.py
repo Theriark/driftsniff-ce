@@ -73,6 +73,13 @@ class StaticTypeTable:
 
     Undeclared lists keep their order (``ordered-scalar``): a wrongly reported reorder is
     visible, a wrongly merged one would hide a change.
+
+    ``action_field`` is optional. It names the field of an object of an ordered resource, and of
+    a member of an ordered list, that holds what the entry does (for a firewall rule: its
+    verdict). ``core/order.py`` reads it to put the actions of a moved entry and of the entries it
+    jumped over into the order detail, so that the rule engine can tell a harmless move from one
+    that lets traffic past a deny rule. It is not part of the ``TypeTable`` protocol: a table
+    that has no such attribute simply has no actions.
     """
 
     object_key_field: str | None = None
@@ -80,6 +87,7 @@ class StaticTypeTable:
     field_classes: Mapping[str, FieldClass] = field(default_factory=dict)
     collection_modes: Mapping[str, CollectionMode] = field(default_factory=dict)
     item_key_fields: Mapping[str, str] = field(default_factory=dict)
+    action_field: str | None = None
 
     def field_class(self, path: str) -> FieldClass:
         return self.field_classes.get(path, FieldClass.UNCLASSIFIED)

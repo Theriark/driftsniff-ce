@@ -40,6 +40,7 @@ from driftsniff.rules.predicates import build_predicate
 ANY_SEGMENT: Final = "*"
 REST_OF_PATH: Final = "**"
 FLOOR_KINDS: Final = ("added", "removed", "modified", "moved")
+DEFAULT_BLOCKING_ACTIONS: Final = ("deny", "drop")
 # The same four values as ``core.diff.Severity`` (a test keeps them equal); the alias is repeated
 # here so that reading the rules does not import the diff engine and what it depends on.
 Severity = Literal["low", "medium", "high", "critical"]
@@ -186,6 +187,7 @@ class ListSpec(BaseModel):
 
     mode: CollectionMode
     key_field: str | None = Field(default=None, min_length=1)
+    first_match: bool = False
 
     @model_validator(mode="before")
     @classmethod
@@ -193,6 +195,12 @@ class ListSpec(BaseModel):
         if isinstance(data, str):
             return {"mode": data}
         return data
+
+    @model_validator(mode="after")
+    def _first_match_needs_an_order(self) -> Self:
+        if self.first_match and self.mode is not CollectionMode.ORDERED_KEYED:
+            raise ValueError("first_match needs a list of the mode ordered-keyed")
+        return self
 
 
 @dataclass(frozen=True)
@@ -208,10 +216,25 @@ class ResourceTable(StaticTypeTable):
     resource: str = ""
     collection: CollectionMode = CollectionMode.SET
     floors: Mapping[str, Severity] = field(default_factory=dict)
+    blocking_actions: frozenset[str] = frozenset()
+    first_match: bool = False
+    first_match_lists: frozenset[str] = frozenset()
 
     def floor_for(self, change_kind: str) -> Severity | None:
         """The floor of ``change_kind`` (``added``, ``removed``, ``modified`` or ``moved``)."""
         return self.floors.get(change_kind)
+
+    def is_first_match(self, path: str) -> bool:
+        """Whether the order at ``path`` decides what happens (the first matching entry wins).
+
+        The empty path is the order of the objects of the resource itself; any other path is a
+        list inside an object, written as the diff writes it (vendor field names, no index).
+        """
+        return self.first_match if path == "" else path in self.first_match_lists
+
+    def is_blocking(self, action: str) -> bool:
+        """Whether ``action`` stops traffic or access: one of the declared ``blocking_actions``."""
+        return action.strip().casefold() in self.blocking_actions
 
 
 class TypeSpec(BaseModel):
@@ -227,6 +250,19 @@ class TypeSpec(BaseModel):
     floors: dict[FloorKind, Severity] = Field(default_factory=dict)
     fields: dict[str, FieldClass]
     lists: dict[str, ListSpec] = Field(default_factory=dict)
+    action_field: str | None = Field(default=None, min_length=1)
+    blocking_actions: list[str] | None = None
+    first_match: bool = False
+
+    @field_validator("blocking_actions")
+    @classmethod
+    def _actions_have_text(cls, value: list[str] | None) -> list[str] | None:
+        if value is None:
+            return None
+        cleaned = [action.strip().casefold() for action in value]
+        if not cleaned or "" in cleaned:
+            raise ValueError("blocking_actions is a list of one or more non-empty texts")
+        return sorted(set(cleaned))
 
     @field_validator("fields", "lists")
     @classmethod
@@ -241,7 +277,27 @@ class TypeSpec(BaseModel):
             raise ValueError("use floor or floors, not both")
         if self.collection is CollectionMode.ORDERED_KEYED and self.key_field is None:
             raise ValueError("an ordered-keyed collection needs a key_field")
+        if self.first_match and self.collection is not CollectionMode.ORDERED_KEYED:
+            raise ValueError("first_match needs a collection of the mode ordered-keyed")
+        if self.action_field is None:
+            if self.blocking_actions is not None:
+                raise ValueError("blocking_actions needs an action_field")
+            return self
+        action = self.action_field
+        shown = [action] if self.first_match else []
+        shown.extend(f"{path}.{action}" for path, spec in self.lists.items() if spec.first_match)
+        for path in shown:
+            if self.fields.get(path) is not FieldClass.CONFIG:
+                raise ValueError(f"the action field {path!r} must have the class config")
         return self
+
+    def effective_blocking_actions(self) -> frozenset[str]:
+        """The actions that stop traffic or access: the declared ones, else deny and drop."""
+        if self.action_field is None:
+            return frozenset()
+        if self.blocking_actions is None:
+            return frozenset(DEFAULT_BLOCKING_ACTIONS)
+        return frozenset(self.blocking_actions)
 
     def effective_floors(self) -> dict[str, Severity]:
         """The floor of each kind of change: ``floor`` applies to all four kinds."""
@@ -252,6 +308,7 @@ class TypeSpec(BaseModel):
 
     def to_table(self) -> ResourceTable:
         """The table the normaliser, the diff and the order check read."""
+        ordered = frozenset(path for path, spec in self.lists.items() if spec.first_match)
         return ResourceTable(
             object_key_field=self.key_field,
             name_field=self.name_field,
@@ -263,6 +320,10 @@ class TypeSpec(BaseModel):
             resource=self.resource,
             collection=self.collection,
             floors=self.effective_floors(),
+            action_field=self.action_field,
+            blocking_actions=self.effective_blocking_actions(),
+            first_match=self.first_match,
+            first_match_lists=ordered,
         )
 
 

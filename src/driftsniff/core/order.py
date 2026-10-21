@@ -33,6 +33,17 @@ followed it before the move (``from_after``, ``from_before``), the same two afte
 (``to_after``, ``to_before``; null at an end of the list) and a ``summary`` such as
 ``r7 moved from after r2 to before r1``.
 
+Actions
+-------
+A type table may name an ``action_field`` (``StaticTypeTable.action_field``): the field of a
+member that says what the member does, such as a firewall verdict. Only then, and only when the
+field is of the ``config`` class, the order detail of a ``moved`` item also holds
+``moved_actions`` (the distinct values of that field on the moved member, before and after,
+sorted), ``jumped_actions`` (the same for every member the moved one passed: those whose place
+relative to it changed) and ``jumped_count``. The rule engine reads them to tell a move across a
+deny rule from a harmless one. A table without an ``action_field`` gets the detail described above
+and nothing more.
+
 Limit
 -----
 A list of more than :data:`MAX_ORDERED_ENTRIES` entries on either side is compared as a set: when
@@ -171,6 +182,56 @@ def diff_order(old: Sequence[str], new: Sequence[str]) -> OrderDiff:
     return OrderDiff(inserted, deleted, tuple(moves), reordered=True)
 
 
+class _Jumps:
+    """Which keys a key passed when an order changed (the keys found on both sides only)."""
+
+    def __init__(self, old: Sequence[str], new: Sequence[str]) -> None:
+        self._old = {key: position for position, key in enumerate(old)}
+        self._new = list(new)
+        self._new_index = {key: position for position, key in enumerate(new)}
+
+    def over(self, key: str) -> list[str]:
+        """The keys that were on one side of ``key`` before the change and on the other after."""
+        was, now = self._old[key], self._new_index[key]
+        return [
+            other
+            for other in self._new
+            if other != key
+            and other in self._old
+            and (self._old[other] < was) != (self._new_index[other] < now)
+        ]
+
+
+def _action_field(table: TypeTable) -> str | None:
+    """The ``action_field`` of a table that declares one (it is not part of the protocol)."""
+    declared = getattr(table, "action_field", None)
+    return declared if isinstance(declared, str) and declared != "" else None
+
+
+def _action_of(member: object, field_name: str) -> str | None:
+    if isinstance(member, Mapping):
+        value = member.get(field_name)
+        if isinstance(value, str) and value != "":
+            return value
+    return None
+
+
+def _action_detail(
+    key: str, jumped: Sequence[str], actions: Mapping[str, frozenset[str]]
+) -> dict[str, JsonValue]:
+    """The actions of the moved key and of the keys it passed, for the order detail."""
+    passed: set[str] = set()
+    for other in jumped:
+        passed |= actions.get(other, frozenset())
+    moved_actions: list[JsonValue] = [*sorted(actions.get(key, frozenset()))]
+    jumped_actions: list[JsonValue] = [*sorted(passed)]
+    return {
+        "moved_actions": moved_actions,
+        "jumped_actions": jumped_actions,
+        "jumped_count": len(jumped),
+    }
+
+
 class _Builder:
     """Makes the items of one comparison; it holds what every item has in common."""
 
@@ -179,9 +240,18 @@ class _Builder:
         self._window_end = window_end
 
     def moved(
-        self, resource: str, key: str | None, name: str | None, path: str, move: Move
+        self,
+        resource: str,
+        key: str | None,
+        name: str | None,
+        path: str,
+        move: Move,
+        actions: Mapping[str, JsonValue] | None = None,
     ) -> ChangeItem:
-        return self._item(resource, key, name, path, "moved", move.detail())
+        detail = move.detail()
+        if actions is not None:
+            detail.update(actions)
+        return self._item(resource, key, name, path, "moved", detail)
 
     def reordered(
         self,
@@ -250,6 +320,21 @@ def _labels(key_field: str | None, members: Sequence[JsonValue], *, key_shown: b
     return labels
 
 
+def _member_actions(
+    field_name: str,
+    old: tuple[Sequence[str], Sequence[JsonValue]],
+    new: tuple[Sequence[str], Sequence[JsonValue]],
+) -> dict[str, frozenset[str]]:
+    """The actions of each member of a list, by label, before and after."""
+    found: dict[str, set[str]] = {}
+    for labels, members in (old, new):
+        for label, member in zip(labels, members, strict=True):
+            action = _action_of(member, field_name)
+            if action is not None:
+                found.setdefault(label, set()).add(action)
+    return {label: frozenset(actions) for label, actions in found.items()}
+
+
 def _key_is_shown(table: TypeTable, path: str, key_field: str | None) -> bool:
     """Whether the key of a member of the list at ``path`` may appear in an order detail."""
     if key_field is None:
@@ -290,6 +375,7 @@ class _Comparison:
         self._builder = builder
         self._tables = tables
         self._cache: dict[str, Mapping[str, JsonValue]] = {}
+        self._actions: dict[tuple[str, str], frozenset[str]] = {}
 
     def resource(self, resource: str) -> list[ChangeItem]:
         table = self._tables.get(resource, _DEFAULT_TABLE)
@@ -310,11 +396,36 @@ class _Comparison:
         result = diff_order(old, new)
         if result.large:
             return [self._builder.reordered(resource, None, None, "", (len(old), len(new)))]
+        field_name = _action_field(table)
+        read_actions = field_name is not None and table.field_class(field_name) is FieldClass.CONFIG
+        jumps = _Jumps(old, new) if read_actions and result.moves else None
         items: list[ChangeItem] = []
         for move in result.moves:
             name = self._name(table, resource, move.key)
-            items.append(self._builder.moved(resource, move.key, name, "", move))
+            detail: dict[str, JsonValue] | None = None
+            if jumps is not None and field_name is not None:
+                jumped = jumps.over(move.key)
+                keys = [move.key, *jumped]
+                actions = {key: self._object_actions(resource, field_name, key) for key in keys}
+                detail = _action_detail(move.key, jumped, actions)
+            items.append(self._builder.moved(resource, move.key, name, "", move, detail))
         return items
+
+    def _object_actions(self, resource: str, field_name: str, key: str) -> frozenset[str]:
+        """The actions of one object before and after, for the order of a whole resource."""
+        cached = self._actions.get((resource, key))
+        if cached is not None:
+            return cached
+        found: set[str] = set()
+        for manifest in (self._previous, self._new):
+            state_hash = manifest.objects.get(resource, {}).get(key)
+            if state_hash is not None:
+                action = _action_of(self._load(state_hash), field_name)
+                if action is not None:
+                    found.add(action)
+        result = frozenset(found)
+        self._actions[(resource, key)] = result
+        return result
 
     def _lists(
         self, resource: str, table: TypeTable, key: str, old_hash: str, new_hash: str
@@ -333,8 +444,21 @@ class _Comparison:
             if result.large:
                 counts = (len(old), len(new))
                 items.append(self._builder.reordered(resource, key, name, path, counts))
+            field_name = _action_field(table)
+            read_actions = (
+                field_name is not None
+                and bool(result.moves)
+                and table.field_class(f"{path}.{field_name}") is FieldClass.CONFIG
+            )
+            jumps = _Jumps(old_labels, new_labels) if read_actions else None
+            actions: dict[str, frozenset[str]] = {}
+            if jumps is not None and field_name is not None:
+                actions = _member_actions(field_name, (old_labels, old), (new_labels, new))
             for move in result.moves:
-                items.append(self._builder.moved(resource, key, name, path, move))
+                detail: dict[str, JsonValue] | None = None
+                if jumps is not None:
+                    detail = _action_detail(move.key, jumps.over(move.key), actions)
+                items.append(self._builder.moved(resource, key, name, path, move, detail))
         return items
 
     def _name(self, table: TypeTable, resource: str, key: str) -> str | None:
