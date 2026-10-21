@@ -447,9 +447,7 @@ def test_get_401_is_retried_then_succeeds(monkeypatch: pytest.MonkeyPatch) -> No
     fake, sleeps = install_http(
         monkeypatch, module, {"application.one": [http_error(401), {"dockerImage": IMAGE}]}
     )
-    result = module.request_json(
-        "GET", "application.one", query={"applicationId": APP}, attempts=3
-    )
+    result = module.request_json("GET", "application.one", query={"applicationId": APP}, attempts=3)
     assert result == {"dockerImage": IMAGE}
     assert fake.count("application.one") == 2
     assert sleeps == [5]
@@ -473,9 +471,7 @@ def test_get_401_exhausts_after_three_calls(monkeypatch: pytest.MonkeyPatch) -> 
         {"application.one": [http_error(401), http_error(401), http_error(401), {}]},
     )
     with pytest.raises(module.DokployError, match="HTTP 401") as raised:
-        module.request_json(
-            "GET", "application.one", query={"applicationId": APP}, attempts=3
-        )
+        module.request_json("GET", "application.one", query={"applicationId": APP}, attempts=3)
     assert isinstance(raised.value.__cause__, urllib.error.HTTPError)
     assert fake.count("application.one") == 3
     assert sleeps == [5, 15]
@@ -497,9 +493,7 @@ def test_other_client_errors_on_a_read_are_not_retried(
     module = load_module()
     fake, sleeps = install_http(monkeypatch, module, {"application.one": [http_error(code), {}]})
     with pytest.raises(module.DokployError, match=f"HTTP {code}"):
-        module.request_json(
-            "GET", "application.one", query={"applicationId": APP}, attempts=3
-        )
+        module.request_json("GET", "application.one", query={"applicationId": APP}, attempts=3)
     assert fake.count("application.one") == 1
     assert sleeps == []
 
@@ -651,9 +645,7 @@ def test_a_401_on_a_post_is_not_retried_even_with_attempts(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     module = load_module()
-    fake, sleeps = install_http(
-        monkeypatch, module, {"application.deploy": [http_error(401), {}]}
-    )
+    fake, sleeps = install_http(monkeypatch, module, {"application.deploy": [http_error(401), {}]})
     with pytest.raises(module.DokployError, match="HTTP 401"):
         module.request_json("POST", "application.deploy", payload={"a": 1}, attempts=3)
     assert fake.count("application.deploy") == 1
