@@ -40,7 +40,7 @@ from driftsniff.rules.loader import load_rules
 from .fake_xo import CANARY_TOKEN, FakeXo, Scenario, fake_xo
 
 NOW = datetime(2026, 10, 22, 12, 0, tzinfo=UTC)
-PASSWORD_CANARY = "CANARY-xo-remote-pass-0001"
+PASSWORD_CANARY = "CANARY-xo-remote-pass-0001"  # noqa: S105 - a test canary, not a credential
 
 
 def ms(moment: datetime) -> int:
@@ -112,7 +112,8 @@ def test_a_refused_credential_stops_the_probe(status: int, error_class: str) -> 
 
 
 def test_a_wrong_credential_is_unauthorized() -> None:
-    with connected(Scenario(expected_token="CANARY-other")) as (_, client):
+    scenario = Scenario(expected_token="CANARY-other")  # noqa: S106 - a test canary
+    with connected(scenario) as (_, client):
         with pytest.raises(CollectorError) as caught:
             client.probe()
         assert caught.value.error_class == ERROR_UNAUTHORIZED
@@ -226,7 +227,7 @@ def test_blank_lines_are_skipped_and_the_last_line_needs_no_newline() -> None:
 
 
 def test_the_built_in_templates_are_dropped_and_the_custom_ones_stay() -> None:
-    templates = [
+    templates: list[dict[str, Any]] = [
         {"id": "t-1", "name_label": "builtin", "isDefaultTemplate": True},
         {"id": "t-2", "name_label": "custom", "isDefaultTemplate": False},
         {"id": "t-3", "name_label": "custom without marker"},
@@ -256,7 +257,7 @@ def test_the_user_and_password_part_of_a_repository_address_never_reaches_the_pi
 
 def test_a_403_is_coverage_403_and_keeps_the_other_collections() -> None:
     scenario = Scenario(
-        status={name: 403 for name in ("users", "groups", "servers", "backup-repositories")},
+        status=dict.fromkeys(("users", "groups", "servers", "backup-repositories"), 403),
         objects={"vms": [vm(1)]},
     )
     with probed(scenario) as (_, client):
