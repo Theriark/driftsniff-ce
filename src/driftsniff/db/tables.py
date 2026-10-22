@@ -97,6 +97,23 @@ api_tokens = sa.Table(
     sa.UniqueConstraint("token_hash", name="uq_api_tokens_token_hash"),
 )
 
+# The rows behind the ds_session cookie. Only the SHA-256 of the cookie value is stored, so a copy
+# of this table cannot be turned back into a cookie (migration 0003).
+sessions = sa.Table(
+    "sessions",
+    metadata,
+    _id(),
+    _cascade_fk("user_id", "users.id"),
+    sa.Column("token_hash", sa.Text, nullable=False),
+    # Checked on every state-changing request of the interface (P9-T2).
+    sa.Column("csrf_token", sa.Text, nullable=False),
+    sa.Column("created_at", sa.Text, nullable=False),
+    sa.Column("last_seen_at", sa.Text, nullable=False),
+    sa.Column("expires_at", sa.Text, nullable=False),
+    sa.UniqueConstraint("token_hash", name="uq_sessions_token_hash"),
+    sa.Index("ix_sessions_user", "user_id"),
+)
+
 sources = sa.Table(
     "sources",
     metadata,
