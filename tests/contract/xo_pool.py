@@ -75,7 +75,9 @@ def _jwt(value: str) -> str:
 
 
 def _pem(value: str) -> str:
-    return "-----BEGIN " + "PRIVATE KEY-----\n" + value + "\n-----END " + "PRIVATE KEY-----"
+    begin = "-----" + "BEGIN " + "PRIVATE KEY-----"
+    end = "-----" + "END " + "PRIVATE KEY-----"
+    return f"{begin}\n{value}\n{end}"
 
 
 def _remote(value: str) -> str:
