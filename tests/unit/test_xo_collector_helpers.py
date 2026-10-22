@@ -105,6 +105,43 @@ def test_every_address_in_a_text_is_cleaned() -> None:
     assert strip_url_credentials(text) == expected
 
 
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("smb://svc@backup-a.example.test/share", "smb://backup-a.example.test/share"),
+        ("sftp://svc@backup-a.example.test:22/x", "sftp://backup-a.example.test:22/x"),
+        ("smb://svc:pa/ss@backup-a.example.test/share", "smb://backup-a.example.test/share"),
+        ("smb://svc:pa?s#s@backup-a.example.test/share", "smb://backup-a.example.test/share"),
+        ("smb://svc:p@ss@backup-a.example.test/share", "smb://backup-a.example.test/share"),
+        ("s3://svc:pa/ss@backup-a.example.test/bucket", "s3://backup-a.example.test/bucket"),
+        ("nfs://backup-b.example.test:/exports/b", "nfs://backup-b.example.test:/exports/b"),
+    ],
+)
+def test_a_whole_address_loses_every_credential_form(text: str, expected: str) -> None:
+    cleaned = strip_url_credentials(text, whole_value=True)
+    assert cleaned == expected
+    assert "pa/ss" not in cleaned
+    assert "svc" not in cleaned
+
+
+def test_the_free_text_mode_cleans_the_user_only_form_but_stops_at_the_authority() -> None:
+    text = "see smb://svc@one.example.test/x and https://two.example.test/p?mail=a@b.example.test"
+    expected = "see smb://one.example.test/x and https://two.example.test/p?mail=a@b.example.test"
+    assert strip_url_credentials(text) == expected
+
+
+def test_a_repository_address_with_a_slash_in_the_password_is_stored_without_it() -> None:
+    raw = [{"id": "a", "url": "smb://svc:pa/ss@h.example.test/share"}]
+    cleaned = prepare_objects("backup-repositories", raw)
+    assert cleaned[0]["url"] == "smb://h.example.test/share"
+    assert "pa/ss" not in str(cleaned)
+
+
+def test_a_repository_address_with_only_a_user_is_stored_without_it() -> None:
+    raw = [{"id": "a", "url": "smb://svc@h.example.test/share"}]
+    assert prepare_objects("backup-repositories", raw)[0]["url"] == "smb://h.example.test/share"
+
+
 def test_the_objects_are_sorted_by_id() -> None:
     raw = [{"id": "b"}, {"id": "a"}, {"id": "c"}]
     assert [item["id"] for item in prepare_objects("vms", raw)] == ["a", "b", "c"]
