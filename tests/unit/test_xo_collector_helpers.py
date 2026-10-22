@@ -111,7 +111,10 @@ def test_the_objects_are_sorted_by_id() -> None:
 
 
 def test_only_templates_drop_the_built_in_ones() -> None:
-    raw = [{"id": "a", "isDefaultTemplate": True}, {"id": "b", "isDefaultTemplate": False}]
+    raw: list[JsonValue] = [
+        {"id": "a", "isDefaultTemplate": True},
+        {"id": "b", "isDefaultTemplate": False},
+    ]
     assert [item["id"] for item in prepare_objects("vm-templates", raw)] == ["b"]
     assert [item["id"] for item in prepare_objects("vms", raw)] == ["a", "b"]
 
