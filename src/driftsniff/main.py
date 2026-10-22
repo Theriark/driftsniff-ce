@@ -8,7 +8,9 @@ from fastapi.concurrency import run_in_threadpool
 
 from driftsniff import __version__
 from driftsniff.config import Settings
+from driftsniff.enrich import api as enrich_api
 from driftsniff.notify.deliveries import NotificationService
+from driftsniff.plugins.registry import PluginRegistry
 from driftsniff.secrets.keys import MasterKey
 from driftsniff.sources.retention import RetentionJob
 from driftsniff.sources.scheduler import Scheduler
@@ -49,6 +51,8 @@ def create_app(
     auth: AuthService | None = None,
     tokens: TokenService | None = None,
     notifications: NotificationService | None = None,
+    changes: enrich_api.ChangeService | None = None,
+    plugins: PluginRegistry | None = None,
 ) -> FastAPI:
     """Build the application; settings default to the DRIFTSNIFF_ environment.
 
@@ -65,6 +69,9 @@ def create_app(
     ``/notifications``; without one they answer 503. It is stopped with the application, after
     the deliveries that are running have finished. The run pipeline sends events through its
     ``notify_event`` (the ``notifier`` of ``RunPipeline``).
+    The ``changes`` service serves ``GET /api/v1/changes`` and the enrichment route; without one
+    they answer 503 (the OpenAPI document at ``/api/v1/openapi.json`` needs no service). The
+    ``plugins`` registry holds the implementation of every extension point, checked at start.
     Every response gets the security headers and every browser write the origin and CSRF checks
     of ``driftsniff.web.csrf``.
     """
@@ -85,9 +92,13 @@ def create_app(
     app.state.auth = auth
     app.state.tokens = tokens
     app.state.notifications = notifications
+    app.state.changes = changes
+    app.state.plugins = plugins
+    app.state.openapi_cache = None
     app.add_middleware(BrowserHardeningMiddleware)
     app.include_router(ui_router)
     app.include_router(routes_push.router)
     app.include_router(routes_api.router)
     app.include_router(routes_notifications.router)
+    app.include_router(enrich_api.router)
     return app
