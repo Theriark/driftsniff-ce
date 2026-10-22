@@ -144,7 +144,7 @@ Status: the coverage rows are written by the run pipeline and are stored in the 
 |---|---|
 | Web form to add and edit a source, upload a CA file, coverage panel | P10, not built |
 | Collector factory: builds the client from a stored source, stores the detected base path, saves the `unsupported` state | not built; `serve` starts no scheduler until it exists |
-| First admin and login (`create-admin-code` prints "not implemented yet") | P9-T1, not built |
+| First admin and login: `driftsniff create-admin-code` and the setup, login and logout posts exist (P9-T1, `docs/auth.md`); the setup and login pages come with P10-T3 | partly built |
 | Vendor reference (D5) and lab results (U2, U3) | open; no controller was used |
 
 ## Trying the steps without a controller

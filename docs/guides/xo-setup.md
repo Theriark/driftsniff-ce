@@ -234,7 +234,7 @@ token XO uses to reach a host), the **user and password part of a backup remote'
 | Web form to add and edit a source, the field for the expiry date, CA file upload, coverage panel | P10, not built |
 | Collector factory: builds the client from a stored source (decrypts the credential, reads the TLS options and the entered expiry) and saves the state `token_expiring` | not built; `serve` starts no scheduler until it exists |
 | Storage of the entered expiry date: the source options have no such option yet | not built |
-| First admin and login (`create-admin-code` prints "not implemented yet") | P9-T1, not built |
+| First admin and login: `driftsniff create-admin-code` and the setup, login and logout posts exist (P9-T1, `docs/auth.md`); the setup and login pages come with P10-T3 | partly built |
 | Vendor reference and lab results (X1 to X4) | open; no XO was used |
 
 ## Trying the steps without XO
