@@ -9,11 +9,12 @@ This file covers the rest of what leaves the application:
   items (never written by the pipeline, so the API must not show them even if a row held them),
   credential-shaped text in the path, object name, rationale and order detail, the values of the
   API tokens and the session cookie, a token sent in a request, and the secrets of the channel
-  configuration.
+  configuration (the webhook address path and query, the mail password; the mail user name is
+  shown to admins by design, so it is not planted here).
 * The OpenAPI document: none of that, and no data of the installation.
-* The backup file: nothing that must never be stored (token values, the session cookie, the login
-  password, the webhook address secrets, the mail login), searched as bytes and, row by row, with
-  the compressed columns decompressed.
+* The backup file: nothing that must never be stored in the clear (token values, the session
+  cookie, the login password, the webhook address secrets, the mail login), searched as bytes and,
+  row by row, with the compressed columns decompressed.
 
 A hit names the surface and where the canary was planted, never the canary. The last test shows the
 scan can find something: a config value is shown by design and must be reported.
@@ -83,7 +84,6 @@ def test_no_canary_reaches_the_api_output_or_the_openapi_document(kit: Kit) -> N
     in_detail_list = factory.new("a list in an order detail")
     webhook_path = factory.new("the path of the webhook address")
     webhook_query = factory.new("the query of the webhook address")
-    mail_login = factory.new("the mail login")
     mail_password = factory.new("the mail password")
     sent_token = factory.new("a token sent in a request")
 
@@ -151,7 +151,7 @@ def test_no_canary_reaches_the_api_output_or_the_openapi_document(kit: Kit) -> N
             "security": "tls",
             "from_address": "driftsniff@example.com",
             "to_addresses": ["ops@example.com"],
-            "username": mail_login.value,
+            "username": "alerts",
             "password": mail_password.value,
         },
     )
@@ -185,6 +185,9 @@ def test_no_canary_reaches_the_api_output_or_the_openapi_document(kit: Kit) -> N
     assert body["items"][2]["order_detail"]["count"] == 3
     assert "***REDACTED***" in detail.text
     assert surfaces["GET /tokens"].count('"prefix"') == len(kit.token_values)
+    # The mail user name is shown to admins (the password never is).
+    assert '"username":"alerts"' in surfaces["GET /notifications/channel (smtp)"]
+    assert '"password_set":true' in surfaces["GET /notifications/channel (smtp)"]
 
 
 def test_no_canary_reaches_the_backup_file(kit: Kit, tmp_path: Path) -> None:

@@ -25,8 +25,8 @@ class Access(StrEnum):
     VIEWER = "viewer"
     OPERATOR = "operator"
     ADMIN = "admin"
-    TOKEN_READ = "token read"
-    TOKEN_ENRICH = "token enrich"
+    TOKEN_READ = "token read"  # noqa: S105
+    TOKEN_ENRICH = "token enrich"  # noqa: S105
 
 
 ROLE_ACCESS = frozenset({Access.VIEWER, Access.OPERATOR, Access.ADMIN})
@@ -74,32 +74,37 @@ CALLERS = (
 )
 
 
-def leaf_routes(routes: Iterable[Any]) -> Iterator[Any]:
-    """The routes themselves: a router that was included is entered, a mounted app is not.
+def leaf_routes(routes: Iterable[Any], prefix: str = "") -> Iterator[tuple[Any, str]]:
+    """The routes themselves, each with the path prefix of the routers it was included through.
 
-    FastAPI nests an included router, so ``app.routes`` may hold a container instead of the
-    routes of the router. A mounted application is handed back as it is, so ``real_routes`` fails
-    on it and the table gets a decision about it.
+    FastAPI wraps an included router in a container (``original_router`` and the prefix of the
+    inclusion), so ``app.routes`` does not list its routes. A container is entered; a mounted
+    application is handed back as it is, so ``real_routes`` fails on it and the table gets a
+    decision about it.
     """
     for route in routes:
-        nested = getattr(route, "routes", None)
+        inner = getattr(route, "original_router", None)
+        nested = getattr(inner, "routes", None)
         if nested is None:
-            nested = getattr(getattr(route, "router", None), "routes", None)
+            nested = getattr(route, "routes", None)
         if nested is not None and not isinstance(route, Mount):
-            yield from leaf_routes(nested)
+            context = getattr(route, "include_context", None)
+            yield from leaf_routes(nested, prefix + str(getattr(context, "prefix", "") or ""))
         else:
-            yield route
+            yield route, prefix
 
 
 def real_routes(app: FastAPI) -> set[tuple[str, str]]:
     """Every (method, path) the application answers; a route of an unknown kind fails."""
     found: set[tuple[str, str]] = set()
-    for route in leaf_routes(app.routes):
+    for route, prefix in leaf_routes(app.routes):
         methods = getattr(route, "methods", None)
         path = getattr(route, "path", None)
         if not methods or not isinstance(path, str):
             raise AssertionError(f"a route of a kind the table does not know: {route!r}")
-        found.update((method, path) for method in methods if method not in IMPLICIT_METHODS)
+        found.update(
+            (method, prefix + path) for method in methods if method not in IMPLICIT_METHODS
+        )
     return found
 
 
