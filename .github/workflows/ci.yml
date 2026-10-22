@@ -1,0 +1,791 @@
+name: CI
+
+# Pull request checks run only when the ci-go label is added to a pull request (one explicit
+# request, one run), on pushes to development, and on manual dispatch. mode=lock compiles the
+# hashed requirement files and nothing else. The check jobs are independent so one failure
+# never hides another; deploy-development waits for all of them. The image is built once by the
+# build job; scan, smoke and sbom test that same image and deploy-development pushes exactly it.
+# The nightly-properties job runs only on the daily schedule or a manual mode=nightly dispatch. It
+# is report only: no pull_request trigger, not a required check, and no other job needs it.
+
+on:
+  pull_request:
+    types:
+      - labeled
+  push:
+    branches:
+      - development
+  schedule:
+    - cron: "23 3 * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "test runs the checks; lock compiles hashed requirements and commits them to this branch; nightly runs only the report-only property tests"
+        required: false
+        default: test
+        type: choice
+        options:
+          - test
+          - lock
+          - nightly
+
+permissions:
+  contents: read
+
+# A newer ci-go run of the same pull request cancels the superseded one (group pr-<ref>).
+# Other labels and other events get their own group so they can never cancel a real run.
+# Deployments use the shared pipeline group below and are never cancelled.
+concurrency:
+  group: ${{ (github.event_name == 'pull_request' && github.event.label.name == 'ci-go') && format('pr-{0}', github.ref) || format('ci-{0}-{1}-{2}', github.event_name, github.ref, github.event.label.name || 'none') }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  gate:
+    name: Gate
+    if: ${{ (github.event_name == 'pull_request' && github.event.label.name == 'ci-go') || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.mode == 'test') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+
+    steps:
+      - name: Record why the checks run
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "checks requested by ${GITHUB_EVENT_NAME} on ${GITHUB_REF} at ${GITHUB_SHA}"
+
+  lint:
+    name: Lint
+    needs: gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Verify brand files against MANIFEST.sha256
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd brand
+          sha256sum -c MANIFEST.sha256
+
+      - name: Validate runtime manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          jq -e '
+            (.database == null or .database == "postgres16")
+            and (.volumes | (type == "array" and length > 0 and all(.[]; type == "string" and startswith("/"))))
+            and (.env | (type == "array" and all(.[];
+              (.name | test("^[A-Z][A-Z0-9_]*$"))
+              and (.kind | IN("hex32", "hex64", "fernet", "token24", "postgres_url", "base_url", "literal"))
+              and ((.kind != "literal") or ((.value | type == "string") and (.value | test("^[A-Za-z0-9+/=_-]{32,}$") | not)))
+            )))
+          ' deploy/dokploy.json >/dev/null
+          echo "valid deploy/dokploy.json"
+
+      - name: Install locked dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -f requirements-dev.txt ]] || {
+            echo "::error::requirements-dev.txt is missing; run the CI workflow with mode=lock"
+            exit 1
+          }
+          python3 -m venv .venv
+          .venv/bin/python -m pip install --require-hashes --no-deps -r requirements-dev.txt
+          .venv/bin/python -m pip check
+
+      - name: Ruff lint
+        shell: bash
+        run: |
+          set -euo pipefail
+          .venv/bin/python -m ruff check .
+
+      - name: Ruff format check
+        shell: bash
+        run: |
+          set -euo pipefail
+          .venv/bin/python -m ruff format --check .
+
+      - name: Install actionlint (version pinned)
+        shell: bash
+        run: |
+          set -euo pipefail
+          GOBIN="${RUNNER_TEMP}/bin" go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+          echo "${RUNNER_TEMP}/bin" >> "${GITHUB_PATH}"
+
+      - name: Lint workflow files
+        shell: bash
+        run: |
+          set -euo pipefail
+          actionlint -color
+
+  types:
+    name: Types
+    needs: gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install locked dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv .venv
+          .venv/bin/python -m pip install --require-hashes --no-deps -r requirements-dev.txt
+          .venv/bin/python -m pip check
+
+      - name: Type check
+        shell: bash
+        run: |
+          set -euo pipefail
+          .venv/bin/python -m mypy
+
+  test:
+    name: Tests
+    needs: gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install locked dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv .venv
+          .venv/bin/python -m pip install --require-hashes --no-deps -r requirements-dev.txt
+          .venv/bin/python -m pip check
+
+      - name: Run automated tests with coverage
+        shell: bash
+        run: |
+          set -euo pipefail
+          .venv/bin/python -m pytest -q --cov --cov-report=term-missing --cov-report=json:coverage.json
+
+      # Fails when driftsniff.core, driftsniff.secrets or driftsniff.rules is below 90 percent and
+      # writes the total, the per-package and the per-module lines to the job summary.
+      - name: Coverage gate and job summary
+        if: ${{ !cancelled() && hashFiles('coverage.json') != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          .venv/bin/python scripts/check_coverage.py coverage.json
+
+  migration:
+    name: Migrations
+    needs: gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install locked dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv .venv
+          .venv/bin/python -m pip install --require-hashes --no-deps -r requirements-dev.txt
+          .venv/bin/python -m pip check
+
+      - name: Migration tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          .venv/bin/python -m pytest -q -o addopts="" tests/unit/test_db_migrations.py tests/unit/test_check_migrations.py
+
+      - name: Upgrade from every earlier schema on a copy, refuse every downgrade
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH=src .venv/bin/python scripts/check_migrations.py
+
+  canary:
+    name: Canary leak harness
+    needs: gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install locked dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv .venv
+          .venv/bin/python -m pip install --require-hashes --no-deps -r requirements-dev.txt
+          .venv/bin/python -m pip check
+
+      # Seeds unique CANARY- values into a fake source, runs the real redact, normalise, manifest
+      # and store path, and fails when a canary is found in the database file, its rows, the logs,
+      # raised errors or the output. The tests also leak on purpose to prove the harness can fail.
+      - name: Canary leak tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          .venv/bin/python -m pytest -q -o addopts="" tests/security
+
+  audit:
+    name: Dependency audit
+    needs: gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install locked dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv .venv
+          .venv/bin/python -m pip install --require-hashes --no-deps -r requirements-dev.txt
+
+      - name: Audit hashed runtime requirements
+        shell: bash
+        run: |
+          set -euo pipefail
+          .venv/bin/python -m pip_audit --requirement requirements.txt --require-hashes --disable-pip --progress-spinner off
+
+  secrets:
+    name: Secret scan
+    needs: gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository with history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Install gitleaks (version pinned)
+        shell: bash
+        run: |
+          set -euo pipefail
+          GOBIN="${RUNNER_TEMP}/bin" go install github.com/zricethezav/gitleaks/v8@v8.28.0
+          echo "${RUNNER_TEMP}/bin" >> "${GITHUB_PATH}"
+
+      - name: Scan the checked-out files
+        shell: bash
+        run: |
+          set -euo pipefail
+          gitleaks dir . --no-banner --redact --verbose
+
+      - name: Scan the commits of the pull request
+        if: ${{ github.event_name == 'pull_request' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gitleaks git . --no-banner --redact --verbose --log-opts="origin/development..HEAD"
+
+  licences:
+    name: Licences
+    needs: gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install locked dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv .venv
+          .venv/bin/python -m pip install --require-hashes --no-deps -r requirements-dev.txt
+
+      - name: Negative test, a GPL package must fail the licence check
+        shell: bash
+        run: |
+          set -euo pipefail
+          .venv/bin/python -m pytest -q -o addopts="" tests/unit/test_check_licenses.py
+
+      - name: Check dependency licences against the allow list
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -f scripts/check_licenses.py ]] || {
+            echo "::error::scripts/check_licenses.py is missing"
+            exit 1
+          }
+          .venv/bin/python scripts/check_licenses.py
+
+  build:
+    name: Build image
+    needs: gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Check Dockerfile for credential-like ARG and ENV names
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/check_dockerfile_credentials.py Dockerfile
+
+      - name: Validate compose file
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker compose -f compose.yaml config --quiet
+
+      - name: Build image (no push)
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build --build-arg SOURCE_SHA="${GITHUB_SHA}" --tag driftsniff:ci .
+          docker save driftsniff:ci | gzip --fast > "${RUNNER_TEMP}/driftsniff-ci-image.tar.gz"
+
+      - name: Upload image for the scan, smoke, sbom and publish steps
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: driftsniff-ci-image
+          path: ${{ runner.temp }}/driftsniff-ci-image.tar.gz
+          retention-days: 1
+          if-no-files-found: error
+
+  scan:
+    name: Image scan
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Download image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: driftsniff-ci-image
+          path: ${{ runner.temp }}/image
+
+      - name: Unpack image archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          gunzip --stdout "${RUNNER_TEMP}/image/driftsniff-ci-image.tar.gz" > "${RUNNER_TEMP}/driftsniff-ci-image.tar"
+
+      - name: Trivy scan, HIGH and CRITICAL with a fix
+        shell: bash
+        env:
+          TRIVY_IMAGE: ghcr.io/aquasecurity/trivy:0.65.0
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            --volume "${RUNNER_TEMP}:/work:ro" \
+            --env TRIVY_CACHE_DIR=/tmp/trivy-cache \
+            "${TRIVY_IMAGE}" image \
+              --input /work/driftsniff-ci-image.tar \
+              --severity HIGH,CRITICAL \
+              --ignore-unfixed \
+              --exit-code 1 \
+              --format table \
+              --no-progress
+
+  smoke:
+    name: Container smoke
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Download image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: driftsniff-ci-image
+          path: ${{ runner.temp }}/image
+
+      - name: Load image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker load --input "${RUNNER_TEMP}/image/driftsniff-ci-image.tar.gz"
+
+      - name: Container smoke test (non-root, read-only root file system, size, health)
+        shell: bash
+        env:
+          IMAGE: driftsniff:ci
+          SKIP_BUILD: "1"
+        run: |
+          set -euo pipefail
+          bash scripts/container-smoke.sh
+
+  sbom:
+    name: SBOM
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Download image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: driftsniff-ci-image
+          path: ${{ runner.temp }}/image
+
+      - name: Unpack image archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          gunzip --stdout "${RUNNER_TEMP}/image/driftsniff-ci-image.tar.gz" > "${RUNNER_TEMP}/driftsniff-ci-image.tar"
+
+      - name: Generate CycloneDX SBOM with Syft (version pinned)
+        shell: bash
+        env:
+          SYFT_IMAGE: ghcr.io/anchore/syft:v1.18.1
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/sbom"
+          chmod 0777 "${RUNNER_TEMP}/sbom"
+          docker run --rm \
+            --volume "${RUNNER_TEMP}:/work:ro" \
+            --volume "${RUNNER_TEMP}/sbom:/out" \
+            --env SYFT_CHECK_FOR_APP_UPDATE=false \
+            "${SYFT_IMAGE}" \
+              docker-archive:/work/driftsniff-ci-image.tar \
+              --output cyclonedx-json=/out/sbom.cdx.json
+
+      - name: Check the SBOM is a CycloneDX document with components
+        shell: bash
+        run: |
+          set -euo pipefail
+          jq -e '.bomFormat == "CycloneDX" and (.components | length) > 0' "${RUNNER_TEMP}/sbom/sbom.cdx.json" >/dev/null
+          echo "SBOM components: $(jq '.components | length' "${RUNNER_TEMP}/sbom/sbom.cdx.json")"
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: driftsniff-sbom
+          path: ${{ runner.temp }}/sbom/sbom.cdx.json
+          retention-days: 30
+          if-no-files-found: error
+
+  deploy-development:
+    name: Publish and deploy Development
+    needs:
+      - lint
+      - types
+      - test
+      - migration
+      - canary
+      - audit
+      - secrets
+      - licences
+      - build
+      - scan
+      - smoke
+      - sbom
+    # Never on a pull request: only a push to development, and only while the switch is true.
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/development' && vars.DEPLOY_DEVELOPMENT_ENABLED == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    environment: development
+
+    permissions:
+      contents: read
+      packages: write
+
+    # Shared by every deployment and promotion job of this repository; queued, never cancelled.
+    concurrency:
+      group: driftsniff-ce-pipeline
+      cancel-in-progress: false
+
+    env:
+      IMAGE: ghcr.io/theriark/driftsniff-ce
+      SOURCE_SHA: ${{ github.sha }}
+      DOKPLOY_DEVELOPMENT_APPLICATION_ID: VmPHofibLNZ_eYa6y6r8R
+      DEVELOPMENT_HOST: ce-dev-driftsniff.theriark.dev
+
+    steps:
+      - name: Verify Development source branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "${GITHUB_REF}" == "refs/heads/development" ]] || {
+            echo "::error::Development deployment must run from development; received ${GITHUB_REF}"
+            exit 1
+          }
+
+      - name: Checkout tested source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+
+      - name: Verify protected deployment configuration
+        shell: bash
+        env:
+          DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
+          DOKPLOY_API_KEY: ${{ secrets.DOKPLOY_API_KEY }}
+          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+        run: |
+          set -euo pipefail
+          for required in DOKPLOY_URL DOKPLOY_API_KEY CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET; do
+            [[ -n "${!required}" ]] || {
+              echo "::error::${required} is missing"
+              exit 1
+            }
+          done
+
+      - name: Download the tested image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: driftsniff-ci-image
+          path: ${{ runner.temp }}/image
+
+      - name: Load the tested image and check it was built from this commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          gunzip --stdout "${RUNNER_TEMP}/image/driftsniff-ci-image.tar.gz" | docker load
+          revision="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' driftsniff:ci)"
+          [[ "${revision}" == "${SOURCE_SHA}" ]] || {
+            echo "::error::tested image revision label '${revision}' is not ${SOURCE_SHA}"
+            exit 1
+          }
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+
+      - name: Push the tested image and record its digest
+        id: publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="sha-${SOURCE_SHA::12}"
+          mode=pushed
+          if existing="$(docker buildx imagetools inspect "${IMAGE}:${tag}" --format '{{.Manifest.Digest}}' 2>/dev/null)"; then
+            # The tag of a commit is never overwritten: a re-run reuses the image already published.
+            digest="${existing}"
+            mode=reused
+            echo "::notice::${IMAGE}:${tag} already exists; reusing ${digest} without a new push"
+          else
+            docker tag driftsniff:ci "${IMAGE}:${tag}"
+            docker push "${IMAGE}:${tag}" | tee "${RUNNER_TEMP}/push.log"
+            push_digest="$(sed -n 's/.*digest: \(sha256:[0-9a-f]\{64\}\).*/\1/p' "${RUNNER_TEMP}/push.log" | tail -n 1)"
+            digest="$(docker buildx imagetools inspect "${IMAGE}:${tag}" --format '{{.Manifest.Digest}}')"
+            [[ "${digest}" =~ ^sha256:[0-9a-f]{64}$ ]] || {
+              echo "::error::registry returned no digest for ${IMAGE}:${tag}"
+              exit 1
+            }
+            [[ "${push_digest}" == "${digest}" ]] || {
+              echo "::error::pushed digest '${push_digest}' differs from registry digest '${digest}'"
+              exit 1
+            }
+          fi
+          [[ "${digest}" =~ ^sha256:[0-9a-f]{64}$ ]] || {
+            echo "::error::no valid digest for ${IMAGE}:${tag}"
+            exit 1
+          }
+          printf '%s\n' "${digest}" > image-digest.txt
+          {
+            echo "digest=${digest}"
+            echo "tag=${tag}"
+          } >> "${GITHUB_OUTPUT}"
+          {
+            echo "## driftsniff-ce Development image"
+            echo
+            echo "- Source commit: \`${SOURCE_SHA}\`"
+            echo "- Tag: \`${IMAGE}:${tag}\` (${mode})"
+            echo "- Digest: \`${digest}\`"
+            echo "- Immutable image: \`${IMAGE}@${digest}\`"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload image digest
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: driftsniff-image-digest
+          path: image-digest.txt
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Deploy exact digest to Development and verify runtime
+        shell: bash
+        env:
+          DIGEST: ${{ steps.publish.outputs.digest }}
+          DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
+          DOKPLOY_API_KEY: ${{ secrets.DOKPLOY_API_KEY }}
+          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/dokploy_release.py deploy \
+            --application-id "${DOKPLOY_DEVELOPMENT_APPLICATION_ID}" \
+            --image "${IMAGE}@${DIGEST}" \
+            --health-url "https://${DEVELOPMENT_HOST}/healthz" \
+            --expected-commit "${SOURCE_SHA}" \
+            --title "Development ${SOURCE_SHA}" \
+            --description "GitHub Actions run ${GITHUB_RUN_ID}"
+
+      - name: Record immutable Development result
+        shell: bash
+        env:
+          DIGEST: ${{ steps.publish.outputs.digest }}
+          TAG: ${{ steps.publish.outputs.tag }}
+        run: |
+          {
+            echo "## driftsniff-ce Development deployed"
+            echo
+            echo "- Source commit: \`${SOURCE_SHA}\`"
+            echo "- Promotion tag: \`${IMAGE}:${TAG}\`"
+            echo "- Immutable image: \`${IMAGE}@${DIGEST}\`"
+            echo "- Runtime verified: Dokploy image equals digest; https://${DEVELOPMENT_HOST}/healthz reports the commit"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+  nightly-properties:
+    name: Nightly property tests
+    # Report only. Runs on the daily schedule or a manual mode=nightly dispatch, never on a pull
+    # request or a push. Not a required check; gate, deploy-development and every other job ignore it.
+    if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.mode == 'nightly') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    permissions:
+      contents: read
+
+    # Its own group: it never joins driftsniff-ce-pipeline and never cancels a running deployment.
+    concurrency:
+      group: driftsniff-ce-nightly-properties
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install locked dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv .venv
+          .venv/bin/python -m pip install --require-hashes --no-deps -r requirements-dev.txt
+          .venv/bin/python -m pip check
+
+      # The documented command of docs/ci-baseline.md section 10.2, run from the repository root
+      # with the interpreter of the locked virtual environment.
+      - name: Run the nightly property tests
+        id: properties
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/nightly"
+          HYPOTHESIS_PROFILE=nightly .venv/bin/python -m pytest -q -o addopts="" -p no:cacheprovider tests/properties 2>&1 | tee "${RUNNER_TEMP}/nightly/pytest-output.txt"
+
+      # Writes the result, and on a failure the Hypothesis seed and falsifying example, to the job summary.
+      - name: Job summary
+        if: ${{ !cancelled() }}
+        shell: bash
+        env:
+          OUTCOME: ${{ steps.properties.outcome }}
+        run: |
+          set -euo pipefail
+          output="${RUNNER_TEMP}/nightly/pytest-output.txt"
+          {
+            echo "## Nightly property tests (report only)"
+            echo
+            echo "- Profile: nightly (5000 cases per property, new random seed on every run)"
+            echo "- Source commit: ${GITHUB_SHA}"
+            echo "- Result: ${OUTCOME}"
+            if [[ "${OUTCOME}" != "success" ]]; then
+              echo
+              echo "### Failing seed and example"
+              echo
+              echo '```'
+              if [[ -f "${output}" ]]; then
+                grep -E -A 30 'Falsifying example|reproduce_failure|hypothesis-seed|@seed|^FAILED ' "${output}" | head -n 200 || true
+              else
+                echo "no pytest output was written"
+              fi
+              echo '```'
+            fi
+            echo
+            echo "The full pytest output is the artifact nightly-properties-pytest-output."
+          } >> "${GITHUB_STEP_SUMMARY}"
+          if [[ "${OUTCOME}" != "success" ]]; then
+            echo "::error::nightly property tests ${OUTCOME}; see the job summary and the artifact nightly-properties-pytest-output (report only, no merge is blocked)"
+          fi
+
+      - name: Upload pytest output
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: nightly-properties-pytest-output
+          path: ${{ runner.temp }}/nightly/pytest-output.txt
+          retention-days: 30
+          if-no-files-found: warn
+
+  lock-requirements:
+    name: Lock hashed requirements
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'lock' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Refuse protected branches
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${GITHUB_REF_NAME}" in
+            main | development | stage | production)
+              echo "::error::lock runs only on a feature branch, not ${GITHUB_REF_NAME}"
+              exit 1
+              ;;
+          esac
+
+      - name: Checkout branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Compile hashed requirement files
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -f requirements.in && -f requirements-dev.in ]] || {
+            echo "::error::requirements.in and requirements-dev.in must exist"
+            exit 1
+          }
+          python3 -m venv .lock-venv
+          .lock-venv/bin/python -m pip install --quiet 'pip-tools==7.4.1'
+          .lock-venv/bin/pip-compile --quiet --generate-hashes --allow-unsafe --output-file requirements.txt requirements.in
+          .lock-venv/bin/pip-compile --quiet --generate-hashes --allow-unsafe --output-file requirements-dev.txt requirements-dev.in
+          rm -rf .lock-venv
+
+      - name: Commit lock files to the dispatching branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add requirements.txt requirements-dev.txt
+          if git diff --cached --quiet; then
+            echo "Lock files already current"
+            exit 0
+          fi
+          git commit -m "Lock hashed requirements"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
