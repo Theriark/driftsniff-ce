@@ -109,7 +109,7 @@ def test_a_server_without_starttls_is_refused_and_no_login_is_sent(pki: Pki) -> 
 def test_a_wrong_login_is_a_login_failure_that_is_not_retried(pki: Pki) -> None:
     with running_smtp(pki, login=LOGIN) as server:
         result = send_mail(
-            config(server.port, password="CANARY-wrong-login"),
+            config(server.port, password="CANARY-wrong-login"),  # noqa: S106
             message(),
             resolver=loopback,
             ssl_context=trusting_context(pki),

@@ -110,7 +110,7 @@ def test_an_old_or_malformed_timestamp_is_not_accepted() -> None:
 def test_the_address_of_the_receiver_is_not_logged_by_the_http_library(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    secret = "CANARY-hook-query-0001"
+    secret = "CANARY-hook-query-0001"  # noqa: S105
     with caplog.at_level(logging.DEBUG), running_receiver() as receiver:
         result = post(f"{receiver.url}?token={secret}")
     assert result.ok is True
