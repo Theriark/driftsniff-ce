@@ -10,8 +10,8 @@ of running them as written (the way ``test_golden_unifi_shipped.py`` does for ro
 * row 8 (``docker.enabled``): the plan puts ``docker`` in the ignore class, so the shipped table
   reports no change where the test-only table reports a low one;
 * row 18 (``pw_hash``): no password hash is collected. The shipped secret field is
-  ``authProviders``; it is run in its place, and its severity is the shipped rule's (high), not the
-  critical of the test-only row. That difference is reported to Delivery as an open decision.
+  ``authProviders``; it is run in its place, and the shipped rule rates it critical like the
+  test-only row (the plan table is the authority: a changed sign-in method of a user is critical).
 
 Every field name is unverified (no lab Xen Orchestra, docs/vendor-notes/xo.md). The secret values
 start with ``CANARY-``.
@@ -251,7 +251,7 @@ def test_row_18_the_shipped_secret_field_shows_fingerprints_only() -> None:
     assert item.before_fp is not None
     assert item.after_fp is not None
     assert item.before_fp != item.after_fp
-    assert (result.severity, result.rule_id) == ("high", "xo.users.auth_providers")
+    assert (result.severity, result.rule_id) == ("critical", "xo.users.auth_providers")
     for shown in (repr(item), repr(result), str(item.order_detail)):
         assert "CANARY" not in shown
 
