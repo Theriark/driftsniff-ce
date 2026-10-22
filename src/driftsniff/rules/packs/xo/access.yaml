@@ -44,7 +44,7 @@ rules:
   - id: xo.users.auth_providers
     resource: users
     path: authProviders
-    severity: high
+    severity: critical
     rationale: The sign in methods linked to a user changed, so someone else may now be able to sign in as that user.
   - id: xo.groups.acl_role_ids
     resource: groups
