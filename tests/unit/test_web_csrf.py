@@ -352,13 +352,14 @@ def test_the_api_refuses_a_cookie_even_without_a_valid_session(client: TestClien
 
 @pytest.mark.parametrize("method", ["GET", "POST"])
 def test_the_api_needs_no_csrf_value_without_a_cookie(client: TestClient, method: str) -> None:
-    response = client.request(method, "/api/v1/probe", headers={"Authorization": "Bearer x"})
+    headers = {"Authorization": "Bearer CANARY-token"}
+    response = client.request(method, "/api/v1/probe", headers=headers)
     assert response.status_code == 200
     assert response.json() == {"ok": True}
 
 
 def test_an_other_cookie_does_not_trip_the_api_rule(client: TestClient) -> None:
-    assert client.get("/api/v1/probe", headers={"Cookie": "theme=dark"}).status_code == 200
+    assert client.get("/api/v1/probe", headers={"Cookie": "other=CANARY-1"}).status_code == 200
 
 
 # -- headers and CORS --------------------------------------------------------------------------
@@ -367,9 +368,12 @@ def test_an_other_cookie_does_not_trip_the_api_rule(client: TestClient) -> None:
 def _answers(client: TestClient, auth: AuthService, session: Session) -> dict[str, Response]:
     """One answer of every route class: ok, redirect, 401, 403, 404, 405, 413, 503 and the API."""
     form = {"username": "ada", "password": CORRECT}
+    login = client.post("/login", data=form)
+    # the login stored a session cookie in the client; the probes below must not carry it
+    client.cookies.clear()
     return {
         "health 200": client.get("/healthz"),
-        "login redirect 303": client.post("/login", data=form),
+        "login redirect 303": login,
         "not found 404": client.get("/no-such-page"),
         "method 405": client.put("/healthz"),
         "unauthenticated 401": client.get("/probe/read"),
