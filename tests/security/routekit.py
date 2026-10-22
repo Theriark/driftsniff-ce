@@ -39,6 +39,8 @@ ROUTE_TABLE: dict[tuple[str, str], Access] = {
     ("POST", "/setup"): Access.PUBLIC,
     ("POST", "/login"): Access.PUBLIC,
     ("POST", "/logout"): Access.PUBLIC,
+    ("GET", "/static/{path:path}"): Access.PUBLIC,
+    ("POST", "/preferences/density"): Access.VIEWER,
     ("GET", "/tokens"): Access.ADMIN,
     ("POST", "/tokens"): Access.ADMIN,
     ("POST", "/tokens/{token_id}/revoke"): Access.ADMIN,
