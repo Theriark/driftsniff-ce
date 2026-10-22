@@ -110,7 +110,14 @@ def _classify(error: Exception) -> SendResult:
             retry=temporary,
         )
     if isinstance(error, smtplib.SMTPRecipientsRefused):
-        return SendResult(False, ERROR_SMTP_REFUSED)
+        # Every recipient was refused: temporary only when every answer was a 4xx.
+        codes = [code for code, _ in error.recipients.values()]
+        temporary = bool(codes) and all(400 <= code < 500 for code in codes)
+        return SendResult(
+            False,
+            ERROR_SMTP_TEMPORARY if temporary else ERROR_SMTP_REFUSED,
+            retry=temporary,
+        )
     if isinstance(error, smtplib.SMTPException | OSError):
         return SendResult(False, ERROR_CONNECTION, retry=True)
     return SendResult(False, ERROR_UNEXPECTED)
