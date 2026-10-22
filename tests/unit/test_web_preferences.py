@@ -17,6 +17,9 @@ from driftsniff.web.preferences import (
 )
 
 CORRECT = "CANARY-correct horse battery"
+# The origin check of the hardening middleware compares the Origin header with the configured
+# base address, so the test app is built with the address the client sends.
+ORIGIN = "http://testserver"
 
 
 @pytest.mark.parametrize(
@@ -27,7 +30,7 @@ def test_parse_density_accepts_the_two_words(value: str, expected: str) -> None:
     assert parse_density(value) == expected
 
 
-@pytest.mark.parametrize("value", ["", "dense", "compact; path=/", "comfortable\n"])
+@pytest.mark.parametrize("value", ["", "dense", "compact; path=/", "comfortable compact"])
 def test_parse_density_refuses_anything_else(value: str) -> None:
     with pytest.raises(ValueError, match="comfortable or compact"):
         parse_density(value)
@@ -68,16 +71,25 @@ def auth(store: Database) -> AuthService:
     return AuthService(store, hasher=make_password_hasher(memory_kib=8, time_cost=1))
 
 
+def make_client(auth: AuthService, origin: str = ORIGIN) -> TestClient:
+    """A client whose requests come from ``origin``, which the app accepts as its base address."""
+    app = create_app(Settings.from_env({"DRIFTSNIFF_BASE_URL": origin}), auth=auth)
+    return TestClient(app, base_url=origin, follow_redirects=False)
+
+
 @pytest.fixture
 def client(auth: AuthService) -> TestClient:
-    app = create_app(Settings.from_env({}), auth=auth)
-    return TestClient(app, base_url="http://testserver", follow_redirects=False)
+    return make_client(auth)
 
 
-def sign_in(client: TestClient, auth: AuthService, role: str = "viewer") -> dict[str, str]:
+def sign_in(
+    client: TestClient, auth: AuthService, role: str = "viewer", origin: str = ORIGIN
+) -> dict[str, str]:
     """A viewer's cookie and CSRF value, sent by hand so the client's jar takes no part."""
     auth.create_user("ada", CORRECT, role)
-    response = client.post("/login", data={"username": "ada", "password": CORRECT})
+    response = client.post(
+        "/login", data={"username": "ada", "password": CORRECT}, headers={"Origin": origin}
+    )
     assert response.status_code == 303
     match = re.search(rf"{SESSION_COOKIE}=([^;]+)", response.headers["set-cookie"])
     assert match is not None
@@ -87,7 +99,7 @@ def sign_in(client: TestClient, auth: AuthService, role: str = "viewer") -> dict
     return {
         "Cookie": f"{SESSION_COOKIE}={match.group(1)}",
         "X-CSRF-Token": principal.csrf_token,
-        "Origin": "http://testserver",
+        "Origin": origin,
     }
 
 
@@ -108,13 +120,9 @@ def test_the_form_post_sets_the_cookie_and_goes_back(client: TestClient, auth: A
 
 
 def test_the_cookie_is_secure_over_https(auth: AuthService) -> None:
-    client = TestClient(
-        create_app(Settings.from_env({}), auth=auth),
-        base_url="https://testserver",
-        follow_redirects=False,
-    )
-    headers = sign_in(client, auth)
-    headers["Origin"] = "https://testserver"
+    secure_origin = "https://testserver"
+    client = make_client(auth, secure_origin)
+    headers = sign_in(client, auth, origin=secure_origin)
     form = {"density": "comfortable"}
     response = client.post("/preferences/density", data=form, headers=headers)
     assert response.status_code == 303

@@ -86,7 +86,7 @@ def assert_policy_clean(text: str) -> None:
         assert "style" not in attrs, f"<{tag}> carries a style attribute"
         assert not [name for name in attrs if name.startswith("on")], f"<{tag}> has a handler"
         if tag == "script":
-            assert attrs.get("src", "").startswith("/static/"), "an inline script"
+            assert (attrs.get("src") or "").startswith("/static/"), "an inline script"
 
 
 def assert_fields_are_labelled(text: str) -> None:
@@ -339,20 +339,16 @@ def test_pager_marks_the_current_page_as_text() -> None:
 
 
 def test_filter_bar_search_box_and_select_are_labelled() -> None:
-    bar = component("forms.html", "filter_bar")
-    search = component("forms.html", "search_box")
-    select = component("forms.html", "select_field")
-    inner = Markup(search("q", "q", "Search summary", value="a<b", placeholder="Search"))
-    inner += Markup(
-        select(
-            "f-sev",
-            "severity",
-            "Severity",
-            [{"value": "", "label": "Any"}, {"value": "high", "label": "High"}],
-            selected="high",
-        )
+    # The macros are composed in a template, the way a page does it, so no Markup is built here.
+    source = (
+        '{% from "components/forms.html" import filter_bar, search_box, select_field %}'
+        '{% call filter_bar("/changes", "Filter changes") %}'
+        '{{ search_box("q", "q", "Search summary", value=value, placeholder="Search") }}'
+        '{{ select_field("f-sev", "severity", "Severity", options, selected="high") }}'
+        "{% endcall %}"
     )
-    text = bar("/changes", "Filter changes", caller=lambda: inner)
+    options = [{"value": "", "label": "Any"}, {"value": "high", "label": "High"}]
+    text = make_environment().from_string(source).render(value="a<b", options=options)
     parsed = Parsed(text)
     assert parsed.find("form")[0] == {
         "class": "filter-bar",
@@ -363,8 +359,8 @@ def test_filter_bar_search_box_and_select_are_labelled() -> None:
     }
     assert_fields_are_labelled(text)
     assert {"type": "search", "value": "a<b"}.items() <= parsed.find("input")[0].items()
-    options = parsed.find("option")
-    assert options == [{"value": ""}, {"value": "high", "selected": None}]
+    options_found = parsed.find("option")
+    assert options_found == [{"value": ""}, {"value": "high", "selected": None}]
     assert {"class": "btn", "type": "submit"} in parsed.find("button")
 
 
@@ -514,8 +510,9 @@ def test_drift_line_with_no_checks_is_an_empty_strip() -> None:
 
 
 def test_page_header_with_crumbs_and_actions() -> None:
-    env = make_environment()
-    macro = env.get_template("page_header.html").module.page_header
+    # Jinja's TemplateModule has no static attributes, so mypy needs the macro typed as Any.
+    module: Any = make_environment().get_template("page_header.html").module
+    macro = module.page_header
     text = str(
         macro(
             "Event 4,812",
