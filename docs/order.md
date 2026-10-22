@@ -15,13 +15,16 @@ compare_order(
     window_start=...,
     window_end=...,
     type_tables=...,
+    fingerprinter=...,
 )
 ```
 
-The arguments are those of `compare`, without the fingerprinter, and the items are listed with
-the ones of `compare`. `states` is read only for an object whose state hash differs, to find the
-ordered lists inside it, and for the name of a moved object when the manifests carry none. A first
-snapshot, or one made with another normaliser version, is a baseline and gives no items.
+The arguments are those of `compare`. The `fingerprinter` is optional and is used only to label
+the members of a list that have no declared key (see below); the run pipeline passes its own.
+The items are listed with the ones of `compare`. `states` is read only for an object whose state
+hash differs, to find the ordered lists inside it, and for the name of a moved object when the
+manifests carry none. A first snapshot, or one made with another normaliser version, is a
+baseline and gives no items.
 
 `diff_order(old_keys, new_keys)` is the same comparison for two plain lists of keys. Every key must
 be listed once on each side. It returns the inserted keys, the deleted keys and the moves.
@@ -98,7 +101,11 @@ states, and only for the moved entries and the entries they passed.
 
 A key that is repeated in a list is told apart by its occurrence: `r1`, then `r1#2`. A member
 without a declared key, or whose key field is not `config` class, is shown as `member:` followed by
-12 hex characters of a hash and never as its content, because the content can be a secret.
+12 hex characters of a keyed hash (a fingerprint made with the fingerprint key; the field is the
+list path, so equal content in two lists differs) and never as its content, because the content
+can be a secret. An unkeyed hash of the content would let anyone who sees the detail test guesses
+against it. Without a fingerprinter (tests and tools) a key made at the start of the process is
+used.
 
 ## Limits
 
