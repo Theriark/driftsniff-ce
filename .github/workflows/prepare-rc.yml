@@ -1,0 +1,271 @@
+name: Prepare release candidate
+
+run-name: publishing:${{ inputs.request_id }}
+
+# Creates the release candidate (RC) of a tested commit: an annotated tag v27.<minor>.<patch>-rc.<n>
+# on source_commit whose message is JSON, and a published (non-draft) GitHub prerelease for it.
+# The private publisher dispatches it once the gate is at prepare_release_candidate. It never
+# rebuilds or republishes an image, never deploys Stage or any other environment and never
+# publishes a stable release. Promote - Stage and Finalize release consume the RC it writes.
+# The run refuses unless: rc_tag is a well-formed RC tag that does not exist yet, source_commit is
+# a full commit that exists in development history, the ci.yml run development_run_id succeeded
+# on development at source_commit, and ghcr.io/theriark/driftsniff-ce@image_digest exists and is
+# the image published for source_commit. Workflow inputs reach scripts only through env, never
+# through shell interpolation.
+# Execution ref: development or main (the default branch holds the copy GitHub can dispatch). The
+# tag is always created on source_commit, never on the ref the run started from.
+
+on:
+  workflow_dispatch:
+    inputs:
+      request_id:
+        description: Publisher request identifier (also the run name)
+        required: true
+        type: string
+      rc_tag:
+        description: RC tag to create, v27.<minor>.<patch>-rc.<number>
+        required: true
+        type: string
+      source_commit:
+        description: Full commit SHA the RC tag points at
+        required: true
+        type: string
+      image_digest:
+        description: Immutable digest of the image published for the commit, sha256:<64 hex characters>
+        required: true
+        type: string
+      development_run_id:
+        description: Run ID of the successful ci.yml run on development at source_commit
+        required: true
+        type: string
+      documentation_manifest_sha256:
+        description: SHA-256 of the reviewed documentation manifest recorded in the RC
+        required: true
+        type: string
+      gate_cycle:
+        description: Gate cycle number recorded in the RC
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: driftsniff-ce-pipeline
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Create the RC tag and prerelease
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    # contents: write creates the tag and the prerelease. actions: read lets the run read the ci.yml
+    # run it must verify. packages: read lets it inspect the GHCR image. Nothing else is granted.
+    permissions:
+      actions: read
+      contents: write
+      packages: read
+
+    env:
+      IMAGE: ghcr.io/theriark/driftsniff-ce
+      REQUEST_ID: ${{ inputs.request_id }}
+      RC_TAG: ${{ inputs.rc_tag }}
+      SOURCE_COMMIT: ${{ inputs.source_commit }}
+      IMAGE_DIGEST: ${{ inputs.image_digest }}
+      DEVELOPMENT_RUN_ID: ${{ inputs.development_run_id }}
+      DOCUMENTATION_MANIFEST_SHA256: ${{ inputs.documentation_manifest_sha256 }}
+      GATE_CYCLE: ${{ inputs.gate_cycle }}
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Checkout pipeline code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Validate inputs, execution ref, source commit and tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          fail() {
+            echo "::error::$1"
+            exit 1
+          }
+          rc_pattern='^v27\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-rc\.[1-9][0-9]*$'
+          [[ "${REQUEST_ID}" =~ ^[A-Za-z0-9._:-]{1,128}$ ]] || fail "request_id has unexpected characters"
+          [[ "${RC_TAG}" =~ ${rc_pattern} ]] || fail "rc_tag must look like v27.<minor>.<patch>-rc.<number>"
+          [[ "${SOURCE_COMMIT}" =~ ^[0-9a-f]{40}$ ]] || fail "source_commit must be a full 40-character commit SHA"
+          [[ "${IMAGE_DIGEST}" =~ ^sha256:[0-9a-f]{64}$ ]] || fail "image_digest must be sha256:<64 lowercase hex characters>"
+          [[ "${DEVELOPMENT_RUN_ID}" =~ ^[1-9][0-9]{0,17}$ ]] || fail "development_run_id must be a run ID integer"
+          [[ "${DOCUMENTATION_MANIFEST_SHA256}" =~ ^[0-9a-f]{64}$ ]] || fail "documentation_manifest_sha256 must be 64 lowercase hex characters"
+          [[ "${GATE_CYCLE}" =~ ^[1-9][0-9]{0,8}$ ]] || fail "gate_cycle must be a positive integer"
+          case "${GITHUB_REF}" in
+            refs/heads/development | refs/heads/main) ;;
+            *) fail "RC preparation must run from development or main; received ${GITHUB_REF}" ;;
+          esac
+          git fetch origin +refs/heads/development:refs/remotes/origin/development
+          git cat-file -e "${SOURCE_COMMIT}^{commit}" || fail "${SOURCE_COMMIT} does not exist in this repository"
+          git merge-base --is-ancestor "${SOURCE_COMMIT}" refs/remotes/origin/development || fail "${SOURCE_COMMIT} is not in development history"
+          status=0
+          git ls-remote --exit-code --tags origin "refs/tags/${RC_TAG}" > /dev/null 2>&1 || status=$?
+          case "${status}" in
+            2) ;;
+            0) fail "tag ${RC_TAG} already exists; an RC tag is never moved or recreated" ;;
+            *) fail "could not read the remote tags" ;;
+          esac
+          if gh release view "${RC_TAG}" > /dev/null 2>&1; then
+            fail "a release for ${RC_TAG} already exists"
+          fi
+          echo "Inputs valid; ${RC_TAG} is free"
+
+      - name: Verify the Development run
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          import subprocess
+          import sys
+
+
+          def fail(message):
+              print("::error::" + message)
+              sys.exit(1)
+
+
+          repository = os.environ["GITHUB_REPOSITORY"]
+          run_id = os.environ["DEVELOPMENT_RUN_ID"]
+          source = os.environ["SOURCE_COMMIT"]
+
+          try:
+              result = subprocess.run(
+                  ["gh", "api", "repos/" + repository + "/actions/runs/" + run_id],
+                  check=True,
+                  capture_output=True,
+                  text=True,
+              )
+              dev = json.loads(result.stdout)
+          except (subprocess.CalledProcessError, ValueError):
+              fail("Development run " + run_id + " was not found in this repository")
+          if dev.get("status") != "completed" or dev.get("conclusion") != "success":
+              fail("Development run " + run_id + " did not complete successfully")
+          if str(dev.get("path", "")).split("@")[0] != ".github/workflows/ci.yml":
+              fail("run " + run_id + " is not a ci.yml run")
+          if dev.get("head_branch") != "development":
+              fail("Development run " + run_id + " did not run on development")
+          if dev.get("head_sha") != source:
+              fail("Development run " + run_id + " did not run " + source)
+          print("Development run " + run_id + " succeeded on development at " + source)
+          PY
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+
+      - name: Verify the image exists and is the one published for the commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          fail() {
+            echo "::error::$1"
+            exit 1
+          }
+          found="$(docker buildx imagetools inspect "${IMAGE}@${IMAGE_DIGEST}" --format '{{.Manifest.Digest}}')" || fail "image ${IMAGE}@${IMAGE_DIGEST} does not exist"
+          [[ "${found}" == "${IMAGE_DIGEST}" ]] || fail "registry returned ${found} for ${IMAGE_DIGEST}"
+          published="$(docker buildx imagetools inspect "${IMAGE}:sha-${SOURCE_COMMIT::12}" --format '{{.Manifest.Digest}}')" || fail "no image ${IMAGE}:sha-${SOURCE_COMMIT::12} was published for ${SOURCE_COMMIT}"
+          [[ "${published}" == "${IMAGE_DIGEST}" ]] || fail "image_digest ${IMAGE_DIGEST} is not the image published for ${SOURCE_COMMIT} (${published})"
+          echo "Verified ${IMAGE}@${IMAGE_DIGEST}"
+
+      - name: Create and push the annotated RC tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          import subprocess
+          import sys
+
+
+          def fail(message):
+              print("::error::" + message)
+              sys.exit(1)
+
+
+          def run(*args):
+              return subprocess.run(args, check=True, capture_output=True, text=True).stdout.strip()
+
+
+          tag = os.environ["RC_TAG"]
+          source = os.environ["SOURCE_COMMIT"]
+          ref = "refs/tags/" + tag
+          message = {
+              "sourceCommit": source,
+              "imageDigest": os.environ["IMAGE_DIGEST"],
+              "developmentRunId": int(os.environ["DEVELOPMENT_RUN_ID"]),
+              "documentationManifestSha256": os.environ["DOCUMENTATION_MANIFEST_SHA256"],
+              "gateCycle": int(os.environ["GATE_CYCLE"]),
+              "workflowRunId": int(os.environ["GITHUB_RUN_ID"]),
+          }
+          path = os.path.join(os.environ["RUNNER_TEMP"], "rc-tag.json")
+          with open(path, "w", encoding="utf-8") as handle:
+              handle.write(json.dumps(message, sort_keys=True, separators=(",", ":")) + "\n")
+
+          run("git", "config", "user.name", "github-actions[bot]")
+          run("git", "config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com")
+          run("git", "tag", "-a", tag, source, "-F", path)
+          if run("git", "cat-file", "-t", ref) != "tag":
+              fail("tag " + tag + " is not an annotated tag")
+          if run("git", "cat-file", "-t", ref + "^{}") != "commit":
+              fail("tag " + tag + " does not point at a commit")
+          if run("git", "rev-parse", ref + "^{commit}") != source:
+              fail("tag " + tag + " does not point at " + source)
+          run("git", "push", "origin", ref)
+          print("created annotated tag " + tag + " at " + source)
+          PY
+
+      - name: Create the GitHub prerelease
+        shell: bash
+        run: |
+          set -euo pipefail
+          notes="${RUNNER_TEMP}/rc-notes.md"
+          {
+            echo "Release candidate ${RC_TAG} of driftsniff-ce. It is a prerelease: not a stable release and not deployed by this workflow."
+            echo
+            echo "- Source commit: ${SOURCE_COMMIT}"
+            echo "- Immutable image: ${IMAGE}@${IMAGE_DIGEST}"
+            echo "- Development run: ${DEVELOPMENT_RUN_ID}"
+            echo "- Documentation manifest SHA-256: ${DOCUMENTATION_MANIFEST_SHA256}"
+            echo "- Gate cycle: ${GATE_CYCLE}"
+          } > "${notes}"
+          gh release create "${RC_TAG}" --verify-tag --prerelease --title "driftsniff-ce ${RC_TAG}" --notes-file "${notes}"
+          state="$(gh release view "${RC_TAG}" --json isDraft,isPrerelease --jq '[.isDraft,.isPrerelease]|map(tostring)|join(",")')"
+          [[ "${state}" == "false,true" ]] || {
+            echo "::error::release ${RC_TAG} is not a published prerelease (${state})"
+            exit 1
+          }
+
+      - name: Record immutable RC result
+        shell: bash
+        run: |
+          {
+            echo "## driftsniff-ce release candidate prepared"
+            echo
+            echo "- Request: \`${REQUEST_ID}\`"
+            echo "- RC tag: \`${RC_TAG}\`"
+            echo "- Source commit: \`${SOURCE_COMMIT}\`"
+            echo "- Immutable image: \`${IMAGE}@${IMAGE_DIGEST}\`"
+            echo "- Development run: \`${DEVELOPMENT_RUN_ID}\`"
+            echo "- Documentation manifest SHA-256: \`${DOCUMENTATION_MANIFEST_SHA256}\`"
+            echo "- Gate cycle: \`${GATE_CYCLE}\`"
+            echo "- Rebuild performed: no"
+            echo "- Deployed: no"
+          } >> "${GITHUB_STEP_SUMMARY}"
