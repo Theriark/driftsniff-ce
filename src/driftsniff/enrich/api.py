@@ -19,6 +19,7 @@ transaction together with its audit event.
 
 import base64
 import binascii
+import copy
 import json
 import re
 from collections.abc import Callable
@@ -28,9 +29,7 @@ from typing import Annotated, Any, Final, Literal
 import sqlalchemy as sa
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, Response
 from fastapi.concurrency import run_in_threadpool
-from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
-from fastapi.routing import APIRoute
 from pydantic import ValidationError
 
 from driftsniff.db.engine import Database
@@ -75,7 +74,7 @@ _CURSOR_PREFIX: Final = "v1:"
 _SINCE_SHAPE: Final = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z")
 _JSON_TYPE: Final = "application/json"
 _SECRET_CLASSES: Final = frozenset({"secret", "unclassified"})
-_BEARER_SECURITY: Final = [{"bearerAuth": []}]
+_BEARER_SECURITY: Final[list[dict[str, list[str]]]] = [{"bearerAuth": []}]
 
 Severity = Literal["low", "medium", "high", "critical"]
 EventStatus = Literal["open", "acknowledged"]
@@ -476,18 +475,24 @@ async def add_enrichment(
 
 def build_openapi(app: Any) -> dict[str, Any]:
     """The OpenAPI document of the routes under ``/api/v1`` of this application."""
-    routes = [
-        route
-        for route in app.routes
-        if isinstance(route, APIRoute) and is_api_path(route.path) and route.include_in_schema
-    ]
-    document = get_openapi(
-        title="driftsniff API",
-        version=app.version,
-        summary="Read changes and append enrichments.",
-        routes=routes,
-    )
-    components = document.setdefault("components", {})
+    # ``app.openapi()`` follows nested routers; the application's own cache is cleared around the
+    # call so a route added later shows up.
+    app.openapi_schema = None
+    full = app.openapi()
+    app.openapi_schema = None
+    document: dict[str, Any] = {
+        "openapi": full["openapi"],
+        "info": {
+            "title": "driftsniff API",
+            "version": app.version,
+            "summary": "Read changes and append enrichments.",
+        },
+        "paths": copy.deepcopy(
+            {path: item for path, item in full["paths"].items() if is_api_path(path)}
+        ),
+        "components": copy.deepcopy(full.get("components", {})),
+    }
+    components = document["components"]
     components.setdefault("securitySchemes", {})["bearerAuth"] = {
         "type": "http",
         "scheme": "bearer",
