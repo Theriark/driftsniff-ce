@@ -57,7 +57,7 @@ svg {
 code,
 .mono {
   font-family: var(--font-mono);
-  font-size: 0.9em;
+  font-size: var(--fs-14);
 }
 
 .num {
@@ -134,28 +134,32 @@ code,
   flex: none;
 }
 
-.brand__mark {
-  width: 40px;
-  height: 40px;
-}
-
-.brand__wordmark {
-  height: 56px;
+/* The header lockup is the guide's horizontal logo file: logo-horizontal on the light header,
+   logo-horizontal-dark (the mark on its light rounded tile) on the dark #1E1E24 header. The
+   file is 3 to 1 and carries its own clear space; at 48 px tall the ferret mark inside it is
+   about 38 px, above the guide's 32 px floor. */
+.brand__logo {
+  height: 48px;
   width: auto;
-  margin: -8px 0;
 }
 
-.brand__wordmark--dark {
+.brand__logo--dark {
   display: none;
 }
 
 @media (prefers-color-scheme: dark) {
-  .brand__wordmark--light {
+  .brand__logo--light {
     display: none;
   }
 
-  .brand__wordmark--dark {
+  .brand__logo--dark {
     display: block;
+  }
+}
+
+@media (max-width: 767px) {
+  .brand__logo {
+    height: 40px;
   }
 }
 
@@ -196,7 +200,7 @@ code,
 }
 
 .env-badge {
-  font-size: var(--fs-12);
+  font-size: var(--fs-14);
   font-weight: 700;
   padding: 2px var(--sp-2);
   border: 1px solid var(--slate);
@@ -225,7 +229,7 @@ code,
   border-radius: 50%;
   background: var(--ink);
   color: var(--paper);
-  font-size: var(--fs-12);
+  font-size: var(--fs-14);
   font-weight: 700;
   display: inline-grid;
   place-items: center;
@@ -373,7 +377,7 @@ code,
 }
 
 .page-header h1 {
-  font-size: var(--fs-28);
+  font-size: var(--fs-32);
   line-height: var(--lh-tight);
   letter-spacing: var(--track-display);
   font-weight: 700;
@@ -500,7 +504,7 @@ code,
 .btn--small {
   height: 32px;
   padding: 0 var(--sp-3);
-  font-size: var(--fs-12);
+  font-size: var(--fs-14);
 }
 
 .btn[aria-disabled="true"],
@@ -523,7 +527,7 @@ code,
 }
 
 .field .help {
-  font-size: var(--fs-12);
+  font-size: var(--fs-14);
   color: var(--text-2);
 }
 
@@ -604,7 +608,7 @@ textarea.input {
 
 .segmented button {
   font: inherit;
-  font-size: var(--fs-12);
+  font-size: var(--fs-14);
   padding: 0 var(--sp-3);
   height: 34px;
   background: var(--surface);
@@ -685,7 +689,7 @@ textarea.input {
 
 .stat__value {
   grid-column: 1;
-  font-size: var(--fs-40);
+  font-size: var(--fs-32);
   line-height: 1;
   font-weight: 700;
   letter-spacing: var(--track-display);
@@ -709,7 +713,7 @@ textarea.input {
 
 .stat__delta {
   grid-column: 1;
-  font-size: var(--fs-12);
+  font-size: var(--fs-14);
   color: var(--text-2);
   margin-top: var(--sp-2);
 }
@@ -735,7 +739,7 @@ textarea.input {
   height: 24px;
   padding: 0 var(--sp-2) 0 6px;
   border-radius: 999px;
-  font-size: var(--fs-12);
+  font-size: var(--fs-14);
   font-weight: 700;
   line-height: 1;
   white-space: nowrap;
@@ -774,7 +778,7 @@ textarea.input {
   height: 24px;
   padding: 0 var(--sp-2);
   border-radius: 6px;
-  font-size: var(--fs-12);
+  font-size: var(--fs-14);
   font-weight: 700;
   line-height: 1;
   white-space: nowrap;
@@ -847,7 +851,7 @@ textarea.input {
 }
 
 .driftline__meta {
-  font-size: var(--fs-12);
+  font-size: var(--fs-14);
   color: var(--text-2);
   white-space: nowrap;
 }
@@ -862,7 +866,16 @@ textarea.input {
   width: 100%;
   min-width: 480px;
   height: auto;
-  max-height: 56px;
+  max-height: 44px;
+}
+
+/* the two orientation labels are HTML text, so they keep the 14 px size at every width */
+.driftline__axis {
+  display: flex;
+  justify-content: space-between;
+  min-width: 480px;
+  font-size: var(--fs-14);
+  color: var(--text-2);
 }
 
 .driftline svg .tick {
@@ -907,12 +920,6 @@ textarea.input {
   outline: none;
 }
 
-.driftline svg .day-label {
-  font-size: 10px;
-  fill: var(--text-2);
-  font-family: var(--font-sans);
-}
-
 .driftline--short {
   grid-template-columns: 1fr;
 }
@@ -931,7 +938,7 @@ textarea.input {
   display: flex;
   flex-wrap: wrap;
   gap: var(--sp-3) var(--sp-4);
-  font-size: var(--fs-12);
+  font-size: var(--fs-14);
   color: var(--text-2);
   margin-top: var(--sp-3);
 }
@@ -1000,8 +1007,9 @@ textarea.input {
   stroke: var(--sev-critical);
 }
 
+/* the ring is drawn 1 to 1 (160 px column, 160 unit viewBox), so these are rendered pixels */
 .posture .ring-value {
-  font-size: 40px;
+  font-size: 32px;
   font-weight: 700;
   fill: var(--text);
   font-family: var(--font-sans);
@@ -1009,7 +1017,7 @@ textarea.input {
 }
 
 .posture .ring-caption {
-  font-size: 12px;
+  font-size: 14px;
   fill: var(--text-2);
   font-family: var(--font-sans);
 }
@@ -1039,7 +1047,7 @@ textarea.input {
 }
 
 .posture-list .share {
-  font-size: var(--fs-12);
+  font-size: var(--fs-14);
   color: var(--text-2);
 }
 
@@ -1096,7 +1104,7 @@ textarea.input {
 }
 
 .attention .where {
-  font-size: var(--fs-12);
+  font-size: var(--fs-14);
   color: var(--text-2);
 }
 
@@ -1113,8 +1121,15 @@ textarea.input {
 
 /* ---- trend chart, breakdowns, timeline ------------------------------------------------- */
 
+/* the chart never shrinks below its 600 unit drawing width, so its 14 unit labels are at least
+   14 px; below that width it scrolls inside its wrapper, like the drift line */
+.chart-wrap {
+  overflow-x: auto;
+}
+
 .chart {
   width: 100%;
+  min-width: 600px;
   height: auto;
 }
 
@@ -1140,7 +1155,7 @@ textarea.input {
 }
 
 .chart .axis-label {
-  font-size: 11px;
+  font-size: 14px;
   fill: var(--text-2);
   font-family: var(--font-sans);
 }
@@ -1163,7 +1178,7 @@ textarea.input {
 
 .bars + h3,
 .card .bars-title {
-  font-size: var(--fs-12);
+  font-size: var(--fs-14);
   font-weight: 700;
   color: var(--text-2);
   margin: var(--sp-4) 0 var(--sp-2);
@@ -1281,7 +1296,7 @@ textarea.input {
 
 .timeline .when {
   color: var(--text-2);
-  font-size: var(--fs-12);
+  font-size: var(--fs-14);
   white-space: nowrap;
 }
 
@@ -1322,7 +1337,7 @@ textarea.input {
   z-index: 1;
   background: var(--surface-2);
   color: var(--text-2);
-  font-size: var(--fs-12);
+  font-size: var(--fs-14);
   font-weight: 700;
   letter-spacing: 0;
   white-space: nowrap;
@@ -1370,7 +1385,7 @@ textarea.input {
 .data-table .sub {
   display: block;
   color: var(--text-2);
-  font-size: var(--fs-12);
+  font-size: var(--fs-14);
   font-weight: 400;
 }
 
@@ -1464,11 +1479,6 @@ textarea.input {
     min-width: 120px;
   }
 
-  .brand__wordmark {
-    height: 48px;
-    margin: -4px 0;
-  }
-
   /* in a narrow table the severity badge keeps its shape and colour; the word stays for screen readers */
   .data-table .sev {
     padding-right: 6px;
@@ -1494,7 +1504,7 @@ textarea.input {
 }
 
 .summary-head h1 {
-  font-size: var(--fs-28);
+  font-size: var(--fs-32);
   line-height: var(--lh-tight);
   letter-spacing: var(--track-display);
 }
@@ -1597,7 +1607,7 @@ textarea.input {
 
 .item__rule {
   color: var(--text-2);
-  font-size: var(--fs-12);
+  font-size: var(--fs-14);
 }
 
 .diff {
@@ -1625,7 +1635,7 @@ textarea.input {
 .diff .label {
   display: block;
   font-family: var(--font-sans);
-  font-size: var(--fs-12);
+  font-size: var(--fs-14);
   color: var(--text-2);
   margin-bottom: 2px;
 }
@@ -1687,7 +1697,7 @@ textarea.input {
 
 .note-list .by {
   color: var(--text-2);
-  font-size: var(--fs-12);
+  font-size: var(--fs-14);
 }
 
 .form-row {
@@ -1724,7 +1734,7 @@ textarea.input {
 
 .external .caveat {
   color: var(--text-2);
-  font-size: var(--fs-12);
+  font-size: var(--fs-14);
 }
 
 /* ---- banners, states ------------------------------------------------------------------- */
@@ -1790,7 +1800,7 @@ textarea.input {
 }
 
 .empty h2 {
-  font-size: var(--fs-20);
+  font-size: var(--fs-24);
 }
 
 .empty p {
@@ -1845,7 +1855,7 @@ textarea.input {
 .app-footer {
   border-top: 1px solid var(--border);
   padding: var(--sp-4) var(--gutter);
-  font-size: var(--fs-12);
+  font-size: var(--fs-14);
   color: var(--text-2);
 }
 
@@ -1875,7 +1885,7 @@ textarea.input {
   border: 1px solid var(--border);
   border-radius: var(--radius-s);
   overflow: hidden;
-  font-size: var(--fs-12);
+  font-size: var(--fs-14);
 }
 
 .sheet .swatch > div {
@@ -1901,12 +1911,11 @@ textarea.input {
 .sw-high { background: var(--sev-high); }
 .sw-critical { background: var(--sev-critical); }
 
-.type-sample .t40 { font-size: var(--fs-40); font-weight: 700; letter-spacing: var(--track-display); line-height: 1; }
-.type-sample .t28 { font-size: var(--fs-28); font-weight: 700; letter-spacing: var(--track-display); line-height: var(--lh-tight); }
+.type-sample .t32 { font-size: var(--fs-32); font-weight: 700; letter-spacing: var(--track-display); line-height: var(--lh-tight); }
+.type-sample .t24 { font-size: var(--fs-24); font-weight: 700; line-height: var(--lh-tight); }
 .type-sample .t20 { font-size: var(--fs-20); font-weight: 700; line-height: var(--lh-tight); }
 .type-sample .t16 { font-size: var(--fs-16); }
-.type-sample .t14 { font-size: var(--fs-14); }
-.type-sample .t12 { font-size: var(--fs-12); color: var(--text-2); }
+.type-sample .t14 { font-size: var(--fs-14); color: var(--text-2); }
 
 .inline-list {
   display: flex;
