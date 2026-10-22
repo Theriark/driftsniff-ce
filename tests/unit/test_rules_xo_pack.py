@@ -23,7 +23,7 @@ CASES_FILE = Path(__file__).resolve().parents[1] / "fixtures" / "xo" / "rule_cas
 CASES: list[dict[str, Any]] = json.loads(CASES_FILE.read_text(encoding="utf-8"))
 FINGERPRINT = "fp1:0a1b2c3d:" + "0" * 32
 OTHER_FINGERPRINT = "fp1:0a1b2c3d:" + "1" * 32
-FLOORED = ("servers", "backup-repositories", "users", "groups", "acl-roles")
+FLOORED = ("servers", "backup-repositories", "users", "groups", "acl-roles", "acl-privileges")
 
 
 @pytest.fixture(scope="module")

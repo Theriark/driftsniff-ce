@@ -153,6 +153,7 @@ types:
 | `first_match` | `true` when the objects of this ordered-keyed collection are an ordered list where the first matching entry wins (a firewall policy list). Default `false`. |
 | `action_field` | The field of an object, or of a list member, that holds what it does (its verdict). Read by `core/order.py` to put the actions into the order detail of a move. It must have the class `config` wherever a first-match order uses it. Required when `first_match` is set on the table or on any of its lists (the load fails with `first_match needs an action_field`); optional otherwise. |
 | `blocking_actions` | The values of the action field that stop traffic or access. Compared without case or surrounding spaces. Default `deny` and `drop`. Needs `action_field`. |
+| `hidden_by_xo` | The field paths whose value Xen Orchestra itself does not return (a server credential, the credential part of a remote address). A path need not be listed under `fields` and the marker changes no class. `ResourceTable.is_hidden_by_xo(path)` lets the interface say "hidden by XO, changes not observable" instead of "no change". Default: none. |
 
 The four collection modes are those of `core/normalize.py`; `core/order.py` and `core/diff.py`
 read them unchanged. A loaded type table is a `ResourceTable`, a `StaticTypeTable` with the
@@ -243,6 +244,13 @@ rationale and a test with one matching and one near-miss input
 - The setting map of a backup job is keyed by schedule id, and a type table names only fixed field
   paths. The table therefore describes a derived resource, `backup-job-settings`, with one object
   per key of the map (object id: job id, a colon, then the schedule id or `default`), and ignores
-  `settings` on the backup job itself. The XO collector (P8-T2) has to produce that resource.
-- The field names are those of the plan and are not yet checked against a live Xen Orchestra
-  (P8-T1). A field that is not in the table is unclassified and shows as a fingerprint only.
+  `settings` on the backup job itself. Whether the collector (P8-T2) produces that resource is a
+  decision that must be made before P8-T2.
+- The table was completed in P8-T1. The values that Xen Orchestra hides (a server password or
+  token, the credential part of a remote address) are listed under `hidden_by_xo`; they keep the
+  class they have, which is unclassified, so a credential that does arrive is a fingerprint only.
+  Notes with the source and date of every statement: `docs/vendor-notes/xo.md`.
+- The field names are those of the plan and are **unverified**: no Xen Orchestra reference was read
+  and no lab instance was used. A field that is not in the table is unclassified and shows as a
+  fingerprint only. The collections that are never requested have no table and are listed in the
+  notes.
