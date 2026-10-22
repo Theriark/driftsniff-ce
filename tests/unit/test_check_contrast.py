@@ -205,13 +205,13 @@ def test_the_committed_tokens_keep_the_brand_colours_and_the_dark_theme() -> Non
     foregrounds = {(check.foreground, check.theme) for check in checks}
     backgrounds = {(check.background, check.theme) for check in checks}
     for theme in themes:
-        for token in themes[theme]:
-            if token == "border":
+        for role in themes[theme]:
+            if role == "border":
                 continue  # decorative hairlines only; inputs and ticks use slate, which is checked
-            if token.endswith("-tint") or token in BACKGROUND_ROLES:
-                assert (token, theme) in backgrounds, f"{theme} token {token} is never checked"
+            if role.endswith("-tint") or role in BACKGROUND_ROLES:
+                assert (role, theme) in backgrounds, f"{theme} token {role} is never checked"
             else:
-                assert (token, theme) in foregrounds, f"{theme} token {token} has no contrast check"
+                assert (role, theme) in foregrounds, f"{theme} token {role} has no contrast check"
 
 
 def test_the_mockup_theme_copies_the_token_values() -> None:
