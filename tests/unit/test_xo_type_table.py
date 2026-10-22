@@ -53,7 +53,12 @@ KEPT: dict[str, list[str]] = {
     ).split(),
     "vbds": "bootable device is_cd_drive position read_only".split(),
     "vdis": "name_label VDI_type size cbt_enabled image_format".split(),
-    "backup-jobs": "name type mode compression proxy remotes srs vms".split(),
+    "backup-jobs": (
+        "name type mode compression proxy remotes srs vms settings.exportRetention "
+        "settings.snapshotRetention settings.copyRetention settings.reportRecipients "
+        "settings.reportWhen settings.timeout settings.concurrency settings.offlineBackup "
+        "settings.offlineSnapshot settings.fullInterval settings.checkpointSnapshot"
+    ).split(),
     "schedules": "jobId cron enabled name timezone".split(),
     "backup-repositories": "name enabled url options".split(),
     "proxies": "name address version".split(),
@@ -105,8 +110,7 @@ SETS = {
     "hosts": ["supplementalPacks", "certificates"],
     "pools": ["haSrs"],
     "vifs": ["allowedIpv4Addresses", "allowedIpv6Addresses"],
-    "backup-jobs": ["remotes", "srs", "vms"],
-    "backup-job-settings": ["reportRecipients"],
+    "backup-jobs": ["remotes", "srs", "vms", "settings.reportRecipients"],
     "users": ["groups"],
     "groups": ["users", "aclRoleIds"],
 }
@@ -140,7 +144,6 @@ def test_the_xo_resources_are_the_collections_of_the_plan(index: RuleIndex) -> N
             "vbds",
             "vdis",
             "backup-jobs",
-            "backup-job-settings",
             "schedules",
             "backup-repositories",
             "proxies",
@@ -268,6 +271,18 @@ def test_the_hidden_by_xo_marker_changes_no_field_class() -> None:
 def test_a_bad_hidden_by_xo_list_is_refused(hidden: object) -> None:
     with pytest.raises(ValidationError):
         TypeSpec.model_validate(spec_data(hidden_by_xo=hidden))
+
+
+def test_there_is_no_derived_resource_for_the_backup_job_settings(index: RuleIndex) -> None:
+    # Decision of Core on THE-359: the settings are nested fields of the backup job.
+    assert "backup-job-settings" not in index.type_tables
+    jobs = table(index, "backup-jobs")
+    assert jobs.field_class("settings") is FieldClass.UNCLASSIFIED
+    assert jobs.field_class("settings.someScheduleId.exportRetention") is FieldClass.UNCLASSIFIED
+
+
+def test_the_built_in_template_marker_is_ignore_class(index: RuleIndex) -> None:
+    assert table(index, "vm-templates").field_class("isDefaultTemplate") is IGNORE
 
 
 def test_an_unlisted_field_is_unclassified(index: RuleIndex) -> None:
