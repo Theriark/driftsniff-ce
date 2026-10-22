@@ -1,0 +1,137 @@
+{
+  "note": "Hand written for the contract tests of P8-T4. One small pool as an admin session sees it. Every collection name, field name and value is UNVERIFIED: no lab Xen Orchestra was used and the vendor reference was not read (docs/vendor-notes/xo.md). No secret value is stored here. @canary:<label> is replaced by a fresh synthetic value when a test loads the file; @shape:<kind>:<label> is replaced by a credential shaped text built around such a value (url, token, jwt, pem or remote). Addresses are from the documentation ranges (RFC 5737).",
+  "collections": {
+    "vms": [
+      {"id": "vm-web", "uuid": "00000000-0000-4000-8000-000000000001", "type": "VM", "_xapiRef": "OpaqueRef:vm-web", "$pool": "pool-a", "$poolId": "pool-a", "$container": "host-a", "name_label": "web-1", "name_description": "front end, token @shape:token:vm-web-description", "notes": "#cloud-config\nruncmd:\n  - curl -fsS @shape:url:vm-web-cloud\n", "tags": ["prod", "web"], "auto_poweron": true, "high_availability": "restart", "secureBoot": true, "virtualizationMode": "hvm", "boot": {"firmware": "uefi", "order": ["c", "d"]}, "blockedOperations": {}, "affinityHost": "host-a", "startDelay": 0, "nicType": "e1000", "vga": "std", "videoram": 8, "viridian": false, "resourceSet": null, "suspendSr": null, "PV_args": "", "cpuCap": 0, "cpuMask": [], "cpuWeight": 256, "coresPerSocket": 2, "CPUs": {"max": 4, "number": 2}, "memory": {"static": [268435456, 8589934592], "dynamic": [4294967296, 8589934592], "size": 8589934592, "usage": 1073741824}, "power_state": "Running", "startTime": 1791900000, "agentStartTime": 1791900060, "installTime": 1780000000, "current_operations": {}, "addresses": {"0/ipv4/0": "192.0.2.50"}, "mainIpAddress": "192.0.2.50", "os_version": {"name": "Debian 13", "uname": "6.12"}, "xenTools": {"version": "8.4", "state": "up to date"}, "vulnerabilities": {"xsa-468": false}, "docker": {"enabled": false}, "snapshots": [], "VDIs": ["vdi-web"], "parent": null},
+      {"id": "vm-db", "uuid": "00000000-0000-4000-8000-000000000002", "type": "VM", "_xapiRef": "OpaqueRef:vm-db", "$pool": "pool-a", "$poolId": "pool-a", "$container": "host-b", "name_label": "db-1", "name_description": "database", "notes": "owner: lab, pem @shape:pem:vm-db-notes", "tags": ["prod", "db"], "auto_poweron": true, "high_availability": "best-effort", "secureBoot": false, "virtualizationMode": "hvm", "boot": {"firmware": "bios", "order": ["c"]}, "blockedOperations": {"start": "protected"}, "affinityHost": null, "startDelay": 30, "nicType": "e1000", "vga": "std", "videoram": 8, "viridian": false, "resourceSet": null, "suspendSr": null, "PV_args": "jwt @shape:jwt:vm-db-pv-args", "cpuCap": 0, "cpuMask": [], "cpuWeight": 256, "coresPerSocket": 4, "CPUs": {"max": 8, "number": 4}, "memory": {"static": [268435456, 17179869184], "dynamic": [8589934592, 17179869184], "size": 17179869184, "usage": 6442450944}, "power_state": "Running", "startTime": 1791800000, "agentStartTime": 1791800060, "installTime": 1780000100, "current_operations": {}, "addresses": {"0/ipv4/0": "192.0.2.51"}, "mainIpAddress": "192.0.2.51", "os_version": {"name": "Debian 13", "uname": "6.12"}, "xenTools": {"version": "8.4", "state": "up to date"}, "vulnerabilities": {"xsa-468": false}, "docker": {"enabled": false}, "snapshots": [], "VDIs": ["vdi-db"], "parent": null},
+      {"id": "vm-build", "uuid": "00000000-0000-4000-8000-000000000003", "type": "VM", "_xapiRef": "OpaqueRef:vm-build", "$pool": "pool-a", "$poolId": "pool-a", "$container": "host-a", "name_label": "build-1", "name_description": "build agent", "notes": "", "tags": [], "auto_poweron": false, "high_availability": "", "secureBoot": false, "virtualizationMode": "pv", "boot": {"firmware": "bios", "order": ["c"]}, "blockedOperations": {}, "affinityHost": null, "startDelay": 0, "nicType": "e1000", "vga": "std", "videoram": 8, "viridian": false, "resourceSet": null, "suspendSr": null, "PV_args": "quiet", "cpuCap": 0, "cpuMask": [], "cpuWeight": 256, "coresPerSocket": 1, "CPUs": {"max": 2, "number": 2}, "memory": {"static": [268435456, 4294967296], "dynamic": [2147483648, 4294967296], "size": 4294967296, "usage": 0}, "power_state": "Halted", "startTime": 0, "agentStartTime": 0, "installTime": 1780000200, "current_operations": {}, "addresses": {}, "mainIpAddress": null, "os_version": {}, "xenTools": false, "vulnerabilities": {}, "docker": {}, "snapshots": [], "VDIs": ["vdi-build"], "parent": null}
+    ],
+    "vm-templates": [
+      {"id": "tpl-builtin", "name_label": "Debian 12", "name_description": "built in template", "isDefaultTemplate": true, "boot": {"firmware": "bios", "order": ["c"]}, "CPUs": {"max": 2, "number": 1}, "memory": {"static": [134217728, 2147483648], "dynamic": [1073741824, 2147483648], "size": 2147483648}},
+      {"id": "tpl-custom", "name_label": "web template", "name_description": "made by the lab, token @shape:token:template-description", "isDefaultTemplate": false, "tags": ["template"], "boot": {"firmware": "uefi", "order": ["c"]}, "CPUs": {"max": 4, "number": 2}, "memory": {"static": [268435456, 8589934592], "dynamic": [4294967296, 8589934592], "size": 8589934592}, "snapshots": [], "VDIs": []}
+    ],
+    "hosts": [
+      {"id": "host-a", "uuid": "00000000-0000-4000-8000-0000000000a1", "type": "host", "_xapiRef": "OpaqueRef:host-a", "$pool": "pool-a", "$poolId": "pool-a", "name_label": "host-a", "name_description": "first host", "hostname": "host-a.example.test", "enabled": true, "version": "8.3.0", "build": "release/yangtze/master/1", "productBrand": "XCP-ng", "multipathing": false, "powerOnMode": "", "supplementalPacks": [], "license_expiry": null, "logging": {}, "otherConfig": {"agent_start_time": "1791900000", "cloud_init": "@shape:url:host-a-other-config", "note": "@shape:pem:host-a-key"}, "memory": {"size": 68719476736, "usage": 21474836480}, "power_state": "Running", "startTime": 1791000000, "agentStartTime": 1791000100, "current_operations": {}, "rebootRequired": false, "residentVms": ["vm-web", "vm-build"]},
+      {"id": "host-b", "uuid": "00000000-0000-4000-8000-0000000000a2", "type": "host", "_xapiRef": "OpaqueRef:host-b", "$pool": "pool-a", "$poolId": "pool-a", "name_label": "host-b", "name_description": "second host", "hostname": "host-b.example.test", "enabled": true, "version": "8.3.0", "build": "release/yangtze/master/1", "productBrand": "XCP-ng", "multipathing": false, "powerOnMode": "", "supplementalPacks": [], "license_expiry": null, "logging": {}, "otherConfig": {}, "memory": {"size": 68719476736, "usage": 9663676416}, "power_state": "Running", "startTime": 1791000200, "agentStartTime": 1791000300, "current_operations": {}, "rebootRequired": false, "residentVms": ["vm-db"]}
+    ],
+    "pools": [
+      {"id": "pool-a", "name_label": "lab pool", "name_description": "development pool", "HA_enabled": false, "haSrs": [], "default_SR": "sr-nfs", "crashDumpSr": "sr-nfs", "suspendSr": null, "migrationCompression": false, "platform_version": "3.4.0", "otherConfig": {"auto_poweron": "true", "token": "@shape:token:pool-a-other-config"}, "current_operations": {}}
+    ],
+    "networks": [
+      {"id": "net-mgmt", "name_label": "Management", "name_description": "", "MTU": 1500, "bridge": "xenbr0", "automatic": true, "defaultIsLocked": "unlocked", "isBonded": false, "nbd": false, "insecureNbd": false, "other_config": {"note": "@shape:url:net-mgmt-other-config"}, "$pool": "pool-a", "$poolId": "pool-a", "current_operations": {}},
+      {"id": "net-vm", "name_label": "VM traffic", "name_description": "", "MTU": 1500, "bridge": "xenbr1", "automatic": true, "defaultIsLocked": "unlocked", "isBonded": false, "nbd": false, "insecureNbd": false, "other_config": {}, "$pool": "pool-a", "$poolId": "pool-a", "current_operations": {}}
+    ],
+    "pifs": [
+      {"id": "pif-a", "device": "eth0", "vlan": -1, "mode": "Static", "ip": "192.0.2.11", "netmask": "255.255.255.0", "gateway": "192.0.2.1", "dns": "192.0.2.53", "currently_attached": true, "attached": true, "$pool": "pool-a", "$poolId": "pool-a"},
+      {"id": "pif-b", "device": "eth0", "vlan": -1, "mode": "Static", "ip": "192.0.2.12", "netmask": "255.255.255.0", "gateway": "192.0.2.1", "dns": "192.0.2.53", "currently_attached": true, "attached": true, "$pool": "pool-a", "$poolId": "pool-a"}
+    ],
+    "pbds": [
+      {"id": "pbd-a", "device_config": {"server": "192.0.2.30", "serverpath": "/export/vms", "options": "@canary:pbd-a-option"}, "currently_attached": true, "attached": true, "$pool": "pool-a", "$poolId": "pool-a"},
+      {"id": "pbd-b", "device_config": {"server": "192.0.2.30", "serverpath": "/export/vms", "options": "@canary:pbd-b-option"}, "currently_attached": true, "attached": true, "$pool": "pool-a", "$poolId": "pool-a"}
+    ],
+    "srs": [
+      {"id": "sr-nfs", "name_label": "shared storage", "name_description": "NFS share", "SR_type": "nfs", "content_type": "user", "shared": true, "allocationStrategy": "thin", "inMaintenanceMode": false, "is_tools_sr": false, "size": 1099511627776, "usage": 214748364800, "physical_usage": 107374182400, "$pool": "pool-a", "$poolId": "pool-a", "current_operations": {}, "VDIs": ["vdi-web", "vdi-db", "vdi-build"]},
+      {"id": "sr-local", "name_label": "local storage", "name_description": "", "SR_type": "lvm", "content_type": "user", "shared": false, "allocationStrategy": "thick", "inMaintenanceMode": false, "is_tools_sr": false, "size": 549755813888, "usage": 53687091200, "physical_usage": 53687091200, "$pool": "pool-a", "$poolId": "pool-a", "current_operations": {}, "VDIs": []}
+    ],
+    "vifs": [
+      {"id": "vif-web", "MAC": "02:00:00:00:00:01", "MTU": 1500, "device": "0", "lockingMode": "network_default", "allowedIpv4Addresses": [], "allowedIpv6Addresses": [], "rateLimit": 0, "txChecksumming": true, "attached": true, "currently_attached": true, "$pool": "pool-a", "$poolId": "pool-a"},
+      {"id": "vif-db", "MAC": "02:00:00:00:00:02", "MTU": 1500, "device": "0", "lockingMode": "locked", "allowedIpv4Addresses": ["192.0.2.51"], "allowedIpv6Addresses": [], "rateLimit": 0, "txChecksumming": true, "attached": true, "currently_attached": true, "$pool": "pool-a", "$poolId": "pool-a"}
+    ],
+    "vbds": [
+      {"id": "vbd-web", "bootable": true, "device": "xvda", "is_cd_drive": false, "position": "0", "read_only": false, "attached": true, "currently_attached": true, "$pool": "pool-a", "$poolId": "pool-a", "parent": null},
+      {"id": "vbd-db", "bootable": true, "device": "xvda", "is_cd_drive": false, "position": "0", "read_only": false, "attached": true, "currently_attached": true, "$pool": "pool-a", "$poolId": "pool-a", "parent": null},
+      {"id": "vbd-build", "bootable": true, "device": "xvda", "is_cd_drive": false, "position": "0", "read_only": false, "attached": false, "currently_attached": false, "$pool": "pool-a", "$poolId": "pool-a", "parent": null}
+    ],
+    "vdis": [
+      {"id": "vdi-web", "name_label": "web-1 disk", "VDI_type": "user", "size": 42949672960, "cbt_enabled": false, "image_format": "vhd", "usage": 8589934592, "physical_usage": 6442450944, "$pool": "pool-a", "$poolId": "pool-a", "current_operations": {}, "snapshots": [], "parent": null},
+      {"id": "vdi-db", "name_label": "db-1 disk", "VDI_type": "user", "size": 107374182400, "cbt_enabled": true, "image_format": "vhd", "usage": 32212254720, "physical_usage": 21474836480, "$pool": "pool-a", "$poolId": "pool-a", "current_operations": {}, "snapshots": [], "parent": null},
+      {"id": "vdi-build", "name_label": "build-1 disk", "VDI_type": "user", "size": 21474836480, "cbt_enabled": false, "image_format": "vhd", "usage": 4294967296, "physical_usage": 3221225472, "$pool": "pool-a", "$poolId": "pool-a", "current_operations": {}, "snapshots": [], "parent": null}
+    ],
+    "backup-jobs": [
+      {"id": "job-nightly", "name": "nightly", "type": "backup", "mode": "delta", "compression": "zstd", "proxy": null, "remotes": ["remote-nfs"], "srs": [], "vms": ["vm-web", "vm-db"], "settings": {"exportRetention": 7, "snapshotRetention": 1, "copyRetention": 0, "reportRecipients": ["ops@example.test"], "reportWhen": "failure", "timeout": 0, "concurrency": 2, "offlineBackup": false, "offlineSnapshot": false, "fullInterval": 30, "checkpointSnapshot": false}, "userId": "user-admin"},
+      {"id": "job-weekly", "name": "weekly copy", "type": "mirrorBackup", "mode": "full", "compression": "native", "proxy": "proxy-a", "remotes": ["remote-nfs", "remote-smb"], "srs": [], "vms": ["vm-db"], "settings": {"exportRetention": 4, "snapshotRetention": 0, "copyRetention": 0, "reportRecipients": [], "reportWhen": "always", "timeout": 3600, "concurrency": 1, "offlineBackup": false, "offlineSnapshot": false, "fullInterval": 7, "checkpointSnapshot": false}, "userId": "user-admin"}
+    ],
+    "schedules": [
+      {"id": "sched-nightly", "jobId": "job-nightly", "cron": "0 2 * * *", "enabled": true, "name": "every night", "timezone": "Europe/Lisbon"},
+      {"id": "sched-weekly", "jobId": "job-weekly", "cron": "0 4 * * 0", "enabled": true, "name": "sunday", "timezone": "Europe/Lisbon"}
+    ],
+    "backup-repositories": [
+      {"id": "remote-nfs", "name": "nfs backups", "enabled": true, "url": "@shape:remote:remote-nfs-url", "options": "vers=4.1"},
+      {"id": "remote-smb", "name": "smb copies", "enabled": true, "url": "@shape:remote:remote-smb-url", "options": "@shape:url:remote-smb-options"}
+    ],
+    "proxies": [
+      {"id": "proxy-a", "name": "backup proxy", "address": "192.0.2.40", "version": "5.100.0"}
+    ],
+    "servers": [
+      {"id": "server-a", "label": "lab pool server", "host": "@shape:url:server-a-host", "username": "svc", "httpProxy": "@shape:url:server-a-proxy", "allowUnauthorized": false, "readOnly": false, "enabled": true, "status": "connected", "error": null, "password": "@shape:token:server-a-password", "token": "@shape:jwt:server-a-token"}
+    ],
+    "users": [
+      {"id": "user-admin", "username": "admin", "email": "admin@example.test", "permission": "admin", "groups": ["group-ops"], "authProviders": {"ldap": {"id": "@canary:user-admin-provider"}}, "last_uses": {"abc": {"last_used": 1791900000}}},
+      {"id": "user-viewer", "username": "viewer", "email": "viewer@example.test", "permission": "none", "groups": ["group-ops"], "authProviders": {"ldap": {"id": "@canary:user-viewer-provider"}}, "last_uses": {}}
+    ],
+    "groups": [
+      {"id": "group-ops", "name": "operations", "provider": "ldap", "users": ["user-admin", "user-viewer"], "aclRoleIds": ["role-viewer"]}
+    ],
+    "acl-roles": [
+      {"id": "role-viewer", "name": "viewer"}
+    ],
+    "acl-privileges": [
+      {"id": "priv-read-vms"},
+      {"id": "priv-read-pools"}
+    ]
+  },
+  "excluded": {
+    "vm-snapshots": [],
+    "vdi-snapshots": [],
+    "tasks": [],
+    "backup-logs": [],
+    "alarms": []
+  },
+  "backupRun": {
+    "during": [
+      {"in": "vms", "id": "vm-web", "set": {"power_state": "Running", "startTime": 1791900500, "memory.usage": 1610612736, "current_operations": {"OpaqueRef:op-1": "snapshot"}, "snapshots": ["snap-web-1"], "VDIs": ["vdi-web", "vdi-snap-web-1"], "addresses": {"0/ipv4/0": "192.0.2.50", "0/ipv6/0": "2001:db8::50"}, "xenTools": {"version": "8.4", "state": "updating"}, "parent": "snap-web-1"}},
+      {"in": "vms", "id": "vm-db", "set": {"memory.usage": 7516192768, "current_operations": {"OpaqueRef:op-2": "snapshot"}, "snapshots": ["snap-db-1"], "VDIs": ["vdi-db", "vdi-snap-db-1"], "parent": "snap-db-1"}},
+      {"in": "vms", "id": "vm-build", "set": {"power_state": "Running", "startTime": 1791900520, "agentStartTime": 1791900580, "memory.usage": 2147483648, "mainIpAddress": "192.0.2.52", "addresses": {"0/ipv4/0": "192.0.2.52"}, "os_version": {"name": "Debian 12", "uname": "6.1"}}},
+      {"in": "hosts", "id": "host-a", "set": {"memory.usage": 25769803776, "current_operations": {"OpaqueRef:op-3": "evacuate"}, "rebootRequired": true, "residentVms": ["vm-web", "vm-build", "vm-db"]}},
+      {"in": "hosts", "id": "host-b", "set": {"memory.usage": 8589934592, "agentStartTime": 1791900700, "residentVms": []}},
+      {"in": "pools", "id": "pool-a", "set": {"current_operations": {"OpaqueRef:op-4": "backup"}}},
+      {"in": "networks", "id": "net-vm", "set": {"current_operations": {"OpaqueRef:op-5": "attach"}}},
+      {"in": "pifs", "id": "pif-b", "set": {"currently_attached": false, "attached": false}},
+      {"in": "pbds", "id": "pbd-b", "set": {"currently_attached": false, "attached": false}},
+      {"in": "srs", "id": "sr-nfs", "set": {"usage": 236223201280, "physical_usage": 128849018880, "current_operations": {"OpaqueRef:op-6": "scan"}, "VDIs": ["vdi-web", "vdi-db", "vdi-build", "vdi-snap-web-1", "vdi-snap-db-1"]}},
+      {"in": "vifs", "id": "vif-web", "set": {"attached": false, "currently_attached": false}},
+      {"in": "vbds", "id": "vbd-web", "set": {"parent": "vbd-snap-web-1", "currently_attached": false, "attached": false}},
+      {"in": "vbds", "id": "vbd-build", "set": {"attached": true, "currently_attached": true}},
+      {"in": "vdis", "id": "vdi-web", "set": {"usage": 9663676416, "physical_usage": 7516192768, "snapshots": ["vdi-snap-web-1"], "parent": "vdi-snap-web-1", "current_operations": {"OpaqueRef:op-7": "snapshot"}}},
+      {"in": "vdis", "id": "vdi-db", "set": {"usage": 33285996544, "snapshots": ["vdi-snap-db-1"], "parent": "vdi-snap-db-1"}},
+      {"in": "servers", "id": "server-a", "set": {"status": "disconnected", "error": {"code": "SESSION_AUTHENTICATION_FAILED"}}},
+      {"in": "users", "id": "user-admin", "set": {"last_uses": {"abc": {"last_used": 1791900800}, "def": {"last_used": 1791900900}}}}
+    ],
+    "after": [
+      {"in": "vms", "id": "vm-web", "set": {"startTime": 1791900500, "memory.usage": 1342177280, "snapshots": [], "VDIs": ["vdi-web"], "addresses": {"0/ipv4/0": "192.0.2.50"}, "xenTools": {"version": "8.4", "state": "up to date"}, "parent": null}},
+      {"in": "vms", "id": "vm-db", "set": {"memory.usage": 6979321856, "snapshots": [], "VDIs": ["vdi-db"], "parent": null}},
+      {"in": "vms", "id": "vm-build", "set": {"power_state": "Halted", "startTime": 0, "agentStartTime": 0, "memory.usage": 0, "mainIpAddress": null, "addresses": {}, "os_version": {}}},
+      {"in": "hosts", "id": "host-a", "set": {"memory.usage": 23622320128, "rebootRequired": false, "residentVms": ["vm-web", "vm-build"]}},
+      {"in": "hosts", "id": "host-b", "set": {"memory.usage": 9126805504, "agentStartTime": 1791900700, "residentVms": ["vm-db"]}},
+      {"in": "srs", "id": "sr-nfs", "set": {"usage": 219043332096, "physical_usage": 110595407872, "VDIs": ["vdi-web", "vdi-db", "vdi-build"]}},
+      {"in": "vbds", "id": "vbd-web", "set": {"parent": "vbd-web-merged"}},
+      {"in": "vdis", "id": "vdi-web", "set": {"usage": 8697308774, "physical_usage": 6550544179, "snapshots": [], "parent": "vdi-web-coalesced"}},
+      {"in": "vdis", "id": "vdi-db", "set": {"usage": 32319561523, "snapshots": [], "parent": null}},
+      {"in": "servers", "id": "server-a", "set": {"status": "connected", "error": null}},
+      {"in": "users", "id": "user-admin", "set": {"last_uses": {"abc": {"last_used": 1791901000}}}}
+    ],
+    "snapshotObjects": {
+      "vm-snapshots": [
+        {"id": "snap-web-1", "name_label": "web-1 (backup snapshot)", "snapshot_of": "vm-web"},
+        {"id": "snap-db-1", "name_label": "db-1 (backup snapshot)", "snapshot_of": "vm-db"}
+      ],
+      "vdi-snapshots": [
+        {"id": "vdi-snap-web-1", "name_label": "web-1 disk (snapshot)", "snapshot_of": "vdi-web"},
+        {"id": "vdi-snap-db-1", "name_label": "db-1 disk (snapshot)", "snapshot_of": "vdi-db"}
+      ],
+      "tasks": [
+        {"id": "task-backup-1", "name_label": "backup run", "status": "pending"}
+      ]
+    }
+  }
+}
