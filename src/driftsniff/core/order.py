@@ -49,23 +49,30 @@ Limit
 A list of more than :data:`MAX_ORDERED_ENTRIES` entries on either side is compared as a set: when
 the order of the common keys differs, one item of kind ``order_changed`` says so, with the counts
 and no detail about which key moved. Members of a list that is inside another list member are not
-examined, and the key of a keyless member is shown as a hash, never as its content.
+examined, and the key of a keyless member is shown as a keyed hash (a fingerprint of the content
+made with the fingerprint key), never as its content.
 """
 
+import secrets
 from bisect import bisect_left
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
-from hashlib import sha256
 from typing import Final
 
 from driftsniff.core.canonical import JsonValue
 from driftsniff.core.diff import ChangeItem, ChangeKind, StateLookup, _identity
 from driftsniff.core.normalize import CollectionMode, FieldClass, StaticTypeTable, TypeTable
 from driftsniff.core.snapshots import Manifest
+from driftsniff.secrets.fingerprint import Fingerprinter
+from driftsniff.secrets.keys import KEY_BYTES
 
 MAX_ORDERED_ENTRIES: Final = 5_000
 LARGE_LIST_NOTE: Final = "order changed, large list, detail not computed"
 _DEFAULT_TABLE: Final = StaticTypeTable()
+MEMBER_LABEL_CHARS: Final = 12
+# Used when the caller gives no fingerprinter (tests, tools): a key made once per process, so a
+# label is never an unkeyed hash of the content. The run pipeline passes the real fingerprinter.
+_PROCESS_FINGERPRINTER: Final = Fingerprinter(secrets.token_bytes(KEY_BYTES), "00000000")
 
 
 @dataclass(frozen=True)
@@ -294,21 +301,38 @@ class _Builder:
         )
 
 
-def _label(identity: tuple[str, str], occurrence: int, *, key_shown: bool) -> str:
+@dataclass(frozen=True, slots=True)
+class _LabelContext:
+    """What a label needs besides the member: the fingerprint key and the place of the list."""
+
+    fingerprinter: Fingerprinter
+    resource: str
+    path: str
+    key_shown: bool
+
+
+def _label(identity: tuple[str, str], occurrence: int, context: _LabelContext) -> str:
     """The text that stands for a list member in an order detail.
 
     A member is shown by its declared key. A member without one is matched by content, and its
-    content may be a secret, so it is shown as a short hash. A repeated key gets ``#2``, ``#3``.
+    content may be a secret, so it is shown as a short keyed hash (a fingerprint: the same content
+    in the same list always gives the same text, and nobody without the key can test a guess
+    against it). A repeated key gets ``#2``, ``#3``.
     """
     kind, value = identity
-    if kind == "key" and key_shown:
+    if kind == "key" and context.key_shown:
         text = value
     else:
-        text = f"member:{sha256(value.encode()).hexdigest()[:12]}"
+        digest = context.fingerprinter.fingerprint(
+            context.resource, f"order-member:{context.path}", value
+        )
+        text = f"member:{digest.short(MEMBER_LABEL_CHARS)}"
     return text if occurrence == 0 else f"{text}#{occurrence + 1}"
 
 
-def _labels(key_field: str | None, members: Sequence[JsonValue], *, key_shown: bool) -> list[str]:
+def _labels(
+    key_field: str | None, members: Sequence[JsonValue], context: _LabelContext
+) -> list[str]:
     """One distinct label per member, in list order."""
     seen: dict[tuple[str, str], int] = {}
     labels: list[str] = []
@@ -316,7 +340,7 @@ def _labels(key_field: str | None, members: Sequence[JsonValue], *, key_shown: b
         identity = _identity(key_field, member)
         occurrence = seen.get(identity, 0)
         seen[identity] = occurrence + 1
-        labels.append(_label(identity, occurrence, key_shown=key_shown))
+        labels.append(_label(identity, occurrence, context))
     return labels
 
 
@@ -368,7 +392,9 @@ class _Comparison:
         states: StateLookup,
         builder: _Builder,
         tables: Mapping[str, TypeTable],
+        fingerprinter: Fingerprinter,
     ) -> None:
+        self._fingerprinter = fingerprinter
         self._previous = previous
         self._new = new
         self._states = states
@@ -438,8 +464,9 @@ class _Comparison:
         for path, old, new in _ordered_lists(table, "", old_state, new_state):
             key_field = table.item_key_field(path)
             key_shown = _key_is_shown(table, path, key_field)
-            old_labels = _labels(key_field, old, key_shown=key_shown)
-            new_labels = _labels(key_field, new, key_shown=key_shown)
+            context = _LabelContext(self._fingerprinter, resource, path, key_shown)
+            old_labels = _labels(key_field, old, context)
+            new_labels = _labels(key_field, new, context)
             result = diff_order(old_labels, new_labels)
             if result.large:
                 counts = (len(old), len(new))
@@ -489,6 +516,7 @@ def compare_order(
     window_start: str,
     window_end: str,
     type_tables: Mapping[str, TypeTable] | None = None,
+    fingerprinter: Fingerprinter | None = None,
 ) -> list[ChangeItem]:
     """Return the ``moved`` and ``order_changed`` items between two manifests of one source.
 
@@ -497,12 +525,16 @@ def compare_order(
     ordered lists inside it, and for the name of a moved object when the manifests carry none.
     The result is in a stable order: by resource, the moves of the resource itself, then the
     lists inside its objects by key and path. A baseline (no previous manifest, or another
-    normaliser version) gives no items.
+    normaliser version) gives no items. A member without a declared key is shown as a keyed hash
+    made with ``fingerprinter`` (the run pipeline passes the fingerprint key; without one a key
+    made at start of the process is used).
     """
     if previous is None or previous.normaliser_version != new.normaliser_version:
         return []
     builder = _Builder(window_start, window_end)
-    comparison = _Comparison(previous, new, states, builder, type_tables or {})
+    comparison = _Comparison(
+        previous, new, states, builder, type_tables or {}, fingerprinter or _PROCESS_FINGERPRINTER
+    )
     items: list[ChangeItem] = []
     for resource in sorted(new.objects):
         items.extend(comparison.resource(resource))
