@@ -1,0 +1,122 @@
+/* driftsniff design tokens (P10-T1). Colour values are copied from docs/design-colours.json;
+   tests/unit/test_check_contrast.py fails when a value here differs from the JSON. Everything
+   else (type, spacing, radius, elevation, motion) is defined only here and in
+   docs/design-direction.md. P10-T2 copies this block into src/driftsniff/web/static/app.css. */
+
+:root {
+  color-scheme: light dark;
+
+  /* colour roles, light theme */
+  --paper: #F5F5F0;
+  --surface: #FFFFFF;
+  --surface-2: #EBEBE3;
+  --border: #D3D3CB;
+  --slate: #6B7280;
+  --ink: #1E1E24;
+  --text: #1E1E24;
+  --text-2: #4B5563;
+  --primary: #1E1E24;
+  --on-primary: #F5F5F0;
+  --alert: #C8342B;
+  --success: #2B6A3C;
+  --info: #3F5E8C;
+  --focus: #1E1E24;
+  --sev-low: #4A6283;
+  --sev-medium: #8A5F00;
+  --sev-high: #A8441B;
+  --sev-critical: #C8342B;
+  --on-critical: #F5F5F0;
+  --sev-low-tint: #E4E9F1;
+  --sev-medium-tint: #F3E8CC;
+  --sev-high-tint: #F6DFD3;
+  --sev-critical-tint: #F7D9D6;
+  --diff-removed: #F7D9D6;
+  --diff-added: #DDEBDD;
+  --header-bg: #F5F5F0;
+
+  /* type: one family, the wordmark's own stack; a mono stack for values only */
+  --font-sans: "Helvetica Neue", "Liberation Sans", Arial, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+  --fs-12: 0.75rem;
+  --fs-14: 0.875rem;
+  --fs-16: 1rem;
+  --fs-20: 1.25rem;
+  --fs-28: 1.75rem;
+  --fs-40: 2.5rem;
+  --lh-tight: 1.15;
+  --lh-text: 1.5;
+  --track-display: -0.02em;
+
+  /* spacing scale (px) */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-12: 48px;
+
+  /* radius and elevation */
+  --radius-s: 8px;
+  --radius-m: 10px;
+  --radius-l: 12px;
+  --elev-1: 0 1px 2px rgba(30, 30, 36, 0.08);
+  --elev-2: 0 6px 18px rgba(30, 30, 36, 0.12);
+
+  /* motion */
+  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --t-fast: 120ms;
+  --t-base: 180ms;
+
+  /* layout */
+  --content-max: 1280px;
+  --gutter: 32px;
+  --header-h: 64px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #16161A;
+    --surface: #1E1E24;
+    --surface-2: #27272E;
+    --border: #3B3B44;
+    --slate: #9CA3AF;
+    --ink: #F5F5F0;
+    --text: #F5F5F0;
+    --text-2: #B9BEC7;
+    --primary: #F5F5F0;
+    --on-primary: #1E1E24;
+    --alert: #E8665D;
+    --success: #7CC48A;
+    --info: #9DB6DC;
+    --focus: #F5F5F0;
+    --sev-low: #A3B6D4;
+    --sev-medium: #DDAE45;
+    --sev-high: #EB9068;
+    --sev-critical: #E8665D;
+    --on-critical: #1E1E24;
+    --sev-low-tint: #262C38;
+    --sev-medium-tint: #332B14;
+    --sev-high-tint: #3A251C;
+    --sev-critical-tint: #3B2120;
+    --diff-removed: #3B2120;
+    --diff-added: #1F3324;
+    --header-bg: #1E1E24;
+    --elev-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --elev-2: 0 6px 18px rgba(0, 0, 0, 0.5);
+  }
+}
+
+@media (max-width: 767px) {
+  :root {
+    --gutter: 16px;
+    --header-h: 56px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --t-fast: 0ms;
+    --t-base: 0ms;
+  }
+}
