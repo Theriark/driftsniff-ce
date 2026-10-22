@@ -36,5 +36,5 @@ States, manifests and snapshots, and how little a run without changes stores, ar
 |---|---|
 | 0 | Success |
 | 1 | Invalid setting or database error (the message says which) |
-| 2 | Command not implemented yet, or usage error |
+| 2 | Usage error (no command, or an unknown one) |
 | 3 | The database is newer than this version of driftsniff |

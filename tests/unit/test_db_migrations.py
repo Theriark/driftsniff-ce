@@ -139,6 +139,7 @@ def test_the_schema_has_every_table_of_the_report() -> None:
         "notification_deliveries",
         "audit_events",
         "settings",
+        "sessions",
     }
 
 
@@ -179,10 +180,10 @@ def test_the_report_indexes_exist(migrated: Database) -> None:
 
 
 def test_migrate_records_the_head_revision_and_is_repeatable(migrated: Database) -> None:
-    assert head_revision() == "0002"
-    assert current_revisions(migrated) == ("0002",)
-    assert upgrade_to_head(migrated) == "0002"
-    assert current_revisions(migrated) == ("0002",)
+    assert head_revision() == "0003"
+    assert current_revisions(migrated) == ("0003",)
+    assert upgrade_to_head(migrated) == "0003"
+    assert current_revisions(migrated) == ("0003",)
 
 
 def test_migration_0002_adds_the_size_columns_to_existing_runs(database: Database) -> None:
@@ -197,12 +198,51 @@ def test_migration_0002_adds_the_size_columns_to_existing_runs(database: Databas
             "VALUES (1, '2026-10-20T00:00:00Z', 7)"
         )
     assert current_revisions(database) == ("0001",)
-    assert upgrade_to_head(database) == "0002"
+    assert upgrade_to_head(database) == "0003"
     with database.read() as connection:
         row = connection.exec_driver_sql(
             "SELECT bytes_fetched, new_state_bytes, manifest_bytes FROM runs"
         ).one()
     assert tuple(row) == (7, 0, 0)
+
+
+def test_migration_0003_adds_sessions_and_keeps_existing_users(database: Database) -> None:
+    config = migrate._config()
+    with database.write() as connection:
+        config.attributes["connection"] = connection
+        command.upgrade(config, "0002")
+    with database.write() as connection:
+        connection.exec_driver_sql(
+            "INSERT INTO users (id, username, password_hash, role, created_at) "
+            "VALUES (1, 'ada', 'x', 'admin', '2026-10-22T00:00:00Z')"
+        )
+    assert upgrade_to_head(database) == "0003"
+    with database.write() as connection:
+        connection.exec_driver_sql(
+            "INSERT INTO sessions (user_id, token_hash, csrf_token, created_at, last_seen_at, "
+            "expires_at) VALUES (1, 'h', 'c', '2026-10-22T00:00:00Z', '2026-10-22T00:00:00Z', "
+            "'2026-10-29T00:00:00Z')"
+        )
+    with database.write() as connection:
+        connection.exec_driver_sql("DELETE FROM users WHERE id = 1")
+    with database.read() as connection:
+        remaining = connection.exec_driver_sql("SELECT count(*) FROM sessions").scalar()
+    assert remaining == 0
+
+
+def test_a_session_token_hash_is_unique(migrated: Database) -> None:
+    with migrated.write() as connection:
+        connection.exec_driver_sql(
+            "INSERT INTO users (id, username, password_hash, role, created_at) "
+            "VALUES (1, 'ada', 'x', 'admin', '2026-10-22T00:00:00Z')"
+        )
+        insert = (
+            "INSERT INTO sessions (user_id, token_hash, csrf_token, created_at, last_seen_at, "
+            "expires_at) VALUES (1, 'same', 'c', 't', 't', 't')"
+        )
+        connection.exec_driver_sql(insert)
+    with pytest.raises(IntegrityError, match="UNIQUE"), migrated.write() as connection:
+        connection.exec_driver_sql(insert)
 
 
 def test_migrate_inserts_the_single_workspace(migrated: Database) -> None:
@@ -322,7 +362,7 @@ def test_migrate_command_creates_the_database_and_can_run_twice(
     monkeypatch.setenv("DRIFTSNIFF_DATA_DIR", str(data_dir))
     assert main(["migrate"]) == 0
     assert main(["migrate"]) == 0
-    assert "revision 0002" in capsys.readouterr().out
+    assert "revision 0003" in capsys.readouterr().out
     assert database_path(data_dir).is_file()
 
 

@@ -3,13 +3,15 @@
 import hashlib
 import logging
 import os
+import re
 import socket
+import sqlite3
 import stat
 import subprocess
 import sys
 import threading
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
@@ -23,7 +25,14 @@ from driftsniff.db.migrate import upgrade_to_head
 from driftsniff.secrets.keys import mark_fingerprints_in_use
 from driftsniff.secrets.redact import RedactingFilter
 from driftsniff.sources.retention import RetentionJob
+from driftsniff.web.auth import (
+    AuthService,
+    SetupCodeError,
+    SetupUnavailableError,
+    make_password_hasher,
+)
 
+CHEAP_HASHER = make_password_hasher(memory_kib=8, time_cost=1)
 SRC = Path(__file__).resolve().parents[2] / "src"
 
 
@@ -125,9 +134,108 @@ def test_no_command_exits_with_code_2() -> None:
     assert main([]) == 2
 
 
-def test_later_phase_commands_say_not_implemented(capsys: pytest.CaptureFixture[str]) -> None:
-    assert main(["create-admin-code"]) == 2
-    assert "not implemented yet" in capsys.readouterr().err
+def test_create_admin_code_prints_a_code_that_works_once(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("DRIFTSNIFF_DATA_DIR", str(tmp_path / "data"))
+    assert main(["create-admin-code"]) == 0
+    output = capsys.readouterr().out
+    match = re.search(r"setup code: ([A-Z2-9]{4}(?:-[A-Z2-9]{4}){3})", output)
+    assert match is not None
+    database = Database(database_path(tmp_path / "data"))
+    try:
+        auth = AuthService(database, hasher=CHEAP_HASHER)
+        grant = auth.complete_setup(match.group(1), "ada", "a long enough password", "127.0.0.1")
+        assert grant.principal.role == "admin"
+        with pytest.raises(SetupUnavailableError):
+            auth.complete_setup(match.group(1), "bob", "another long password", "127.0.0.1")
+    finally:
+        database.close()
+
+
+def test_create_admin_code_replaces_an_earlier_code(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("DRIFTSNIFF_DATA_DIR", str(tmp_path / "data"))
+    assert main(["create-admin-code"]) == 0
+    first = capsys.readouterr().out
+    assert main(["create-admin-code"]) == 0
+    second = capsys.readouterr().out
+    assert first != second
+    old_code = re.search(r"setup code: (\S+)", first)
+    assert old_code is not None
+    database = Database(database_path(tmp_path / "data"))
+    try:
+        auth = AuthService(database, hasher=CHEAP_HASHER)
+        with pytest.raises(SetupCodeError):
+            auth.complete_setup(old_code.group(1), "ada", "a long enough password", "127.0.0.1")
+    finally:
+        database.close()
+
+
+def test_create_admin_code_refuses_when_an_admin_exists(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    data_dir = tmp_path / "data"
+    monkeypatch.setenv("DRIFTSNIFF_DATA_DIR", str(data_dir))
+    assert main(["migrate"]) == 0
+    database = Database(database_path(data_dir))
+    try:
+        AuthService(database, hasher=CHEAP_HASHER).create_user(
+            "ada", "a long enough password", "admin"
+        )
+    finally:
+        database.close()
+    capsys.readouterr()
+    assert main(["create-admin-code"]) == 1
+    captured = capsys.readouterr()
+    assert "admin already exists" in captured.err
+    assert "setup code" not in captured.out
+
+
+def test_create_admin_code_reports_a_newer_database(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    with closing(sqlite3.connect(database_path(data_dir))) as raw:
+        raw.execute("CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL PRIMARY KEY)")
+        raw.execute("INSERT INTO alembic_version (version_num) VALUES ('9999_from_the_future')")
+        raw.commit()
+    monkeypatch.setenv("DRIFTSNIFF_DATA_DIR", str(data_dir))
+    assert main(["create-admin-code"]) == 3
+    assert "newer" in capsys.readouterr().err
+
+
+def test_serve_prints_the_setup_code_once(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    def fake_run(app: object, **kwargs: object) -> None:
+        return None
+
+    monkeypatch.setattr(uvicorn, "run", fake_run)
+    monkeypatch.setenv("DRIFTSNIFF_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("DRIFTSNIFF_KEY_FILE", str(tmp_path / "keys" / "master.key"))
+    assert main(["serve"]) == 0
+    first = capsys.readouterr().out
+    assert re.search(r"first-run setup code \(shown once\): [A-Z2-9]{4}(-[A-Z2-9]{4}){3}", first)
+    assert main(["serve"]) == 0
+    assert "setup code" not in capsys.readouterr().out
+
+
+def test_serve_gives_the_app_the_sign_in_service(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    apps: list[FastAPI] = []
+
+    def fake_run(app: FastAPI, **kwargs: object) -> None:
+        apps.append(app)
+
+    monkeypatch.setattr(uvicorn, "run", fake_run)
+    monkeypatch.setenv("DRIFTSNIFF_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("DRIFTSNIFF_KEY_FILE", str(tmp_path / "keys" / "master.key"))
+    assert main(["serve"]) == 0
+    assert isinstance(apps[0].state.auth, AuthService)
 
 
 def test_serve_passes_the_settings_to_uvicorn(

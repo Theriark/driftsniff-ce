@@ -41,7 +41,6 @@ COMMANDS = {
     "create-admin-code": "Print a one-time code for creating the first admin.",
     "healthcheck": "Exit 0 when the local server answers /healthz (container health check).",
 }
-NOT_IMPLEMENTED_COMMANDS = ("create-admin-code",)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -68,11 +67,6 @@ def build_parser() -> argparse.ArgumentParser:
                 help="the old master key is lost: re-stamp fingerprints without comparing them",
             )
     return parser
-
-
-def _not_implemented(command: str) -> int:
-    print(f"driftsniff {command}: not implemented yet", file=sys.stderr)
-    return EXIT_NOT_IMPLEMENTED
 
 
 def _migrate(settings: Settings) -> int:
@@ -147,6 +141,35 @@ def _rekey(settings: Settings, *, old_key_lost: bool) -> int:
     return 0
 
 
+def _create_admin_code(settings: Settings) -> int:
+    """Print a new one-time setup code for the first admin (it replaces an unused earlier one)."""
+    from driftsniff.web.auth import AuthService, SetupUnavailableError
+
+    try:
+        settings.data_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+        database = Database(database_path(settings.data_dir))
+        try:
+            upgrade_to_head(database)
+            code = AuthService(database).issue_setup_code()
+        finally:
+            database.close()
+    except SetupUnavailableError:
+        print(
+            "driftsniff: an admin already exists, so there is no setup code to create",
+            file=sys.stderr,
+        )
+        return EXIT_CONFIG
+    except DatabaseTooNewError as error:
+        print(f"driftsniff: {error}", file=sys.stderr)
+        return EXIT_DATABASE_TOO_NEW
+    except (OSError, SQLAlchemyError) as error:
+        print(f"driftsniff: database error: {error}", file=sys.stderr)
+        return EXIT_CONFIG
+    print(f"setup code: {code}")
+    print("Enter it on the setup page. It works once and replaces any earlier code.")
+    return 0
+
+
 def _prepare_master_key(settings: Settings) -> MasterKey:
     """Load or create the master key; stops the process with exit code 4 or 1 when it cannot."""
     database = Database(database_path(settings.data_dir))
@@ -160,6 +183,7 @@ def _serve(settings: Settings) -> int:
     import uvicorn
 
     from driftsniff.main import create_app
+    from driftsniff.web.auth import AuthService
 
     status = _migrate(settings)
     if status != 0:
@@ -175,8 +199,13 @@ def _serve(settings: Settings) -> int:
     # The one database of the process: the daily retention job writes through it.
     database = Database(database_path(settings.data_dir))
     try:
+        auth = AuthService(database)
+        setup_code = auth.ensure_setup_code()
+        if setup_code is not None:
+            # Shown once: only a hash is stored. `driftsniff create-admin-code` makes another.
+            print(f"first-run setup code (shown once): {setup_code}", flush=True)
         uvicorn.run(
-            create_app(settings, master_key, retention=RetentionJob(database)),
+            create_app(settings, master_key, retention=RetentionJob(database), auth=auth),
             host=host,
             port=settings.port,
             log_level=settings.log_level,
@@ -218,8 +247,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     if command is None:
         parser.print_usage(sys.stderr)
         return EXIT_NOT_IMPLEMENTED
-    if command in NOT_IMPLEMENTED_COMMANDS:
-        return _not_implemented(command)
     try:
         settings = Settings.from_env()
     except ConfigError as error:
@@ -233,4 +260,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _backup(settings, args.target)
     if command == "rekey":
         return _rekey(settings, old_key_lost=args.old_key_lost)
+    if command == "create-admin-code":
+        return _create_admin_code(settings)
     return _serve(settings)

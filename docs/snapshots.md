@@ -52,5 +52,5 @@ refers to are never removed.
 
 ## Schema revision
 
-Migration `0002` adds the two size columns to `runs`. The session table planned for the
-authentication phase therefore becomes migration `0003`.
+Migration `0002` adds the two size columns to `runs`. The session table of the authentication
+phase is migration `0003` (see [auth.md](auth.md)).
