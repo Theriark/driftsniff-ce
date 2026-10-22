@@ -23,7 +23,9 @@ All sources were read on **2026-10-22**.
 | Id | Source | What it was used for |
 |---|---|---|
 | S1 | driftsniff dev work plan part B, section 13 (task THE-411, document analysis-1, revision 11) | Every collection, kept field, ignored field, excluded collection and design decision below |
-| S2 | `rules/types/xo.yaml` as written in P5-T3 (the skeleton this task completes) | The starting field list and the derived resource `backup-job-settings` |
+| S2 | `rules/types/xo.yaml` as written in P5-T3 (the skeleton P8-T1 completed) | The starting field list and the names of the backup job settings |
+| S3 | Decision of Core on THE-359, comment of 2026-10-22 | Drop the derived resource `backup-job-settings`; the settings are nested fields of `backup-jobs` |
+| S4 | Our own reading of how a REST interface of this kind is laid out (no document) | The REST prefix, the credential endpoint and the marker of a built in template (statements 15 to 17) |
 
 Neither source is a vendor document. Statements whose status is *plan* are our own design
 decisions, not vendor facts.
@@ -47,20 +49,23 @@ source at all; the table makes a placeholder choice).
 | 9 | `memory.size` and `memory.usage` change with use and are not configuration. | S1 | 2026-10-22 | plan |
 | 10 | Power state, start times, current operations, guest reported values, snapshot lists, VDI lists and parent references change without an administrator changing anything, so they are ignore class. | S1 | 2026-10-22 | plan (volatility not measured, test X1 is open) |
 | 11 | The server credential (a password or token), the credential part of a remote address and plugin secrets are hidden by XO. | S1 | 2026-10-22 | unverified (test X3 is open); the field names `password` and `token` of a server: no source |
-| 12 | Backup job settings are a map keyed by schedule id inside the backup job. | S2 | 2026-10-22 | unverified |
+| 12 | Backup job settings are a map keyed by schedule id inside the backup job. The type table names the settings the plan lists as fixed nested fields (`settings.exportRetention` and so on); a key shaped by a schedule id is not named and stays unclassified. | S2, S3 | 2026-10-22 | unverified (the shape of the map and every settings name) |
 | 13 | A read-only role reaches fewer collections than an admin session; the expected 403 collections are users, groups, servers and remotes. | S1 (P8-T4) | 2026-10-22 | unverified (test X2 is open) |
 | 14 | The XO configuration export holds credentials and is never ingested. | S1 | 2026-10-22 | plan |
+| 15 | The REST interface lives below `/rest/v0`; the root answers with JSON and no version, and a collection is `/rest/v0/<collection>` with the query `fields=<list>&ndjson=true`. | S4 | 2026-10-22 | unverified |
+| 16 | The credentials of the signed in user, with their expiry, are listed at `/rest/v0/users/me/authentication_tokens`; the entry whose id is the credential in use carries `expiration` (epoch milliseconds or ISO 8601). | S4 | 2026-10-22 | unverified; 403 or 404 is tolerated by the collector |
+| 17 | A template that is built in carries the field `isDefaultTemplate` with the value true. | S4 | 2026-10-22 | unverified |
 
 ## The type table
 
-`rules/types/xo.yaml` holds twenty one resources. XO collections keep their plain names (the UniFi
+`rules/types/xo.yaml` holds twenty resources. XO collections keep their plain names (the UniFi
 tables carry the prefix `unifi-`). Every kept field has class `config` unless noted. Every name has
 status **unverified** (statement 7) unless the "No source" column says there is not even that.
 
 | Resource | Kept fields | Ignored fields | Lists | No source |
 |---|---|---|---|---|
 | `vms` | `name_label`, `name_description`, `tags`, `notes`, `CPUs.max`, `CPUs.number`, `coresPerSocket`, `cpuCap`, `cpuMask`, `cpuWeight`, `memory.static`, `memory.dynamic`, `auto_poweron`, `high_availability`, `secureBoot`, `virtualizationMode`, `boot.firmware`, `boot.order`, `blockedOperations`, `affinityHost`, `startDelay`, `nicType`, `vga`, `videoram`, `viridian`, `PV_args`, `resourceSet`, `suspendSr` | `uuid`, `type`, `_xapiRef`, `$pool`, `$poolId`, `$container`, `power_state`, `startTime`, `agentStartTime`, `installTime`, `memory.size`, `memory.usage`, `current_operations`, `addresses`, `mainIpAddress`, `os_version`, `xenTools`, `vulnerabilities`, `docker`, `snapshots`, `VDIs`, `parent` | `tags` set; `boot.order` ordered scalar | `$container`, the driver fields |
-| `vm-templates` | the same list as `vms` | the identity, back reference, memory, `current_operations`, `snapshots`, `VDIs` and `parent` fields of `vms` | as `vms` | which templates are built in |
+| `vm-templates` | the same list as `vms` | the identity, back reference, memory, `current_operations`, `snapshots`, `VDIs` and `parent` fields of `vms`, and `isDefaultTemplate` | as `vms` | `isDefaultTemplate` (statement 17) |
 | `hosts` | `name_label`, `name_description`, `hostname`, `enabled`, `version`, `build`, `productBrand`, `multipathing`, `powerOnMode`, `supplementalPacks`, `certificates.notAfter`, `license_expiry`, `logging`, `otherConfig` | `uuid`, `type`, `_xapiRef`, `$pool`, `$poolId`, `power_state`, `startTime`, `agentStartTime`, `current_operations`, `rebootRequired`, `residentVms`, `memory.size`, `memory.usage` | `supplementalPacks`, `certificates` sets | |
 | `pools` | `name_label`, `name_description`, `HA_enabled`, `haSrs`, `default_SR`, `crashDumpSr`, `suspendSr`, `migrationCompression`, `platform_version`, `otherConfig` | `uuid`, `type`, `_xapiRef`, `current_operations` | `haSrs` set | |
 | `networks` | `name_label`, `name_description`, `MTU`, `bridge`, `automatic`, `defaultIsLocked`, `isBonded`, `nbd`, `insecureNbd`, `other_config` | `uuid`, `type`, `_xapiRef`, `$pool`, `$poolId`, `current_operations` | | |
@@ -70,8 +75,7 @@ status **unverified** (statement 7) unless the "No source" column says there is 
 | `vifs` | `MAC`, `MTU`, `device`, `lockingMode`, `allowedIpv4Addresses`, `allowedIpv6Addresses`, `rateLimit`, `txChecksumming` | `attached`, `currently_attached`, identity fields | the two address lists are sets | |
 | `vbds` | `bootable`, `device`, `is_cd_drive`, `position`, `read_only` | `attached`, `currently_attached`, `parent`, identity fields | | |
 | `vdis` | `name_label`, `VDI_type`, `size`, `cbt_enabled`, `image_format` | `usage`, `physical_usage`, `current_operations`, `snapshots`, `parent`, identity fields | | |
-| `backup-jobs` | `name`, `type`, `mode`, `compression`, `proxy`, `remotes`, `srs`, `vms` | `settings`, `userId` | `remotes`, `srs`, `vms` sets | the shape of `vms` (list or filter) |
-| `backup-job-settings` | `jobId`, `scheduleId`, `exportRetention`, `snapshotRetention`, `copyRetention`, `reportRecipients`, `reportWhen`, `timeout`, `concurrency`, `offlineBackup`, `offlineSnapshot`, `fullInterval`, `checkpointSnapshot` | none | `reportRecipients` set | all names |
+| `backup-jobs` | `name`, `type`, `mode`, `compression`, `proxy`, `remotes`, `srs`, `vms`, and the nested settings `settings.exportRetention`, `settings.snapshotRetention`, `settings.copyRetention`, `settings.reportRecipients`, `settings.reportWhen`, `settings.timeout`, `settings.concurrency`, `settings.offlineBackup`, `settings.offlineSnapshot`, `settings.fullInterval`, `settings.checkpointSnapshot` | `userId` | `remotes`, `srs`, `vms`, `settings.reportRecipients` sets | the shape of `vms` (list or filter); every `settings.*` name and the shape of the settings map (statement 12) |
 | `schedules` | `jobId`, `cron`, `enabled`, `name`, `timezone` | none | | |
 | `backup-repositories` (floor high) | `name`, `enabled`, `url`, `options` | none | | |
 | `proxies` | `name`, `address`, `version` | none | | |
@@ -111,9 +115,15 @@ that does arrive is still unclassified or secret.
    order and is also what an undeclared list gets. Revisit with the vendor reference.
 2. **VM selection of a backup job.** `vms` is declared a set. If it is a filter object it holds no
    list and the mode has no effect.
-3. **Built in templates.** The table cannot say which templates are built in. P8-T2 drops them
-   after the fetch, with a test; the field that tells them apart is not known (open item 3).
-4. **Ignore class names that are not listed.** The plan also names "driver fields" and
+3. **Built in templates.** The table cannot say which templates are built in. The collector (P8-T2)
+   requests the marker `isDefaultTemplate` for `vm-templates` only and drops the templates where it
+   is true, with a test; the marker is unverified (statement 17, open item 3). The table classes
+   the marker ignore.
+4. **No derived resource for the backup job settings** (decision of Core, S3). The settings names
+   of the plan are nested fields of `backup-jobs`. The collector asks for `settings` whole, so a
+   key that the table does not name (for example one keyed by a schedule id) arrives, is scanned for
+   secrets with every other value, and shows as a fingerprint until it is classified.
+5. **Ignore class names that are not listed.** The plan also names "driver fields" and
    "dollar-prefixed back-references". Only the names the plan or the skeleton gives are classified.
    Any other name is unclassified until it is read from a real answer, and a volatile one would then
    raise a fingerprint change. The fixtures of P8-T4 (the simulated backup run) are the test.
@@ -122,7 +132,8 @@ that does arrive is still unclassified or secret.
 
 1. **Vendor reference.** Every name above must be checked against the vendor reference or the lab
    (tests X1 to X4). The most important are the dotted nested names (`CPUs.max`, `memory.static`,
-   `boot.order`, `certificates.notAfter`) and `backup-job-settings`.
+   `boot.order`, `certificates.notAfter`) and the `settings.*` names of `backup-jobs`, with the real
+   shape of the settings map (statement 12).
 2. **Test X2.** Which collections a non-admin read-only role reaches decides how the setup guide
    (P8-T5) is worded, not whether the collector is built.
 3. **Built in templates.** The name of the field that marks a built in template.
@@ -134,11 +145,10 @@ that does arrive is still unclassified or secret.
 
 ## Carried over, not settled here
 
-- **`backup-job-settings`.** The derived resource (one object per key of the settings map of a
-  backup job) is kept as P5-T3 wrote it. Whether to keep that design must be decided **before
-  P8-T2**; this task does not settle it.
+- **`backup-job-settings`.** Settled before P8-T2: the derived resource is dropped (S3), see
+  decision 4 above.
 - **Collector factory.** `serve` has no scheduler until the collector factory exists. Neither P8-T1
-  nor this file builds it.
+  nor P8-T2 builds it.
 - **Cloud base address option** of the UniFi collector (P7-T3): off by default; the decision stays
   with the Delivery lead.
 - **UniFi setup guide, step 3.** The write probe in step 3 should be run in the lab only.
