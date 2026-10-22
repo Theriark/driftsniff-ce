@@ -9,9 +9,11 @@ A validation error of pydantic repeats the offending input, so the collector nev
 catches :class:`pydantic.ValidationError` and raises a fixed text instead.
 """
 
-from typing import Any
+from typing import Annotated, Any
 
 from pydantic import BaseModel, ConfigDict, Field, StrictInt
+
+OrderedId = Annotated[str, Field(min_length=1, max_length=128)]
 
 
 class PageEnvelope(BaseModel):
@@ -41,3 +43,31 @@ class InfoAnswer(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
     application_version: str = Field(alias="applicationVersion", min_length=1, max_length=64)
+
+
+class SystemDefinedOrder(BaseModel):
+    """The two ordered lists of one zone pair: before and after the system defined policies.
+
+    **Unverified** names (docs/vendor-notes/unifi.md, statement 9).
+    """
+
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    before: list[OrderedId] = Field(default_factory=list, alias="beforeSystemDefined")
+    after: list[OrderedId] = Field(default_factory=list, alias="afterSystemDefined")
+
+
+class FirewallOrdering(BaseModel):
+    """The answer of the firewall policy ordering call for one pair of zones."""
+
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    ordered: SystemDefinedOrder = Field(alias="orderedFirewallPolicyIds")
+
+
+class AclOrdering(BaseModel):
+    """The answer of the ACL rule ordering call: the ids of the rules, first match first."""
+
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    ordered: list[OrderedId] = Field(alias="orderedAclRuleIds")

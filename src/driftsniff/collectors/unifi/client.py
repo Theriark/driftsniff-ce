@@ -24,9 +24,15 @@ depend on them.
 
 TLS modes come from ``collectors/tls.py`` (P7-T3): the caller passes the settings of the source.
 
-Not done here (other tasks): the ordering lists of firewall policies and ACL rules (P7-T4) and the
-factory that builds a client from a stored source and saves the detected base path and the state
-``unsupported``.
+* Ordering (P7-T4): firewall policies and ACL rules come with a separate ordering document. The
+  client reads it for every site and returns the objects in position order, with ``actionType``
+  copied from ``action.type`` (``normalize.py``). An object the ordering does not name is appended
+  and an id without an object is dropped; the result then carries the warning
+  ``ordering_mismatch`` and the run is partial. A failed ordering read fails the whole resource
+  with its coverage status, so the previous state stays and nothing is reported as removed.
+
+Not done here (other tasks): the factory that builds a client from a stored source and saves the
+detected base path and the state ``unsupported``.
 
 A host name is resolved once, before the first request, and every address is checked with
 ``blocked_reason``. The connection then resolves the name again, so a name that changes its answer
@@ -39,7 +45,7 @@ import socket
 from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any, Final
-from urllib.parse import quote, urlsplit
+from urllib.parse import quote, urlencode, urlsplit
 
 import httpx
 from pydantic import ValidationError
@@ -57,11 +63,33 @@ from driftsniff.collectors.base import (
     make_client,
 )
 from driftsniff.collectors.tls import TlsSettings
-from driftsniff.collectors.unifi.models import InfoAnswer, ObjectRef, PageEnvelope
+from driftsniff.collectors.unifi.models import (
+    AclOrdering,
+    FirewallOrdering,
+    InfoAnswer,
+    ObjectRef,
+    PageEnvelope,
+)
+from driftsniff.collectors.unifi.normalize import (
+    ERROR_ORDERING_MISMATCH,
+    MAX_ZONE_PAIRS,
+    Merged,
+    ZonePair,
+    firewall_pairs,
+    merge_ordering,
+    mismatch_text,
+    prepare_object,
+)
 from driftsniff.collectors.unifi.resources import (
+    ACL_ORDERING_PATH,
     API_VERSION_PREFIX,
     BASE_PATHS,
+    FIREWALL_ORDERING_DESTINATION_PARAM,
+    FIREWALL_ORDERING_PATH,
+    FIREWALL_ORDERING_SOURCE_PARAM,
     INFO_PATH,
+    RESOURCE_ACL_RULES,
+    RESOURCE_FIREWALL_POLICIES,
     RESOURCE_PATHS,
     RESOURCES,
     SITES_PATH,
@@ -207,6 +235,8 @@ class UnifiClient(Collector):
             return FetchResult.failure(ERROR_UNKNOWN_RESOURCE, "the resource is not read here")
         self._bytes = 0
         objects: list[dict[str, Any]] = []
+        appended = 0
+        dropped = 0
         try:
             if resource.site_path is None:
                 sites = self._read_list(self._url(self._base_path, SITES_PATH))
@@ -215,10 +245,25 @@ class UnifiClient(Collector):
             else:
                 for site_id in self._sites(self._base_path):
                     path = f"{SITES_PATH}/{quote(site_id, safe='')}{resource.site_path}"
-                    objects.extend(self._read_list(self._url(self._base_path, path)))
+                    found = self._read_list(self._url(self._base_path, path))
+                    if resource.name in (RESOURCE_FIREWALL_POLICIES, RESOURCE_ACL_RULES):
+                        merged = self._merge_site_order(resource.name, site_id, found)
+                        found = merged.objects
+                        appended += merged.appended
+                        dropped += merged.dropped
+                    objects.extend(found)
         except CollectorError as error:
             return self._failure(error)
-        result_objects: Sequence[dict[str, JsonValue]] = objects
+        result_objects: Sequence[dict[str, JsonValue]] = [
+            prepare_object(resource.name, item) for item in objects
+        ]
+        if appended or dropped:
+            return FetchResult.success(
+                result_objects,
+                bytes_fetched=self._bytes,
+                warning_class=ERROR_ORDERING_MISMATCH,
+                warning_text=mismatch_text(appended, dropped),
+            )
         return FetchResult.success(result_objects, bytes_fetched=self._bytes)
 
     def close(self) -> None:
@@ -332,6 +377,42 @@ class UnifiClient(Collector):
                 )
             previous = data
         raise CollectorError(ERROR_PAGING_LOOP, "the list did not end within the page limit")
+
+    def _merge_site_order(self, name: str, site_id: str, found: list[dict[str, Any]]) -> Merged:
+        """The objects of one site in position order (an empty list needs no ordering call)."""
+        if not found or self._base_path is None:
+            return Merged(found)
+        site = f"{SITES_PATH}/{quote(site_id, safe='')}"
+        if name == RESOURCE_ACL_RULES:
+            url = self._url(self._base_path, f"{site}{ACL_ORDERING_PATH}")
+            return merge_ordering(found, [self._acl_order(url)])
+        pairs = firewall_pairs(found)
+        if len(pairs) > MAX_ZONE_PAIRS:
+            raise CollectorError(ERROR_BAD_PAYLOAD, "the policies use too many pairs of zones")
+        base = self._url(self._base_path, f"{site}{FIREWALL_ORDERING_PATH}")
+        return merge_ordering(found, [self._firewall_order(base, pair) for pair in pairs])
+
+    def _firewall_order(self, base_url: str, pair: ZonePair) -> list[str]:
+        """The policy ids of one pair of zones, those before the system defined ones first."""
+        query = urlencode(
+            {FIREWALL_ORDERING_SOURCE_PARAM: pair[0], FIREWALL_ORDERING_DESTINATION_PARAM: pair[1]}
+        )
+        parsed, size = fetch_json(self._client, f"{base_url}?{query}", headers=self._headers)
+        self._bytes += size
+        try:
+            answer = FirewallOrdering.model_validate(parsed)
+        except ValidationError:
+            raise CollectorError(ERROR_BAD_PAYLOAD, "the answer is not an ordering list") from None
+        return [*answer.ordered.before, *answer.ordered.after]
+
+    def _acl_order(self, url: str) -> list[str]:
+        """The ids of the ACL rules of one site, first match first."""
+        parsed, size = fetch_json(self._client, url, headers=self._headers)
+        self._bytes += size
+        try:
+            return list(AclOrdering.model_validate(parsed).ordered)
+        except ValidationError:
+            raise CollectorError(ERROR_BAD_PAYLOAD, "the answer is not an ordering list") from None
 
     @staticmethod
     def _envelope(parsed: JsonValue) -> PageEnvelope:

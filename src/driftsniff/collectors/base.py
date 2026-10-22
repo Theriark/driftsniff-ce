@@ -104,6 +104,10 @@ class FetchResult:
     ``status`` is ``200`` for a good read, the HTTP status as text for a refused one (``403``,
     ``404``, ``502``) and ``error`` when there was no answer. A failed read carries an error class
     and a short text; a good one carries neither.
+
+    A good read may carry a ``warning_class`` and ``warning_text``: the objects are usable but the
+    collector had to repair something (for example an ordering list that did not match the
+    objects). The pipeline stores the objects and marks the run ``partial`` with that class.
     """
 
     ok: bool
@@ -112,10 +116,16 @@ class FetchResult:
     error_class: str | None = None
     error_text: str | None = None
     bytes_fetched: int = 0
+    warning_class: str | None = None
+    warning_text: str | None = None
 
     def __post_init__(self) -> None:
         if self.ok and self.error_class is not None:
             raise ValueError("a good read has no error class")
+        if not self.ok and self.warning_class is not None:
+            raise ValueError("a failed read has no warning")
+        if self.warning_class is None and self.warning_text is not None:
+            raise ValueError("a warning text needs a warning class")
         if not self.ok and self.error_class is None:
             raise ValueError("a failed read needs an error class")
         if not self.ok and self.objects:
@@ -123,10 +133,18 @@ class FetchResult:
 
     @classmethod
     def success(
-        cls, objects: Sequence[Mapping[str, JsonValue]], *, bytes_fetched: int = 0
+        cls,
+        objects: Sequence[Mapping[str, JsonValue]],
+        *,
+        bytes_fetched: int = 0,
+        warning_class: str | None = None,
+        warning_text: str | None = None,
     ) -> "FetchResult":
-        """A good read of ``objects``; ``bytes_fetched`` is what the controller sent."""
-        return cls(True, objects, STATUS_OK, None, None, bytes_fetched)
+        """A good read of ``objects``; ``bytes_fetched`` is what the controller sent.
+
+        ``warning_class`` and ``warning_text`` say that the objects needed a repair (see above).
+        """
+        return cls(True, objects, STATUS_OK, None, None, bytes_fetched, warning_class, warning_text)
 
     @classmethod
     def failure(

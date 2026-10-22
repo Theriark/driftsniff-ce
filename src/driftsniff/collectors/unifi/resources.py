@@ -8,8 +8,9 @@ open. When D5 arrives, correct :data:`RESOURCES` and nothing else has to change.
 table keeps it as a placeholder). A resource that is not listed keeps its previous state in the
 run pipeline, so leaving it out can never report an object as removed.
 
-The ordering lists of firewall policies and ACL rules are separate documents; merging them into
-the position list is P7-T4 and is not done here.
+The ordering lists of firewall policies and ACL rules are separate documents (P7-T4). Their paths
+below are **unverified** as well; ``collectors/unifi/normalize.py`` merges them into the position
+list of the resource.
 """
 
 from dataclasses import dataclass
@@ -23,6 +24,15 @@ INFO_PATH: Final = "/info"
 SITES_PATH: Final = "/sites"
 
 RESOURCE_SITES: Final = "unifi-sites"
+RESOURCE_FIREWALL_POLICIES: Final = "unifi-firewall-policies"
+RESOURCE_ACL_RULES: Final = "unifi-acl-rules"
+
+# The ordering documents (unverified, docs/vendor-notes/unifi.md statements 9, 16 and 17). The
+# firewall order is asked per pair of zones; the ACL order is one list per site.
+FIREWALL_ORDERING_PATH: Final = "/firewall/policies/ordering"
+FIREWALL_ORDERING_SOURCE_PARAM: Final = "sourceFirewallZoneId"
+FIREWALL_ORDERING_DESTINATION_PARAM: Final = "destinationFirewallZoneId"
+ACL_ORDERING_PATH: Final = "/acl-rules/ordering"
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,8 +48,8 @@ RESOURCES: Final = (
     UnifiResource("unifi-networks", "/networks"),
     UnifiResource("unifi-wifi-broadcasts", "/wifi/broadcasts"),
     UnifiResource("unifi-firewall-zones", "/firewall/zones"),
-    UnifiResource("unifi-firewall-policies", "/firewall/policies"),
-    UnifiResource("unifi-acl-rules", "/acl-rules"),
+    UnifiResource(RESOURCE_FIREWALL_POLICIES, "/firewall/policies"),
+    UnifiResource(RESOURCE_ACL_RULES, "/acl-rules"),
     UnifiResource("unifi-dns-policies", "/dns/policies"),
     UnifiResource("unifi-traffic-matching-lists", "/traffic-matching-lists"),
     UnifiResource("unifi-wans", "/wans"),
