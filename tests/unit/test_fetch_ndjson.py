@@ -15,6 +15,8 @@ from driftsniff.collectors.base import (
     ERROR_HTTP,
     ERROR_REDIRECT,
     ERROR_TIMEOUT,
+    MAX_BODY_BYTES,
+    MAX_LINE_BYTES,
     CollectorError,
     fetch_ndjson,
 )
@@ -24,9 +26,13 @@ URL = "https://xo.example.test/rest/v0/vms"
 LINE = b'{"a":1}\n'
 
 
-def reading(handler: httpx.MockTransport, **limits: int) -> tuple[list[JsonValue], int]:
+def reading(
+    handler: httpx.MockTransport,
+    max_bytes: int = MAX_BODY_BYTES,
+    max_line_bytes: int = MAX_LINE_BYTES,
+) -> tuple[list[JsonValue], int]:
     with httpx.Client(transport=handler) as client:
-        return fetch_ndjson(client, URL, **limits)
+        return fetch_ndjson(client, URL, max_bytes=max_bytes, max_line_bytes=max_line_bytes)
 
 
 def answer(response: httpx.Response) -> httpx.MockTransport:

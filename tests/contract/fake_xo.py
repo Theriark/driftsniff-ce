@@ -18,7 +18,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, cast
 from urllib.parse import urlsplit
 
-CANARY_TOKEN = "CANARY-xo-session-0001"
+CANARY_TOKEN = "CANARY-xo-session-0001"  # noqa: S105 - a test canary, not a credential
 PREFIX = "/rest/v0"
 TOKENS = "users/me/authentication_tokens"
 BATCH = 1000
