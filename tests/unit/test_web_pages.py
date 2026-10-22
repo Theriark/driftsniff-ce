@@ -253,7 +253,8 @@ def test_repeated_wrong_setup_codes_show_the_wait_on_the_page(
 def test_the_sign_in_page_has_the_mark_the_sentence_and_the_one_action(
     client: TestClient, auth: AuthService
 ) -> None:
-    auth.create_user("ada", CORRECT, "viewer")
+    # An admin must exist, or the sign-in page sends every browser to the setup page.
+    auth.create_user("ada", CORRECT, "admin")
     response = client.get("/login", headers=browser())
     parsed = assert_page(response)
     tile = next(attrs for attrs in parsed.find("img") if attrs.get("width") == "96")
@@ -314,15 +315,16 @@ def test_five_failures_show_the_wait_on_the_page(client: TestClient, auth: AuthS
 def test_sign_in_goes_back_to_the_page_that_asked_for_it(
     client: TestClient, auth: AuthService
 ) -> None:
-    auth.create_user("ada", CORRECT, "viewer")
-    asked = client.get("/changes?page=2", headers=browser())
+    # /tokens is a guarded route (admin); an unknown path would be a plain 404 instead.
+    auth.create_user("ada", CORRECT, "admin")
+    asked = client.get("/tokens?page=2", headers=browser())
     assert asked.status_code == 303
-    assert asked.headers["location"] == "/login?next=/changes?page=2"
+    assert asked.headers["location"] == "/login?next=/tokens?page=2"
     parsed = assert_page(client.get(asked.headers["location"], headers=browser()))
-    assert parsed.input("next")["value"] == "/changes?page=2"
-    form = {"username": "ada", "password": CORRECT, "next": "/changes?page=2"}
+    assert parsed.input("next")["value"] == "/tokens?page=2"
+    form = {"username": "ada", "password": CORRECT, "next": "/tokens?page=2"}
     signed_in = client.post("/login", data=form, headers=browser())
-    assert (signed_in.status_code, signed_in.headers["location"]) == (303, "/changes?page=2")
+    assert (signed_in.status_code, signed_in.headers["location"]) == (303, "/tokens?page=2")
     client.cookies.clear()
     foreign = {"username": "ada", "password": CORRECT, "next": "https://evil.example/"}
     assert client.post("/login", data=foreign, headers=browser()).headers["location"] == "/"
@@ -375,8 +377,10 @@ def test_plain_clients_and_the_api_keep_the_json_answers(
     assert client.get("/no-such-page").json() == {"detail": "Not Found"}
     missing = client.get("/no-such-page", headers=browser())
     assert missing.headers["content-type"].startswith("text/html")
+    # The test app has no token service, so the API answers 503; the point is that a browser
+    # Accept header never turns an API answer into a page.
     api = client.get("/api/v1/changes", headers=browser())
-    assert api.status_code == 401
+    assert api.status_code == 503
     assert api.headers["content-type"].startswith("application/json")
     assert client.get("/", headers={"Accept": "application/json"}).json() == {
         "detail": "sign-in is required"
