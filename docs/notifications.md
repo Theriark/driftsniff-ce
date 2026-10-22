@@ -45,6 +45,7 @@ signature matches, in constant time:
 ```python
 import hashlib, hmac, time
 
+
 def verify(key: bytes, timestamp: str, body: bytes, signature: str) -> bool:
     if not timestamp.isdigit() or abs(time.time() - int(timestamp)) > 300:
         return False
