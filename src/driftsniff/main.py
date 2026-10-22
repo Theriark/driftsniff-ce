@@ -10,8 +10,9 @@ from driftsniff.config import Settings
 from driftsniff.secrets.keys import MasterKey
 from driftsniff.sources.retention import RetentionJob
 from driftsniff.sources.scheduler import Scheduler
-from driftsniff.web import routes_push
+from driftsniff.web import routes_api, routes_push
 from driftsniff.web.auth import AuthService
+from driftsniff.web.bearer import TokenService
 from driftsniff.web.csrf import BrowserHardeningMiddleware
 from driftsniff.web.routes_ui import router as ui_router
 
@@ -41,6 +42,7 @@ def create_app(
     push_gateway: routes_push.PushGateway | None = None,
     retention: RetentionJob | None = None,
     auth: AuthService | None = None,
+    tokens: TokenService | None = None,
 ) -> FastAPI:
     """Build the application; settings default to the DRIFTSNIFF_ environment.
 
@@ -51,6 +53,8 @@ def create_app(
     503. A ``retention`` job (the daily clean-up of old history) is started and stopped the same
     way. The ``auth`` service (users, sessions, the setup code) serves ``/setup``, ``/login`` and
     ``/logout`` and the role checks of ``driftsniff.web.deps``; without one they answer 503.
+    The ``tokens`` service (API tokens) serves the admin routes under ``/tokens`` and the token
+    checks of the ``/api/v1`` routes; without one they answer 503.
     Every response gets the security headers and every browser write the origin and CSRF checks
     of ``driftsniff.web.csrf``.
     """
@@ -69,7 +73,9 @@ def create_app(
     app.state.push_gateway = push_gateway
     app.state.retention = retention
     app.state.auth = auth
+    app.state.tokens = tokens
     app.add_middleware(BrowserHardeningMiddleware)
     app.include_router(ui_router)
     app.include_router(routes_push.router)
+    app.include_router(routes_api.router)
     return app

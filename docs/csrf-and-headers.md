@@ -61,8 +61,8 @@ request gets none.
 - The origin is compared with `DRIFTSNIFF_BASE_URL` only. Behind a reverse proxy the base address
   must be the public address people type, or every browser write is refused.
 - The per-address sign-in counter uses the connection's address. Behind a proxy that is the
-  proxy's address, so all users share one counter until the forwarded address is read through
-  `DRIFTSNIFF_TRUSTED_PROXY` (open item, not part of P9-T2).
+  proxy's address unless `DRIFTSNIFF_TRUSTED_PROXY=true`, which makes `serve` read the forwarded
+  address (details and the proxy requirement in `docs/auth.md`, "Limits").
 
 ## Rollback
 

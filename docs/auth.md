@@ -78,8 +78,8 @@ target are user names; no secret).
 | Part | Status |
 |---|---|
 | The setup and login pages, the user menu | P10-T3 / P10-T2; only the posts exist |
-| CSRF value check, Origin check, security headers | P9-T2 (the CSRF value is already stored) |
-| API tokens (`/api/v1`, Bearer) | P9-T3; a session cookie is not an API credential |
+| CSRF value check, Origin check, security headers | built in P9-T2, see `docs/csrf-and-headers.md` |
+| API tokens (`/api/v1`, Bearer) | built in P9-T3, see `docs/api-access.md`; a session cookie is not an API credential |
 | Admin screens to add, change and disable users | P10; `AuthService.create_user` and `set_user_disabled` exist |
 | Route table test that every route states its role | P9-T6 |
 
@@ -90,3 +90,11 @@ target are user names; no secret).
   ends by itself.
 - A disabled last admin cannot be replaced through `/setup` (an admin row still exists).
 - Throttle state is per process (see above).
+- The per-address counter uses the client address of the connection. With
+  `DRIFTSNIFF_TRUSTED_PROXY=true`, `serve` starts uvicorn with proxy headers on, and uvicorn then
+  takes the client address from `X-Forwarded-For`, so each person behind the proxy has their own
+  counter; that setting trusts the header from any sender (`forwarded_allow_ips="*"`), so the
+  proxy must overwrite the header and the container port must not be reachable except through it.
+  With `DRIFTSNIFF_TRUSTED_PROXY=false` behind a proxy, all clients share the proxy's address and
+  therefore one per-address counter (the per-name counter and the lock still work). This follows
+  from the uvicorn setting in `cli.py`; no test here runs a proxy.

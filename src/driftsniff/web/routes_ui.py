@@ -66,8 +66,34 @@ def healthz() -> Healthz:
     return Healthz(status="ok", version=__version__, commit=build_commit())
 
 
-async def _read_fields(request: Request) -> dict[str, str]:
-    """The text fields of a form post or a JSON object body (at most 16 KB)."""
+def _json_fields(document: dict[str, object], *, structured: bool) -> dict[str, str]:
+    """The fields of a JSON object body.
+
+    Only text values are kept (the sign-in routes ignore the rest). With ``structured`` a whole
+    number becomes its text and a list of text becomes comma separated text; any other value is an
+    error, so a field is never dropped without a word.
+    """
+    fields: dict[str, str] = {}
+    for key, value in document.items():
+        if isinstance(value, str):
+            fields[key] = value
+        elif not structured:
+            continue
+        elif isinstance(value, int) and not isinstance(value, bool):
+            fields[key] = str(value)
+        elif isinstance(value, list) and all(isinstance(item, str) for item in value):
+            fields[key] = ",".join(str(item) for item in value)
+        else:
+            raise ValueError(f"field {key} must be text, a whole number or a list of text")
+    return fields
+
+
+async def read_fields(request: Request, *, structured: bool = False) -> dict[str, str]:
+    """The text fields of a form post or a JSON object body (at most 16 KB).
+
+    ``structured`` also accepts whole numbers and lists of text in a JSON body (see
+    :func:`_json_fields`).
+    """
     declared = request.headers.get("content-length", "")
     if declared.isdigit() and int(declared) > MAX_FORM_BYTES:
         raise HTTPException(status_code=413, detail="the request body is too large")
@@ -85,7 +111,7 @@ async def _read_fields(request: Request) -> dict[str, str]:
             document = json.loads(body)
             if not isinstance(document, dict):
                 raise ValueError("not an object")
-            return {k: v for k, v in document.items() if isinstance(v, str)}
+            return _json_fields(document, structured=structured)
         if content_type == _FORM_CONTENT_TYPE:
             parsed = parse_qs(
                 body.decode("utf-8"), keep_blank_values=True, max_num_fields=_MAX_FORM_FIELDS
@@ -123,7 +149,7 @@ async def setup(
     request: Request, auth: Annotated[AuthService, Depends(get_auth_service)]
 ) -> Response:
     """Create the first admin with the one-time setup code; 404 once any admin exists."""
-    fields = await _read_fields(request)
+    fields = await read_fields(request)
     try:
         grant = await run_in_threadpool(
             auth.complete_setup,
@@ -148,7 +174,7 @@ async def login(
     request: Request, auth: Annotated[AuthService, Depends(get_auth_service)]
 ) -> Response:
     """Check the user name and password and start a session."""
-    fields = await _read_fields(request)
+    fields = await read_fields(request)
     try:
         grant = await run_in_threadpool(
             auth.login,
