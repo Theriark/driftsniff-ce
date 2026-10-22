@@ -253,7 +253,8 @@ def test_logout_ends_the_session_and_clears_the_cookie(
     value = sign_in(client, "ada")
     response = client.post("/logout", headers=with_csrf(auth, value))
     assert response.status_code == 303
-    assert response.headers["location"] == "/login"
+    # P10-T3: the sign-in page confirms the sign-out from this query (test_web_pages.py).
+    assert response.headers["location"] == "/login?signed-out=1"
     assert "max-age=0" in response.headers["set-cookie"].lower()
     assert client.get("/probe/viewer", headers=as_user(value)).status_code == 401
 

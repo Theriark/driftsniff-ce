@@ -28,7 +28,8 @@ application built without the sign-in service gives **503**.
 ## Signing in
 
 `POST /login` takes a form post or a JSON object with `username` and `password` (at most 16 KB).
-Success answers **303** to `/` and sets the session cookie. Every failure (unknown user, wrong
+Success answers **303** to `/` (or to the local path in the optional `next` field) and sets the
+session cookie. Every failure (unknown user, wrong
 password, disabled user, locked user) answers **401** with the same text, and an unknown user
 costs the same hashing work as a known one.
 
@@ -49,7 +50,8 @@ restart clears them; the lock is stored with the user and survives a restart.
   cannot be turned back into a cookie. The row also holds the per-session CSRF value that P9-T2
   checks.
 - A session ends after **8 hours without a request**, **7 days after sign-in** whatever its use,
-  at logout (`POST /logout`, which deletes the row and clears the cookie), and when its user is
+  at logout (`POST /logout`, which deletes the row, clears the cookie and answers 303 to
+  `/login?signed-out=1`), and when its user is
   disabled (all sessions of that user are deleted in the same transaction as the change).
   The last-seen time is written at most once a minute.
 - Ended sessions are deleted when they are noticed and at every sign-in.
@@ -77,7 +79,7 @@ target are user names; no secret).
 
 | Part | Status |
 |---|---|
-| The setup and login pages, the user menu | P10-T3 / P10-T2; only the posts exist |
+| The setup and login pages, the user menu | built in P10-T2 and P10-T3, see `docs/web-interface.md` sections 2 and 8; a browser (`Accept: text/html`) gets the pages, every other client the JSON answers above |
 | CSRF value check, Origin check, security headers | built in P9-T2, see `docs/csrf-and-headers.md` |
 | API tokens (`/api/v1`, Bearer) | built in P9-T3, see `docs/api-access.md`; a session cookie is not an API credential |
 | Admin screens to add, change and disable users | P10; `AuthService.create_user` and `set_user_disabled` exist |

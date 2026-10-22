@@ -1,7 +1,7 @@
 {# The designed states (docs/design-direction.md section 7): empty, loading, error, success. #}
 {% macro empty_state(heading, text, action_href="", action_label="") %}
 <div class="empty">
-  <img src="/static/brand/logo-mark-512x512.png" alt="" width="96" height="96">
+  <span class="mark-tile"><img src="/static/brand/logo-mark-512x512.png" alt="" width="96" height="96"></span>
   <h2>{{ heading }}</h2>
   <p>{{ text }}</p>
   {% if action_href %}<a class="btn btn--primary" href="{{ action_href }}">{{ action_label }}</a>{% endif %}

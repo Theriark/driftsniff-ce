@@ -59,6 +59,11 @@ def test_healthz_commit_is_unknown_when_blank_or_malformed(
     assert make_client().get("/healthz").json()["commit"] == "unknown"
 
 
-@pytest.mark.parametrize("path", ["/", "/docs", "/redoc", "/openapi.json"])
+@pytest.mark.parametrize("path", ["/docs", "/redoc", "/openapi.json"])
 def test_scaffold_exposes_nothing_besides_healthz(path: str) -> None:
     assert make_client().get(path).status_code == 404
+
+
+def test_the_start_page_needs_the_sign_in_service() -> None:
+    # P10-T3: "/" is the dashboard; without a sign-in service it answers 503 like every page.
+    assert make_client().get("/").status_code == 503

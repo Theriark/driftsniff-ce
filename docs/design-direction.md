@@ -264,6 +264,11 @@ files from `../../brand/`); switch the system colour scheme to see the dark them
   page link; the environment badge reads `DRIFTSNIFF_ENVIRONMENT_LABEL`; the density switch
   is its own form next to the filter bar (`.toolbar`), not inside it. See
   `docs/web-interface.md`.
+- P10-T3 (THE-856) built the setup, sign-in and status pages as the empty state composition
+  (mark on its tile, heading at 24 px, one sentence, one action in a 440 px column) and put the
+  brand mark on the guide's light rounded tile in the `empty_state` macro too, since the mark
+  file is transparent and section 3 forbids it bare on a dark surface. See
+  `docs/web-interface.md` section 8.
 - Screenshots of the mock-ups at 1440, 768 and 390 px are not produced in P10-T1: the browser
   tool refuses `file:` addresses and reaches only `*.theriark.dev`, where the mock-ups are not
   served. Delivery waived them for P10-T1 and made them an acceptance of P10-T2, which takes

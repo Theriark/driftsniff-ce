@@ -27,11 +27,12 @@
 {%- endmacro %}
 
 {# A text-like field with help and an optional error (section 7): the field is marked invalid
-   and the message sits next to it while the help text stays. #}
-{% macro text_field(id, name, label, value="", type="text", help="", error="", autocomplete="", placeholder="") %}
+   and the message sits next to it while the help text stays. required, autofocus and
+   autocapitalize are passed through when set; mono sets the value face (codes, keys). #}
+{% macro text_field(id, name, label, value="", type="text", help="", error="", autocomplete="", placeholder="", required=false, autofocus=false, mono=false, autocapitalize="") %}
 <div class="field">
   <label for="{{ id }}">{{ label }}</label>
-  <input class="input" id="{{ id }}" name="{{ name }}" type="{{ type }}"{% if value %} value="{{ value }}"{% endif %}{% if autocomplete %} autocomplete="{{ autocomplete }}"{% endif %}{% if placeholder %} placeholder="{{ placeholder }}"{% endif %}{% if help or error %} aria-describedby="{% if help %}{{ id }}-help{% endif %}{% if help and error %} {% endif %}{% if error %}{{ id }}-error{% endif %}"{% endif %}{% if error %} aria-invalid="true"{% endif %}>
+  <input class="input{% if mono %} mono{% endif %}" id="{{ id }}" name="{{ name }}" type="{{ type }}"{% if value %} value="{{ value }}"{% endif %}{% if autocomplete %} autocomplete="{{ autocomplete }}"{% endif %}{% if autocapitalize %} autocapitalize="{{ autocapitalize }}"{% endif %}{% if placeholder %} placeholder="{{ placeholder }}"{% endif %}{% if required %} required{% endif %}{% if autofocus %} autofocus{% endif %}{% if help or error %} aria-describedby="{% if help %}{{ id }}-help{% endif %}{% if help and error %} {% endif %}{% if error %}{{ id }}-error{% endif %}"{% endif %}{% if error %} aria-invalid="true"{% endif %}>
   {% if help %}<span class="help" id="{{ id }}-help">{{ help }}</span>{% endif %}
   {% if error %}<span class="error" id="{{ id }}-error">{{ error }}</span>{% endif %}
 </div>

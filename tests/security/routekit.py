@@ -36,7 +36,13 @@ CREDENTIAL_ROUTES = frozenset({("POST", "/login"), ("POST", "/setup")})
 
 ROUTE_TABLE: dict[tuple[str, str], Access] = {
     ("GET", "/healthz"): Access.PUBLIC,
+    # The dashboard: a browser without a session is redirected to sign in by the page handler;
+    # every other client gets the plain 401 the table expects.
+    ("GET", "/"): Access.VIEWER,
+    # The setup page is 404 for everyone once an admin exists (the kit has three users).
+    ("GET", "/setup"): Access.PUBLIC,
     ("POST", "/setup"): Access.PUBLIC,
+    ("GET", "/login"): Access.PUBLIC,
     ("POST", "/login"): Access.PUBLIC,
     ("POST", "/logout"): Access.PUBLIC,
     ("GET", "/static/{path:path}"): Access.PUBLIC,

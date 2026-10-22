@@ -1,0 +1,24 @@
+{# The first-run setup page (P10-T3), reachable only while no admin exists. The one-time code,
+   the admin name and the password with the 12 character rule explained next to the field. A
+   wrong code or a rule-breaking value marks that field and keeps the help text; the code and the
+   password are never filled back in. #}
+{% extends "base.html" %}
+{% from "components/forms.html" import text_field %}
+{% from "components/states.html" import banner %}
+{% block content %}
+<section class="auth" aria-labelledby="auth-title">
+  <span class="mark-tile"><img src="/static/brand/logo-mark-512x512.png" alt="" width="96" height="96"></span>
+  <h1 id="auth-title">Create the first admin</h1>
+  <p class="auth__lead">Enter the one-time code from the container log, then choose the admin account.</p>
+  {% if error %}
+  {{ banner("error", error.title, error.text) }}
+  {% endif %}
+  <form class="card auth__card stack" method="post" action="/setup">
+    {{ text_field("code", "code", "Setup code", help="Four groups of four characters. The container log printed it once at first start; driftsniff create-admin-code prints a new one.", error=field_errors.get("code", ""), autocomplete="one-time-code", autofocus=true, required=true, mono=true, autocapitalize="characters") }}
+    {{ text_field("username", "username", "Admin user name", value=username, help="3 to 64 characters: letters, digits and . _ @ + -", error=field_errors.get("username", ""), autocomplete="username", required=true, autocapitalize="none") }}
+    {{ text_field("password", "password", "Password", type="password", help="At least 12 characters. Length is the only rule, so a sentence you will remember works well.", error=field_errors.get("password", ""), autocomplete="new-password", required=true) }}
+    <button class="btn btn--primary" type="submit">Create admin and sign in</button>
+  </form>
+  <p class="auth__note">The code works once. After the first admin exists this page is gone; admins add further users from Settings.</p>
+</section>
+{% endblock %}
