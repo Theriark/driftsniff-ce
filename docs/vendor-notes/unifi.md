@@ -153,5 +153,6 @@ Until then the independent work in P7 uses synthetic fixtures with the `CANARY-`
   builds the factory in P7 or P8 must say so.
 - The scheduler test gap of THE-628 (a timer firing while a run now run is in progress) is
   untouched.
-- The decision about the derived resource `backup-job-settings` is needed before P8-T2 and is not
-  settled here.
+- The decision about the derived resource `backup-job-settings` was taken by Core on THE-359
+  (2026-10-22): there is no derived resource, the settings are nested fields of `backup-jobs`
+  (see docs/vendor-notes/xo.md).

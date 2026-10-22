@@ -48,6 +48,7 @@ REQUEST_TIMEOUT_SECONDS: Final = 30.0
 MAX_BODY_BYTES: Final = 200 * 1024 * 1024
 RETRY_BACKOFF_SECONDS: Final = (1.0, 2.0, 4.0)
 MAX_ERROR_TEXT_CHARS: Final = 200
+MAX_LINE_BYTES: Final = 16 * 1024 * 1024
 
 STATUS_OK: Final = "200"
 STATUS_ERROR: Final = "error"
@@ -58,6 +59,7 @@ ERROR_HTTP: Final = "http_error"
 ERROR_REDIRECT: Final = "redirect_refused"
 ERROR_BODY_TOO_LARGE: Final = "body_too_large"
 ERROR_BAD_JSON: Final = "bad_json"
+ERROR_BAD_PAYLOAD: Final = "bad_payload"
 _TLS_TEXT: Final = {
     ERROR_TLS: "the TLS certificate of the controller was not accepted",
     ERROR_TLS_PIN: "the certificate of the controller is not the pinned one; nothing was sent",
@@ -206,7 +208,7 @@ def make_client(
 
 def read_limited(response: httpx.Response, *, max_bytes: int = MAX_BODY_BYTES) -> bytes:
     """Read the body of a streamed response, stopping as soon as it exceeds ``max_bytes``."""
-    message = f"the response is larger than {max_bytes} bytes"
+    message = _too_large(max_bytes)
     declared = response.headers.get("content-length")
     if declared is not None and declared.isdigit() and int(declared) > max_bytes:
         raise CollectorError(ERROR_BODY_TOO_LARGE, message)
@@ -236,27 +238,93 @@ def fetch_json(
     """
     try:
         with client.stream("GET", url, headers=headers) as response:
-            status = response.status_code
-            if 300 <= status < 400:
-                raise CollectorError(
-                    ERROR_REDIRECT,
-                    "the controller answered with a redirect, which is never followed",
-                    status=str(status),
-                )
-            if status >= 400:
-                raise CollectorError(
-                    ERROR_HTTP, f"the controller answered with HTTP {status}", status=str(status)
-                )
+            _check_status(response)
             body = read_limited(response, max_bytes=max_bytes)
     except httpx.TimeoutException:
         raise CollectorError(ERROR_TIMEOUT, "the controller did not answer in time") from None
     except httpx.HTTPError as error:
-        tls_class = classify_failure(error)
-        if tls_class is not None:
-            raise CollectorError(tls_class, _TLS_TEXT[tls_class]) from None
-        raise CollectorError(ERROR_CONNECTION, "the controller could not be reached") from None
+        raise _transport_error(error) from None
     try:
         parsed: JsonValue = json.loads(body)
     except ValueError:
         raise CollectorError(ERROR_BAD_JSON, "the response is not valid JSON") from None
     return parsed, len(body)
+
+
+def fetch_ndjson(
+    client: httpx.Client,
+    url: str,
+    *,
+    headers: Mapping[str, str] | None = None,
+    max_bytes: int = MAX_BODY_BYTES,
+    max_line_bytes: int = MAX_LINE_BYTES,
+) -> tuple[list[JsonValue], int]:
+    """GET ``url`` as newline delimited JSON: one parsed value per line, and the bytes received.
+
+    The body is read in chunks and parsed line by line, so only the parsed values are kept, never
+    the whole body. ``max_bytes`` counts the bytes while they stream and stops the read as soon as
+    the limit is passed; ``max_line_bytes`` bounds a single line. A blank line is skipped. A line
+    that is not valid JSON (a half line at the end of a cut stream included), or that is longer than
+    ``max_line_bytes``, raises :class:`CollectorError` with class ``bad_payload`` and a fixed text:
+    the line never appears in it. Status, redirect, timeout and connection failures are the same as
+    for :func:`fetch_json`.
+    """
+    values: list[JsonValue] = []
+    total = 0
+    pending = bytearray()
+    try:
+        with client.stream("GET", url, headers=headers) as response:
+            _check_status(response)
+            declared = response.headers.get("content-length")
+            if declared is not None and declared.isdigit() and int(declared) > max_bytes:
+                raise CollectorError(ERROR_BODY_TOO_LARGE, _too_large(max_bytes))
+            for chunk in response.iter_bytes():
+                total += len(chunk)
+                if total > max_bytes:
+                    raise CollectorError(ERROR_BODY_TOO_LARGE, _too_large(max_bytes))
+                pending += chunk
+                while (end := pending.find(b"\n")) != -1:
+                    _add_line(values, bytes(pending[:end]))
+                    del pending[: end + 1]
+                if len(pending) > max_line_bytes:
+                    raise CollectorError(ERROR_BAD_PAYLOAD, "a line of the answer is too long")
+    except httpx.TimeoutException:
+        raise CollectorError(ERROR_TIMEOUT, "the controller did not answer in time") from None
+    except httpx.HTTPError as error:
+        raise _transport_error(error) from None
+    _add_line(values, bytes(pending))
+    return values, total
+
+
+def _add_line(values: list[JsonValue], line: bytes) -> None:
+    if not line.strip():
+        return
+    try:
+        values.append(json.loads(line))
+    except ValueError:
+        raise CollectorError(ERROR_BAD_PAYLOAD, "a line of the answer is not valid JSON") from None
+
+
+def _too_large(max_bytes: int) -> str:
+    return f"the response is larger than {max_bytes} bytes"
+
+
+def _check_status(response: httpx.Response) -> None:
+    status = response.status_code
+    if 300 <= status < 400:
+        raise CollectorError(
+            ERROR_REDIRECT,
+            "the controller answered with a redirect, which is never followed",
+            status=str(status),
+        )
+    if status >= 400:
+        raise CollectorError(
+            ERROR_HTTP, f"the controller answered with HTTP {status}", status=str(status)
+        )
+
+
+def _transport_error(error: httpx.HTTPError) -> CollectorError:
+    tls_class = classify_failure(error)
+    if tls_class is not None:
+        return CollectorError(tls_class, _TLS_TEXT[tls_class])
+    return CollectorError(ERROR_CONNECTION, "the controller could not be reached")

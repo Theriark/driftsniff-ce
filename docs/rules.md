@@ -241,11 +241,11 @@ rationale and a test with one matching and one near-miss input
 - A field that is classed but has no rule is MEDIUM, `builtin.unclassified`, until it is reviewed.
   There is no catch-all `**` rule: the engine matches on the path only, so one would also swallow
   the fields that are not in the table.
-- The setting map of a backup job is keyed by schedule id, and a type table names only fixed field
-  paths. The table therefore describes a derived resource, `backup-job-settings`, with one object
-  per key of the map (object id: job id, a colon, then the schedule id or `default`), and ignores
-  `settings` on the backup job itself. Whether the collector (P8-T2) produces that resource is a
-  decision that must be made before P8-T2.
+- The settings of a backup job are nested fields of `backup-jobs` (`settings.exportRetention`,
+  `settings.reportRecipients` and the others the plan lists). There is no derived resource: Core
+  decided this on THE-359 (2026-10-22), before P8-T2. A type table names only fixed field paths, so
+  a settings key that is not named stays unclassified (a fingerprint) until the Backend Developer
+  classifies it and the Code Reviewer agrees; docs/vendor-notes/xo.md has the open items.
 - The table was completed in P8-T1. The values that Xen Orchestra hides (a server password or
   token, the credential part of a remote address) are listed under `hidden_by_xo`; they keep the
   class they have, which is unclassified, so a credential that does arrive is a fingerprint only.

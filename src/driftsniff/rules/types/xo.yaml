@@ -18,11 +18,13 @@
 # but that mode needs a key field for the members and the shape of the field is unverified; the
 # ordered scalar mode keeps the order and is also the safe default for a list.
 #
-# The backup job setting map of Xen Orchestra is keyed by schedule id, and a type table can only
-# name fixed field paths. The XO collector therefore reads each key of the settings map of a
-# backup job as one object of the derived resource backup-job-settings (the object id is the job
-# id, a colon and the schedule id, or the word default for the key that has no schedule) and the
-# settings field of the backup job itself is ignored.
+# The settings of a backup job are nested fields of the backup job (decision of Core on THE-359,
+# 2026-10-22): there is no derived resource. A table names only fixed field paths, so the keys
+# below are the settings names the plan lists, written under settings. Xen Orchestra keeps one
+# settings map per schedule id inside the job (vendor notes, statement 12, unverified); a key of
+# that shape is not named here, stays unclassified and shows as a fingerprint until a real answer
+# or the vendor reference allows the Backend Developer to classify it and the Code Reviewer to
+# agree. The run pipeline scans the whole settings map for secrets as it does every value.
 #
 # Security sensitive objects (XO servers, backup repositories, users, groups, ACL roles) have the
 # object floor high. The only fields classed secret are the sign in methods of a user and the device
@@ -89,7 +91,8 @@ types:
       tags: set
       boot.order: ordered-scalar
   # Only templates that are not built in belong here: the collector drops the built in ones after
-  # the fetch (P8-T2). The field that tells them apart is not named by the plan and is unverified.
+  # the fetch (P8-T2). The field that tells them apart (isDefaultTemplate) is not named by the plan
+  # and is UNVERIFIED; the collector requests it for this resource only and it is ignore class.
   - resource: vm-templates
     key_field: id
     name_field: name_label
@@ -135,6 +138,7 @@ types:
       snapshots: ignore
       VDIs: ignore
       parent: ignore
+      isDefaultTemplate: ignore
     lists:
       tags: set
       boot.order: ordered-scalar
@@ -340,32 +344,24 @@ types:
       remotes: config
       srs: config
       vms: config
-      settings: ignore
+      settings.exportRetention: config
+      settings.snapshotRetention: config
+      settings.copyRetention: config
+      settings.reportRecipients: config
+      settings.reportWhen: config
+      settings.timeout: config
+      settings.concurrency: config
+      settings.offlineBackup: config
+      settings.offlineSnapshot: config
+      settings.fullInterval: config
+      settings.checkpointSnapshot: config
       userId: ignore
     lists:
       remotes: set
       srs: set
       # The selection of VMs is a list of ids or a filter object; a filter object has no list.
       vms: set
-  - resource: backup-job-settings
-    key_field: id
-    fields:
-      id: config
-      jobId: config
-      scheduleId: config
-      exportRetention: config
-      snapshotRetention: config
-      copyRetention: config
-      reportRecipients: config
-      reportWhen: config
-      timeout: config
-      concurrency: config
-      offlineBackup: config
-      offlineSnapshot: config
-      fullInterval: config
-      checkpointSnapshot: config
-    lists:
-      reportRecipients: set
+      settings.reportRecipients: set
   - resource: schedules
     key_field: id
     name_field: name

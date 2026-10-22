@@ -22,10 +22,9 @@ and shown; the values in them start with `CANARY-`.
   of a first-match list is one insert and HIGH, a swap of neighbours is one move and at least HIGH,
   a move across a `deny` or `drop` policy is CRITICAL, a deleted policy is CRITICAL, and a
   reordered set is no change.
-- Rows 6 and 13 name a setting of a backup job. In the test-only tables they are plain nested
-  fields (`settings.reportRecipients`, `settings.exportRetention`). The shipped table describes the
-  settings through a derived resource, `backup-job-settings`; whether the collector or the table
-  carries that is an open decision that has to be taken before P8-T2.
+- Rows 6 and 13 name a setting of a backup job. In the test-only tables and in the shipped table
+  they are plain nested fields of `backup-jobs` (`settings.reportRecipients`,
+  `settings.exportRetention`); there is no derived resource (decision of Core on THE-359).
 
 ## The type coverage check
 
