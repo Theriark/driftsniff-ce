@@ -219,6 +219,15 @@ class ResourceTable(StaticTypeTable):
     blocking_actions: frozenset[str] = frozenset()
     first_match: bool = False
     first_match_lists: frozenset[str] = frozenset()
+    hidden_by_xo: frozenset[str] = frozenset()
+
+    def is_hidden_by_xo(self, path: str) -> bool:
+        """Whether Xen Orchestra itself never returns the value at ``path``.
+
+        A change to such a value cannot be observed, so the interface says "hidden by XO" instead
+        of showing a field that never moves. The marker does not change the class of the field.
+        """
+        return path in self.hidden_by_xo
 
     def floor_for(self, change_kind: str) -> Severity | None:
         """The floor of ``change_kind`` (``added``, ``removed``, ``modified`` or ``moved``)."""
@@ -253,6 +262,7 @@ class TypeSpec(BaseModel):
     action_field: str | None = Field(default=None, min_length=1)
     blocking_actions: list[str] | None = None
     first_match: bool = False
+    hidden_by_xo: list[str] = Field(default_factory=list)
 
     @field_validator("blocking_actions")
     @classmethod
@@ -269,6 +279,15 @@ class TypeSpec(BaseModel):
     def _paths_are_valid(cls, value: Mapping[str, object]) -> Mapping[str, object]:
         for path in value:
             _check_segments(path, wildcards=False)
+        return value
+
+    @field_validator("hidden_by_xo")
+    @classmethod
+    def _hidden_paths_are_valid(cls, value: list[str]) -> list[str]:
+        for path in value:
+            _check_segments(path, wildcards=False)
+        if len(set(value)) != len(value):
+            raise ValueError("hidden_by_xo names a path twice")
         return value
 
     @model_validator(mode="after")
@@ -326,6 +345,7 @@ class TypeSpec(BaseModel):
             blocking_actions=self.effective_blocking_actions(),
             first_match=self.first_match,
             first_match_lists=ordered,
+            hidden_by_xo=frozenset(self.hidden_by_xo),
         )
 
 
