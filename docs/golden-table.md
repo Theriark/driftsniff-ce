@@ -16,7 +16,10 @@ and shown; the values in them start with `CANARY-`.
   [rules.md](rules.md)).
 - The rows that the plan marks for the shipped run run again against the shipped packs: the UniFi
   rows (3, 5, 16, 17, 21, 22) in `tests/golden/test_golden_unifi_shipped.py` (P7-T4), the Xen
-  Orchestra rows in P8-T3. UniFi rows 7 and 9 need a site settings field that the shipped table
+  Orchestra rows (1, 2, 4, 6, 8, 10 to 15, 18 to 20, 23) in `tests/golden/test_golden_xo_shipped.py`
+  (P8-T3). Row 8 (`docker` is ignore class) and row 18 (no password hash is collected; the
+  shipped secret field `authProviders` runs in its place, severity high) are pinned, not run as
+  written. UniFi rows 7 and 9 need a site settings field that the shipped table
   does not have, so they are not run (the plan says: only if the field exists).
 - `tests/golden/test_ordering.py` runs the ordering fixtures through the engine: an insert at the top
   of a first-match list is one insert and HIGH, a swap of neighbours is one move and at least HIGH,
