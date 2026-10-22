@@ -82,7 +82,7 @@ reuses `CanaryFactory`, `CanaryScanner` and `scan_database_rows`.
 
 | Surface | Planted | How it is searched |
 |---|---|---|
-| API output | values of secret and unclassified items (never written by the pipeline, so the API must hide them even if a row held them); credential-shaped text in an item path, object name, rationale and order detail; the values of the API tokens, the session cookie, the login password; a token sent in a request; the webhook address secrets and the mail login and password | the body and every header of the change list and detail, the enrichment answer, `GET /tokens`, a refused token, the notification channel (webhook and mail) and the deliveries |
+| API output | values of secret and unclassified items (never written by the pipeline, so the API must hide them even if a row held them); credential-shaped text in an item path, object name, rationale and order detail; the values of the API tokens, the session cookie, the login password; a token sent in a request; the webhook address secrets and the mail password (the mail user name is shown to admins by design) | the body and every header of the change list and detail, the enrichment answer, `GET /tokens`, a refused token, the notification channel (webhook and mail) and the deliveries |
 | OpenAPI document | all of the above | the body and headers of `GET /api/v1/openapi.json` |
 | Backup file | the login password, the session cookie, the token values, the webhook address secrets, the mail login and password | the bytes of the file made by `backup_database`, then every row with compressed columns decompressed |
 
