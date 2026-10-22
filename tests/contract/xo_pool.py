@@ -138,14 +138,16 @@ def _apply(collections: dict[str, list[dict[str, Any]]], changes: list[dict[str,
 def pool_scenario(
     seeds: Seeds,
     phase: Phase = "base",
+    credential: str | None = CANARY_TOKEN,
     *,
-    expected_token: str | None = CANARY_TOKEN,
+    listed: list[dict[str, Any]] | None = None,
 ) -> Scenario:
     """The fake Xen Orchestra of the pool in one phase of the backup run.
 
-    The collections that the collector never requests (snapshots, tasks, logs, alarms) are served
-    too, so that a request for one of them would find objects. In ``during`` the two snapshot
-    collections and the task list hold the objects of the run.
+    ``credential`` is the session credential the server accepts and ``listed`` the answer of its
+    credential list. The collections that the collector never requests (snapshots, tasks, logs,
+    alarms) are served too, so that a request for one of them would find objects. In ``during`` the
+    two snapshot collections and the task list hold the objects of the run.
     """
     data = load_pool()
     collections = seeded(data["collections"], seeds)
@@ -155,7 +157,7 @@ def pool_scenario(
         _apply(collections, copy.deepcopy(data["backupRun"][phase]))
     if phase == "during":
         objects.update(copy.deepcopy(data["backupRun"]["snapshotObjects"]))
-    return Scenario(expected_token=expected_token, objects=objects)
+    return Scenario(credential, objects, tokens=listed)
 
 
 def kept_counts() -> dict[str, int]:
@@ -179,8 +181,8 @@ def open_database(directory: Path) -> Database:
 
 
 def collect(
-    pipeline: RunPipeline, server: FakeXo, *, token: str = CANARY_TOKEN, **options: Any
+    pipeline: RunPipeline, server: FakeXo, *, session: str = CANARY_TOKEN, **options: Any
 ) -> RunReport:
-    """One run of the real client against the fake Xen Orchestra."""
-    client = XoClient(server.url, token, allow_plain_http=True, **options)
+    """One run of the real client against the fake Xen Orchestra, with ``session`` as credential."""
+    client = XoClient(server.url, session, allow_plain_http=True, **options)
     return pipeline.run(SOURCE_ID, client)
