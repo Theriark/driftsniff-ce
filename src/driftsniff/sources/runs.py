@@ -118,6 +118,8 @@ class _Outcome:
     collected: CollectedResource | None = None
     error_class: str | None = None
     error_text: str | None = None
+    warning_class: str | None = None
+    warning_text: str | None = None
 
 
 def _failure(
@@ -588,7 +590,14 @@ class RunPipeline:
             shown = None if table.name_field is None else state.get(table.name_field)
             collected.append(CollectedObject(key, state, shown if isinstance(shown, str) else None))
         ordered = table.collection is CollectionMode.ORDERED_KEYED
-        return _Outcome(name, STATUS_OK, fetched, CollectedResource(collected, ordered=ordered))
+        return _Outcome(
+            name,
+            STATUS_OK,
+            fetched,
+            CollectedResource(collected, ordered=ordered),
+            warning_class=result.warning_class,
+            warning_text=result.warning_text,
+        )
 
     def _store(
         self, source_id: int, run_id: int, version: str | None, outcomes: Sequence[_Outcome]
@@ -603,12 +612,33 @@ class RunPipeline:
             controller_version=version,
         )
         failed = [outcome for outcome in outcomes if outcome.collected is None]
-        status: Literal["ok", "partial"] = "partial" if failed else "ok"
+        # A resource that was read but needed a repair (an ordering list that did not match its
+        # objects) is stored, and still makes the run partial.
+        warned = [
+            outcome
+            for outcome in outcomes
+            if outcome.collected is not None and outcome.warning_class is not None
+        ]
+        status: Literal["ok", "partial"] = "partial" if failed or warned else "ok"
         failed_class = failed[0].error_class if failed else None
         failed_summary: str | None = None
         if failed:
             listed = "; ".join(f"{outcome.name} ({outcome.status})" for outcome in failed)
-            failed_summary = error_summary(f"failed: {listed}")
+            failed_summary = f"failed: {listed}"
+        if warned:
+            repaired = "; ".join(
+                f"{outcome.name} ({outcome.warning_class}: {outcome.warning_text or 'repaired'})"
+                for outcome in warned
+            )
+            failed_summary = (
+                f"repaired: {repaired}"
+                if failed_summary is None
+                else f"{failed_summary}; repaired: {repaired}"
+            )
+            if failed_class is None:
+                failed_class = warned[0].warning_class
+        if failed_summary is not None:
+            failed_summary = error_summary(failed_summary)
         with self._database.write() as connection:
             last_success = connection.execute(
                 sa.select(sources.c.last_success_at).where(sources.c.id == source_id)
