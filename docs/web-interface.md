@@ -110,5 +110,48 @@ other answer. The route is listed in the route table as public.
   callers their access excludes.
 - `tests/security/test_template_scan.py`: no template switches escaping off.
 
-Screenshots at 1440, 768 and 390 px of the shell on Development are taken when the first page
-that uses it (the sign-in page of P10-T3) is deployed; this task ships no page route of its own.
+Screenshots at 1440, 768 and 390 px of the shell on Development are taken with the first pages
+that use it (P10-T3, section 8); P10-T2 shipped no page route of its own.
+
+## 8. Setup, sign-in, sign-out and the status pages (P10-T3)
+
+Task THE-856 (Jira DRS-231). The first screens of the product, built on the shell. The code is
+in `src/driftsniff/web/pages.py` (rendering, content negotiation, the status pages) and the
+page routes of `src/driftsniff/web/routes_ui.py`; the templates are `setup.html`, `login.html`,
+`dashboard.html` and `status.html`.
+
+**A browser gets a page, everyone else gets JSON.** A request whose `Accept` header names
+`text/html` (or `application/xhtml+xml`) is a browser and receives the page, in every state. A
+request without it (the test client, curl, scripts, the API) keeps the JSON answers described in
+`docs/auth.md`, with the same status codes, cookies and checks. Nothing else differs.
+
+| Route | Who | What |
+|---|---|---|
+| `GET /` | signed in (any role) | the dashboard; P10-T3 ships the page header and the designed empty state with the one action (`Add source`), P10-T4 adds the data. A browser without a session is sent to `/setup` while no admin exists, else to `/login` (with `next` when it asked for another page); a plain client gets 401. Without a sign-in service: 503. |
+| `GET /setup` | anyone, until the first admin exists | the one-time code, the admin user name and the password, each with its rule next to the field (12 characters at least; length is the only rule). 404 like an unknown route once any admin exists. |
+| `POST /setup` | as above | a browser gets the page back with the field in error: the code field for a wrong code (403), the user name or the password for a rule the service refused (422), and a banner that names the wait after repeated wrong codes (429, `Retry-After` kept). The code and the password are never filled back in; the user name is. Success is 303 to `/` with the session cookie. |
+| `GET /login` | anyone | the sign-in page; a signed-in user goes to `/`; with no admin yet, to `/setup`. `?next=` (a local path only) is carried in a hidden field; `?signed-out=1` shows the success banner "Signed out". |
+| `POST /login` | anyone | one generic failure banner whatever the reason (401), the wait banner after five failures (429); success is 303 to `next` (a local path, else `/`). |
+| `POST /logout` | signed in, with the CSRF value | ends the session and answers 303 to `/login?signed-out=1`. |
+
+**Status pages.** The application's `HTTPException` handler (`handle_http_exception`) turns,
+for a browser and outside `/api/v1`, a 401 into the sign-in redirect above, a 403 into the
+"Your role does not allow this" page and a 404 into the "Page not found" page, both with the
+shell of whoever is signed in and one action back to the start. Every other status, every API
+path and every non-browser client get FastAPI's own JSON answer. The refusals the hardening
+middleware writes itself (wrong origin, missing CSRF value, oversized body) stay JSON.
+
+**Composition.** Both pre-session pages are the designed empty state as a screen: the ferret
+mark on the guide's light rounded tile (`.mark-tile`, also added to the `empty_state` macro so
+the mark is never bare on the dark theme), one heading at 24 px, one sentence, and the card
+with the single primary action. The column is 440 px wide and centred; at 390 px the card
+padding drops to 24 px. The `text_field` macro gained `required`, `autofocus`, `mono` and
+`autocapitalize`, each emitted only when set. The first field has `autofocus`; every field has
+a label, `autocomplete` and, where there is a rule, help text that stays when the error appears.
+
+**Checks.** `tests/unit/test_web_pages.py`: the full first run (start page to setup page to a
+working admin session on the dashboard, then the setup page is 404 for a browser and for a plain
+client), every failure state of both forms, the generic error with the user name escaped and
+the password never echoed, the wait banner with `Retry-After`, `next` kept only for a local
+path, sign-out confirmation, the 403 and 404 pages, and the JSON answers of plain clients. The
+route table lists `GET /`, `GET /setup` and `GET /login`.
