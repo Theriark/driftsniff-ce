@@ -118,12 +118,12 @@ def merge_ordering(objects: Sequence[dict[str, Any]], orderings: Sequence[Sequen
     dropped = 0
     for listed in orderings:
         for key in listed:
-            position = index_of.get(key)
-            if position is None or position in used:
+            found = index_of.get(key)
+            if found is None or found in used:
                 dropped += 1
                 continue
-            used.add(position)
-            ordered.append(objects[position])
+            used.add(found)
+            ordered.append(objects[found])
     leftover = [item for position, item in enumerate(objects) if position not in used]
     ordered.extend(leftover)
     return Merged(ordered, len(leftover), dropped)

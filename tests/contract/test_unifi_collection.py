@@ -405,7 +405,10 @@ def test_a_policy_missing_from_the_controller_is_a_critical_removal(
 ) -> None:
     with fake_unifi(pipeline_scenario()) as server:
         collect(pipeline, server)
-        server.scenario.objects["firewall/policies"] = [policy("p1"), policy("p3")]
+        server.scenario.objects["firewall/policies"] = [
+            policy("p1", verdict="ALLOW"),
+            policy("p3", verdict="ALLOW"),
+        ]
         server.scenario.firewall_order[("site-a", "z1", "z2")] = (["p1", "p3"], [])
         report = collect(pipeline, server)
     assert report.status == "ok"
