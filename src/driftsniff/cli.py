@@ -184,6 +184,7 @@ def _serve(settings: Settings) -> int:
 
     from driftsniff.main import create_app
     from driftsniff.web.auth import AuthService
+    from driftsniff.web.bearer import TokenService
 
     status = _migrate(settings)
     if status != 0:
@@ -205,7 +206,13 @@ def _serve(settings: Settings) -> int:
             # Shown once: only a hash is stored. `driftsniff create-admin-code` makes another.
             print(f"first-run setup code (shown once): {setup_code}", flush=True)
         uvicorn.run(
-            create_app(settings, master_key, retention=RetentionJob(database), auth=auth),
+            create_app(
+                settings,
+                master_key,
+                retention=RetentionJob(database),
+                auth=auth,
+                tokens=TokenService(database),
+            ),
             host=host,
             port=settings.port,
             log_level=settings.log_level,
