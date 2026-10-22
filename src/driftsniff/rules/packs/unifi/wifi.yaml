@@ -1,0 +1,49 @@
+# UniFi rules for WiFi broadcasts (P7-T4). The type table gives them the object floor high, so a
+# rule here only matters when it is critical or when it explains why the change is serious.
+# The names and values of the security types are unverified (docs/vendor-notes/unifi.md,
+# statement 7); the lists below spell the likely ones in upper and lower case.
+version: 1
+rules:
+  - id: unifi.wifi.security_to_open
+    resource: unifi-wifi-broadcasts
+    path: securityConfiguration.type
+    when:
+      name: enum_transition
+      from:
+        - WPA_PERSONAL
+        - WPA2_PERSONAL
+        - WPA3_PERSONAL
+        - WPA2_WPA3_PERSONAL
+        - WPA2_ENTERPRISE
+        - WPA3_ENTERPRISE
+        - wpa
+        - wpa2
+        - wpa3
+        - wpa-psk
+        - wpa2-psk
+        - wpa3-sae
+      to: [OPEN, open, NONE, none]
+    severity: critical
+    rationale: A secured wireless network became open, so anyone in range can join it.
+  - id: unifi.wifi.security_type
+    resource: unifi-wifi-broadcasts
+    path: securityConfiguration.type
+    severity: high
+    rationale: The security mode of a wireless network changed, which changes how devices prove they may join.
+  - id: unifi.wifi.passphrase
+    resource: unifi-wifi-broadcasts
+    path: securityConfiguration.passphrase
+    when: changed
+    severity: critical
+    rationale: The passphrase of a wireless network changed, so its access control changed.
+  - id: unifi.wifi.network_id
+    resource: unifi-wifi-broadcasts
+    path: network.networkId
+    severity: high
+    rationale: A wireless network now connects its clients to a different network, which changes what they can reach.
+  - id: unifi.wifi.client_isolation_off
+    resource: unifi-wifi-broadcasts
+    path: clientIsolationEnabled
+    when: {name: boolean_flips_to, value: false}
+    severity: high
+    rationale: Client isolation of a wireless network was switched off, so its clients can reach each other.

@@ -14,8 +14,10 @@ and shown; the values in them start with `CANARY-`.
   does not collect (`docker.enabled`, `pw_hash`). The UniFi resource names carry the prefix
   `unifi-` because a resource can be defined only once across all type files (see
   [rules.md](rules.md)).
-- The rows that the plan marks for the shipped run run again against the shipped packs in P7-T4
-  (UniFi) and P8-T3 (Xen Orchestra).
+- The rows that the plan marks for the shipped run run again against the shipped packs: the UniFi
+  rows (3, 5, 16, 17, 21, 22) in `tests/golden/test_golden_unifi_shipped.py` (P7-T4), the Xen
+  Orchestra rows in P8-T3. UniFi rows 7 and 9 need a site settings field that the shipped table
+  does not have, so they are not run (the plan says: only if the field exists).
 - `tests/golden/test_ordering.py` runs the ordering fixtures through the engine: an insert at the top
   of a first-match list is one insert and HIGH, a swap of neighbours is one move and at least HIGH,
   a move across a `deny` or `drop` policy is CRITICAL, a deleted policy is CRITICAL, and a

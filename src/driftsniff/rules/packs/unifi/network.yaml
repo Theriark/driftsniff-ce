@@ -1,0 +1,109 @@
+# UniFi rules for sites, networks, DNS policies, traffic matching lists, WANs and device tags
+# (P7-T4). Every field name in the type table is unverified (docs/vendor-notes/unifi.md), and so
+# are the values the predicates compare; a name or value that differs on a real controller
+# simply does not match and the change falls back to the unclassified rule or an object floor.
+# The DNS server lists are ordered, so a change is reported per position (dnsServers.0) and the
+# rule path ends with **.
+version: 1
+rules:
+  - id: unifi.sites.name
+    resource: unifi-sites
+    path: name
+    severity: low
+    rationale: The site was renamed, which changes only how people find it.
+  - id: unifi.sites.internal_reference
+    resource: unifi-sites
+    path: internalReference
+    severity: low
+    rationale: The internal reference of the site changed, which the controller uses for bookkeeping.
+  - id: unifi.networks.name
+    resource: unifi-networks
+    path: name
+    severity: low
+    rationale: The network was renamed, which changes only how people find it.
+  - id: unifi.networks.enabled
+    resource: unifi-networks
+    path: enabled
+    severity: medium
+    rationale: A network was switched on or off, which changes which devices can use it.
+  - id: unifi.networks.management
+    resource: unifi-networks
+    path: management
+    severity: high
+    rationale: The management flag of a network changed, so the network that carries device administration traffic is a different one.
+  - id: unifi.networks.vlan_id
+    resource: unifi-networks
+    path: vlanId
+    severity: medium
+    rationale: The VLAN number of a network changed, which can cut devices off from it or join them to another one.
+  - id: unifi.networks.internet_access_on
+    resource: unifi-networks
+    path: internetAccessEnabled
+    when: {name: boolean_flips_to, value: true}
+    severity: high
+    rationale: A network that had no internet access can now reach the internet.
+  - id: unifi.networks.internet_access
+    resource: unifi-networks
+    path: internetAccessEnabled
+    severity: medium
+    rationale: The internet access setting of a network changed.
+  - id: unifi.networks.trusted_dhcp_servers
+    resource: unifi-networks
+    path: dhcpGuarding.trustedDhcpServerIpAddresses
+    severity: high
+    rationale: The DHCP servers trusted on a network changed, so another machine may now hand out addresses.
+  - id: unifi.networks.dns_servers
+    resource: unifi-networks
+    path: dhcpConfig.dnsServers.**
+    severity: high
+    rationale: The DNS servers handed to the clients of a network changed, which can redirect every name lookup they make.
+  - id: unifi.dns_policies.domain
+    resource: unifi-dns-policies
+    path: domain
+    severity: high
+    rationale: A DNS policy now answers for a different domain, which changes where that name leads.
+  - id: unifi.dns_policies.enabled
+    resource: unifi-dns-policies
+    path: enabled
+    severity: medium
+    rationale: A DNS policy was switched on or off, which changes how its domain is answered.
+  - id: unifi.dns_policies.type
+    resource: unifi-dns-policies
+    path: type
+    severity: medium
+    rationale: The kind of a DNS policy changed, which changes the kind of answer it gives.
+  - id: unifi.traffic_matching_lists.name
+    resource: unifi-traffic-matching-lists
+    path: name
+    severity: low
+    rationale: A traffic matching list was renamed, which changes only how people find it.
+  - id: unifi.traffic_matching_lists.type
+    resource: unifi-traffic-matching-lists
+    path: type
+    severity: medium
+    rationale: The kind of a traffic matching list changed, which changes what its entries mean.
+  - id: unifi.traffic_matching_lists.items
+    resource: unifi-traffic-matching-lists
+    path: items
+    severity: high
+    rationale: The entries of a traffic matching list changed, which changes what every firewall policy that uses the list matches.
+  - id: unifi.wans.name
+    resource: unifi-wans
+    path: name
+    severity: low
+    rationale: An internet connection was renamed, which changes only how people find it.
+  - id: unifi.wans.dns_servers
+    resource: unifi-wans
+    path: dnsServers.**
+    severity: high
+    rationale: The DNS servers of an internet connection changed, which can redirect the name lookups of the whole site.
+  - id: unifi.device_tags.name
+    resource: unifi-device-tags
+    path: name
+    severity: low
+    rationale: A device tag was renamed, which changes only how people find it.
+  - id: unifi.device_tags.device_ids
+    resource: unifi-device-tags
+    path: deviceIds
+    severity: medium
+    rationale: The devices that carry a tag changed, which can change which settings apply to them.
