@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard, driftsniff</title>
+<link rel="icon" href="../../brand/favicon-32x32.png">
+<link rel="stylesheet" href="theme.css">
+<link rel="stylesheet" href="mockup.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<svg class="hidden-symbols" aria-hidden="true" focusable="false">
+  <symbol id="sev-low" viewBox="0 0 12 12"><circle cx="6" cy="6" r="5"/></symbol>
+  <symbol id="sev-medium" viewBox="0 0 12 12"><path d="M6 1 L11 11 H1 Z"/></symbol>
+  <symbol id="sev-high" viewBox="0 0 12 12"><path d="M6 0.5 L11.5 6 L6 11.5 L0.5 6 Z"/></symbol>
+  <symbol id="sev-critical" viewBox="0 0 12 12"><path d="M3.8 0.5 H8.2 L11.5 3.8 V8.2 L8.2 11.5 H3.8 L0.5 8.2 V3.8 Z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 12 12"><path d="M2 6.5 L5 9.5 L10 3" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+  <symbol id="i-cross" viewBox="0 0 12 12"><path d="M2.5 2.5 L9.5 9.5 M9.5 2.5 L2.5 9.5" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+  <symbol id="i-half" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M6 1.5 A4.5 4.5 0 0 1 6 10.5 Z"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M6 3.5 V6 L8 7.5" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-lock-open" viewBox="0 0 12 12"><rect x="2" y="5.5" width="8" height="5.5" rx="1"/><path d="M4 5.5 V3.5 A2 2 0 0 1 8 3" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-dash" viewBox="0 0 12 12"><path d="M2 6 H10" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+  <symbol id="i-key" viewBox="0 0 14 14"><circle cx="5" cy="5" r="3" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M7.5 7.5 L12 12 M10 10 L11.5 8.5" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-info" viewBox="0 0 18 18"><circle cx="9" cy="9" r="7.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M9 8 V13 M9 5.5 V6.5" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+  <symbol id="i-sort" viewBox="0 0 10 10"><path d="M2 4 L5 1 L8 4 M2 6 L5 9 L8 6" fill="none" stroke-width="1.5"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 20 20"><path d="M3 5 H17 M3 10 H17 M3 15 H17" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+  <symbol id="i-search" viewBox="0 0 16 16"><circle cx="7" cy="7" r="5" fill="none" stroke-width="1.6"/><path d="M11 11 L15 15" stroke-width="1.6"/></symbol>
+</svg>
+
+<header class="app-header">
+  <div class="app-header__inner">
+    <a class="brand" href="dashboard.html" aria-label="driftsniff, dashboard">
+      <img class="brand__logo brand__logo--light" src="../../brand/logo-horizontal-1200x400.png" alt="driftsniff" width="144" height="48">
+      <img class="brand__logo brand__logo--dark" src="../../brand/logo-horizontal-dark-1200x400.png" alt="driftsniff" width="144" height="48">
+    </a>
+    <details class="menu-toggle">
+      <summary aria-label="Open navigation"><svg width="20" height="20" aria-hidden="true" focusable="false"><use href="#i-menu"/></svg></summary>
+    </details>
+    <nav class="nav" aria-label="Main"><a href="dashboard.html" aria-current="page">Dashboard</a><a href="changes.html">Changes</a><a href="source.html">Sources</a><a href="#history">History</a><a href="#configuration">Configuration</a><a href="#settings">Settings</a></nav>
+    <div class="header-tools">
+      <span class="env-badge">Development</span>
+      <details class="user-menu">
+        <summary><span class="avatar" aria-hidden="true">RM</span><span class="user-name">r.marques</span><span class="visually-hidden">, account menu</span></summary>
+        <div class="user-menu__list">
+          <a href="#account">Your account (admin)</a>
+          <form method="post" action="#logout"><button type="submit">Sign out</button></form>
+        </div>
+      </details>
+    </div>
+  </div>
+</header>
+<main id="main" class="page">
+
+<div class="page-header">
+  <div>
+    <h1>Dashboard</h1>
+    <p class="purpose">What changed across your sources in the last 30 days, and what still needs a decision.</p>
+  </div>
+  <div class="page-header__actions">
+    <a class="btn btn--primary" href="#add-source">Add source</a>
+  </div>
+</div>
+
+<div class="stat-grid">
+  <a class="card stat" href="changes.html">
+    <span class="stat__label">Open changes</span>
+    <span class="stat__value num">23</span>
+    <svg class="stat__spark" viewBox="0 0 96 36" aria-hidden="true" focusable="false"><polyline points="0.0,26.4 8.7,22.1 17.5,24.3 26.2,15.7 34.9,20.0 43.6,9.3 52.4,13.6 61.1,5.0 69.8,11.4 78.5,15.7 87.3,17.9 96.0,22.1" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+    <span class="stat__delta stat__delta--down num">5 fewer than the previous 7 days</span>
+  </a>
+  <a class="card stat" href="changes.html">
+    <span class="stat__label">Critical and high, open</span>
+    <span class="stat__value num">7</span>
+    <svg class="stat__spark" viewBox="0 0 96 36" aria-hidden="true" focusable="false"><polyline points="0.0,35.0 8.7,30.7 17.5,30.7 26.2,35.0 34.9,26.4 43.6,26.4 52.4,22.1 61.1,22.1 69.8,17.9 78.5,13.6 87.3,9.3 96.0,5.0" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+    <span class="stat__delta stat__delta--alert num">3 critical, 4 high</span>
+  </a>
+  <a class="card stat" href="source.html">
+    <span class="stat__label">Sources healthy</span>
+    <span class="stat__value num">2<small> of 4</small></span>
+    <svg class="stat__spark" viewBox="0 0 96 36" aria-hidden="true" focusable="false"><polyline points="0.0,5.0 8.7,5.0 17.5,5.0 26.2,5.0 34.9,12.5 43.6,12.5 52.4,5.0 61.1,5.0 69.8,12.5 78.5,20.0 87.3,20.0 96.0,20.0" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+    <span class="stat__delta stat__delta--up">1 failing, 1 stale</span>
+  </a>
+  <a class="card stat" href="#settings">
+    <span class="stat__label">Storage used</span>
+    <span class="stat__value num">412<small> MB</small></span>
+    <svg class="stat__spark" viewBox="0 0 96 36" aria-hidden="true" focusable="false"><polyline points="0.0,20.4 8.7,18.3 17.5,16.8 26.2,15.3 34.9,13.2 43.6,11.7 52.4,10.2 61.1,8.8 69.8,7.3 78.5,6.6 87.3,5.9 96.0,5.0" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+    <span class="stat__delta num">21% of the 2 GB warning size</span>
+  </a>
+</div>
+
+<div class="section grid-5-7">
+  <section class="card" aria-labelledby="posture-h">
+    <h2 id="posture-h">Open items by severity</h2>
+    <div class="posture">
+      <svg viewBox="0 0 160 160" role="img" aria-labelledby="ring-t ring-d"><title id="ring-t">Open change items by severity</title><desc id="ring-d">23 open items: 9 low, 7 medium, 4 high, 3 critical. Counts only, not a score.</desc><circle class="ring-track" cx="80" cy="80" r="60"/><circle class="ring-seg ring-seg--low" cx="80" cy="80" r="60" stroke-dasharray="145.5 231.5" stroke-dashoffset="-0.0" transform="rotate(-90 80 80)"/><circle class="ring-seg ring-seg--medium" cx="80" cy="80" r="60" stroke-dasharray="112.7 264.3" stroke-dashoffset="-147.5" transform="rotate(-90 80 80)"/><circle class="ring-seg ring-seg--high" cx="80" cy="80" r="60" stroke-dasharray="63.6 313.4" stroke-dashoffset="-262.3" transform="rotate(-90 80 80)"/><circle class="ring-seg ring-seg--critical" cx="80" cy="80" r="60" stroke-dasharray="47.2 329.8" stroke-dashoffset="-327.8" transform="rotate(-90 80 80)"/><text class="ring-value" x="80" y="86" text-anchor="middle">23</text><text class="ring-caption" x="80" y="106" text-anchor="middle">open items</text></svg>
+      <div class="posture-list">
+        <a href="changes.html"><span class="sev sev--critical"><svg aria-hidden="true" focusable="false"><use href="#sev-critical"/></svg><span class="sev__label">Critical</span></span><span class="share">needs a decision now</span><span class="count num">3</span></a>
+        <a href="changes.html"><span class="sev sev--high"><svg aria-hidden="true" focusable="false"><use href="#sev-high"/></svg><span class="sev__label">High</span></span><span class="share">review this week</span><span class="count num">4</span></a>
+        <a href="changes.html"><span class="sev sev--medium"><svg aria-hidden="true" focusable="false"><use href="#sev-medium"/></svg><span class="sev__label">Medium</span></span><span class="share">worth a look</span><span class="count num">7</span></a>
+        <a href="changes.html"><span class="sev sev--low"><svg aria-hidden="true" focusable="false"><use href="#sev-low"/></svg><span class="sev__label">Low</span></span><span class="share">renames and cosmetic</span><span class="count num">9</span></a>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="attention-h">
+    <h2 id="attention-h">Needs attention</h2>
+    <ul class="attention">
+      <li class="is-critical">
+        <span class="sev sev--critical"><svg aria-hidden="true" focusable="false"><use href="#sev-critical"/></svg><span class="sev__label">Critical</span></span>
+        <div class="what"><a href="change-detail.html">Firewall policy Block guest to LAN deleted</a><span class="where">lab-controller, detected between 06:40 and 07:10 UTC today</span></div>
+        <a class="btn btn--small" href="change-detail.html#acknowledge">Review</a>
+      </li>
+      <li class="is-critical">
+        <span class="sev sev--critical"><svg aria-hidden="true" focusable="false"><use href="#sev-critical"/></svg><span class="sev__label">Critical</span></span>
+        <div class="what"><a href="change-detail.html">WiFi Guest security changed from WPA2 to open</a><span class="where">lab-controller, between 06:40 and 07:10 UTC today</span></div>
+        <a class="btn btn--small" href="change-detail.html#acknowledge">Review</a>
+      </li>
+      <li>
+        <span class="sev sev--high"><svg aria-hidden="true" focusable="false"><use href="#sev-high"/></svg><span class="sev__label">High</span></span>
+        <div class="what"><a href="change-detail.html">VM db-01 secure boot switched off</a><span class="where">office-xo, between 02:00 and 02:30 UTC yesterday</span></div>
+        <a class="btn btn--small" href="change-detail.html#acknowledge">Review</a>
+      </li>
+      <li>
+        <span class="status status--failing"><svg aria-hidden="true" focusable="false"><use href="#i-cross"/></svg>Failing</span>
+        <div class="what"><a href="source.html">branch-gw: 3 checks failed in a row</a><span class="where">Last error: the controller did not answer within 30 seconds</span></div>
+        <a class="btn btn--small" href="source.html">Open source</a>
+      </li>
+      <li>
+        <span class="status status--insecure"><svg aria-hidden="true" focusable="false"><use href="#i-lock-open"/></svg>Insecure TLS</span>
+        <div class="what"><a href="source.html">branch-gw runs with certificate checks off</a><span class="where">Enabled by r.marques on 2026-10-01, 09:12 UTC</span></div>
+        <a class="btn btn--small" href="source.html#tls">Fix TLS</a>
+      </li>
+      <li>
+        <span class="status status--stale"><svg aria-hidden="true" focusable="false"><use href="#i-clock"/></svg>Stale</span>
+        <div class="what"><a href="source.html">push-lab has not pushed for 9 days</a><span class="where">Expected every 24 hours</span></div>
+        <a class="btn btn--small" href="source.html">Open source</a>
+      </li>
+    </ul>
+  </section>
+</div>
+
+<section class="section" aria-labelledby="drift-h">
+  <div class="section-head">
+    <h2 id="drift-h">Drift line, last 30 days</h2>
+    <span class="hint">One mark per check. Hover or focus a mark to read the event.</span>
+  </div>
+  <div class="card">
+    <div class="driftlines"><div class="driftline"><a class="driftline__name" href="source.html">lab-controller</a><span class="driftline__meta">UniFi Network 10.2.1</span><div class="driftline__strip"><svg viewBox="0 0 616 32" role="img" aria-labelledby="src-a-t src-a-d"><title id="src-a-t">Drift line of lab-controller, last 30 days</title><desc id="src-a-d">One mark per check: a thin tick is a check without change, a taller shape is a check that found changes in the colour and shape of its highest severity, a hollow tick is a failed or partial run.</desc><line class="axis" x1="0" y1="30" x2="616" y2="30"/><line class="tick" x1="8" y1="14" x2="8" y2="26"><title>Check, no change</title></line><line class="tick" x1="28" y1="14" x2="28" y2="26"><title>Check, no change</title></line><line class="tick" x1="48" y1="14" x2="48" y2="26"><title>Check, no change</title></line><line class="tick" x1="68" y1="14" x2="68" y2="26"><title>Check, no change</title></line><line class="tick" x1="88" y1="14" x2="88" y2="26"><title>Check, no change</title></line><line class="tick" x1="108" y1="14" x2="108" y2="26"><title>Check, no change</title></line><line class="tick" x1="128" y1="14" x2="128" y2="26"><title>Check, no change</title></line><a href="change-detail.html"><circle class="mark mark--low" cx="148" cy="18" r="6"/><title>Low: network Guest renamed</title></a><line class="tick" x1="168" y1="14" x2="168" y2="26"><title>Check, no change</title></line><line class="tick" x1="188" y1="14" x2="188" y2="26"><title>Check, no change</title></line><line class="tick" x1="208" y1="14" x2="208" y2="26"><title>Check, no change</title></line><line class="tick" x1="228" y1="14" x2="228" y2="26"><title>Check, no change</title></line><line class="tick" x1="248" y1="14" x2="248" y2="26"><title>Check, no change</title></line><line class="tick" x1="268" y1="14" x2="268" y2="26"><title>Check, no change</title></line><line class="tick" x1="288" y1="14" x2="288" y2="26"><title>Check, no change</title></line><line class="tick" x1="308" y1="14" x2="308" y2="26"><title>Check, no change</title></line><a href="change-detail.html"><path class="mark mark--medium" d="M328 10 L336 25 H320 Z"/><title>Medium: backup report recipients changed</title></a><line class="tick" x1="348" y1="14" x2="348" y2="26"><title>Check, no change</title></line><line class="tick" x1="368" y1="14" x2="368" y2="26"><title>Check, no change</title></line><line class="tick" x1="388" y1="14" x2="388" y2="26"><title>Check, no change</title></line><line class="tick" x1="408" y1="14" x2="408" y2="26"><title>Check, no change</title></line><line class="tick" x1="428" y1="14" x2="428" y2="26"><title>Check, no change</title></line><line class="tick" x1="448" y1="14" x2="448" y2="26"><title>Check, no change</title></line><line class="tick" x1="468" y1="14" x2="468" y2="26"><title>Check, no change</title></line><line class="tick" x1="488" y1="14" x2="488" y2="26"><title>Check, no change</title></line><line class="tick" x1="508" y1="14" x2="508" y2="26"><title>Check, no change</title></line><line class="tick" x1="528" y1="14" x2="528" y2="26"><title>Check, no change</title></line><line class="tick" x1="548" y1="14" x2="548" y2="26"><title>Check, no change</title></line><a href="change-detail.html"><path class="mark mark--high" d="M568 9 L577 18 L568 27 L559 18 Z"/><title>High: VM db-01 secure boot switched off</title></a><line class="tick" x1="588" y1="14" x2="588" y2="26"><title>Check, no change</title></line><a href="change-detail.html"><path class="mark mark--critical" d="M604.3 9 H611.7 L617 14.3 V21.7 L611.7 27 H604.3 L599 21.7 V14.3 Z"/><title>Critical: firewall policy Block guest to LAN deleted</title></a></svg><div class="driftline__axis"><span>30 days ago</span><span>today</span></div></div></div><div class="driftline"><a class="driftline__name" href="source.html">office-xo</a><span class="driftline__meta">Xen Orchestra 5.108</span><div class="driftline__strip"><svg viewBox="0 0 616 32" role="img" aria-labelledby="src-b-t src-b-d"><title id="src-b-t">Drift line of office-xo, last 30 days</title><desc id="src-b-d">One mark per check: a thin tick is a check without change, a taller shape is a check that found changes in the colour and shape of its highest severity, a hollow tick is a failed or partial run.</desc><line class="axis" x1="0" y1="30" x2="616" y2="30"/><line class="tick" x1="8" y1="14" x2="8" y2="26"><title>Check, no change</title></line><line class="tick" x1="28" y1="14" x2="28" y2="26"><title>Check, no change</title></line><line class="tick" x1="48" y1="14" x2="48" y2="26"><title>Check, no change</title></line><line class="tick" x1="68" y1="14" x2="68" y2="26"><title>Check, no change</title></line><line class="tick" x1="88" y1="14" x2="88" y2="26"><title>Check, no change</title></line><line class="tick" x1="108" y1="14" x2="108" y2="26"><title>Check, no change</title></line><line class="tick" x1="128" y1="14" x2="128" y2="26"><title>Check, no change</title></line><line class="tick" x1="148" y1="14" x2="148" y2="26"><title>Check, no change</title></line><line class="tick" x1="168" y1="14" x2="168" y2="26"><title>Check, no change</title></line><line class="tick" x1="188" y1="14" x2="188" y2="26"><title>Check, no change</title></line><line class="tick" x1="208" y1="14" x2="208" y2="26"><title>Check, no change</title></line><line class="tick" x1="228" y1="14" x2="228" y2="26"><title>Check, no change</title></line><a href="change-detail.html"><path class="mark mark--medium" d="M248 10 L256 25 H240 Z"/><title>Medium: backup report recipients changed</title></a><line class="tick" x1="268" y1="14" x2="268" y2="26"><title>Check, no change</title></line><line class="tick" x1="288" y1="14" x2="288" y2="26"><title>Check, no change</title></line><line class="tick" x1="308" y1="14" x2="308" y2="26"><title>Check, no change</title></line><line class="tick" x1="328" y1="14" x2="328" y2="26"><title>Check, no change</title></line><line class="tick" x1="348" y1="14" x2="348" y2="26"><title>Check, no change</title></line><line class="tick" x1="368" y1="14" x2="368" y2="26"><title>Check, no change</title></line><line class="tick" x1="388" y1="14" x2="388" y2="26"><title>Check, no change</title></line><line class="tick" x1="408" y1="14" x2="408" y2="26"><title>Check, no change</title></line><line class="tick" x1="428" y1="14" x2="428" y2="26"><title>Check, no change</title></line><line class="tick" x1="448" y1="14" x2="448" y2="26"><title>Check, no change</title></line><line class="tick" x1="468" y1="14" x2="468" y2="26"><title>Check, no change</title></line><line class="tick" x1="488" y1="14" x2="488" y2="26"><title>Check, no change</title></line><line class="tick" x1="508" y1="14" x2="508" y2="26"><title>Check, no change</title></line><a href="change-detail.html"><path class="mark mark--high" d="M528 9 L537 18 L528 27 L519 18 Z"/><title>High: VM db-01 secure boot switched off</title></a><line class="tick" x1="548" y1="14" x2="548" y2="26"><title>Check, no change</title></line><line class="tick" x1="568" y1="14" x2="568" y2="26"><title>Check, no change</title></line><line class="tick" x1="588" y1="14" x2="588" y2="26"><title>Check, no change</title></line><line class="tick" x1="608" y1="14" x2="608" y2="26"><title>Check, no change</title></line></svg><div class="driftline__axis"><span>30 days ago</span><span>today</span></div></div></div><div class="driftline"><a class="driftline__name" href="source.html">branch-gw</a><span class="driftline__meta">UniFi Network 10.1.84</span><div class="driftline__strip"><svg viewBox="0 0 616 32" role="img" aria-labelledby="src-c-t src-c-d"><title id="src-c-t">Drift line of branch-gw, last 30 days</title><desc id="src-c-d">One mark per check: a thin tick is a check without change, a taller shape is a check that found changes in the colour and shape of its highest severity, a hollow tick is a failed or partial run.</desc><line class="axis" x1="0" y1="30" x2="616" y2="30"/><line class="tick" x1="8" y1="14" x2="8" y2="26"><title>Check, no change</title></line><line class="tick" x1="28" y1="14" x2="28" y2="26"><title>Check, no change</title></line><line class="tick" x1="48" y1="14" x2="48" y2="26"><title>Check, no change</title></line><line class="tick" x1="68" y1="14" x2="68" y2="26"><title>Check, no change</title></line><line class="tick" x1="88" y1="14" x2="88" y2="26"><title>Check, no change</title></line><line class="tick" x1="108" y1="14" x2="108" y2="26"><title>Check, no change</title></line><rect class="tick--hollow" x="125" y="12" width="6" height="14"><title>Check failed or partial</title></rect><rect class="tick--hollow" x="145" y="12" width="6" height="14"><title>Check failed or partial</title></rect><line class="tick" x1="168" y1="14" x2="168" y2="26"><title>Check, no change</title></line><line class="tick" x1="188" y1="14" x2="188" y2="26"><title>Check, no change</title></line><line class="tick" x1="208" y1="14" x2="208" y2="26"><title>Check, no change</title></line><line class="tick" x1="228" y1="14" x2="228" y2="26"><title>Check, no change</title></line><line class="tick" x1="248" y1="14" x2="248" y2="26"><title>Check, no change</title></line><line class="tick" x1="268" y1="14" x2="268" y2="26"><title>Check, no change</title></line><line class="tick" x1="288" y1="14" x2="288" y2="26"><title>Check, no change</title></line><line class="tick" x1="308" y1="14" x2="308" y2="26"><title>Check, no change</title></line><line class="tick" x1="328" y1="14" x2="328" y2="26"><title>Check, no change</title></line><line class="tick" x1="348" y1="14" x2="348" y2="26"><title>Check, no change</title></line><line class="tick" x1="368" y1="14" x2="368" y2="26"><title>Check, no change</title></line><line class="tick" x1="388" y1="14" x2="388" y2="26"><title>Check, no change</title></line><line class="tick" x1="408" y1="14" x2="408" y2="26"><title>Check, no change</title></line><line class="tick" x1="428" y1="14" x2="428" y2="26"><title>Check, no change</title></line><a href="change-detail.html"><circle class="mark mark--low" cx="448" cy="18" r="6"/><title>Low: network Guest renamed</title></a><line class="tick" x1="468" y1="14" x2="468" y2="26"><title>Check, no change</title></line><line class="tick" x1="488" y1="14" x2="488" y2="26"><title>Check, no change</title></line><line class="tick" x1="508" y1="14" x2="508" y2="26"><title>Check, no change</title></line><line class="tick" x1="528" y1="14" x2="528" y2="26"><title>Check, no change</title></line><line class="tick" x1="548" y1="14" x2="548" y2="26"><title>Check, no change</title></line><line class="tick" x1="568" y1="14" x2="568" y2="26"><title>Check, no change</title></line><line class="tick" x1="588" y1="14" x2="588" y2="26"><title>Check, no change</title></line><rect class="tick--hollow" x="605" y="12" width="6" height="14"><title>Check failed or partial</title></rect></svg><div class="driftline__axis"><span>30 days ago</span><span>today</span></div></div></div><div class="driftline"><a class="driftline__name" href="source.html">push-lab</a><span class="driftline__meta">Push source</span><div class="driftline__strip"><svg viewBox="0 0 596 32" role="img" aria-labelledby="src-d-t src-d-d"><title id="src-d-t">Drift line of push-lab, last 30 days</title><desc id="src-d-d">One mark per check: a thin tick is a check without change, a taller shape is a check that found changes in the colour and shape of its highest severity, a hollow tick is a failed or partial run.</desc><line class="axis" x1="0" y1="30" x2="596" y2="30"/><line class="tick" x1="8" y1="14" x2="8" y2="26"><title>Check, no change</title></line><line class="tick" x1="28" y1="14" x2="28" y2="26"><title>Check, no change</title></line><line class="tick" x1="48" y1="14" x2="48" y2="26"><title>Check, no change</title></line><line class="tick" x1="68" y1="14" x2="68" y2="26"><title>Check, no change</title></line><line class="tick" x1="88" y1="14" x2="88" y2="26"><title>Check, no change</title></line><line class="tick" x1="108" y1="14" x2="108" y2="26"><title>Check, no change</title></line><line class="tick" x1="128" y1="14" x2="128" y2="26"><title>Check, no change</title></line><line class="tick" x1="148" y1="14" x2="148" y2="26"><title>Check, no change</title></line><line class="tick" x1="168" y1="14" x2="168" y2="26"><title>Check, no change</title></line><line class="tick" x1="188" y1="14" x2="188" y2="26"><title>Check, no change</title></line><line class="tick" x1="208" y1="14" x2="208" y2="26"><title>Check, no change</title></line><line class="tick" x1="228" y1="14" x2="228" y2="26"><title>Check, no change</title></line><line class="tick" x1="248" y1="14" x2="248" y2="26"><title>Check, no change</title></line><line class="tick" x1="268" y1="14" x2="268" y2="26"><title>Check, no change</title></line><line class="tick" x1="288" y1="14" x2="288" y2="26"><title>Check, no change</title></line><line class="tick" x1="308" y1="14" x2="308" y2="26"><title>Check, no change</title></line><line class="tick" x1="328" y1="14" x2="328" y2="26"><title>Check, no change</title></line><line class="tick" x1="348" y1="14" x2="348" y2="26"><title>Check, no change</title></line><line class="tick" x1="368" y1="14" x2="368" y2="26"><title>Check, no change</title></line><line class="tick" x1="388" y1="14" x2="388" y2="26"><title>Check, no change</title></line><line class="tick" x1="408" y1="14" x2="408" y2="26"><title>Check, no change</title></line></svg><div class="driftline__axis"><span>30 days ago</span><span>today</span></div></div></div></div>
+<ul class="legend" aria-label="Legend">
+  <li><span class="swatch-tick" aria-hidden="true"></span>Check, no change</li>
+  <li><span class="swatch-hollow" aria-hidden="true"></span>Failed or partial run</li>
+  <li><svg class="sev-ink" aria-hidden="true"><use href="#sev-low"/></svg>Low</li>
+  <li><svg aria-hidden="true"><use href="#sev-medium"/></svg>Medium</li>
+  <li><svg aria-hidden="true"><use href="#sev-high"/></svg>High</li>
+  <li><svg aria-hidden="true"><use href="#sev-critical"/></svg>Critical</li>
+</ul>
+  </div>
+</section>
+
+<div class="section grid-2">
+  <section class="card" aria-labelledby="trend-h">
+    <h2 id="trend-h">Change items per day</h2>
+    <div class="chart-wrap"><svg class="chart" viewBox="0 0 600 170" role="img" aria-labelledby="trend-t trend-d"><title id="trend-t">Change items per day, last 30 days, stacked by severity</title><desc id="trend-d">Most days have zero to three items. The table below this chart holds the same numbers.</desc><line class="grid-line" x1="30" y1="30" x2="600" y2="30"/><line class="grid-line" x1="30" y1="70" x2="600" y2="70"/><line class="grid-line" x1="30" y1="110" x2="600" y2="110"/><text class="axis-label" x="0" y="34">12</text><text class="axis-label" x="0" y="74">8</text><text class="axis-label" x="0" y="114">4</text><text class="axis-label" x="0" y="153">0</text><rect class="bar bar--low" x="165" y="130" width="12" height="20"/><rect class="bar bar--low" x="260" y="140" width="12" height="10"/><rect class="bar bar--medium" x="260" y="120" width="12" height="20"/><rect class="bar bar--low" x="317" y="120" width="12" height="30"/><rect class="bar bar--medium" x="317" y="110" width="12" height="10"/><rect class="bar bar--low" x="450" y="140" width="12" height="10"/><rect class="bar bar--low" x="488" y="120" width="12" height="30"/><rect class="bar bar--medium" x="507" y="140" width="12" height="10"/><rect class="bar bar--high" x="507" y="130" width="12" height="10"/><rect class="bar bar--low" x="545" y="130" width="12" height="20"/><rect class="bar bar--low" x="564" y="120" width="12" height="30"/><rect class="bar bar--medium" x="564" y="110" width="12" height="10"/><rect class="bar bar--high" x="564" y="100" width="12" height="10"/><rect class="bar bar--critical" x="564" y="90" width="12" height="10"/><rect class="bar bar--low" x="583" y="140" width="12" height="10"/><rect class="bar bar--critical" x="583" y="130" width="12" height="10"/><line class="grid-line" x1="30" y1="150" x2="600" y2="150"/><text class="axis-label" x="32" y="166">30 days ago</text><text class="axis-label" x="598" y="166" text-anchor="end">today</text></svg></div><details class="disclosure"><summary>Show the numbers as a table</summary><table class="data-table data-table--compact"><caption class="visually-hidden">Change items per day by severity</caption><thead><tr><th scope="col">Day</th><th scope="col" class="num">Low</th><th scope="col" class="num">Medium</th><th scope="col" class="num">High</th><th scope="col" class="num">Critical</th></tr></thead><tbody><tr><th scope="row">22 days ago</th><td class="num">2</td><td class="num">0</td><td class="num">0</td><td class="num">0</td></tr><tr><th scope="row">17 days ago</th><td class="num">1</td><td class="num">2</td><td class="num">0</td><td class="num">0</td></tr><tr><th scope="row">14 days ago</th><td class="num">3</td><td class="num">1</td><td class="num">0</td><td class="num">0</td></tr><tr><th scope="row">7 days ago</th><td class="num">1</td><td class="num">0</td><td class="num">0</td><td class="num">0</td></tr><tr><th scope="row">5 days ago</th><td class="num">3</td><td class="num">0</td><td class="num">0</td><td class="num">0</td></tr><tr><th scope="row">4 days ago</th><td class="num">0</td><td class="num">1</td><td class="num">1</td><td class="num">0</td></tr><tr><th scope="row">2 days ago</th><td class="num">2</td><td class="num">0</td><td class="num">0</td><td class="num">0</td></tr><tr><th scope="row">1 days ago</th><td class="num">3</td><td class="num">1</td><td class="num">1</td><td class="num">1</td></tr><tr><th scope="row">today</th><td class="num">1</td><td class="num">0</td><td class="num">0</td><td class="num">1</td></tr></tbody></table></details>
+  </section>
+  <section class="card" aria-labelledby="breakdown-h">
+    <h2 id="breakdown-h">Where the changes are</h2>
+    <h3 class="bars-title">By source</h3>
+    <ul class="bars" aria-label="Open items by source">
+      <li><a href="source.html">lab-controller</a><span class="track"><span class="fill fill--ink w-100"></span></span><span class="value num">11</span></li>
+      <li><a href="source.html">office-xo</a><span class="track"><span class="fill fill--ink w-70"></span></span><span class="value num">8</span></li>
+      <li><a href="source.html">branch-gw</a><span class="track"><span class="fill fill--ink w-30"></span></span><span class="value num">3</span></li>
+      <li><a href="source.html">push-lab</a><span class="track"><span class="fill fill--ink w-10"></span></span><span class="value num">1</span></li>
+    </ul>
+    <h3 class="bars-title">By resource type</h3>
+    <ul class="bars" aria-label="Open items by resource type">
+      <li><a href="changes.html">Firewall policies</a><span class="track"><span class="fill w-55"></span></span><span class="value num">6</span></li>
+      <li><a href="changes.html">WiFi broadcasts</a><span class="track"><span class="fill w-40"></span></span><span class="value num">5</span></li>
+      <li><a href="changes.html">Virtual machines</a><span class="track"><span class="fill w-40"></span></span><span class="value num">5</span></li>
+      <li><a href="changes.html">Backup jobs</a><span class="track"><span class="fill w-30"></span></span><span class="value num">4</span></li>
+      <li><a href="changes.html">Networks</a><span class="track"><span class="fill w-20"></span></span><span class="value num">3</span></li>
+    </ul>
+  </section>
+</div>
+
+<section class="section" aria-labelledby="activity-h">
+  <div class="section-head">
+    <h2 id="activity-h">Activity</h2>
+    <span class="hint">Newest first, 20 entries</span>
+  </div>
+  <div class="card">
+    <ol class="timeline">
+      <li><span class="dot dot--alert"></span><span><a href="change-detail.html">Critical change</a> on lab-controller: firewall policy Block guest to LAN deleted</span><time class="when" datetime="2026-10-22T07:10:00Z" title="2026-10-22 07:10 UTC">38 min ago</time></li>
+      <li><span class="dot dot--alert"></span><span><a href="change-detail.html">Critical change</a> on lab-controller: WiFi Guest security changed from WPA2 to open</span><time class="when" datetime="2026-10-22T07:10:00Z" title="2026-10-22 07:10 UTC">38 min ago</time></li>
+      <li><span class="dot dot--run"></span><span>Check of lab-controller finished, 2 events, 1,284 objects</span><time class="when" datetime="2026-10-22T07:10:00Z" title="2026-10-22 07:10 UTC">38 min ago</time></li>
+      <li><span class="dot dot--run"></span><span>Check of branch-gw <a href="source.html">failed</a>: no answer within 30 seconds</span><time class="when" datetime="2026-10-22T07:05:00Z" title="2026-10-22 07:05 UTC">43 min ago</time></li>
+      <li><span class="dot"></span><span>r.marques acknowledged <a href="change-detail.html">Backup job nightly-vms retention 30 to 14</a> with a note</span><time class="when" datetime="2026-10-22T06:21:00Z" title="2026-10-22 06:21 UTC">1 h ago</time></li>
+      <li><span class="dot dot--event"></span><span><a href="change-detail.html">High change</a> on office-xo: VM db-01 secure boot switched off</span><time class="when" datetime="2026-10-21T02:30:00Z" title="2026-10-21 02:30 UTC">yesterday</time></li>
+      <li><span class="dot"></span><span>a.silva muted path <code>vms/*/notes</code> for office-xo</span><time class="when" datetime="2026-10-20T15:02:00Z" title="2026-10-20 15:02 UTC">2 days ago</time></li>
+      <li><span class="dot"></span><span>r.marques created API token <code>ds_7k3q</code> with scope read</span><time class="when" datetime="2026-10-20T10:40:00Z" title="2026-10-20 10:40 UTC">2 days ago</time></li>
+    </ol>
+  </div>
+</section>
+
+</main>
+<footer class="app-footer">
+  <div class="app-footer__inner">
+    <span>driftsniff CE 0.1.0-dev</span>
+    <span>All times are UTC</span>
+  </div>
+</footer>
+</body>
+</html>

@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Firewall policy Block guest to LAN deleted, driftsniff</title>
+<link rel="icon" href="../../brand/favicon-32x32.png">
+<link rel="stylesheet" href="theme.css">
+<link rel="stylesheet" href="mockup.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<svg class="hidden-symbols" aria-hidden="true" focusable="false">
+  <symbol id="sev-low" viewBox="0 0 12 12"><circle cx="6" cy="6" r="5"/></symbol>
+  <symbol id="sev-medium" viewBox="0 0 12 12"><path d="M6 1 L11 11 H1 Z"/></symbol>
+  <symbol id="sev-high" viewBox="0 0 12 12"><path d="M6 0.5 L11.5 6 L6 11.5 L0.5 6 Z"/></symbol>
+  <symbol id="sev-critical" viewBox="0 0 12 12"><path d="M3.8 0.5 H8.2 L11.5 3.8 V8.2 L8.2 11.5 H3.8 L0.5 8.2 V3.8 Z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 12 12"><path d="M2 6.5 L5 9.5 L10 3" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+  <symbol id="i-cross" viewBox="0 0 12 12"><path d="M2.5 2.5 L9.5 9.5 M9.5 2.5 L2.5 9.5" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+  <symbol id="i-half" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M6 1.5 A4.5 4.5 0 0 1 6 10.5 Z"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M6 3.5 V6 L8 7.5" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-lock-open" viewBox="0 0 12 12"><rect x="2" y="5.5" width="8" height="5.5" rx="1"/><path d="M4 5.5 V3.5 A2 2 0 0 1 8 3" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-dash" viewBox="0 0 12 12"><path d="M2 6 H10" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+  <symbol id="i-key" viewBox="0 0 14 14"><circle cx="5" cy="5" r="3" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M7.5 7.5 L12 12 M10 10 L11.5 8.5" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-info" viewBox="0 0 18 18"><circle cx="9" cy="9" r="7.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M9 8 V13 M9 5.5 V6.5" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+  <symbol id="i-sort" viewBox="0 0 10 10"><path d="M2 4 L5 1 L8 4 M2 6 L5 9 L8 6" fill="none" stroke-width="1.5"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 20 20"><path d="M3 5 H17 M3 10 H17 M3 15 H17" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+  <symbol id="i-search" viewBox="0 0 16 16"><circle cx="7" cy="7" r="5" fill="none" stroke-width="1.6"/><path d="M11 11 L15 15" stroke-width="1.6"/></symbol>
+</svg>
+
+<header class="app-header">
+  <div class="app-header__inner">
+    <a class="brand" href="dashboard.html" aria-label="driftsniff, dashboard">
+      <img class="brand__logo brand__logo--light" src="../../brand/logo-horizontal-1200x400.png" alt="driftsniff" width="144" height="48">
+      <img class="brand__logo brand__logo--dark" src="../../brand/logo-horizontal-dark-1200x400.png" alt="driftsniff" width="144" height="48">
+    </a>
+    <details class="menu-toggle">
+      <summary aria-label="Open navigation"><svg width="20" height="20" aria-hidden="true" focusable="false"><use href="#i-menu"/></svg></summary>
+    </details>
+    <nav class="nav" aria-label="Main"><a href="dashboard.html">Dashboard</a><a href="changes.html" aria-current="page">Changes</a><a href="source.html">Sources</a><a href="#history">History</a><a href="#configuration">Configuration</a><a href="#settings">Settings</a></nav>
+    <div class="header-tools">
+      <span class="env-badge">Development</span>
+      <details class="user-menu">
+        <summary><span class="avatar" aria-hidden="true">RM</span><span class="user-name">r.marques</span><span class="visually-hidden">, account menu</span></summary>
+        <div class="user-menu__list">
+          <a href="#account">Your account (admin)</a>
+          <form method="post" action="#logout"><button type="submit">Sign out</button></form>
+        </div>
+      </details>
+    </div>
+  </div>
+</header>
+<main id="main" class="page">
+
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="changes.html">Changes</a> / <a href="source.html">lab-controller</a> / Event 4,812</nav>
+<div class="summary-head">
+  <div>
+    <div class="badges"><span class="sev sev--critical"><svg aria-hidden="true" focusable="false"><use href="#sev-critical"/></svg><span class="sev__label">Critical</span></span> <span class="status status--warn"><svg aria-hidden="true" focusable="false"><use href="#i-dash"/></svg>Open</span></div>
+    <h1>Firewall policy Block guest to LAN deleted</h1>
+    <div class="meta">
+      <span>Source <a href="source.html">lab-controller</a></span>
+      <span>Detected between <time datetime="2026-10-22T06:40:00Z">06:40</time> and <time datetime="2026-10-22T07:10:00Z">07:10 UTC</time> today</span>
+      <span>4 items in 3 objects</span>
+      <span>Event 4,812</span>
+    </div>
+  </div>
+  <div class="page-header__actions">
+    <a class="btn btn--primary" href="#acknowledge">Acknowledge</a>
+    <span class="btn btn--quiet" aria-disabled="true" title="A critical item cannot be muted">Mute path</span>
+  </div>
+</div>
+
+<section class="section" aria-labelledby="dl-h">
+  <h2 id="dl-h" class="visually-hidden">Drift line</h2>
+  <div class="card driftline driftline--short">
+    <div class="driftline__strip"><svg viewBox="0 0 616 32" role="img" aria-labelledby="dl-t dl-d"><title id="dl-t">Drift line of lab-controller, last 30 days, this event is the last mark</title><desc id="dl-d">A thin tick is a check without change, a taller shape a check with changes, a hollow tick a failed run.</desc><line class="axis" x1="0" y1="30" x2="616" y2="30"/><line class="tick" x1="8" y1="14" x2="8" y2="26"><title>Check, no change</title></line><line class="tick" x1="28" y1="14" x2="28" y2="26"><title>Check, no change</title></line><line class="tick" x1="48" y1="14" x2="48" y2="26"><title>Check, no change</title></line><line class="tick" x1="68" y1="14" x2="68" y2="26"><title>Check, no change</title></line><line class="tick" x1="88" y1="14" x2="88" y2="26"><title>Check, no change</title></line><line class="tick" x1="108" y1="14" x2="108" y2="26"><title>Check, no change</title></line><line class="tick" x1="128" y1="14" x2="128" y2="26"><title>Check, no change</title></line><a href="change-detail.html"><circle class="mark mark--low" cx="148" cy="18" r="6"/><title>Low: network Guest renamed</title></a><line class="tick" x1="168" y1="14" x2="168" y2="26"><title>Check, no change</title></line><line class="tick" x1="188" y1="14" x2="188" y2="26"><title>Check, no change</title></line><line class="tick" x1="208" y1="14" x2="208" y2="26"><title>Check, no change</title></line><line class="tick" x1="228" y1="14" x2="228" y2="26"><title>Check, no change</title></line><line class="tick" x1="248" y1="14" x2="248" y2="26"><title>Check, no change</title></line><line class="tick" x1="268" y1="14" x2="268" y2="26"><title>Check, no change</title></line><line class="tick" x1="288" y1="14" x2="288" y2="26"><title>Check, no change</title></line><line class="tick" x1="308" y1="14" x2="308" y2="26"><title>Check, no change</title></line><a href="change-detail.html"><path class="mark mark--medium" d="M328 10 L336 25 H320 Z"/><title>Medium: backup report recipients changed</title></a><line class="tick" x1="348" y1="14" x2="348" y2="26"><title>Check, no change</title></line><line class="tick" x1="368" y1="14" x2="368" y2="26"><title>Check, no change</title></line><line class="tick" x1="388" y1="14" x2="388" y2="26"><title>Check, no change</title></line><line class="tick" x1="408" y1="14" x2="408" y2="26"><title>Check, no change</title></line><line class="tick" x1="428" y1="14" x2="428" y2="26"><title>Check, no change</title></line><line class="tick" x1="448" y1="14" x2="448" y2="26"><title>Check, no change</title></line><line class="tick" x1="468" y1="14" x2="468" y2="26"><title>Check, no change</title></line><line class="tick" x1="488" y1="14" x2="488" y2="26"><title>Check, no change</title></line><line class="tick" x1="508" y1="14" x2="508" y2="26"><title>Check, no change</title></line><line class="tick" x1="528" y1="14" x2="528" y2="26"><title>Check, no change</title></line><line class="tick" x1="548" y1="14" x2="548" y2="26"><title>Check, no change</title></line><a href="change-detail.html"><path class="mark mark--high" d="M568 9 L577 18 L568 27 L559 18 Z"/><title>High: VM db-01 secure boot switched off</title></a><line class="tick" x1="588" y1="14" x2="588" y2="26"><title>Check, no change</title></line><a href="change-detail.html"><path class="mark mark--critical" d="M604.3 9 H611.7 L617 14.3 V21.7 L611.7 27 H604.3 L599 21.7 V14.3 Z"/><title>Critical: firewall policy Block guest to LAN deleted</title></a></svg><div class="driftline__axis"><span>30 days ago</span><span>today</span></div></div>
+  </div>
+</section>
+
+<div class="section grid-5-7">
+  <div class="stack">
+    <section class="card" aria-labelledby="items-h">
+      <h2 id="items-h">What changed</h2>
+
+      <div class="object-group">
+        <h3>Firewall policy Block guest to LAN <span class="path mono">firewall-policies/7f3a</span></h3>
+        <div class="item">
+          <div class="item__head"><span class="sev sev--critical"><svg aria-hidden="true" focusable="false"><use href="#sev-critical"/></svg><span class="sev__label">Critical</span></span><span class="item__field">Policy removed</span><span class="item__rule">rule unifi.firewall.policy_removed</span></div>
+          <div class="diff">
+            <div class="before"><span class="label">Before</span>action deny, source zone Guest, destination zone LAN, enabled true, position 3 of 12</div>
+            <div class="after"><span class="label">After</span><mark>absent</mark></div>
+          </div>
+          <details class="rationale"><summary>Why is this rated critical?</summary><p>A removed firewall policy can open traffic that was blocked before. driftsniff rates every removal of a deny policy critical; it does not know whether the removal was intended.</p></details>
+        </div>
+      </div>
+
+      <div class="object-group">
+        <h3>Firewall policy order <span class="path mono">firewall-policies/order</span></h3>
+        <div class="item">
+          <div class="item__head"><span class="sev sev--high"><svg aria-hidden="true" focusable="false"><use href="#sev-high"/></svg><span class="sev__label">High</span></span><span class="item__field">Policy moved</span><span class="item__rule">rule unifi.firewall.order_moved</span></div>
+          <p>Allow IoT to printer moved from after <strong>Block guest to LAN</strong> to before <strong>Deny IoT to LAN</strong>.</p>
+          <details class="rationale"><summary>Why is this rated high?</summary><p>In a first-match list a policy that moves above a deny policy can allow traffic the deny policy was meant to stop.</p></details>
+        </div>
+      </div>
+
+      <div class="object-group">
+        <h3>WiFi broadcast Guest <span class="path mono">wlans/0c91</span></h3>
+        <div class="item">
+          <div class="item__head"><span class="sev sev--critical"><svg aria-hidden="true" focusable="false"><use href="#sev-critical"/></svg><span class="sev__label">Critical</span></span><span class="item__field">passphrase</span><span class="item__rule">rule unifi.wifi.secret_changed</span></div>
+          <p><span class="fingerprint"><svg aria-hidden="true" focusable="false"><use href="#i-key"/></svg>secret changed, fingerprint 9b1e 4c07 to 2fd8 a310</span></p>
+          <p class="item__rule">Secret values are never stored or shown. The fingerprint is keyed, so it cannot be turned back into the value.</p>
+        </div>
+        <div class="item">
+          <div class="item__head"><span class="sev sev--critical"><svg aria-hidden="true" focusable="false"><use href="#sev-critical"/></svg><span class="sev__label">Critical</span></span><span class="item__field">security</span><span class="item__rule">rule unifi.wifi.security_downgrade</span></div>
+          <div class="diff">
+            <div class="before"><span class="label">Before</span><mark>wpa2-psk</mark></div>
+            <div class="after"><span class="label">After</span><mark>open</mark></div>
+          </div>
+          <details class="rationale"><summary>Why is this rated critical?</summary><p>An open network has no encryption; anyone in range can join it and read its traffic.</p></details>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="ext-h">
+      <h2 id="ext-h">External analysis, not verified by the product</h2>
+      <div class="external">
+        <p class="provider">netops-bot <span class="caveat">added 2026-10-22, 07:14 UTC</span></p>
+        <p>Policy 7f3a was last edited by a scheduled maintenance script. Suggested action: restore from backup 2026-10-21. &lt;script&gt;alert(1)&lt;/script&gt; stays plain text.</p>
+      </div>
+    </section>
+  </div>
+
+  <div class="side">
+    <section class="card" id="acknowledge" aria-labelledby="ack-h">
+      <h2 id="ack-h">Acknowledge</h2>
+      <form method="post" action="#acknowledge" class="stack">
+        <div class="field">
+          <label for="ack-comment">Comment</label>
+          <textarea class="input" id="ack-comment" name="comment" placeholder="What you decided and why"></textarea>
+          <span class="help">Acknowledging records your name and the time. It never changes the severity, and every acknowledgement is kept.</span>
+        </div>
+        <div class="form-row"><button class="btn btn--primary" type="submit">Acknowledge change</button></div>
+      </form>
+    </section>
+
+    <section class="card" aria-labelledby="notes-h">
+      <h2 id="notes-h">Notes</h2>
+      <ul class="note-list">
+        <li>Restore requested through the change window. <span class="by">a.silva, 2026-10-22, 07:20 UTC</span></li>
+      </ul>
+      <form method="post" action="#note" class="stack">
+        <div class="field"><label for="note">Add a note</label><textarea class="input" id="note" name="note"></textarea></div>
+        <div class="form-row"><button class="btn" type="submit">Save note</button></div>
+      </form>
+    </section>
+
+    <section class="card" aria-labelledby="mute-h">
+      <h2 id="mute-h">Mute this path</h2>
+      <p class="item__rule">Not offered: this event has a critical item. Muting hides items from lists only and never applies to critical items.</p>
+    </section>
+  </div>
+</div>
+
+</main>
+<footer class="app-footer">
+  <div class="app-footer__inner">
+    <span>driftsniff CE 0.1.0-dev</span>
+    <span>All times are UTC</span>
+  </div>
+</footer>
+</body>
+</html>

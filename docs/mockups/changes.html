@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Changes, driftsniff</title>
+<link rel="icon" href="../../brand/favicon-32x32.png">
+<link rel="stylesheet" href="theme.css">
+<link rel="stylesheet" href="mockup.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<svg class="hidden-symbols" aria-hidden="true" focusable="false">
+  <symbol id="sev-low" viewBox="0 0 12 12"><circle cx="6" cy="6" r="5"/></symbol>
+  <symbol id="sev-medium" viewBox="0 0 12 12"><path d="M6 1 L11 11 H1 Z"/></symbol>
+  <symbol id="sev-high" viewBox="0 0 12 12"><path d="M6 0.5 L11.5 6 L6 11.5 L0.5 6 Z"/></symbol>
+  <symbol id="sev-critical" viewBox="0 0 12 12"><path d="M3.8 0.5 H8.2 L11.5 3.8 V8.2 L8.2 11.5 H3.8 L0.5 8.2 V3.8 Z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 12 12"><path d="M2 6.5 L5 9.5 L10 3" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+  <symbol id="i-cross" viewBox="0 0 12 12"><path d="M2.5 2.5 L9.5 9.5 M9.5 2.5 L2.5 9.5" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+  <symbol id="i-half" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M6 1.5 A4.5 4.5 0 0 1 6 10.5 Z"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M6 3.5 V6 L8 7.5" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-lock-open" viewBox="0 0 12 12"><rect x="2" y="5.5" width="8" height="5.5" rx="1"/><path d="M4 5.5 V3.5 A2 2 0 0 1 8 3" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-dash" viewBox="0 0 12 12"><path d="M2 6 H10" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+  <symbol id="i-key" viewBox="0 0 14 14"><circle cx="5" cy="5" r="3" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M7.5 7.5 L12 12 M10 10 L11.5 8.5" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-info" viewBox="0 0 18 18"><circle cx="9" cy="9" r="7.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M9 8 V13 M9 5.5 V6.5" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+  <symbol id="i-sort" viewBox="0 0 10 10"><path d="M2 4 L5 1 L8 4 M2 6 L5 9 L8 6" fill="none" stroke-width="1.5"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 20 20"><path d="M3 5 H17 M3 10 H17 M3 15 H17" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+  <symbol id="i-search" viewBox="0 0 16 16"><circle cx="7" cy="7" r="5" fill="none" stroke-width="1.6"/><path d="M11 11 L15 15" stroke-width="1.6"/></symbol>
+</svg>
+
+<header class="app-header">
+  <div class="app-header__inner">
+    <a class="brand" href="dashboard.html" aria-label="driftsniff, dashboard">
+      <img class="brand__logo brand__logo--light" src="../../brand/logo-horizontal-1200x400.png" alt="driftsniff" width="144" height="48">
+      <img class="brand__logo brand__logo--dark" src="../../brand/logo-horizontal-dark-1200x400.png" alt="driftsniff" width="144" height="48">
+    </a>
+    <details class="menu-toggle">
+      <summary aria-label="Open navigation"><svg width="20" height="20" aria-hidden="true" focusable="false"><use href="#i-menu"/></svg></summary>
+    </details>
+    <nav class="nav" aria-label="Main"><a href="dashboard.html">Dashboard</a><a href="changes.html" aria-current="page">Changes</a><a href="source.html">Sources</a><a href="#history">History</a><a href="#configuration">Configuration</a><a href="#settings">Settings</a></nav>
+    <div class="header-tools">
+      <span class="env-badge">Development</span>
+      <details class="user-menu">
+        <summary><span class="avatar" aria-hidden="true">RM</span><span class="user-name">r.marques</span><span class="visually-hidden">, account menu</span></summary>
+        <div class="user-menu__list">
+          <a href="#account">Your account (admin)</a>
+          <form method="post" action="#logout"><button type="submit">Sign out</button></form>
+        </div>
+      </details>
+    </div>
+  </div>
+</header>
+<main id="main" class="page">
+
+<div class="page-header">
+  <div>
+    <h1>Changes</h1>
+    <p class="purpose">Every detected change with its severity, rule and status. Muted paths are hidden here but still stored.</p>
+  </div>
+  <div class="page-header__actions">
+    <a class="btn btn--quiet" href="#export">Export CSV</a>
+  </div>
+</div>
+
+<form class="filter-bar" method="get" action="changes.html" role="search" aria-label="Filter changes">
+  <div class="search">
+    <svg aria-hidden="true" focusable="false"><use href="#i-search"/></svg>
+    <label class="visually-hidden" for="q">Search summary and object name</label>
+    <input class="input" id="q" name="q" type="search" placeholder="Search summary or object name">
+  </div>
+  <div class="field"><label for="f-source">Source</label><select class="input" id="f-source" name="source"><option>All</option><option>lab-controller</option><option>office-xo</option><option>branch-gw</option><option>push-lab</option></select></div>
+  <div class="field"><label for="f-sev">Severity</label><select class="input" id="f-sev" name="severity"><option>Any</option><option>Critical</option><option>High and above</option><option>Medium and above</option><option>Low and above</option></select></div>
+  <div class="field"><label for="f-status">Status</label><select class="input" id="f-status" name="status"><option selected>Open</option><option>Acknowledged</option><option>All</option></select></div>
+  <div class="field"><label for="f-res">Resource</label><select class="input" id="f-res" name="resource"><option>All</option><option>Firewall policies</option><option>WiFi broadcasts</option><option>Virtual machines</option><option>Backup jobs</option></select></div>
+  <div class="field"><label for="f-since">Since</label><input class="input" id="f-since" name="since" type="date" value="2026-09-22"></div>
+  <button class="btn" type="submit">Apply</button>
+  <div class="segmented" role="group" aria-label="Row density">
+    <button type="submit" name="density" value="comfortable" aria-pressed="true">Comfortable</button>
+    <button type="submit" name="density" value="compact" aria-pressed="false">Compact</button>
+  </div>
+</form>
+
+<form method="post" action="#bulk" class="card card--flush">
+  <div class="bulk-bar">
+    <span><span class="num">231</span> changes match, <span class="num">2</span> selected</span>
+    <button class="btn btn--small" type="submit" name="action" value="acknowledge">Acknowledge selected</button>
+  </div>
+  <div class="table-wrap">
+    <table class="data-table">
+      <caption class="visually-hidden">Detected changes, newest first</caption>
+      <thead>
+        <tr>
+          <th scope="col" class="select-col"><input type="checkbox" aria-label="Select all on this page"></th>
+          <th scope="col"><a href="#sort-severity">Severity <svg aria-hidden="true"><use href="#i-sort"/></svg></a></th>
+          <th scope="col">Change</th>
+          <th scope="col" class="col-hide-s">Source</th>
+          <th scope="col" class="col-hide-m">Resource</th>
+          <th scope="col" class="col-hide-s" aria-sort="descending"><a href="#sort-detected">Detected <svg aria-hidden="true"><use href="#i-sort"/></svg></a></th>
+          <th scope="col">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+<tr>
+  <td class="select-col"><input type="checkbox" name="select" value="1" aria-label="Select Firewall policy Block guest to LAN deleted"></td>
+  <td><span class="sev sev--critical"><svg aria-hidden="true" focusable="false"><use href="#sev-critical"/></svg><span class="sev__label">Critical</span></span></td>
+  <td class="primary-cell"><a href="change-detail.html">Firewall policy Block guest to LAN deleted</a><span class="sub">firewall policy, 1 item</span></td>
+  <td class="col-hide-s"><a href="source.html">lab-controller</a></td>
+  <td class="col-hide-m">Firewall policies</td>
+  <td class="col-hide-s"><time datetime="2026-10-22T07:10:00Z" title="2026-10-22 07:10:00 UTC">07:10 today</time></td>
+  <td><span class="status status--warn"><svg aria-hidden="true" focusable="false"><use href="#i-dash"/></svg>Open</span></td>
+</tr>
+<tr>
+  <td class="select-col"><input type="checkbox" name="select" value="2" aria-label="Select WiFi Guest security changed from WPA2 to open"></td>
+  <td><span class="sev sev--critical"><svg aria-hidden="true" focusable="false"><use href="#sev-critical"/></svg><span class="sev__label">Critical</span></span></td>
+  <td class="primary-cell"><a href="change-detail.html">WiFi Guest security changed from WPA2 to open</a><span class="sub">wlan Guest, 2 items</span></td>
+  <td class="col-hide-s"><a href="source.html">lab-controller</a></td>
+  <td class="col-hide-m">WiFi broadcasts</td>
+  <td class="col-hide-s"><time datetime="2026-10-22T07:10:00Z" title="2026-10-22 07:10:00 UTC">07:10 today</time></td>
+  <td><span class="status status--warn"><svg aria-hidden="true" focusable="false"><use href="#i-dash"/></svg>Open</span></td>
+</tr>
+<tr>
+  <td class="select-col"><input type="checkbox" name="select" value="3" aria-label="Select User ops permission changed from none to admin"></td>
+  <td><span class="sev sev--critical"><svg aria-hidden="true" focusable="false"><use href="#sev-critical"/></svg><span class="sev__label">Critical</span></span></td>
+  <td class="primary-cell"><a href="change-detail.html">User ops permission changed from none to admin</a><span class="sub">user ops, 1 item</span></td>
+  <td class="col-hide-s"><a href="source.html">office-xo</a></td>
+  <td class="col-hide-m">Users</td>
+  <td class="col-hide-s"><time datetime="2026-10-21T22:00:00Z" title="2026-10-21 22:00:00 UTC">22:00 yesterday</time></td>
+  <td><span class="status status--warn"><svg aria-hidden="true" focusable="false"><use href="#i-dash"/></svg>Open</span></td>
+</tr>
+<tr>
+  <td class="select-col"><input type="checkbox" name="select" value="4" aria-label="Select VM db-01 secure boot switched off"></td>
+  <td><span class="sev sev--high"><svg aria-hidden="true" focusable="false"><use href="#sev-high"/></svg><span class="sev__label">High</span></span></td>
+  <td class="primary-cell"><a href="change-detail.html">VM db-01 secure boot switched off</a><span class="sub">vm db-01, 1 item</span></td>
+  <td class="col-hide-s"><a href="source.html">office-xo</a></td>
+  <td class="col-hide-m">Virtual machines</td>
+  <td class="col-hide-s"><time datetime="2026-10-21T02:30:00Z" title="2026-10-21 02:30:00 UTC">02:30 yesterday</time></td>
+  <td><span class="status status--warn"><svg aria-hidden="true" focusable="false"><use href="#i-dash"/></svg>Open</span></td>
+</tr>
+<tr>
+  <td class="select-col"><input type="checkbox" name="select" value="5" aria-label="Select Backup job nightly-vms retention 30 to 14"></td>
+  <td><span class="sev sev--high"><svg aria-hidden="true" focusable="false"><use href="#sev-high"/></svg><span class="sev__label">High</span></span></td>
+  <td class="primary-cell"><a href="change-detail.html">Backup job nightly-vms retention 30 to 14</a><span class="sub">backup job nightly-vms, 1 item</span></td>
+  <td class="col-hide-s"><a href="source.html">office-xo</a></td>
+  <td class="col-hide-m">Backup jobs</td>
+  <td class="col-hide-s"><time datetime="2026-10-20T02:30:00Z" title="2026-10-20 02:30:00 UTC">20 Oct, 02:30</time></td>
+  <td><span class="status status--ok"><svg aria-hidden="true" focusable="false"><use href="#i-check"/></svg>Acknowledged</span></td>
+</tr>
+<tr>
+  <td class="select-col"><input type="checkbox" name="select" value="6" aria-label="Select Firewall policy Allow IoT to printer moved above Deny IoT to LAN"></td>
+  <td><span class="sev sev--high"><svg aria-hidden="true" focusable="false"><use href="#sev-high"/></svg><span class="sev__label">High</span></span></td>
+  <td class="primary-cell"><a href="change-detail.html">Firewall policy Allow IoT to printer moved above Deny IoT to LAN</a><span class="sub">firewall policy order, 1 move</span></td>
+  <td class="col-hide-s"><a href="source.html">lab-controller</a></td>
+  <td class="col-hide-m">Firewall policies</td>
+  <td class="col-hide-s"><time datetime="2026-10-19T11:40:00Z" title="2026-10-19 11:40:00 UTC">19 Oct, 11:40</time></td>
+  <td><span class="status status--warn"><svg aria-hidden="true" focusable="false"><use href="#i-dash"/></svg>Open</span></td>
+</tr>
+<tr>
+  <td class="select-col"><input type="checkbox" name="select" value="7" aria-label="Select Backup job nightly-vms report recipients changed"></td>
+  <td><span class="sev sev--medium"><svg aria-hidden="true" focusable="false"><use href="#sev-medium"/></svg><span class="sev__label">Medium</span></span></td>
+  <td class="primary-cell"><a href="change-detail.html">Backup job nightly-vms report recipients changed</a><span class="sub">backup job nightly-vms, 1 item</span></td>
+  <td class="col-hide-s"><a href="source.html">office-xo</a></td>
+  <td class="col-hide-m">Backup jobs</td>
+  <td class="col-hide-s"><time datetime="2026-10-18T02:30:00Z" title="2026-10-18 02:30:00 UTC">18 Oct, 02:30</time></td>
+  <td><span class="status status--warn"><svg aria-hidden="true" focusable="false"><use href="#i-dash"/></svg>Open</span></td>
+</tr>
+<tr>
+  <td class="select-col"><input type="checkbox" name="select" value="8" aria-label="Select Host xcp-02 supplemental packs changed"></td>
+  <td><span class="sev sev--medium"><svg aria-hidden="true" focusable="false"><use href="#sev-medium"/></svg><span class="sev__label">Medium</span></span></td>
+  <td class="primary-cell"><a href="change-detail.html">Host xcp-02 supplemental packs changed</a><span class="sub">host xcp-02, 1 item</span></td>
+  <td class="col-hide-s"><a href="source.html">office-xo</a></td>
+  <td class="col-hide-m">Hosts</td>
+  <td class="col-hide-s"><time datetime="2026-10-17T02:30:00Z" title="2026-10-17 02:30:00 UTC">17 Oct, 02:30</time></td>
+  <td><span class="status status--ok"><svg aria-hidden="true" focusable="false"><use href="#i-check"/></svg>Acknowledged</span></td>
+</tr>
+<tr>
+  <td class="select-col"><input type="checkbox" name="select" value="9" aria-label="Select Network Guest renamed to Visitors"></td>
+  <td><span class="sev sev--low"><svg aria-hidden="true" focusable="false"><use href="#sev-low"/></svg><span class="sev__label">Low</span></span></td>
+  <td class="primary-cell"><a href="change-detail.html">Network Guest renamed to Visitors</a><span class="sub">network Visitors, 1 item</span></td>
+  <td class="col-hide-s"><a href="source.html">lab-controller</a></td>
+  <td class="col-hide-m">Networks</td>
+  <td class="col-hide-s"><time datetime="2026-10-15T09:10:00Z" title="2026-10-15 09:10:00 UTC">15 Oct, 09:10</time></td>
+  <td><span class="status status--warn"><svg aria-hidden="true" focusable="false"><use href="#i-dash"/></svg>Open</span></td>
+</tr>
+<tr>
+  <td class="select-col"><input type="checkbox" name="select" value="10" aria-label="Select VM web-03 notes removed"></td>
+  <td><span class="sev sev--low"><svg aria-hidden="true" focusable="false"><use href="#sev-low"/></svg><span class="sev__label">Low</span></span></td>
+  <td class="primary-cell"><a href="change-detail.html">VM web-03 notes removed</a><span class="sub">vm web-03, 1 item</span></td>
+  <td class="col-hide-s"><a href="source.html">office-xo</a></td>
+  <td class="col-hide-m">Virtual machines</td>
+  <td class="col-hide-s"><time datetime="2026-10-14T02:30:00Z" title="2026-10-14 02:30:00 UTC">14 Oct, 02:30</time></td>
+  <td><span class="status status--warn"><svg aria-hidden="true" focusable="false"><use href="#i-dash"/></svg>Open</span></td>
+</tr>
+<tr>
+  <td class="select-col"><input type="checkbox" name="select" value="11" aria-label="Select Device tag rack-2 renamed"></td>
+  <td><span class="sev sev--low"><svg aria-hidden="true" focusable="false"><use href="#sev-low"/></svg><span class="sev__label">Low</span></span></td>
+  <td class="primary-cell"><a href="change-detail.html">Device tag rack-2 renamed</a><span class="sub">device tag, 1 item</span></td>
+  <td class="col-hide-s"><a href="source.html">branch-gw</a></td>
+  <td class="col-hide-m">Device tags</td>
+  <td class="col-hide-s"><time datetime="2026-10-12T08:00:00Z" title="2026-10-12 08:00:00 UTC">12 Oct, 08:00</time></td>
+  <td><span class="status status--ok"><svg aria-hidden="true" focusable="false"><use href="#i-check"/></svg>Acknowledged</span></td>
+</tr></tbody>
+    </table>
+  </div>
+  <div class="table-foot">
+    <span>Showing <span class="num">1</span> to <span class="num">50</span> of <span class="num">231</span></span>
+    <nav class="pager" aria-label="Pages">
+      <span aria-current="page">1</span><a href="#p2">2</a><a href="#p3">3</a><a href="#p4">4</a><a href="#p5">5</a><a href="#p2">Next</a>
+    </nav>
+  </div>
+</form>
+
+</main>
+<footer class="app-footer">
+  <div class="app-footer__inner">
+    <span>driftsniff CE 0.1.0-dev</span>
+    <span>All times are UTC</span>
+  </div>
+</footer>
+</body>
+</html>

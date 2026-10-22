@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Components and states, driftsniff</title>
+<link rel="icon" href="../../brand/favicon-32x32.png">
+<link rel="stylesheet" href="theme.css">
+<link rel="stylesheet" href="mockup.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<svg class="hidden-symbols" aria-hidden="true" focusable="false">
+  <symbol id="sev-low" viewBox="0 0 12 12"><circle cx="6" cy="6" r="5"/></symbol>
+  <symbol id="sev-medium" viewBox="0 0 12 12"><path d="M6 1 L11 11 H1 Z"/></symbol>
+  <symbol id="sev-high" viewBox="0 0 12 12"><path d="M6 0.5 L11.5 6 L6 11.5 L0.5 6 Z"/></symbol>
+  <symbol id="sev-critical" viewBox="0 0 12 12"><path d="M3.8 0.5 H8.2 L11.5 3.8 V8.2 L8.2 11.5 H3.8 L0.5 8.2 V3.8 Z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 12 12"><path d="M2 6.5 L5 9.5 L10 3" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+  <symbol id="i-cross" viewBox="0 0 12 12"><path d="M2.5 2.5 L9.5 9.5 M9.5 2.5 L2.5 9.5" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+  <symbol id="i-half" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M6 1.5 A4.5 4.5 0 0 1 6 10.5 Z"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M6 3.5 V6 L8 7.5" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-lock-open" viewBox="0 0 12 12"><rect x="2" y="5.5" width="8" height="5.5" rx="1"/><path d="M4 5.5 V3.5 A2 2 0 0 1 8 3" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-dash" viewBox="0 0 12 12"><path d="M2 6 H10" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+  <symbol id="i-key" viewBox="0 0 14 14"><circle cx="5" cy="5" r="3" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M7.5 7.5 L12 12 M10 10 L11.5 8.5" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-info" viewBox="0 0 18 18"><circle cx="9" cy="9" r="7.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M9 8 V13 M9 5.5 V6.5" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+  <symbol id="i-sort" viewBox="0 0 10 10"><path d="M2 4 L5 1 L8 4 M2 6 L5 9 L8 6" fill="none" stroke-width="1.5"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 20 20"><path d="M3 5 H17 M3 10 H17 M3 15 H17" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+  <symbol id="i-search" viewBox="0 0 16 16"><circle cx="7" cy="7" r="5" fill="none" stroke-width="1.6"/><path d="M11 11 L15 15" stroke-width="1.6"/></symbol>
+</svg>
+
+<header class="app-header">
+  <div class="app-header__inner">
+    <a class="brand" href="dashboard.html" aria-label="driftsniff, dashboard">
+      <img class="brand__logo brand__logo--light" src="../../brand/logo-horizontal-1200x400.png" alt="driftsniff" width="144" height="48">
+      <img class="brand__logo brand__logo--dark" src="../../brand/logo-horizontal-dark-1200x400.png" alt="driftsniff" width="144" height="48">
+    </a>
+    <details class="menu-toggle">
+      <summary aria-label="Open navigation"><svg width="20" height="20" aria-hidden="true" focusable="false"><use href="#i-menu"/></svg></summary>
+    </details>
+    <nav class="nav" aria-label="Main"><a href="dashboard.html">Dashboard</a><a href="changes.html">Changes</a><a href="source.html">Sources</a><a href="#history">History</a><a href="#configuration">Configuration</a><a href="#settings">Settings</a></nav>
+    <div class="header-tools">
+      <span class="env-badge">Development</span>
+      <details class="user-menu">
+        <summary><span class="avatar" aria-hidden="true">RM</span><span class="user-name">r.marques</span><span class="visually-hidden">, account menu</span></summary>
+        <div class="user-menu__list">
+          <a href="#account">Your account (admin)</a>
+          <form method="post" action="#logout"><button type="submit">Sign out</button></form>
+        </div>
+      </details>
+    </div>
+  </div>
+</header>
+<main id="main" class="page">
+
+<div class="page-header">
+  <div>
+    <h1>Components and states</h1>
+    <p class="purpose">The parts every page is built from, each in its designed state. Not an application page.</p>
+  </div>
+</div>
+
+<div class="sheet">
+  <section class="card" aria-labelledby="col-h">
+    <h2 id="col-h">Colour roles</h2>
+    <div class="swatches">
+      <div class="swatch"><div class="sw-paper"></div><p>paper</p></div>
+      <div class="swatch"><div class="sw-surface"></div><p>surface</p></div>
+      <div class="swatch"><div class="sw-surface-2"></div><p>surface-2</p></div>
+      <div class="swatch"><div class="sw-border"></div><p>border</p></div>
+      <div class="swatch"><div class="sw-slate"></div><p>slate</p></div>
+      <div class="swatch"><div class="sw-text-2"></div><p>text-2</p></div>
+      <div class="swatch"><div class="sw-ink"></div><p>ink</p></div>
+      <div class="swatch"><div class="sw-alert"></div><p>alert</p></div>
+      <div class="swatch"><div class="sw-success"></div><p>success</p></div>
+      <div class="swatch"><div class="sw-info"></div><p>info</p></div>
+      <div class="swatch"><div class="sw-low"></div><p>severity low</p></div>
+      <div class="swatch"><div class="sw-medium"></div><p>severity medium</p></div>
+      <div class="swatch"><div class="sw-high"></div><p>severity high</p></div>
+      <div class="swatch"><div class="sw-critical"></div><p>severity critical</p></div>
+    </div>
+  </section>
+
+  <section class="card type-sample" aria-labelledby="type-h">
+    <h2 id="type-h">Type scale</h2>
+    <p class="t32 num">32 Page title and the display number 1,284</p>
+    <p class="t24">24 Empty state heading</p>
+    <p class="t20">20 Section title</p>
+    <p class="t16">16 Body text, the default size of every paragraph and form field.</p>
+    <p class="t14">14 Table cells, metadata, buttons, labels, badges, captions and help text; the smallest size.</p>
+    <p class="t14 mono">14 Before and after values, paths and fingerprints in JetBrains Mono or the system mono.</p>
+  </section>
+
+  <section class="card" aria-labelledby="sev-h">
+    <h2 id="sev-h">Severity: colour, shape and label, always together</h2>
+    <div class="inline-list"><span class="sev sev--low"><svg aria-hidden="true" focusable="false"><use href="#sev-low"/></svg><span class="sev__label">Low</span></span> <span class="sev sev--medium"><svg aria-hidden="true" focusable="false"><use href="#sev-medium"/></svg><span class="sev__label">Medium</span></span> <span class="sev sev--high"><svg aria-hidden="true" focusable="false"><use href="#sev-high"/></svg><span class="sev__label">High</span></span> <span class="sev sev--critical"><svg aria-hidden="true" focusable="false"><use href="#sev-critical"/></svg><span class="sev__label">Critical</span></span></div>
+    <h3 class="visually-hidden">Source and run status</h3>
+    <p class="inline-list"><span class="status status--ok"><svg aria-hidden="true" focusable="false"><use href="#i-check"/></svg>Healthy</span> <span class="status status--failing"><svg aria-hidden="true" focusable="false"><use href="#i-cross"/></svg>Failing</span> <span class="status status--partial"><svg aria-hidden="true" focusable="false"><use href="#i-half"/></svg>Partial</span> <span class="status status--stale"><svg aria-hidden="true" focusable="false"><use href="#i-clock"/></svg>Stale</span> <span class="status status--unsupported"><svg aria-hidden="true" focusable="false"><use href="#i-dash"/></svg>Unsupported version</span> <span class="status status--insecure"><svg aria-hidden="true" focusable="false"><use href="#i-lock-open"/></svg>Insecure TLS</span> <span class="status status--warn"><svg aria-hidden="true" focusable="false"><use href="#i-key"/></svg>Credential expires in 9 days</span></p>
+  </section>
+
+  <section class="card" aria-labelledby="btn-h">
+    <h2 id="btn-h">Buttons</h2>
+    <p class="inline-list"><a class="btn btn--primary" href="#a">Primary action</a> <a class="btn" href="#b">Secondary</a> <a class="btn btn--quiet" href="#c">Quiet</a> <a class="btn btn--danger" href="#d">Delete</a> <span class="btn" aria-disabled="true">Not available</span> <a class="btn btn--small" href="#e">Small</a></p>
+  </section>
+
+  <section class="card" aria-labelledby="banner-h">
+    <h2 id="banner-h">Banners</h2>
+    <div class="stack">
+      <div class="banner banner--success" role="status"><svg aria-hidden="true" focusable="false"><use href="#i-check"/></svg><div><p class="banner__title">Change acknowledged</p><p>Your comment is saved with your name and the time.</p></div></div>
+      <div class="banner banner--error" role="alert"><svg aria-hidden="true" focusable="false"><use href="#i-info"/></svg><div><p class="banner__title">The list could not be loaded</p><p>The server answered with an error. Nothing was changed.</p></div><form method="get" action="#retry"><button class="btn btn--small" type="submit">Try again</button></form></div>
+      <div class="banner banner--warn"><svg aria-hidden="true" focusable="false"><use href="#i-clock"/></svg><div><p class="banner__title">A check already ran 12 seconds ago</p><p>Run now is available again in 18 seconds.</p></div></div>
+    </div>
+  </section>
+
+  <div class="grid-2">
+    <section class="card" aria-labelledby="empty-h">
+      <h2 id="empty-h" class="visually-hidden">Empty state</h2>
+      <div class="empty">
+        <img src="../../brand/logo-mark-512x512.png" alt="" width="96" height="96">
+        <h2>Nothing to watch yet</h2>
+        <p>Add a UniFi Network controller, a Xen Orchestra or a push source. The first check records a baseline and the drift line starts from there.</p>
+        <a class="btn btn--primary" href="#add-source">Add source</a>
+      </div>
+    </section>
+    <section class="card" aria-labelledby="load-h">
+      <h2 id="load-h">Loading</h2>
+      <div class="skeleton" role="status" aria-live="polite" aria-label="Loading changes">
+        <span class="tall w-40"></span><span class="w-80"></span><span class="w-60"></span><span class="w-80"></span><span class="w-40"></span>
+      </div>
+    </section>
+  </div>
+
+  <section class="card" aria-labelledby="form-h">
+    <h2 id="form-h">Form with an error</h2>
+    <form method="post" action="#form" class="stack">
+      <div class="form-row">
+        <div class="field"><label for="s-name">Source name</label><input class="input" id="s-name" name="name" value="office-xo"></div>
+        <div class="field"><label for="s-interval">Check every</label><select class="input" id="s-interval" name="interval"><option>15 minutes</option><option selected>30 minutes</option><option>1 hour</option></select></div>
+      </div>
+      <div class="field"><label for="s-key">API key</label><input class="input" id="s-key" name="key" type="password" aria-describedby="s-key-help s-key-err" aria-invalid="true"><span class="help" id="s-key-help">Write-only: it is encrypted on save and never shown again.</span><span class="help" id="s-key-err"><strong class="banner__title">Enter the API key.</strong> The field is empty.</span></div>
+      <div class="form-row"><button class="btn btn--primary" type="submit">Save source</button><a class="btn btn--quiet" href="#cancel">Cancel</a></div>
+    </form>
+  </section>
+</div>
+
+</main>
+<footer class="app-footer">
+  <div class="app-footer__inner">
+    <span>driftsniff CE 0.1.0-dev</span>
+    <span>All times are UTC</span>
+  </div>
+</footer>
+</body>
+</html>
