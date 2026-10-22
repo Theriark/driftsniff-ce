@@ -576,6 +576,11 @@ def _insert_user(
         )
     except IntegrityError as error:
         raise UsernameError("that user name is already taken") from error
+    return _inserted_id(result)
+
+
+def _inserted_id(result: Any) -> int:
+    """The primary key of the row an insert just made."""
     return int(result.inserted_primary_key[0])
 
 
@@ -603,7 +608,7 @@ def _start_session(
             expires_at=stamp(now + ABSOLUTE_LIFETIME),
         )
     )
-    session_id = int(result.inserted_primary_key[0])
+    session_id = _inserted_id(result)
     return SessionGrant(cookie_value, Principal(user_id, username, role, session_id, csrf_token))
 
 

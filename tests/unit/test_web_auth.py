@@ -24,7 +24,7 @@ from driftsniff.web.auth import (
     Principal,
     make_password_hasher,
 )
-from driftsniff.web.deps import require_admin, require_operator, require_viewer
+from driftsniff.web.deps import require_admin, require_operator, require_role, require_viewer
 
 NOW = datetime(2026, 10, 22, 8, 0, 0, tzinfo=UTC)
 CORRECT = "CANARY-correct horse battery"
@@ -218,8 +218,14 @@ def test_the_cookie_cannot_be_replaced_by_a_header_of_another_name(
 ) -> None:
     auth.create_user("ada", CORRECT, "admin")
     value = sign_in(client, "ada")
+    client.cookies.clear()
     response = client.get("/probe/viewer", headers={"Authorization": f"Bearer {value}"})
     assert response.status_code == 401
+
+
+def test_an_unknown_role_name_is_refused_when_the_dependency_is_built() -> None:
+    with pytest.raises(ValueError, match="unknown role"):
+        require_role("owner")
 
 
 def test_without_a_sign_in_service_every_guarded_route_answers_503() -> None:

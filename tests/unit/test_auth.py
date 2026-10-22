@@ -111,7 +111,7 @@ def wait_time(auth: AuthService, username: str = "ada", address: str = ADDRESS) 
     return raised.value.retry_after
 
 
-def user_row(database: Database, username: str = "ada") -> sa.Row[Any]:
+def user_row(database: Database, username: str = "ada") -> Any:
     with database.read() as connection:
         return connection.execute(
             sa.select(tables.users.c.id, tables.users.c.failed_logins, tables.users.c.locked_until)
@@ -120,7 +120,7 @@ def user_row(database: Database, username: str = "ada") -> sa.Row[Any]:
         ).one()
 
 
-def session_rows(database: Database) -> list[sa.Row[Any]]:
+def session_rows(database: Database) -> list[Any]:
     with database.read() as connection:
         query = sa.select(
             tables.sessions.c.token_hash,
@@ -633,3 +633,28 @@ def test_two_requests_with_one_code_make_exactly_one_admin(store: Database, cloc
             sa.select(sa.func.count()).select_from(tables.users)
         ).scalar_one()
     assert admins == 1
+
+
+class CodeReplacingHasher(SpyHasher):
+    """Replaces the stored setup code while a password is hashed, as a second request would."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.auth: AuthService | None = None
+
+    def hash(self, password: str | bytes, *, salt: bytes | None = None) -> str:
+        if self.auth is not None:
+            self.auth.issue_setup_code()
+        return super().hash(password, salt=salt)
+
+
+def test_a_code_replaced_while_the_password_is_hashed_is_refused(
+    store: Database, clock: Clock
+) -> None:
+    replacing = CodeReplacingHasher()
+    auth = AuthService(store, clock=clock, hasher=replacing)
+    code = auth.issue_setup_code()
+    replacing.auth = auth
+    with pytest.raises(SetupCodeError, match="not valid"):
+        auth.complete_setup(code, "ada", CORRECT, ADDRESS)
+    assert auth.has_admin() is False
