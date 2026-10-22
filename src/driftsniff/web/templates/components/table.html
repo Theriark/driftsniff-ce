@@ -1,0 +1,50 @@
+{# columns is a list of {label, class, sort_href, sort_dir}; only label is required.
+   The data table (section 4 of the UI standard): sticky header, row hover, a density switch
+   stored by a normal form post, sortable columns through links, secondary columns hidden on
+   narrow screens by the column classes. The rows are the caller's own markup. #}
+{% macro data_table(caption, columns, density="comfortable", foot_text="", caption_id="") %}
+<div class="table-wrap">
+  <table class="data-table{% if density == 'compact' %} data-table--compact{% endif %}">
+    <caption class="visually-hidden"{% if caption_id %} id="{{ caption_id }}"{% endif %}>{{ caption }}</caption>
+    <thead>
+      <tr>
+        {% for column in columns %}
+        <th scope="col"{% if column.get("class") %} class="{{ column.class }}"{% endif %}{% if column.get("sort_dir") %} aria-sort="{{ column.sort_dir }}"{% endif %}>
+          {%- if column.get("sort_href") %}<a href="{{ column.sort_href }}">{{ column.label }} <svg aria-hidden="true" focusable="false"><use href="#i-sort"/></svg></a>{% else %}{{ column.label }}{% endif -%}
+        </th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {{ caller() }}
+    </tbody>
+  </table>
+</div>
+{% if foot_text %}
+<div class="table-foot">
+  <span>{{ foot_text }}</span>
+</div>
+{% endif %}
+{%- endmacro %}
+
+{% macro density_switch(density, path, csrf_token) %}
+<form class="segmented" method="post" action="/preferences/density" role="group" aria-label="Row density">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <input type="hidden" name="next" value="{{ path }}">
+  {% for choice in densities %}
+  <button type="submit" name="density" value="{{ choice }}" aria-pressed="{{ 'true' if choice == density else 'false' }}">{{ choice | capitalize }}</button>
+  {% endfor %}
+</form>
+{%- endmacro %}
+
+{# The pager: links is a list of {label, href, current}; the current page is text, not a link. #}
+{% macro pager(links, summary="") %}
+<div class="table-foot">
+  <span>{{ summary }}</span>
+  <nav class="pager" aria-label="Pages">
+    {% for link in links %}
+    {% if link.current %}<span aria-current="page">{{ link.label }}</span>{% else %}<a href="{{ link.href }}">{{ link.label }}</a>{% endif %}
+    {% endfor %}
+  </nav>
+</div>
+{%- endmacro %}

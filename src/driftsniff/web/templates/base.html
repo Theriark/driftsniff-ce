@@ -1,0 +1,71 @@
+{# The app shell (P10-T2, docs/design-direction.md). Every page extends this file and fills
+   the content block; the shell object (driftsniff.web.templating.Shell) says who is signed in,
+   which navigation entry is current and what the user prefers. No inline script and no style
+   attribute anywhere: the content security policy of the application blocks both. #}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="htmx-config" content='{"allowEval": false, "selfRequestsOnly": true, "includeIndicatorStyles": false, "historyCacheSize": 0, "refreshOnHistoryMiss": true}'>
+<title>{% block title %}{{ shell.title }}{% endblock %}, driftsniff</title>
+<link rel="icon" href="/static/brand/favicon-32x32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="/static/brand/favicon-180x180.png">
+<link rel="stylesheet" href="/static/app.css">
+<script src="/static/htmx.min.js" defer></script>
+{% block head %}{% endblock %}
+</head>
+<body{% if shell.csrf_token %} hx-headers='{{ {"X-CSRF-Token": shell.csrf_token} | tojson }}'{% endif %}>
+<a class="skip-link" href="#main">Skip to content</a>
+{% include "_icons.html" %}
+<header class="app-header">
+  <div class="app-header__inner">
+    <a class="brand" href="/" aria-label="driftsniff, dashboard">
+      <picture>
+        <source srcset="/static/brand/logo-horizontal-dark-1200x400.png" media="(prefers-color-scheme: dark)">
+        <img class="brand__logo" src="/static/brand/logo-horizontal-1200x400.png" alt="driftsniff" width="144" height="48">
+      </picture>
+    </a>
+    {% if shell.user_name %}
+    <details class="menu-toggle">
+      <summary aria-label="Open navigation"><svg width="20" height="20" aria-hidden="true" focusable="false"><use href="#i-menu"/></svg></summary>
+    </details>
+    <nav class="nav" aria-label="Main">
+      {% for key, label, href in nav_items %}
+      <a href="{{ href }}"{% if key == shell.nav_current %} aria-current="page"{% endif %}>{{ label }}</a>
+      {% endfor %}
+    </nav>
+    {% endif %}
+    {% if shell.user_name or shell.environment_label %}
+    <div class="header-tools">
+      {% if shell.environment_label %}
+      <span class="env-badge">{{ shell.environment_label }}</span>
+      {% endif %}
+      {% if shell.user_name %}
+      <details class="user-menu">
+        <summary><span class="avatar" aria-hidden="true">{{ initials(shell.user_name) }}</span><span class="user-name">{{ shell.user_name }}</span><span class="visually-hidden">, account menu</span></summary>
+        <div class="user-menu__list">
+          <p class="user-menu__who">Signed in as {{ shell.user_name }}, {{ shell.user_role }}</p>
+          <form method="post" action="/logout">
+            <input type="hidden" name="csrf_token" value="{{ shell.csrf_token }}">
+            <button type="submit">Sign out</button>
+          </form>
+        </div>
+      </details>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</header>
+<main id="main" class="page">
+{% block banners %}{% endblock %}
+{% block content required %}{% endblock %}
+</main>
+<footer class="app-footer">
+  <div class="app-footer__inner">
+    <span>driftsniff CE {{ app_version }}</span>
+    <span>All times are UTC</span>
+  </div>
+</footer>
+</body>
+</html>

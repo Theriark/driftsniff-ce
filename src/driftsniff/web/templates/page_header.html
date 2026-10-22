@@ -1,0 +1,21 @@
+{# The page header every page starts with (section 6): breadcrumb when deeper than one level,
+   the title, one line of purpose, the actions on the right. Use with call so the actions are
+   the caller's own markup (at most one primary button). #}
+{% macro page_header(title, purpose="", crumbs=[]) %}
+{% if crumbs %}
+<nav class="breadcrumb" aria-label="Breadcrumb">
+  {% for crumb in crumbs %}<a href="{{ crumb.href }}">{{ crumb.label }}</a> / {% endfor %}{{ title }}
+</nav>
+{% endif %}
+<div class="page-header">
+  <div>
+    <h1>{{ title }}</h1>
+    {% if purpose %}<p class="purpose">{{ purpose }}</p>{% endif %}
+  </div>
+  {% if caller is defined %}
+  <div class="page-header__actions">
+    {{ caller() }}
+  </div>
+  {% endif %}
+</div>
+{% endmacro %}

@@ -1,0 +1,17 @@
+{# The stat card (section 3 of the UI standard): a label, one big number with an optional unit,
+   the difference since the previous period and a sparkline of the series. The whole card is
+   the link to the filtered view behind the number. The sparkline is decorative; the series is
+   described in words by the delta text and listed for screen readers. #}
+{% macro stat_card(label, value, href, unit="", delta="", delta_tone="", spark=[]) %}
+<a class="card stat" href="{{ href }}">
+  <span class="stat__label">{{ label }}</span>
+  <span class="stat__value num">{{ value }}{% if unit %}<small> {{ unit }}</small>{% endif %}</span>
+  {% if spark %}
+  <svg class="stat__spark" viewBox="0 0 96 36" aria-hidden="true" focusable="false"><polyline points="{{ sparkline_points(spark) }}"/></svg>
+  <span class="visually-hidden">Last {{ spark | length }} values: {{ spark | join(", ") }}</span>
+  {% endif %}
+  {% if delta %}
+  <span class="stat__delta{% if delta_tone %} stat__delta--{{ delta_tone }}{% endif %} num">{{ delta }}</span>
+  {% endif %}
+</a>
+{%- endmacro %}

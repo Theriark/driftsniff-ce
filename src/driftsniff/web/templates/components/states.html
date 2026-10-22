@@ -1,0 +1,42 @@
+{# The designed states (docs/design-direction.md section 7): empty, loading, error, success. #}
+{% macro empty_state(heading, text, action_href="", action_label="") %}
+<div class="empty">
+  <img src="/static/brand/logo-mark-512x512.png" alt="" width="96" height="96">
+  <h2>{{ heading }}</h2>
+  <p>{{ text }}</p>
+  {% if action_href %}<a class="btn btn--primary" href="{{ action_href }}">{{ action_label }}</a>{% endif %}
+</div>
+{%- endmacro %}
+
+{# The loading skeleton: rows of the shape that will appear. With indicator=true it is an HTMX
+   indicator, shown only while a request of its parent runs. #}
+{% macro skeleton(label, rows=5, indicator=false) %}
+<div class="skeleton{% if indicator %} htmx-indicator{% endif %}" role="status" aria-live="polite" aria-label="{{ label }}">
+  {% for index in range(rows) %}
+  <span class="{{ 'tall w-40' if index == 0 else ('w-80' if index % 2 else 'w-60') }}"></span>
+  {% endfor %}
+</div>
+{%- endmacro %}
+
+{% macro error_state(title, text, retry_href="", retry_label="Try again") %}
+<div class="banner banner--error" role="alert">
+  <svg aria-hidden="true" focusable="false"><use href="#i-info"/></svg>
+  <div><p class="banner__title">{{ title }}</p><p>{{ text }}</p></div>
+  {% if retry_href %}
+  <form method="get" action="{{ retry_href }}"><button class="btn btn--small" type="submit">{{ retry_label }}</button></form>
+  {% endif %}
+</div>
+{%- endmacro %}
+
+{# kind is success, warn or error; the banner names the action in the same word as the button. #}
+{% macro banner(kind, title, text="", action_href="", action_label="") %}
+<div class="banner banner--{{ kind }}" role="{{ 'alert' if kind == 'error' else 'status' }}">
+  <svg aria-hidden="true" focusable="false"><use href="#{{ {'success': 'i-check', 'warn': 'i-clock', 'error': 'i-info'}[kind] }}"/></svg>
+  <div><p class="banner__title">{{ title }}</p>{% if text %}<p>{{ text }}</p>{% endif %}</div>
+  {% if action_href %}<a class="btn btn--small" href="{{ action_href }}">{{ action_label }}</a>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro success_banner(title, text="") %}
+{{ banner("success", title, text) }}
+{%- endmacro %}

@@ -1,0 +1,23 @@
+{# Detail parts: the definition list, the disclosure (rationale) and the time element. #}
+{# items is a list of {term, value, mono}; mono is optional and puts the value in the mono stack. #}
+{% macro definition_list(items) %}
+<dl class="kv">
+  {% for item in items %}
+  <dt>{{ item.term }}</dt><dd{% if item.get("mono") %} class="mono"{% endif %}>{{ item.value }}</dd>
+  {% endfor %}
+</dl>
+{%- endmacro %}
+
+{# A disclosure whose summary is a question or a short label; the body is the caller's markup.
+   kind is disclosure (quiet) or rationale (the why-is-this-rated link colour). #}
+{% macro disclosure(summary, kind="disclosure", open=false) %}
+<details class="{{ kind }}"{% if open %} open{% endif %}>
+  <summary>{{ summary }}</summary>
+  <div>{{ caller() }}</div>
+</details>
+{%- endmacro %}
+
+{# A time: relative words in the text, the exact UTC time in the title and the datetime. #}
+{% macro time_tag(when, now) %}
+<time datetime="{{ iso_utc(when) }}" title="{{ utc_label(when) }}">{{ relative_time(when, now) }}</time>
+{%- endmacro %}

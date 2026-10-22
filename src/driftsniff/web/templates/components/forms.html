@@ -1,0 +1,52 @@
+{# Filter bar, search box and the typed confirmation form. Every form works as a plain post. #}
+{% macro filter_bar(action, label, submit_label="Apply") %}
+<form class="filter-bar" method="get" action="{{ action }}" role="search" aria-label="{{ label }}">
+  {{ caller() }}
+  <button class="btn" type="submit">{{ submit_label }}</button>
+</form>
+{%- endmacro %}
+
+{% macro search_box(id, name, label, value="", placeholder="") %}
+<div class="search">
+  <svg aria-hidden="true" focusable="false"><use href="#i-search"/></svg>
+  <label class="visually-hidden" for="{{ id }}">{{ label }}</label>
+  <input class="input" id="{{ id }}" name="{{ name }}" type="search" value="{{ value }}"{% if placeholder %} placeholder="{{ placeholder }}"{% endif %}>
+</div>
+{%- endmacro %}
+
+{# A select of the filter bar: options is a list of {value, label}; selected is the value. #}
+{% macro select_field(id, name, label, options, selected="") %}
+<div class="field">
+  <label for="{{ id }}">{{ label }}</label>
+  <select class="input" id="{{ id }}" name="{{ name }}">
+    {% for option in options %}
+    <option value="{{ option.value }}"{% if option.value == selected %} selected{% endif %}>{{ option.label }}</option>
+    {% endfor %}
+  </select>
+</div>
+{%- endmacro %}
+
+{# A text-like field with help and an optional error (section 7): the field is marked invalid
+   and the message sits next to it while the help text stays. #}
+{% macro text_field(id, name, label, value="", type="text", help="", error="", autocomplete="", placeholder="") %}
+<div class="field">
+  <label for="{{ id }}">{{ label }}</label>
+  <input class="input" id="{{ id }}" name="{{ name }}" type="{{ type }}"{% if value %} value="{{ value }}"{% endif %}{% if autocomplete %} autocomplete="{{ autocomplete }}"{% endif %}{% if placeholder %} placeholder="{{ placeholder }}"{% endif %}{% if help or error %} aria-describedby="{% if help %}{{ id }}-help{% endif %}{% if help and error %} {% endif %}{% if error %}{{ id }}-error{% endif %}"{% endif %}{% if error %} aria-invalid="true"{% endif %}>
+  {% if help %}<span class="help" id="{{ id }}-help">{{ help }}</span>{% endif %}
+  {% if error %}<span class="error" id="{{ id }}-error">{{ error }}</span>{% endif %}
+</div>
+{%- endmacro %}
+
+{# The confirmation form for a destructive action: the user types the expected text. The server
+   checks the text; the form only says what to type. #}
+{% macro confirm_form(action, expected, csrf_token, button_label, text, field_label="Type the name to confirm", field_name="confirm", id="confirm") %}
+<form method="post" action="{{ action }}" class="stack">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <p class="item__rule">{{ text }}</p>
+  <div class="field">
+    <label for="{{ id }}">{{ field_label }}</label>
+    <input class="input" id="{{ id }}" name="{{ field_name }}" autocomplete="off" required placeholder="{{ expected }}">
+  </div>
+  <div class="form-row"><button class="btn btn--danger" type="submit">{{ button_label }}</button></div>
+</form>
+{%- endmacro %}

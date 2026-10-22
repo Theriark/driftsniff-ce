@@ -209,6 +209,7 @@ the mock-ups obey the same rule); every action is a normal form so it works with
 | `docs/mockups/mockup.css` | the component styles of the mock-ups; P10-T2 turns them into `app.css` |
 | `docs/mockups/dashboard.html`, `changes.html`, `change-detail.html`, `source.html` | the four static mock-ups with fixture data |
 | `docs/mockups/states.html` | the component sheet: colour roles, type scale, badges, buttons, banners, empty, loading, form error |
+| `src/driftsniff/web/static/app.css` | the shipped stylesheet (P10-T2): the same token block, then the component styles; `docs/web-interface.md` describes the shell and the components |
 | `scripts/check_contrast.py` | the contrast check (exit 0 pass, 1 a pair below its minimum, 2 token file error) |
 | `tests/unit/test_check_contrast.py` | pytest tests of the script, and four tests on the committed files, one of which runs the script as a process |
 
@@ -217,8 +218,8 @@ The contrast check is a pull request check through `CI / Tests`, which runs pyte
 `python scripts/check_contrast.py` from the repository root as a separate process (the same
 command a workflow step would run), requires exit 0 and reads back the table it wrote to the
 step summary file; `test_the_committed_tokens_pass_every_check` runs `main()` in process on the
-committed token file; `test_the_mockup_theme_copies_the_token_values` fails when `theme.css`
-drifts. The test module uses pytest fixtures and markers, so it runs under pytest, not under
+committed token file; `test_the_stylesheets_copy_the_token_values` fails when `theme.css` or
+`app.css` drifts. The test module uses pytest fixtures and markers, so it runs under pytest, not under
 unittest. No workflow file changes for this: the job's existing pytest command is the step. A
 separate named step in the `lint` job would only add the table to that job's summary; if
 Platform wants it, the step is:
@@ -257,6 +258,12 @@ files from `../../brand/`); switch the system colour scheme to see the dark them
   clear space; chapter 4 for Inter, JetBrains Mono and the 32, 24, 20, 16 and 14 px sizes) and
   from the asset files themselves (`logo-horizontal-dark-1200x400.png` carries the light tile).
   The guide wins over this document wherever the two still differ.
+- P10-T2 (THE-845) built the shell and the components from this brief; where this document
+  was silent it chose: the header logo is one `picture` element (dark source for the dark
+  theme) instead of two images; the user menu names the account in text and has no account
+  page link; the environment badge reads `DRIFTSNIFF_ENVIRONMENT_LABEL`; the density switch
+  is its own form next to the filter bar (`.toolbar`), not inside it. See
+  `docs/web-interface.md`.
 - Screenshots of the mock-ups at 1440, 768 and 390 px are not produced in P10-T1: the browser
   tool refuses `file:` addresses and reaches only `*.theriark.dev`, where the mock-ups are not
   served. Delivery waived them for P10-T1 and made them an acceptance of P10-T2, which takes

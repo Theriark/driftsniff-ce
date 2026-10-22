@@ -1,0 +1,9 @@
+{# Severity and status badges (docs/design-direction.md section 5.3): colour, shape and word,
+   always together. The word is always in the markup; a narrow table cell hides it visually. #}
+{% macro severity_badge(severity) %}
+<span class="sev sev--{{ severity }}"><svg aria-hidden="true" focusable="false"><use href="#sev-{{ severity }}"/></svg><span class="sev__label">{{ severity_labels[severity] }}</span></span>
+{%- endmacro %}
+
+{% macro status_badge(kind, text, icon="") %}
+<span class="status status--{{ kind }}"><svg aria-hidden="true" focusable="false"><use href="#{{ icon or status_icons[kind] }}"/></svg>{{ text }}</span>
+{%- endmacro %}
