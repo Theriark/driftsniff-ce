@@ -1,0 +1,11 @@
+{# The designed status page a browser gets for a 403 (not allowed) or a 404 (not found): the
+   same composition as the empty state, with the shell of whoever is signed in. #}
+{% extends "base.html" %}
+{% block content %}
+<section class="auth" aria-labelledby="status-title">
+  <span class="mark-tile"><img src="/static/brand/logo-mark-512x512.png" alt="" width="96" height="96"></span>
+  <h1 id="status-title">{{ error.title }}</h1>
+  <p class="auth__lead">{{ error.text }}</p>
+  <a class="btn btn--primary" href="/">{{ "Go to the dashboard" if shell.user_name else "Go to the start page" }}</a>
+</section>
+{% endblock %}

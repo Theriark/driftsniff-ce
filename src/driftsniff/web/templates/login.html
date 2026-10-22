@@ -1,0 +1,25 @@
+{# The sign-in page (P10-T3): the designed empty state as a screen. The ferret mark on its tile,
+   one heading, one sentence, one action. The failure is one generic banner whatever the reason;
+   the user name is filled back in, the password never. A plain form post, no script needed. #}
+{% extends "base.html" %}
+{% from "components/forms.html" import text_field %}
+{% from "components/states.html" import banner %}
+{% block content %}
+<section class="auth" aria-labelledby="auth-title">
+  <span class="mark-tile"><img src="/static/brand/logo-mark-512x512.png" alt="" width="96" height="96"></span>
+  <h1 id="auth-title">Sign in</h1>
+  <p class="auth__lead">See what changed since you last looked.</p>
+  {% if signed_out %}
+  {{ banner("success", "Signed out", "Sign in again when you need to.") }}
+  {% endif %}
+  {% if error %}
+  {{ banner("error", error.title, error.text) }}
+  {% endif %}
+  <form class="card auth__card stack" method="post" action="/login">
+    <input type="hidden" name="next" value="{{ next_path }}">
+    {{ text_field("username", "username", "User name", value=username, autocomplete="username", autofocus=true, required=true, autocapitalize="none") }}
+    {{ text_field("password", "password", "Password", type="password", autocomplete="current-password", required=true) }}
+    <button class="btn btn--primary" type="submit">Sign in</button>
+  </form>
+</section>
+{% endblock %}

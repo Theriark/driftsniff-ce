@@ -1,0 +1,12 @@
+{# The start page of a signed-in user. P10-T3 ships the frame and the designed empty state (no
+   sources yet, one action); P10-T4 adds the stat cards, the posture ring, the drift lines, the
+   trend and the activity timeline, all from fixtures and queries. #}
+{% extends "base.html" %}
+{% from "page_header.html" import page_header %}
+{% from "components/states.html" import empty_state %}
+{% block content %}
+{{ page_header("Dashboard", "What changed, how bad it is, and what to do about it.") }}
+<div class="card">
+  {{ empty_state("Nothing to watch yet", "Add a UniFi Network or Xen Orchestra source and driftsniff records every change from its first check.", "/sources/new", "Add source") }}
+</div>
+{% endblock %}

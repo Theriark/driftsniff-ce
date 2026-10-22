@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.concurrency import run_in_threadpool
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from driftsniff import __version__
 from driftsniff.config import Settings
@@ -18,6 +19,7 @@ from driftsniff.web import routes_api, routes_notifications, routes_push, routes
 from driftsniff.web.auth import AuthService
 from driftsniff.web.bearer import TokenService
 from driftsniff.web.csrf import BrowserHardeningMiddleware
+from driftsniff.web.pages import handle_http_exception
 from driftsniff.web.routes_ui import router as ui_router
 
 
@@ -74,7 +76,9 @@ def create_app(
     ``plugins`` registry holds the implementation of every extension point, checked at start.
     Every response gets the security headers and every browser write the origin and CSRF checks
     of ``driftsniff.web.csrf``. The stylesheet, the vendored htmx and the brand copies are served
-    under ``/static/`` by ``driftsniff.web.routes_static``.
+    under ``/static/`` by ``driftsniff.web.routes_static``. A browser that meets a 401, 403 or
+    404 outside the API gets the sign-in redirect or a status page (``driftsniff.web.pages``);
+    every other client gets the plain JSON answer.
     """
     resolved = Settings.from_env() if settings is None else settings
     app = FastAPI(
@@ -97,6 +101,7 @@ def create_app(
     app.state.plugins = plugins
     app.state.openapi_cache = None
     app.add_middleware(BrowserHardeningMiddleware)
+    app.add_exception_handler(StarletteHTTPException, handle_http_exception)
     app.include_router(ui_router)
     app.include_router(routes_static.router)
     app.include_router(routes_push.router)
