@@ -182,8 +182,11 @@ def _prepare_master_key(settings: Settings) -> MasterKey:
 def _serve(settings: Settings) -> int:
     import uvicorn
 
+    from driftsniff.enrich.api import ChangeService
     from driftsniff.main import create_app
     from driftsniff.notify.deliveries import NotificationService
+    from driftsniff.plugins.defaults import make_defaults
+    from driftsniff.plugins.registry import PluginError, load_plugins
     from driftsniff.web.auth import AuthService
     from driftsniff.web.bearer import TokenService
 
@@ -202,6 +205,11 @@ def _serve(settings: Settings) -> int:
     database = Database(database_path(settings.data_dir))
     try:
         auth = AuthService(database)
+        try:
+            plugins = load_plugins(make_defaults(auth))
+        except PluginError as error:
+            print(f"driftsniff: {error}", file=sys.stderr)
+            return EXIT_CONFIG
         setup_code = auth.ensure_setup_code()
         if setup_code is not None:
             # Shown once: only a hash is stored. `driftsniff create-admin-code` makes another.
@@ -214,6 +222,8 @@ def _serve(settings: Settings) -> int:
                 auth=auth,
                 tokens=TokenService(database),
                 notifications=NotificationService(database, master_key, base_url=settings.base_url),
+                changes=ChangeService(database),
+                plugins=plugins,
             ),
             host=host,
             port=settings.port,
