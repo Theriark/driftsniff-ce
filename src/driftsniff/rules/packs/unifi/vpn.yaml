@@ -1,0 +1,33 @@
+# UniFi rules for VPN tunnels, VPN servers and RADIUS profiles (P7-T4). All three have the object
+# floor high, so a rule here only matters when it is critical or when it explains why the change
+# is serious. The keys and the shared secret are secret class: the rules read their fingerprints.
+version: 1
+rules:
+  - id: unifi.vpn_tunnels.pre_shared_key
+    resource: unifi-vpn-site-to-site-tunnels
+    path: preSharedKey
+    when: changed
+    severity: critical
+    rationale: The key of a site to site tunnel changed, so whoever holds the new key can join the tunnel.
+  - id: unifi.vpn_tunnels.type
+    resource: unifi-vpn-site-to-site-tunnels
+    path: type
+    severity: high
+    rationale: The kind of a site to site tunnel changed, which changes how the two sites protect their traffic.
+  - id: unifi.vpn_servers.pre_shared_key
+    resource: unifi-vpn-servers
+    path: preSharedKey
+    when: changed
+    severity: critical
+    rationale: The key of a VPN server changed, so whoever holds the new key can connect to it.
+  - id: unifi.vpn_servers.type
+    resource: unifi-vpn-servers
+    path: type
+    severity: high
+    rationale: The kind of a VPN server changed, which changes how remote users connect and are protected.
+  - id: unifi.radius_profiles.shared_secret
+    resource: unifi-radius-profiles
+    path: sharedSecret
+    when: changed
+    severity: critical
+    rationale: The shared secret of a RADIUS profile changed, so the authentication server that holds it decides who may join.

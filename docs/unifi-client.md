@@ -64,6 +64,39 @@ list is read once per run. A site id that is not letters, digits, `_` or `-` is 
 | certificate refused (docs/tls.md) | failure `tls_error` or `tls_pin_mismatch` | `error` | no |
 
 A failed resource keeps its previous state in the pipeline, so nothing is reported as removed.
+
+## Ordering and the action field (P7-T4)
+
+Firewall policies and ACL rules are first match lists, so their order is data. The controller gives
+the order in separate documents (the paths and names are **unverified**, docs/vendor-notes/
+unifi.md, statements 9, 10, 16 and 17):
+
+- Firewall policies are ordered per pair of (source zone, destination zone). For every site the
+  client takes the distinct zone pairs of the policies, sorted, and asks for the ordering of each
+  pair (`<site>/firewall/policies/ordering?sourceFirewallZoneId=...&destinationFirewallZoneId=...`).
+  Each answer holds two lists, the policies that run before the system defined ones and those that
+  run after them. The position list is the lists of all pairs one after the other, each pair
+  before first, then after. The pair order is sorted so that an unchanged controller gives the same
+  list every run.
+- ACL rules have one list per site (`<site>/acl-rules/ordering`).
+- The objects of a site are returned in that order, and the sites one after the other.
+
+A mismatch between the lists and the objects is repaired and reported, never hidden: an object that
+no list names (a policy with no usable pair of zones counts) is appended at the end, and an id that
+no object has, or that is listed twice, is dropped. The result then carries the warning class
+`ordering_mismatch` with a text of two counts (no ids or names), the run is `partial` and the
+coverage of the resource stays `200`. A policy that moves because the controller order changed is
+one `moved` item, critical when it jumped over a blocking policy.
+
+If an ordering document cannot be read (`404`, `403`, a bad answer), the whole resource fails with
+that coverage status and keeps its previous state; the order of the list answer is never used as a
+guess, because it would report moves that did not happen. More than 256 zone pairs on one site is
+`bad_payload`.
+
+The nested action of a firewall policy (`action.type`) is copied to the flat field `actionType`
+that the type table names as its action field; a value of that name sent by the controller is
+replaced. Without the copy a move over a block policy would only be high.
+
 Objects reach the pipeline as raw dictionaries; only the paging envelope and the object key are
 read through pydantic (`collectors/unifi/models.py`).
 
@@ -71,7 +104,6 @@ read through pydantic (`collectors/unifi/models.py`).
 
 - TLS modes are in `collectors/tls.py` (P7-T3, `docs/tls.md`); the client takes the settings as an
   argument. Nothing builds those settings from a stored source yet (the factory below).
-- The ordering lists of firewall policies and ACL rules and the rule pack (P7-T4).
 - The factory that builds a client from a stored source and saves the detected base path and the
   state `unsupported`. The source option for the base path does not exist yet; the factory adds
   it to `ALLOWED_OPTIONS`. `serve` has no scheduler until that factory exists (P7 or P8).

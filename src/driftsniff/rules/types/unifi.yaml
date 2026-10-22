@@ -196,3 +196,7 @@ types:
       uptimeSec: ignore
       lastHeartbeatAt: ignore
       statistics: ignore
+      # The radio channel moves by itself when the device picks one automatically, so it is
+      # volatile (golden row 5). The name is UNVERIFIED: the plan's row calls it radio.channel and
+      # the vendor reference (D5) is open. A radio list member is described by the path of the list.
+      interfaces.radios.channel: ignore

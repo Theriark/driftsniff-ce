@@ -6,6 +6,9 @@ is unverified against the vendor reference): ``GET <base path>/v1/info``, ``/v1/
 which base path answers, which version it reports, which objects each resource holds and which
 failures to simulate. Every request is recorded, so a test can count requests and check that the
 credential only ever travels in the key header.
+
+The ordering documents of firewall policies (per pair of zones) and ACL rules (per site) are served
+from ``Scenario.firewall_order`` and ``Scenario.acl_order`` (P7-T4; the names are unverified too).
 """
 
 import json
@@ -58,6 +61,12 @@ class Scenario:
     html_elsewhere: bool = False
     # Put the received credential into the body of error answers (a leaking controller).
     echo_header: bool = False
+    # Ordering documents: (site, source zone, destination zone) -> (before, after the system
+    # defined policies) for firewall policies, and site -> rule ids for ACL rules.
+    firewall_order: dict[tuple[str, str, str], tuple[list[str], list[str]]] = field(
+        default_factory=dict
+    )
+    acl_order: dict[str, list[str]] = field(default_factory=dict)
 
 
 def _route_key(rest: str) -> str | None:
@@ -127,7 +136,30 @@ class _Handler(BaseHTTPRequestHandler):
         if key == "info":
             self._send_json(200, {"applicationVersion": scenario.version})
             return
+        ordering = self._ordering(scenario, key, rest, parts.query)
+        if ordering is not None:
+            self._send_json(200, ordering)
+            return
         self._send_json(200, self._page(scenario, key, rest, parts.query))
+
+    @staticmethod
+    def _ordering(scenario: Scenario, key: str, rest: str, query: str) -> dict[str, Any] | None:
+        """The answer of an ordering call, or None when ``key`` is not one."""
+        if key not in ("firewall/policies/ordering", "acl-rules/ordering"):
+            return None
+        site = rest.split("/", 2)[1]
+        if key == "acl-rules/ordering":
+            return {"orderedAclRuleIds": scenario.acl_order.get(site, [])}
+        values = parse_qs(query)
+        source = values.get("sourceFirewallZoneId", [""])[0]
+        destination = values.get("destinationFirewallZoneId", [""])[0]
+        before, after = scenario.firewall_order.get((site, source, destination), ([], []))
+        return {
+            "orderedFirewallPolicyIds": {
+                "beforeSystemDefined": before,
+                "afterSystemDefined": after,
+            },
+        }
 
     @staticmethod
     def _page(scenario: Scenario, key: str, rest: str, query: str) -> dict[str, Any]:

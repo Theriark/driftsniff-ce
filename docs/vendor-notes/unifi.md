@@ -50,6 +50,9 @@ the table makes a placeholder choice).
 | 13 | DNS server lists are ordered. | S4 (design decision) | 2026-10-21 | plan |
 | 14 | Secret fields: the WiFi passphrase and the RADIUS shared secret. Whether VPN keys are returned in clear is not known. | S4 for the first two; none for VPN | 2026-10-21 | WiFi and RADIUS: plan; VPN: unknown |
 | 15 | A key inherits the role of its creator, and a view only role is enough to read every resource above. | S4 (setup guide, tests U2 and U3) | 2026-10-21 | unverified, not tested |
+| 16 | The ordering of firewall policies is asked per pair of zones with the query names `sourceFirewallZoneId` and `destinationFirewallZoneId` at `<site>/firewall/policies/ordering`, and answers with an object `orderedFirewallPolicyIds` that holds the lists `beforeSystemDefined` and `afterSystemDefined`. | S2 for the shape (two lists per pair); the query and field names: no source was read for them | 2026-10-22 | unverified |
+| 17 | The ordering of ACL rules is one list per site at `<site>/acl-rules/ordering`, in an object `orderedAclRuleIds`. | S1 (an ordering list exists), names: no source | 2026-10-22 | unverified |
+| 18 | A radio channel of a device moves by itself under automatic channel selection, so it is volatile. The field is assumed to sit in a list `interfaces.radios` with the member field `channel`. | S4 (golden row 5 says radio channel, ignore class); the path: no source | 2026-10-22 | plan for volatility; path unverified |
 
 ## The type table
 
@@ -91,7 +94,7 @@ Backend Developer classifies it and the Code Reviewer agrees.
    written `block` and `reject`; the real names of the values are unverified.
 2. **One position list per resource.** The vendor orders firewall policies per pair of zones
    (statement 9), while the engine stores one position list for the resource. How the per pair
-   lists become one list is not decided here; P7-T4 must define it. A policy that moves from one
+   lists become one list was left to P7-T4; see "Decisions of P7-T4" below. A policy that moves from one
    zone pair to another changes `source.zoneId` or `destination.zoneId`, which the table tracks.
 3. **Nested filter objects.** The traffic filters of a policy, the source, destination and protocol
    filters of an ACL rule and the other nested objects are **not classified** because their field
@@ -101,6 +104,24 @@ Backend Developer classifies it and the Code Reviewer agrees.
    `unifi-wlans` and `guest_portal.title` that are not the names here. P7-T4 must map the golden
    rows 3, 5, 7, 9, 16, 17, 21 and 22 to the shipped resources (for example
    `unifi-wifi-broadcasts` for the WiFi rows).
+
+## Decisions of P7-T4 (collection, ordering, rules)
+
+1. **Position list.** The engine stores one position list for a resource. For firewall policies it
+   is the lists of all zone pairs, pairs sorted, each pair "before the system defined policies"
+   then "after". Sorting keeps the list stable between runs. ACL rules: the one list per site.
+   Sites one after the other.
+2. **Mismatch.** An object that no ordering names is appended and an id without an object is
+   dropped; the run is partial with the class `ordering_mismatch`. An ordering that cannot be read
+   fails the resource and keeps the previous state.
+3. **Action field.** The collector copies `action.type` to `actionType` (decision 1 above).
+4. **Golden rows.** Row 3 maps to `unifi-networks` `name`, row 5 to `unifi-devices`
+   `interfaces.radios.channel` (statement 18, unverified), rows 16 and 17 to
+   `unifi-wifi-broadcasts` `securityConfiguration.type` and `securityConfiguration.passphrase`,
+   rows 21 and 22 to `unifi-firewall-policies`. Rows 7 and 9 name site settings fields; the table
+   has none, so they are not run.
+5. **Values.** The values of the security type (`OPEN`, `WPA2_PERSONAL` and so on) and of the
+   action (`ALLOW`, `BLOCK`, `REJECT`) are unverified. The rules list upper and lower case spellings.
 
 ## Site settings
 

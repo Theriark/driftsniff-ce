@@ -62,9 +62,15 @@ body that is not JSON is not retried.
 | Status | Meaning |
 |---|---|
 | `ok` | every resource was read |
-| `partial` | some resources failed; the others are stored |
+| `partial` | some resources failed, or were read but repaired; the others are stored |
 | `failed` | nothing could be read, or the probe failed, or the run stopped unexpectedly; nothing is stored |
 | `skipped` | another run of the source was going, or the source is disabled |
+
+A read can also succeed with a warning (`FetchResult.success(..., warning_class=..., warning_text=...)`):
+the objects are usable but the collector had to repair something, for example an ordering list
+that did not match the objects (UniFi, `ordering_mismatch`). The pipeline stores the objects, keeps
+the coverage at `200`, and marks the run `partial` with the warning class and a summary that starts
+with `repaired:`. A failed resource still decides the error class when both happen.
 
 A failed resource keeps its previous state: its objects are carried over into the new manifest, so
 no object of it is ever reported as removed. Its coverage row shows the last status (`403`, `404`

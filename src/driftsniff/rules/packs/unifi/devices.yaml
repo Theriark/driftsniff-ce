@@ -1,0 +1,24 @@
+# UniFi rules for adopted devices (P7-T4). Uptime, heartbeat time and statistics are ignore class
+# in the type table and never reach a rule.
+version: 1
+rules:
+  - id: unifi.devices.name
+    resource: unifi-devices
+    path: name
+    severity: low
+    rationale: A device was renamed, which changes only how people find it.
+  - id: unifi.devices.model
+    resource: unifi-devices
+    path: model
+    severity: medium
+    rationale: The model of a device changed, so the hardware behind the entry may have been replaced.
+  - id: unifi.devices.firmware_version
+    resource: unifi-devices
+    path: firmwareVersion
+    severity: medium
+    rationale: The firmware of a device changed, which changes its behaviour and its known weaknesses.
+  - id: unifi.devices.state
+    resource: unifi-devices
+    path: state
+    severity: medium
+    rationale: The adoption state of a device changed, which changes whether the controller manages it.

@@ -1,0 +1,57 @@
+# UniFi rules for firewall zones, firewall policies and ACL rules (P7-T4). These resources have
+# the object floors of the type table (an added, modified or moved object is high, a removed one
+# critical), so a rule here only matters when it is critical or when it explains why the change
+# is serious. A move needs no rule: the engine raises it by the first match floor, and to
+# critical when the entry jumped over a blocking one. The action values are unverified
+# (docs/vendor-notes/unifi.md, statement 8) and are spelled in upper and lower case.
+version: 1
+rules:
+  - id: unifi.firewall_zones.network_ids
+    resource: unifi-firewall-zones
+    path: networkIds
+    severity: high
+    rationale: The networks of a firewall zone changed, so the policies of that zone now apply to other devices.
+  - id: unifi.firewall_policies.action_to_allow
+    resource: unifi-firewall-policies
+    path: actionType
+    when: {name: enum_transition, from: [BLOCK, REJECT, block, reject], to: [ALLOW, allow]}
+    severity: critical
+    rationale: A firewall policy that stopped traffic now lets it through.
+  - id: unifi.firewall_policies.action_type
+    resource: unifi-firewall-policies
+    path: actionType
+    severity: high
+    rationale: The verdict of a firewall policy changed, which changes what traffic it lets through or stops.
+  - id: unifi.firewall_policies.disabled
+    resource: unifi-firewall-policies
+    path: enabled
+    when: {name: boolean_flips_to, value: false}
+    severity: high
+    rationale: A firewall policy was switched off, so what it enforced is no longer enforced.
+  - id: unifi.firewall_policies.source_zone
+    resource: unifi-firewall-policies
+    path: source.zoneId
+    severity: high
+    rationale: The source zone of a firewall policy changed, so it applies to traffic from other devices.
+  - id: unifi.firewall_policies.destination_zone
+    resource: unifi-firewall-policies
+    path: destination.zoneId
+    severity: high
+    rationale: The destination zone of a firewall policy changed, so it applies to traffic to other devices.
+  - id: unifi.acl_rules.action_to_allow
+    resource: unifi-acl-rules
+    path: action
+    when: {name: enum_transition, from: [BLOCK, block], to: [ALLOW, allow]}
+    severity: critical
+    rationale: An access control rule that stopped traffic now lets it through.
+  - id: unifi.acl_rules.action
+    resource: unifi-acl-rules
+    path: action
+    severity: high
+    rationale: The verdict of an access control rule changed, which changes what traffic it lets through or stops.
+  - id: unifi.acl_rules.disabled
+    resource: unifi-acl-rules
+    path: enabled
+    when: {name: boolean_flips_to, value: false}
+    severity: high
+    rationale: An access control rule was switched off, so what it enforced is no longer enforced.
