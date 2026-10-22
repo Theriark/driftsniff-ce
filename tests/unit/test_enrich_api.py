@@ -597,24 +597,25 @@ def test_a_deeply_nested_document_is_refused_without_a_crash(
 # -- OpenAPI ------------------------------------------------------------------------------------
 
 
-def leaf_routes(routes: Iterable[Any]) -> Iterator[Any]:
-    """The routes themselves; FastAPI nests an included router, so a container is entered."""
+def leaf_routes(routes: Iterable[Any], prefix: str = "") -> Iterator[tuple[Any, str]]:
+    """The routes with the prefix of their inclusion; FastAPI wraps an included router."""
     for route in routes:
-        nested = getattr(route, "routes", None)
+        nested = getattr(getattr(route, "original_router", None), "routes", None)
         if nested is None:
-            nested = getattr(getattr(route, "router", None), "routes", None)
+            nested = getattr(route, "routes", None)
         if nested is not None:
-            yield from leaf_routes(nested)
+            context = getattr(route, "include_context", None)
+            yield from leaf_routes(nested, prefix + str(getattr(context, "prefix", "") or ""))
         else:
-            yield route
+            yield route, prefix
 
 
 def api_route_table(app: FastAPI) -> set[tuple[str, str]]:
     """Every (method, path) under /api/v1 that the application really serves."""
     return {
-        (method, route.path)
-        for route in leaf_routes(app.routes)
-        if isinstance(route, APIRoute) and is_api_path(route.path)
+        (method, prefix + route.path)
+        for route, prefix in leaf_routes(app.routes)
+        if isinstance(route, APIRoute) and is_api_path(prefix + route.path)
         for method in (route.methods or set())
         if method not in ("HEAD", "OPTIONS")
     }
