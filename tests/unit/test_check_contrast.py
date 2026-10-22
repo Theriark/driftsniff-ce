@@ -1,11 +1,17 @@
 """Tests for scripts/check_contrast.py and the design token files it guards (P10-T1).
 
-The last three tests run against the committed files, so the pull request checks fail when a
-token pair drops below its minimum or when docs/mockups/theme.css drifts from the JSON.
+Run under pytest (CI / Tests): the module uses pytest fixtures and markers, so it does not load
+under unittest. The last four tests run against the committed files, so the pull request checks
+fail when a token pair drops below its minimum or when docs/mockups/theme.css drifts from the
+JSON; the last one executes the script as a separate process, the same command a CI step would
+run, so CI / Tests is the contrast step of every pull request.
 """
 
 import json
+import os
 import re
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -24,6 +30,7 @@ from check_contrast import (
 )
 
 REPOSITORY = Path(__file__).resolve().parents[2]
+SCRIPT = REPOSITORY / "scripts" / "check_contrast.py"
 TOKENS = REPOSITORY / "docs" / "design-colours.json"
 THEME_CSS = REPOSITORY / "docs" / "mockups" / "theme.css"
 BRAND = {"ink": "#1E1E24", "slate": "#6B7280", "alert": "#C8342B", "paper": "#F5F5F0"}
@@ -222,3 +229,29 @@ def test_the_mockup_theme_copies_the_token_values() -> None:
         found = dict(re.findall(r"--([a-z0-9-]+):\s*(#[0-9A-Fa-f]{6});", block))
         for token, value in themes[theme].items():
             assert found.get(token, "").upper() == value, f"{theme} --{token} differs from JSON"
+
+
+def test_the_contrast_script_passes_as_a_ci_step(tmp_path: Path) -> None:
+    """Runs `python scripts/check_contrast.py` from the repository root as CI / Tests does.
+
+    This is the pull request contrast check: the script runs as its own process on the
+    committed token file, writes the table to the step summary and must exit 0.
+    """
+    summary = tmp_path / "step-summary.md"
+    completed = subprocess.run(
+        [sys.executable, str(SCRIPT)],
+        cwd=REPOSITORY,
+        env={**os.environ, "GITHUB_STEP_SUMMARY": str(summary)},
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=60,
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert "::error::" not in completed.stderr
+    assert "all at or above their minimum" in completed.stdout
+    table = summary.read_text(encoding="utf-8")
+    assert table.startswith("## Design token contrast")
+    assert "| light | text #1E1E24 | paper #F5F5F0 |" in table
+    assert "| dark |" in table
+    assert "FAIL" not in table

@@ -25,11 +25,11 @@ One horizontal strip per source covering the last 30 days, drawn as inline SVG o
 
 | Element | Drawing | Meaning |
 |---|---|---|
-| Axis | 1 px line in `border`, full width, at y 30 of a 40 px tall viewBox | time, oldest on the left, today on the right |
+| Axis | 1 px line in `border`, full width, at y 30 of a 32 px tall viewBox | time, oldest on the left, today on the right |
 | Tick | 1.5 px vertical stroke in `slate`, 12 px tall | a check that found no change |
 | Hollow tick | 6 by 14 px rectangle, `slate` stroke, no fill | a failed or partial run |
 | Mark | the severity shape (section 5), 12 to 18 px, filled with the severity colour, inside a link | a check that found changes; the shape and colour are those of its highest severity |
-| Labels | 10 px `text-2` at both ends: "30 days ago" and "today" | orientation without a full axis |
+| Labels | HTML text under the strip, 14 px `text-2` at both ends: "30 days ago" and "today" (not SVG text, so they never scale below 14 px) | orientation without a full axis |
 
 Rules: one mark per check, spaced evenly by check (not by wall-clock time, so an irregular
 interval never squeezes the strip); hover or focus on a mark shows the event summary in the SVG
@@ -47,44 +47,64 @@ Files are the supplied brand assets in `brand/` (byte-for-byte copies of the Nex
 listed in `brand/MANIFEST.sha256`). The running application serves copies from
 `src/driftsniff/web/static/brand/` (P10-T2), never from `brand/`.
 
+The brand guide assigns the horizontal logo files to the site header and keeps the wordmark
+files for text-only placements, and it rules that on a dark background the mark sits on a light
+rounded tile. The header follows both: one image per theme, the guide's own file, so the mark
+is never placed bare on the dark header.
+
 | Use | File | Size |
 |---|---|---|
-| Header lockup, light theme | `logo-mark-512x512.png` and `wordmark.svg` | mark 40 by 40 px, wordmark 40 px tall; the lockup is 40 px tall (above the 32 px floor) |
-| Header lockup, dark theme | `logo-mark-512x512.png` and `wordmark-dark.svg` | the same |
-| Header below 480 px | the same files | the same sizes; the wordmark is never dropped, the environment badge and the user name are |
-| Empty state companion | `logo-mark-512x512.png` | 96 by 96 px |
+| Header lockup, light theme (paper `#F5F5F0`) | `logo-horizontal-1200x400.png` (mark and wordmark on paper) | 48 px tall, 144 px wide; the ferret mark inside the file is about 38 px, above the guide's 32 px floor |
+| Header lockup, dark theme (`#1E1E24`) | `logo-horizontal-dark-1200x400.png` (the mark on its light rounded tile, light wordmark) | the same |
+| Header below 768 px (56 px header) | the same files | 40 px tall, 120 px wide; mark about 32 px, at the floor; the lockup is never dropped, the environment badge and the user name are |
+| Empty state companion | `logo-mark-512x512.png` on paper or surface, never on a dark surface without a tile | 96 by 96 px |
 | Favicon and tiles | `favicon-32x32.png`, `favicon-180x180.png`, `favicon-512x512.png`, `favicon-tile-180x180.png` | as named |
 | Social preview (later) | `social-og-1200x630.png` | as named |
+| Text-only placements (none in Phase 10) | `wordmark.svg`, `wordmark-dark.svg` | per the guide; not used in the header |
 
-Clear space: at least half the height of the mark on every side of the lockup (20 px at header
-size); nothing else is placed inside it. The header reserves 12 px above and below the lockup
-inside its 64 px height, and the navigation starts 24 px to the right. The wordmark is never
-recoloured, stretched, outlined or rebuilt from text: the SVG is used as an image with the
-word "driftsniff" as its alternative text. The mark is never shown smaller than 24 px.
+The image is a single `img` with the word "driftsniff" as its alternative text, swapped by
+`prefers-color-scheme`; the CSS sizes (`.brand__logo`, 48 px and 40 px) and this table are the
+same numbers. Clear space: the guide's minimum is the height of the ferret's eye on every side
+(about six percent of the mark, 2 to 3 px at header size). The header gives more than that:
+the horizontal file carries about ten percent of its height as padding on every side, the header
+adds 8 px above and below the image inside its 64 px height, and the navigation starts 24 px to
+the right. That is an extension of the guide rule, never a replacement of it. The logo is never
+recoloured, stretched, outlined, cropped or rebuilt from text, and the mark is never shown
+smaller than 32 px.
 
 ## 4. Typography
 
-The wordmark is set in Helvetica Neue bold with a tracking of minus two percent. The interface
-uses the same voice with the system stack, so no font file ships and no font licence is carried:
+The brand guide sets the pairing and the sizes: Inter (or the system sans) bold at 32, 24 and
+20 px for headings, 16 px body, and JetBrains Mono (or the system mono) at 14 px for code and
+values. The interface uses exactly those families and sizes. No font file ships and no font
+licence is carried: each stack names the guide's face first and falls back to the system face
+the guide allows, so the first installed family is used.
 
 ```
---font-sans: "Helvetica Neue", "Liberation Sans", Arial, "Segoe UI", sans-serif;
---font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+--font-sans: Inter, "Helvetica Neue", "Liberation Sans", Arial, "Segoe UI", sans-serif;
+--font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
 ```
 
 | Step | Size | Weight and spacing | Used for |
 |---|---|---|---|
-| 40 | 2.5 rem | 700, tracking minus 0.02 em, line height 1 | the stat card number, the posture ring number |
-| 28 | 1.75 rem | 700, tracking minus 0.02 em, line height 1.15 | page title |
-| 20 | 1.25 rem | 700, line height 1.15 | section title, empty state heading |
+| 32 | 2 rem | 700, tracking minus 0.02 em, line height 1.15 (1 for the numbers) | page title, the stat card number, the posture ring number |
+| 24 | 1.5 rem | 700, line height 1.15 | empty state heading |
+| 20 | 1.25 rem | 700, line height 1.15 | section and card title |
 | 16 | 1 rem | 400, line height 1.5 | body, form fields, detail text |
-| 14 | 0.875 rem | 400 or 700, line height 1.5 | table cells, metadata, buttons, labels, navigation |
-| 12 | 0.75 rem | 700 for badges, 400 for captions | badges, captions, help text; always `text-2` or darker |
+| 14 | 0.875 rem | 400 or 700, line height 1.5 | table cells, metadata, buttons, labels, navigation, badges (700), captions and help text (`text-2` or darker); code and values in the mono stack |
+
+Fourteen pixels is the smallest text anywhere, in HTML and in SVG: the drift line labels are
+HTML text under the strip, the posture ring is drawn one to one (160 px column, 160 unit
+viewBox) so its 32 and 14 unit text renders at 32 and 14 px, and the trend chart never shrinks
+below its 600 unit drawing width (it scrolls inside its wrapper below that, like the drift line)
+so its 14 unit axis labels render at 14 px or more. Nothing is set at 10, 11 or 12 px.
 
 Numbers use tabular figures (`font-variant-numeric: tabular-nums`) wherever they line up in a
-column. Before and after values, paths, ids and fingerprints use the mono stack. No all-caps
-labels, no letter-spaced eyebrows. Line length stays under 80 characters for running text
-(`max-width: 44ch` on the empty state and on help paragraphs).
+column. Before and after values, paths, ids and fingerprints use the mono stack at 14 px. No
+all-caps labels, no letter-spaced eyebrows. Line length stays under 80 characters for running
+text (`max-width: 44ch` on the empty state and on help paragraphs). The wordmark file itself is
+set in Helvetica Neue bold with a tracking of minus two percent; that is the logo, not the
+interface face, and it is only ever used as an image.
 
 ## 5. Colour
 
@@ -190,12 +210,18 @@ the mock-ups obey the same rule); every action is a normal form so it works with
 | `docs/mockups/dashboard.html`, `changes.html`, `change-detail.html`, `source.html` | the four static mock-ups with fixture data |
 | `docs/mockups/states.html` | the component sheet: colour roles, type scale, badges, buttons, banners, empty, loading, form error |
 | `scripts/check_contrast.py` | the contrast check (exit 0 pass, 1 a pair below its minimum, 2 token file error) |
-| `tests/unit/test_check_contrast.py` | unit tests of the script, and three tests on the committed files |
+| `tests/unit/test_check_contrast.py` | pytest tests of the script, and four tests on the committed files, one of which runs the script as a process |
 
-The contrast check is a pull request check today through `CI / Tests`: the test
-`test_the_committed_tokens_pass_every_check` runs `main()` on the committed token file, and
-`test_the_mockup_theme_copies_the_token_values` fails when `theme.css` drifts. A dedicated step
-in the `lint` job would also write the table to the job summary; that step is Platform's to add:
+The contrast check is a pull request check through `CI / Tests`, which runs pytest over
+`tests/`: `test_the_contrast_script_passes_as_a_ci_step` executes
+`python scripts/check_contrast.py` from the repository root as a separate process (the same
+command a workflow step would run), requires exit 0 and reads back the table it wrote to the
+step summary file; `test_the_committed_tokens_pass_every_check` runs `main()` in process on the
+committed token file; `test_the_mockup_theme_copies_the_token_values` fails when `theme.css`
+drifts. The test module uses pytest fixtures and markers, so it runs under pytest, not under
+unittest. No workflow file changes for this: the job's existing pytest command is the step. A
+separate named step in the `lint` job would only add the table to that job's summary; if
+Platform wants it, the step is:
 
 ```
 - name: Design token contrast
@@ -223,15 +249,17 @@ files from `../../brand/`); switch the system colour scheme to see the dark them
 
 ## 11. What was verified and what was not
 
-- The brand guide PDF in `/Theriark/Driftsniff/Brand` could not be opened by this role (the
-  preview action answers `caller_not_allowed` for the Frontend Developer). Logo use, clear space
-  and typography above are derived from the supplied asset files (the wordmark SVG carries the
-  face, weight and tracking) and the four palette values of the dev work plan. The Delivery lead,
-  who can preview the guide, confirms or corrects sections 3 and 4 against it before P10-T2; the
-  guide wins.
-- Screenshots of the mock-ups at 1440, 768 and 390 px could not be produced in this task: the
-  browser tool refuses `file:` addresses and reaches only `*.theriark.dev`, where the mock-ups
-  are not served. They are produced in P10-T2, when the shell is deployed to Development, and
-  judged against the UI standard there.
+- The brand guide PDF in `/Theriark/Driftsniff/Brand` cannot be opened by this role (the
+  preview action answers `caller_not_allowed` for the Frontend Developer, checked again in
+  THE-837). Sections 3 and 4 were first derived from the asset files alone and contradicted the
+  guide; they were corrected in THE-837 from the Code Reviewer's reading of the guide (THE-833:
+  chapter 2 and the do and do-not table for the header files, the tile on dark and the eye-height
+  clear space; chapter 4 for Inter, JetBrains Mono and the 32, 24, 20, 16 and 14 px sizes) and
+  from the asset files themselves (`logo-horizontal-dark-1200x400.png` carries the light tile).
+  The guide wins over this document wherever the two still differ.
+- Screenshots of the mock-ups at 1440, 768 and 390 px are not produced in P10-T1: the browser
+  tool refuses `file:` addresses and reaches only `*.theriark.dev`, where the mock-ups are not
+  served. Delivery waived them for P10-T1 and made them an acceptance of P10-T2, which takes
+  them on Development after deployment and judges them against the UI standard there.
 - The contrast ratios were computed by the script on this branch (68 pairs, all pass); the
   pytest, ruff and mypy runs happen in CI because the sandbox has none of them.

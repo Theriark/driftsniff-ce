@@ -34,15 +34,17 @@
   --diff-added: #DDEBDD;
   --header-bg: #F5F5F0;
 
-  /* type: one family, the wordmark's own stack; a mono stack for values only */
-  --font-sans: "Helvetica Neue", "Liberation Sans", Arial, "Segoe UI", sans-serif;
-  --font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
-  --fs-12: 0.75rem;
+  /* type: the brand guide's pairing, Inter (or the system sans) for the interface and
+     JetBrains Mono (or the system mono) for values; no font file ships, the first installed
+     family of each stack is used. Sizes are the guide's: 32, 24 and 20 for headings, 16 body,
+     14 for code and the smallest interface text. */
+  --font-sans: Inter, "Helvetica Neue", "Liberation Sans", Arial, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
   --fs-14: 0.875rem;
   --fs-16: 1rem;
   --fs-20: 1.25rem;
-  --fs-28: 1.75rem;
-  --fs-40: 2.5rem;
+  --fs-24: 1.5rem;
+  --fs-32: 2rem;
   --lh-tight: 1.15;
   --lh-text: 1.5;
   --track-display: -0.02em;
