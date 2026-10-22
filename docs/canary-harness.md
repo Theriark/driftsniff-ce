@@ -64,12 +64,31 @@ and gives no hit.
 ## Limits
 
 - The harness finds a canary only where it is looked for. The surfaces above are the ones that exist
-  today. Later phases extend it: notifications, API output and exports (P9) and the real
-  collectors (P7 and P8). Add a surface by writing a function that returns `Leak` values and call it
-  from the test.
+  today. Notifications are covered by `test_notification_canaries.py` (P9-T4); API output, the
+  OpenAPI document and the backup file by `test_api_canaries.py` (P9-T6, described below). The real
+  collectors have their own canary tests (P7, P8). Add a surface by writing a function that returns
+  `Leak` values and call it from the test.
 - A secret that is transformed before it leaks (hashed, split, encrypted with another key) is not
   found; base64 is the only encoding the rows scan tries.
 - The log filter is a safety net. The harness checks that the code does not log values; it does not
   turn the filter into the only protection.
 - The canary job is a required check only when a repository admin adds it to the branch protection
   of `development`.
+
+## Surfaces added in P9 (API output, OpenAPI document, backup file)
+
+`tests/security/test_api_canaries.py` runs the real application (`tests/security/appkit.py`) and
+reuses `CanaryFactory`, `CanaryScanner` and `scan_database_rows`.
+
+| Surface | Planted | How it is searched |
+|---|---|---|
+| API output | values of secret and unclassified items (never written by the pipeline, so the API must hide them even if a row held them); credential-shaped text in an item path, object name, rationale and order detail; the values of the API tokens, the session cookie, the login password; a token sent in a request; the webhook address secrets and the mail password (the mail user name is shown to admins by design) | the body and every header of the change list and detail, the enrichment answer, `GET /tokens`, a refused token, the notification channel (webhook and mail) and the deliveries |
+| OpenAPI document | all of the above | the body and headers of `GET /api/v1/openapi.json` |
+| Backup file | the login password, the session cookie, the token values, the webhook address secrets, the mail login and password | the bytes of the file made by `backup_database`, then every row with compressed columns decompressed |
+
+Text in a path, object name, rationale or order detail is vendor data or free text, so the API
+passes it through the log scrubber (`secrets.redact.scrub_text`): credential-shaped text becomes
+`***REDACTED***`. A plain `CANARY-<hex>` sentence is not credential-shaped and is not scrubbed; the
+test plants the URL, prefixed-token and JWT shapes, like the core harness. Values of `config`
+fields are shown on purpose, and the last test of the file reports one to prove the scan can find
+something.

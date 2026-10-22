@@ -715,6 +715,7 @@ class RunPipeline:
                 window_start=window_start,
                 window_end=window_end,
                 type_tables=tables,
+                fingerprinter=self._fingerprinter,
             )
         )
         return [self._engine.apply(item) for item in items]

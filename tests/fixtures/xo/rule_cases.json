@@ -43,7 +43,7 @@
   {"rule": "xo.users.permission_to_admin", "path": "permission", "before": "none", "after": "admin", "severity": "critical", "near": {"path": "permission", "before": "admin", "after": "none"}},
   {"rule": "xo.users.permission", "path": "permission", "before": "admin", "after": "user", "severity": "high", "near": {"path": "permission", "before": "none", "after": "admin"}},
   {"rule": "xo.users.groups", "kind": "added", "path": "groups", "before": null, "after": "group-a", "severity": "high", "near": {"path": "email", "before": "a@example.test", "after": "b@example.test"}},
-  {"rule": "xo.users.auth_providers", "path": "authProviders", "secret": true, "before": null, "after": null, "severity": "high", "near": {"path": "email", "before": "a@example.test", "after": "b@example.test"}},
+  {"rule": "xo.users.auth_providers", "path": "authProviders", "secret": true, "before": null, "after": null, "severity": "critical", "near": {"path": "email", "before": "a@example.test", "after": "b@example.test"}},
   {"rule": "xo.groups.acl_role_ids", "kind": "added", "path": "aclRoleIds", "before": null, "after": "role-a", "severity": "critical", "near": {"path": "provider", "before": "a", "after": "b"}},
   {"rule": "xo.groups.users", "kind": "added", "path": "users", "before": null, "after": "user-a", "severity": "high", "near": {"path": "name", "before": "group-a", "after": "group-b"}}
 ]

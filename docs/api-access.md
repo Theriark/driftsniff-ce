@@ -12,7 +12,9 @@ migration `0001`; this task adds no migration.
   of the value and its first 8 characters (the visible prefix, which is how an admin tells tokens
   apart in the list). A copy of the table, a backup or a log cannot be turned back into a token.
 - It carries one or both **scopes** and may carry an **expiry**. It can be **revoked**. The time of
-  its last use is stored, at most once a minute.
+  its last use is stored, at most once a minute. A database that cannot take that write (busy,
+  full, read only) does not refuse a valid token: the request goes through, a warning without the
+  token is logged, and the time is stored by the next request.
 - It belongs to the admin who made it (`created_by` in the list). Tokens are never deleted, only
   revoked, so what a token did (audit events, later enrichments) keeps its meaning.
 

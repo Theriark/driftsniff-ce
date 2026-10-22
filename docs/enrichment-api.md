@@ -53,7 +53,11 @@ The same fields plus:
 unclassified field has only a fingerprint: the first 12 characters of the digest, enough to see
 that a secret changed and never enough to use it. The API never returns a value for a `secret` or
 unclassified item, even if a row held one, and drops a fingerprint that does not have the stored
-form. An unknown change is **404**.
+form. The text of `path`, `object_name`, `rationale` and `order_detail` is vendor data or free text,
+so it passes the log scrubber (`secrets.redact.scrub_text`) first: credential-shaped text (a URL
+with a password, a PEM block, a JWT, a known credential prefix, a long high-entropy word, a query
+string) is replaced by `***REDACTED***`, and ordinary text is returned as it is. An unknown change
+is **404**.
 
 ## Appending an enrichment
 

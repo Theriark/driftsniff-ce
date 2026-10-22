@@ -10,7 +10,9 @@ Routes, and the scope each needs (a scope is never implied by another one):
 
 What an answer shows of a change is what the interface shows: the value of a ``config`` field,
 a short fingerprint for a ``secret`` or unclassified field. A value of a ``secret`` or
-unclassified item is never returned, whatever the row holds.
+unclassified item is never returned, whatever the row holds. The text of the ``path``, the object
+name, the rationale and the order detail is vendor data or free text, so it passes the log
+scrubber of ``driftsniff.secrets.redact`` (credential-shaped text becomes ``***REDACTED***``).
 
 The token check runs before the body is read, so a caller without the scope costs nothing.
 Every refused enrichment stores nothing: the whole request is checked first, then written in one
@@ -57,6 +59,7 @@ from driftsniff.enrich.models import (
     payload_depth,
 )
 from driftsniff.secrets.fingerprint import Fingerprint
+from driftsniff.secrets.redact import scrub_text
 from driftsniff.web.auth import parse_stamp, stamp
 from driftsniff.web.bearer import TokenPrincipal
 from driftsniff.web.csrf import is_api_path
@@ -134,14 +137,29 @@ def _summary(row: Any) -> ChangeSummary:
     )
 
 
+def _scrubbed(text: str | None) -> str | None:
+    return None if text is None else scrub_text(text)
+
+
+def _scrubbed_json(value: Any) -> Any:
+    """The same JSON with every text (and every key) passed through the scrubber."""
+    if isinstance(value, str):
+        return scrub_text(value)
+    if isinstance(value, list):
+        return [_scrubbed_json(member) for member in value]
+    if isinstance(value, dict):
+        return {scrub_text(str(key)): _scrubbed_json(member) for key, member in value.items()}
+    return value
+
+
 def _item(row: Any) -> ChangeItemView:
     shown = row.field_class not in _SECRET_CLASSES
     return ChangeItemView(
         id=row.id,
         resource=row.resource,
-        object_name=row.object_name_at_time,
+        object_name=_scrubbed(row.object_name_at_time),
         change_kind=row.change_kind,
-        path=row.path,
+        path=scrub_text(row.path),
         field_class=row.field_class,
         before=row.before_value if shown else None,
         after=row.after_value if shown else None,
@@ -149,8 +167,8 @@ def _item(row: Any) -> ChangeItemView:
         after_fingerprint=_short_fingerprint(row.after_fp),
         severity=row.severity,
         rule_id=row.rule_id,
-        rationale=row.rationale,
-        order_detail=row.order_detail,
+        rationale=_scrubbed(row.rationale),
+        order_detail=_scrubbed_json(row.order_detail),
     )
 
 
