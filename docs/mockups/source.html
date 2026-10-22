@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>branch-gw, driftsniff</title>
+<link rel="icon" href="../../brand/favicon-32x32.png">
+<link rel="stylesheet" href="theme.css">
+<link rel="stylesheet" href="mockup.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<svg class="hidden-symbols" aria-hidden="true" focusable="false">
+  <symbol id="sev-low" viewBox="0 0 12 12"><circle cx="6" cy="6" r="5"/></symbol>
+  <symbol id="sev-medium" viewBox="0 0 12 12"><path d="M6 1 L11 11 H1 Z"/></symbol>
+  <symbol id="sev-high" viewBox="0 0 12 12"><path d="M6 0.5 L11.5 6 L6 11.5 L0.5 6 Z"/></symbol>
+  <symbol id="sev-critical" viewBox="0 0 12 12"><path d="M3.8 0.5 H8.2 L11.5 3.8 V8.2 L8.2 11.5 H3.8 L0.5 8.2 V3.8 Z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 12 12"><path d="M2 6.5 L5 9.5 L10 3" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+  <symbol id="i-cross" viewBox="0 0 12 12"><path d="M2.5 2.5 L9.5 9.5 M9.5 2.5 L2.5 9.5" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+  <symbol id="i-half" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M6 1.5 A4.5 4.5 0 0 1 6 10.5 Z"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M6 3.5 V6 L8 7.5" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-lock-open" viewBox="0 0 12 12"><rect x="2" y="5.5" width="8" height="5.5" rx="1"/><path d="M4 5.5 V3.5 A2 2 0 0 1 8 3" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-dash" viewBox="0 0 12 12"><path d="M2 6 H10" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+  <symbol id="i-key" viewBox="0 0 14 14"><circle cx="5" cy="5" r="3" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M7.5 7.5 L12 12 M10 10 L11.5 8.5" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-info" viewBox="0 0 18 18"><circle cx="9" cy="9" r="7.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M9 8 V13 M9 5.5 V6.5" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+  <symbol id="i-sort" viewBox="0 0 10 10"><path d="M2 4 L5 1 L8 4 M2 6 L5 9 L8 6" fill="none" stroke-width="1.5"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 20 20"><path d="M3 5 H17 M3 10 H17 M3 15 H17" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+  <symbol id="i-search" viewBox="0 0 16 16"><circle cx="7" cy="7" r="5" fill="none" stroke-width="1.6"/><path d="M11 11 L15 15" stroke-width="1.6"/></symbol>
+</svg>
+
+<header class="app-header">
+  <div class="app-header__inner">
+    <a class="brand" href="dashboard.html" aria-label="driftsniff, dashboard">
+      <img class="brand__mark" src="../../brand/logo-mark-512x512.png" alt="" width="40" height="40">
+      <img class="brand__wordmark brand__wordmark--light" src="../../brand/wordmark.svg" alt="driftsniff" height="40">
+      <img class="brand__wordmark brand__wordmark--dark" src="../../brand/wordmark-dark.svg" alt="driftsniff" height="40">
+    </a>
+    <details class="menu-toggle">
+      <summary aria-label="Open navigation"><svg width="20" height="20" aria-hidden="true" focusable="false"><use href="#i-menu"/></svg></summary>
+    </details>
+    <nav class="nav" aria-label="Main"><a href="dashboard.html">Dashboard</a><a href="changes.html">Changes</a><a href="source.html" aria-current="page">Sources</a><a href="#history">History</a><a href="#configuration">Configuration</a><a href="#settings">Settings</a></nav>
+    <div class="header-tools">
+      <span class="env-badge">Development</span>
+      <details class="user-menu">
+        <summary><span class="avatar" aria-hidden="true">RM</span><span class="user-name">r.marques</span><span class="visually-hidden">, account menu</span></summary>
+        <div class="user-menu__list">
+          <a href="#account">Your account (admin)</a>
+          <form method="post" action="#logout"><button type="submit">Sign out</button></form>
+        </div>
+      </details>
+    </div>
+  </div>
+</header>
+<main id="main" class="page">
+
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="source.html">Sources</a> / branch-gw</nav>
+<div class="summary-head">
+  <div>
+    <div class="badges"><span class="status status--failing"><svg aria-hidden="true" focusable="false"><use href="#i-cross"/></svg>Failing, 3 runs</span> <span class="status status--insecure"><svg aria-hidden="true" focusable="false"><use href="#i-lock-open"/></svg>Insecure TLS</span> <span class="status status--ok"><svg aria-hidden="true" focusable="false"><use href="#i-check"/></svg>Enabled</span></div>
+    <h1>branch-gw</h1>
+    <div class="meta">
+      <span>UniFi Network <span class="num">10.1.84</span> (supported floor)</span>
+      <span>Every <span class="num">30</span> minutes</span>
+      <span>Last successful check <time datetime="2026-10-22T05:35:00Z" title="2026-10-22 05:35 UTC">2 h ago</time></span>
+      <span>Next check <time datetime="2026-10-22T07:35:00Z">07:35 UTC</time></span>
+      <span><span class="num">1,102</span> objects</span>
+    </div>
+  </div>
+  <div class="page-header__actions">
+    <form method="post" action="#run"><button class="btn btn--primary" type="submit">Run now</button></form>
+    <a class="btn" href="#edit">Edit</a>
+    <form method="post" action="#disable"><button class="btn btn--quiet" type="submit">Disable</button></form>
+  </div>
+</div>
+
+<div class="section stack">
+  <div class="banner banner--error" role="alert">
+    <svg aria-hidden="true" focusable="false"><use href="#i-info"/></svg>
+    <div><p class="banner__title">The last 3 checks failed</p><p>The controller did not answer within 30 seconds. driftsniff keeps the last good configuration and will try again at 07:35 UTC. Stored data is unchanged.</p></div>
+    <a class="btn btn--small" href="#runs">See runs</a>
+  </div>
+  <div class="banner banner--warn" id="tls">
+    <svg aria-hidden="true" focusable="false"><use href="#i-lock-open"/></svg>
+    <div><p class="banner__title">Certificate checks are off for this source</p><p>Enabled by r.marques on 2026-10-01, 09:12 UTC. Anyone on the path to the controller can read the API key. Upload the controller CA bundle or pin its certificate to turn checks back on.</p></div>
+    <a class="btn btn--small" href="#edit">Change TLS mode</a>
+  </div>
+</div>
+
+<section class="section" aria-labelledby="src-drift-h">
+  <div class="section-head"><h2 id="src-drift-h">Drift line, last 30 days</h2><span class="hint">48 checks, 1 change, 3 failed runs</span></div>
+  <div class="card driftline driftline--short"><div class="driftline__strip"><svg viewBox="0 0 616 40" role="img" aria-labelledby="sl-t sl-d"><title id="sl-t">Drift line of branch-gw, last 30 days</title><desc id="sl-d">Thin ticks are checks without change, the hollow ticks are failed runs, the circle is a low change.</desc><line class="axis" x1="0" y1="30" x2="616" y2="30"/><line class="tick" x1="8" y1="14" x2="8" y2="26"><title>Check, no change</title></line><line class="tick" x1="28" y1="14" x2="28" y2="26"><title>Check, no change</title></line><line class="tick" x1="48" y1="14" x2="48" y2="26"><title>Check, no change</title></line><line class="tick" x1="68" y1="14" x2="68" y2="26"><title>Check, no change</title></line><line class="tick" x1="88" y1="14" x2="88" y2="26"><title>Check, no change</title></line><line class="tick" x1="108" y1="14" x2="108" y2="26"><title>Check, no change</title></line><rect class="tick--hollow" x="125" y="12" width="6" height="14"><title>Check failed or partial</title></rect><rect class="tick--hollow" x="145" y="12" width="6" height="14"><title>Check failed or partial</title></rect><line class="tick" x1="168" y1="14" x2="168" y2="26"><title>Check, no change</title></line><line class="tick" x1="188" y1="14" x2="188" y2="26"><title>Check, no change</title></line><line class="tick" x1="208" y1="14" x2="208" y2="26"><title>Check, no change</title></line><line class="tick" x1="228" y1="14" x2="228" y2="26"><title>Check, no change</title></line><line class="tick" x1="248" y1="14" x2="248" y2="26"><title>Check, no change</title></line><line class="tick" x1="268" y1="14" x2="268" y2="26"><title>Check, no change</title></line><line class="tick" x1="288" y1="14" x2="288" y2="26"><title>Check, no change</title></line><line class="tick" x1="308" y1="14" x2="308" y2="26"><title>Check, no change</title></line><line class="tick" x1="328" y1="14" x2="328" y2="26"><title>Check, no change</title></line><line class="tick" x1="348" y1="14" x2="348" y2="26"><title>Check, no change</title></line><line class="tick" x1="368" y1="14" x2="368" y2="26"><title>Check, no change</title></line><line class="tick" x1="388" y1="14" x2="388" y2="26"><title>Check, no change</title></line><line class="tick" x1="408" y1="14" x2="408" y2="26"><title>Check, no change</title></line><line class="tick" x1="428" y1="14" x2="428" y2="26"><title>Check, no change</title></line><a href="change-detail.html"><circle class="mark mark--low" cx="448" cy="18" r="6"/><title>Low: network Guest renamed</title></a><line class="tick" x1="468" y1="14" x2="468" y2="26"><title>Check, no change</title></line><line class="tick" x1="488" y1="14" x2="488" y2="26"><title>Check, no change</title></line><line class="tick" x1="508" y1="14" x2="508" y2="26"><title>Check, no change</title></line><line class="tick" x1="528" y1="14" x2="528" y2="26"><title>Check, no change</title></line><line class="tick" x1="548" y1="14" x2="548" y2="26"><title>Check, no change</title></line><line class="tick" x1="568" y1="14" x2="568" y2="26"><title>Check, no change</title></line><line class="tick" x1="588" y1="14" x2="588" y2="26"><title>Check, no change</title></line><rect class="tick--hollow" x="605" y="12" width="6" height="14"><title>Check failed or partial</title></rect><text class="day-label" x="0" y="39">30 days ago</text><text class="day-label" x="616" y="39" text-anchor="end">today</text></svg></div></div>
+</section>
+
+<div class="section grid-5-7">
+  <section class="card card--flush" aria-labelledby="cov-h">
+    <div class="table-wrap">
+      <table class="data-table coverage-table">
+        <caption id="cov-h" class="visually-hidden">Coverage by resource</caption>
+        <thead><tr><th scope="col">Resource</th><th scope="col">Last answer</th><th scope="col" class="num">Objects</th><th scope="col" class="col-hide-s">Last OK</th><th scope="col" class="col-hide-m">Note</th></tr></thead>
+        <tbody><tr><th scope="row">Sites</th><td><span class="status status--ok"><svg aria-hidden="true" focusable="false"><use href="#i-check"/></svg>200</span></td><td class="num">1</td><td class="col-hide-s">07:05 today</td><td class="col-hide-m"><span class="sub"></span></td></tr><tr><th scope="row">Networks</th><td><span class="status status--ok"><svg aria-hidden="true" focusable="false"><use href="#i-check"/></svg>200</span></td><td class="num">6</td><td class="col-hide-s">07:05 today</td><td class="col-hide-m"><span class="sub"></span></td></tr><tr><th scope="row">WiFi broadcasts</th><td><span class="status status--ok"><svg aria-hidden="true" focusable="false"><use href="#i-check"/></svg>200</span></td><td class="num">4</td><td class="col-hide-s">07:05 today</td><td class="col-hide-m"><span class="sub"></span></td></tr><tr><th scope="row">Firewall zones</th><td><span class="status status--ok"><svg aria-hidden="true" focusable="false"><use href="#i-check"/></svg>200</span></td><td class="num">5</td><td class="col-hide-s">07:05 today</td><td class="col-hide-m"><span class="sub"></span></td></tr><tr><th scope="row">Firewall policies</th><td><span class="status status--ok"><svg aria-hidden="true" focusable="false"><use href="#i-check"/></svg>200</span></td><td class="num">12</td><td class="col-hide-s">07:05 today</td><td class="col-hide-m"><span class="sub"></span></td></tr><tr><th scope="row">ACL rules</th><td><span class="status status--unsupported"><svg aria-hidden="true" focusable="false"><use href="#i-dash"/></svg>404, not on this version</span></td><td class="num">none</td><td class="col-hide-s">none</td><td class="col-hide-m"><span class="sub">Not available on this version</span></td></tr><tr><th scope="row">DNS policies</th><td><span class="status status--stale"><svg aria-hidden="true" focusable="false"><use href="#i-clock"/></svg>403, stale</span></td><td class="num">3</td><td class="col-hide-s">19 Oct, 11:40</td><td class="col-hide-m"><span class="sub">Stale since 19 Oct, 11:40 UTC: the key may lack a permission</span></td></tr><tr><th scope="row">VPN servers</th><td><span class="status status--ok"><svg aria-hidden="true" focusable="false"><use href="#i-check"/></svg>200</span></td><td class="num">1</td><td class="col-hide-s">07:05 today</td><td class="col-hide-m"><span class="sub"></span></td></tr><tr><th scope="row">RADIUS profiles</th><td><span class="status status--ok"><svg aria-hidden="true" focusable="false"><use href="#i-check"/></svg>200</span></td><td class="num">1</td><td class="col-hide-s">07:05 today</td><td class="col-hide-m"><span class="sub"></span></td></tr><tr><th scope="row">Adopted devices</th><td><span class="status status--failing"><svg aria-hidden="true" focusable="false"><use href="#i-cross"/></svg>Error</span></td><td class="num">none</td><td class="col-hide-s">none</td><td class="col-hide-m"><span class="sub">Timed out after 30 seconds on the last 3 runs</span></td></tr></tbody>
+      </table>
+    </div>
+    <div class="table-foot"><span>A 404 means the version has no such resource. A 403 keeps the last good data and marks it stale.</span></div>
+  </section>
+
+  <div class="side">
+    <section class="card" id="runs" aria-labelledby="runs-h">
+      <h2 id="runs-h">Recent runs</h2>
+      <ol class="timeline">
+        <li><span class="dot dot--alert"></span><span>Failed: no answer within 30 seconds</span><time class="when" datetime="2026-10-22T07:05:00Z">07:05 UTC</time></li>
+        <li><span class="dot dot--alert"></span><span>Failed: no answer within 30 seconds</span><time class="when" datetime="2026-10-22T06:35:00Z">06:35 UTC</time></li>
+        <li><span class="dot dot--alert"></span><span>Failed: no answer within 30 seconds</span><time class="when" datetime="2026-10-22T06:05:00Z">06:05 UTC</time></li>
+        <li><span class="dot dot--run"></span><span>OK, no change, <span class="num">1,102</span> objects in <span class="num">4.2</span> s</span><time class="when" datetime="2026-10-22T05:35:00Z">05:35 UTC</time></li>
+        <li><span class="dot dot--run"></span><span>OK, no change, <span class="num">1,102</span> objects in <span class="num">4.0</span> s</span><time class="when" datetime="2026-10-22T05:05:00Z">05:05 UTC</time></li>
+      </ol>
+    </section>
+
+    <section class="card" aria-labelledby="about-h">
+      <h2 id="about-h">About this source</h2>
+      <dl class="kv">
+        <dt>Type</dt><dd>UniFi Network, official integration API</dd>
+        <dt>Address</dt><dd class="mono">https://controller.lab.example/</dd>
+        <dt>Key</dt><dd>Stored encrypted, never shown again. Last rotated 2026-09-30.</dd>
+        <dt>TLS mode</dt><dd>Insecure (checks off)</dd>
+        <dt>Resources</dt><dd>9 of 10 enabled, ACL rules off</dd>
+        <dt>Added</dt><dd>2026-09-30, 14:02 UTC by r.marques</dd>
+      </dl>
+    </section>
+
+    <section class="card confirm" aria-labelledby="del-h">
+      <h2 id="del-h">Delete this source</h2>
+      <p class="item__rule">Removes the source, its snapshots and its change events. Type the source name to confirm.</p>
+      <form method="post" action="#delete" class="stack">
+        <div class="field"><label for="confirm-name">Source name</label><input class="input" id="confirm-name" name="confirm" autocomplete="off" placeholder="branch-gw"></div>
+        <div class="form-row"><button class="btn btn--danger" type="submit">Delete source</button></div>
+      </form>
+    </section>
+  </div>
+</div>
+
+</main>
+<footer class="app-footer">
+  <div class="app-footer__inner">
+    <span>driftsniff CE 0.1.0-dev</span>
+    <span>All times are UTC</span>
+  </div>
+</footer>
+</body>
+</html>
