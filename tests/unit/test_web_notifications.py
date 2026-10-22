@@ -25,7 +25,7 @@ from driftsniff.web.auth import SESSION_COOKIE, AuthService, make_password_hashe
 ORIGIN = "http://testserver"
 CORRECT = "CANARY-correct horse battery"  # noqa: S105
 MASTER = MasterKey(bytes(range(32)))
-URL_SECRET = "CANARY-route-hook-token-0001"
+URL_SECRET = "CANARY-route-hook-token-0001"  # noqa: S105
 MAIL_SECRET = "CANARY-route-mail-password-0002"  # noqa: S105
 
 

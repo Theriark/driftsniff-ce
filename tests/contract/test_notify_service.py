@@ -42,7 +42,7 @@ from .fake_tls import make_pki
 BASE = "https://driftsniff.example"
 MASTER = MasterKey(bytes(range(32)))
 OTHER_MASTER = MasterKey(bytes(reversed(range(32))))
-URL_SECRET = "CANARY-hook-token-0001"
+URL_SECRET = "CANARY-hook-token-0001"  # noqa: S105
 MAIL_SECRET = "CANARY-mail-password-0002"  # noqa: S105
 ACTOR = "admin"
 SMTP_FIELDS = {
