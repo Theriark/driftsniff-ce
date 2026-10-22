@@ -25,6 +25,9 @@ SEVERITIES = ("low", "medium", "high", "critical")
 EVENT_STATUSES = ("open", "acknowledged")
 FIELD_CLASSES = ("config", "secret", "ignore", "unclassified")
 CHANNEL_TYPES = ("webhook", "smtp")
+# delivered: the receiver took it; failed: this attempt failed (a retry may follow);
+# blocked: the target is never allowed, nothing was sent.
+DELIVERY_STATUSES = ("delivered", "failed", "blocked")
 ENRICHMENT_SUMMARY_MAX_CHARS = 2000
 
 metadata = sa.MetaData(naming_convention=NAMING_CONVENTION)
@@ -306,6 +309,8 @@ notification_channel = sa.Table(
     _workspace_id(),
     sa.Column("type", sa.Text, nullable=False),
     sa.Column("config_ciphertext", sa.Text, nullable=False),
+    # The master key that sealed config_ciphertext, like sources.key_id (migration 0004).
+    sa.Column("key_id", sa.Text),
     sa.Column("enabled", sa.Boolean, nullable=False, server_default=sa.true()),
     sa.Column("min_severity", sa.Text, nullable=False, server_default=sa.text("'high'")),
     sa.CheckConstraint(_in("type", CHANNEL_TYPES), name="type"),
@@ -319,9 +324,13 @@ notification_deliveries = sa.Table(
     _cascade_fk("event_id", "change_events.id"),
     _cascade_fk("channel_id", "notification_channel.id"),
     sa.Column("attempt", sa.Integer, nullable=False),
+    # One of DELIVERY_STATUSES.
     sa.Column("status", sa.Text, nullable=False),
     sa.Column("http_status", sa.Integer),
+    # A class word such as timeout or blocked_address, never message text (migration 0004).
+    sa.Column("error_class", sa.Text),
     sa.Column("created_at", sa.Text, nullable=False),
+    sa.Index("ix_notification_deliveries_event", "event_id", "channel_id"),
 )
 
 audit_events = sa.Table(
