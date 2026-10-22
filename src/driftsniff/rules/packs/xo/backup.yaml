@@ -18,19 +18,19 @@ rules:
     severity: low
     rationale: The compression of a backup job changed, which affects size and speed only.
   - id: xo.backup_job_settings.export_retention
-    resource: backup-job-settings
-    path: exportRetention
+    resource: backup-jobs
+    path: settings.exportRetention
     severity: medium
     rationale: The number of backups kept by a job changed.
   - id: xo.backup_job_settings.export_retention_drop
-    resource: backup-job-settings
-    path: exportRetention
+    resource: backup-jobs
+    path: settings.exportRetention
     when: {name: decreases_below, n: 2}
     severity: high
     rationale: A job now keeps fewer than two backups, so one bad run can leave nothing to restore.
   - id: xo.backup_job_settings.report_recipients
-    resource: backup-job-settings
-    path: reportRecipients
+    resource: backup-jobs
+    path: settings.reportRecipients
     severity: medium
     rationale: The people who receive backup reports changed, so failures may reach someone else or nobody.
   - id: xo.schedules.enabled

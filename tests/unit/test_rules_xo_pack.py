@@ -208,7 +208,7 @@ def test_a_user_who_stays_an_administrator_is_not_critical(engine: RuleEngine) -
 
 def test_the_backup_retention_rule_needs_a_drop_below_two(engine: RuleEngine) -> None:
     def classify(before: int, after: int) -> tuple[str, str]:
-        item = make("backup-job-settings", "modified", "exportRetention", before, after)
+        item = make("backup-jobs", "modified", "settings.exportRetention", before, after)
         result = engine.classify(item)
         return result.severity, result.rule_id
 
