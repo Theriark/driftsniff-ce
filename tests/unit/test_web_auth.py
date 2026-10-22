@@ -87,6 +87,13 @@ def as_user(value: str) -> dict[str, str]:
     return {"Cookie": f"{SESSION_COOKIE}={value}"}
 
 
+def with_csrf(auth: AuthService, value: str) -> dict[str, str]:
+    """The cookie plus the session's CSRF value, as a browser form of the interface sends them."""
+    principal = auth.authenticate(value)
+    assert principal is not None
+    return {**as_user(value), "X-CSRF-Token": principal.csrf_token}
+
+
 def sign_in(client: TestClient, username: str, password: str = CORRECT) -> str:
     response = client.post("/login", data={"username": username, "password": password})
     assert response.status_code == 303
@@ -244,7 +251,7 @@ def test_logout_ends_the_session_and_clears_the_cookie(
 ) -> None:
     auth.create_user("ada", CORRECT, "viewer")
     value = sign_in(client, "ada")
-    response = client.post("/logout", headers=as_user(value))
+    response = client.post("/logout", headers=with_csrf(auth, value))
     assert response.status_code == 303
     assert response.headers["location"] == "/login"
     assert "max-age=0" in response.headers["set-cookie"].lower()
@@ -368,7 +375,7 @@ def test_no_password_or_cookie_value_reaches_the_logs(
     created = client.post("/setup", data=setup_form(code))
     client.post("/login", data={"username": "ada", "password": WRONG})
     value = sign_in(client, "ada")
-    client.post("/logout", headers=as_user(value))
+    client.post("/logout", headers=with_csrf(auth, value))
     text = caplog.text
     for secret in (CORRECT, WRONG, code, value, cookie_value(created)):
         assert secret not in text
