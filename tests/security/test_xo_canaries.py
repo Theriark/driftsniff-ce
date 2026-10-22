@@ -102,7 +102,7 @@ def test_a_full_run_of_the_pool_leaves_no_canary_on_any_surface(
             reports.append(collect(pipeline, server, session=session))
             # A server that repeats the cookie it received, and a read-only credential.
             scenario.echo_cookie = True
-            scenario.status.update({name: 403 for name in ADMIN_ONLY})
+            scenario.status.update(dict.fromkeys(ADMIN_ONLY, 403))
             scenario.status["acl-privileges"] = 404
             reports.append(collect(pipeline, server, session=session))
             # An answer that breaks inside a line that holds a canary.
