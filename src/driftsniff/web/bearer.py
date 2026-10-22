@@ -183,6 +183,21 @@ def _utc_now() -> datetime:
     return datetime.now(UTC)
 
 
+def _audit(
+    connection: Connection,
+    now: datetime,
+    actor: str,
+    action: str,
+    target: str | None,
+    detail: dict[str, Any] | None,
+) -> None:
+    connection.execute(
+        sa.insert(audit_events).values(
+            at=stamp(now), actor=actor, action=action, target=target, detail=detail
+        )
+    )
+
+
 @dataclass(slots=True)
 class _GateEntry:
     last_written: datetime
@@ -349,13 +364,22 @@ class TokenService:
             self._note_failure(ACTION_TOKEN_FORBIDDEN, "scope", scope, row)
             raise TokenScopeError(scope)
         if row.last_used_at is None or now - parse_stamp(row.last_used_at) >= LAST_USED_REFRESH:
+            self._record_use(row.id, now)
+        return TokenPrincipal(row.id, row.name, row.token_prefix, scopes)
+
+    def _record_use(self, token_id: int, now: datetime) -> None:
+        """Store the time of use. The token is valid, so a database that cannot take this write
+        (busy, full, read only) must not turn the request into a 500: the time is just not moved.
+        """
+        try:
             with self._db.write() as connection:
                 connection.execute(
                     sa.update(api_tokens)
-                    .where(api_tokens.c.id == row.id)
+                    .where(api_tokens.c.id == token_id)
                     .values(last_used_at=stamp(now))
                 )
-        return TokenPrincipal(row.id, row.name, row.token_prefix, scopes)
+        except SQLAlchemyError:
+            logger.warning("the last use of an API token could not be stored")
 
     def _reject(self, reason: str, scope: str, row: Any = None) -> NoReturn:
         self._note_failure(ACTION_TOKEN_REJECTED, reason, scope, row)
@@ -379,18 +403,3 @@ class TokenService:
         except SQLAlchemyError:
             # The refusal stands; a database that cannot take the event must not turn it into a 500.
             logger.warning("the audit event for a refused API token could not be written")
-
-
-def _audit(
-    connection: Connection,
-    now: datetime,
-    actor: str,
-    action: str,
-    target: str | None,
-    detail: dict[str, Any] | None,
-) -> None:
-    connection.execute(
-        sa.insert(audit_events).values(
-            at=stamp(now), actor=actor, action=action, target=target, detail=detail
-        )
-    )
