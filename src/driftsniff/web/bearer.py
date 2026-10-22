@@ -257,7 +257,10 @@ class TokenService:
                     expires_at=expires_at,
                 )
             )
-            token_id = int(result.inserted_primary_key[0])
+            primary_key = result.inserted_primary_key
+            if primary_key is None:
+                raise RuntimeError("the database returned no id for the new token")
+            token_id = int(primary_key[0])
             _audit(
                 connection,
                 now,
