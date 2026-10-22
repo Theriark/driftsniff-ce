@@ -93,6 +93,7 @@ injectable (`clock=`), which is how the tests cover it.
 - The factory that builds a client from a stored source (decrypts the credential, reads the TLS
   options and the entered expiry, saves the state `token_expiring`). `serve` has no scheduler until
   it exists.
-- The setup guide (P8-T5). The rule pack and golden rows are P8-T3; the volatility, coverage and
-  canary tests are P8-T4 (docs/xo-volatility.md).
+- The storage of the entered expiry date: the source options have no such option yet.
+- The rule pack and golden rows are P8-T3; the volatility, coverage and canary tests are P8-T4
+  (docs/xo-volatility.md); the setup guide is P8-T5 (docs/guides/xo-setup.md).
 - No lab result is claimed anywhere in this repository.
