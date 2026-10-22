@@ -1,8 +1,22 @@
-# Type tables of the Xen Orchestra collector (P5-T3, a skeleton that P8-T1 completes).
+# Type tables of the Xen Orchestra collector (P5-T3 skeleton, completed by P8-T1). Notes with
+# sources and dates: docs/vendor-notes/xo.md.
 #
-# Field names are the ones the plan lists for each collection (dev-work-plan, P8-T1). They have not
-# been checked against a live Xen Orchestra yet: until P8-T1 and the lab fixtures confirm them, a
-# field that is not listed here is unclassified and shows as a fingerprint only.
+# Every field name below is UNVERIFIED. They are the names the plan lists for each collection
+# (dev-work-plan part B, P8-T1). The vendor reference was not read for P8-T1 and no lab Xen
+# Orchestra was used (Gate A is waived for development, test X2 is open), so no name is lab
+# verified. A field that is not listed here is unclassified and shows as a fingerprint only. The
+# notes list every name that needs a check.
+#
+# hidden_by_xo lists the values that Xen Orchestra itself does not return in clear. A change to
+# such a value cannot be observed, so the interface says "hidden by XO" instead of showing a field
+# that never moves. The marker does not change the class of a field, and the collector never relies
+# on it to drop anything: a credential that does arrive is still unclassified or secret. A path
+# below the name url.credentials is virtual: it stands for the user and password part of a remote
+# address, which the collector strips before storage (P8-T2).
+#
+# The order of the boot devices is written as an ordered scalar list. The plan says ordered-keyed,
+# but that mode needs a key field for the members and the shape of the field is unverified; the
+# ordered scalar mode keeps the order and is also the safe default for a list.
 #
 # The backup job setting map of Xen Orchestra is keyed by schedule id, and a type table can only
 # name fixed field paths. The XO collector therefore reads each key of the settings map of a
@@ -73,6 +87,9 @@ types:
       parent: ignore
     lists:
       tags: set
+      boot.order: ordered-scalar
+  # Only templates that are not built in belong here: the collector drops the built in ones after
+  # the fetch (P8-T2). The field that tells them apart is not named by the plan and is unverified.
   - resource: vm-templates
     key_field: id
     name_field: name_label
@@ -82,10 +99,26 @@ types:
       name_description: config
       notes: config
       tags: config
+      auto_poweron: config
+      high_availability: config
+      secureBoot: config
       virtualizationMode: config
       boot.firmware: config
       boot.order: config
+      blockedOperations: config
+      affinityHost: config
+      startDelay: config
+      nicType: config
+      vga: config
+      videoram: config
+      viridian: config
+      resourceSet: config
+      suspendSr: config
       PV_args: config
+      cpuCap: config
+      cpuMask: config
+      cpuWeight: config
+      coresPerSocket: config
       CPUs.max: config
       CPUs.number: config
       memory.static: config
@@ -97,11 +130,14 @@ types:
       _xapiRef: ignore
       $pool: ignore
       $poolId: ignore
+      $container: ignore
+      current_operations: ignore
       snapshots: ignore
       VDIs: ignore
       parent: ignore
     lists:
       tags: set
+      boot.order: ordered-scalar
   - resource: hosts
     key_field: id
     name_field: name_label
@@ -309,6 +345,8 @@ types:
     lists:
       remotes: set
       srs: set
+      # The selection of VMs is a list of ids or a filter object; a filter object has no list.
+      vms: set
   - resource: backup-job-settings
     key_field: id
     fields:
@@ -342,6 +380,7 @@ types:
     key_field: id
     name_field: name
     floor: high
+    hidden_by_xo: [url.credentials]
     fields:
       id: config
       name: config
@@ -360,6 +399,7 @@ types:
     key_field: id
     name_field: label
     floor: high
+    hidden_by_xo: [password, token]
     fields:
       id: config
       label: config
@@ -377,6 +417,7 @@ types:
     floor: high
     fields:
       id: config
+      username: config
       email: config
       permission: config
       groups: config
@@ -404,3 +445,10 @@ types:
     fields:
       id: config
       name: config
+  # Collected only when the credential can reach it (coverage 403 or 404 otherwise). No field name
+  # of a privilege is known, so only the key is classified (notes, section "Open items").
+  - resource: acl-privileges
+    key_field: id
+    floor: high
+    fields:
+      id: config
