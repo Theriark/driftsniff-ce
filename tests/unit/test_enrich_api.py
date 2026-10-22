@@ -6,12 +6,14 @@ that must never come back in an answer starts with CANARY-.
 """
 
 import json
-from collections.abc import Iterator
+import secrets
+from collections.abc import Iterable, Iterator
 from typing import Any
 
 import pytest
 import sqlalchemy as sa
 from fastapi import FastAPI
+from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
 from driftsniff.config import Settings
@@ -35,6 +37,7 @@ from driftsniff.enrich.models import payload_depth
 from driftsniff.main import create_app
 from driftsniff.web.auth import AuthService, make_password_hasher
 from driftsniff.web.bearer import TokenService
+from driftsniff.web.csrf import is_api_path
 
 ORIGIN = "http://testserver"
 CANARY = "CANARY-enrich-9f3a"
@@ -594,23 +597,46 @@ def test_a_deeply_nested_document_is_refused_without_a_crash(
 # -- OpenAPI ------------------------------------------------------------------------------------
 
 
-API_ROUTE_TABLE = {
-    ("GET", "/api/v1/changes"),
-    ("GET", "/api/v1/changes/{event_id}"),
-    ("POST", "/api/v1/changes/{event_id}/enrichments"),
-    ("GET", "/api/v1/openapi.json"),
-    ("POST", "/api/v1/push/{source_id}"),
-}
+def leaf_routes(routes: Iterable[Any]) -> Iterator[Any]:
+    """The routes themselves; FastAPI nests an included router, so a container is entered."""
+    for route in routes:
+        nested = getattr(route, "routes", None)
+        if nested is None:
+            nested = getattr(getattr(route, "router", None), "routes", None)
+        if nested is not None:
+            yield from leaf_routes(nested)
+        else:
+            yield route
 
 
-def test_the_openapi_document_matches_the_real_route_table(client: TestClient) -> None:
+def api_route_table(app: FastAPI) -> set[tuple[str, str]]:
+    """Every (method, path) under /api/v1 that the application really serves."""
+    return {
+        (method, route.path)
+        for route in leaf_routes(app.routes)
+        if isinstance(route, APIRoute) and is_api_path(route.path)
+        for method in (route.methods or set())
+        if method not in ("HEAD", "OPTIONS")
+    }
+
+
+def test_the_openapi_document_matches_the_real_route_table(
+    client: TestClient, app: FastAPI
+) -> None:
     response = client.get("/api/v1/openapi.json")
     assert response.status_code == 200
     document = response.json()
     described = {
         (method.upper(), path) for path, methods in document["paths"].items() for method in methods
     }
-    assert described == API_ROUTE_TABLE
+    real = api_route_table(app)
+    assert described == real
+    # The comparison is not vacuous: the routes of this phase are among the real ones.
+    assert {
+        ("GET", "/api/v1/changes"),
+        ("POST", "/api/v1/changes/{event_id}/enrichments"),
+        ("GET", "/api/v1/openapi.json"),
+    } <= real
 
 
 def test_the_openapi_document_describes_the_body_the_token_and_the_limits(
@@ -649,3 +675,137 @@ def test_the_openapi_document_follows_routes_added_later(client: TestClient, app
         return {}
 
     assert "/api/v1/late" in client.get("/api/v1/openapi.json").json()["paths"]
+
+
+# -- the order of the checks, refusals that leave no trace, append only ---------------------------
+
+
+def enrichment_audits(store: Database) -> list[Any]:
+    return [row for row in rows_of(store, audit_events) if row.action == "enrichment.added"]
+
+
+def test_the_credential_is_checked_before_the_body(
+    client: TestClient,
+    store: Database,
+    reader: dict[str, str],
+    enricher: dict[str, str],
+) -> None:
+    event_id = add_event(store)
+    url = f"/api/v1/changes/{event_id}/enrichments"
+    bodies = (
+        ("application/json", "z" * 70000),
+        ("text/plain", "not json"),
+        ("application/json", "{"),
+    )
+    for headers, expected in (({}, 401), (bearer("x" * 43), 401), (reader, 403)):
+        for content_type, content in bodies:
+            response = client.post(
+                url, headers={**headers, "Content-Type": content_type}, content=content
+            )
+            assert response.status_code == expected, (expected, content_type, len(content))
+    assert rows_of(store, enrichments) == []
+    # The same bodies get their own answers once the token is the right one.
+    answers = [
+        client.post(url, headers={**enricher, "Content-Type": ctype}, content=content).status_code
+        for ctype, content in bodies
+    ]
+    assert answers == [413, 415, 422]
+
+
+def test_a_refused_enrichment_leaves_no_audit_event(
+    client: TestClient, store: Database, enricher: dict[str, str]
+) -> None:
+    event_id = add_event(store)
+    url = f"/api/v1/changes/{event_id}/enrichments"
+    refusals = (
+        (event_id + 100, good_body(), 404),
+        (event_id, good_body(summary=""), 422),
+        (event_id, good_body(payload={"t": "x" * 40000}), 413),
+        (event_id, good_body(payload=nested(7)), 422),
+    )
+    for target, body, status in refusals:
+        assert post(client, target, enricher, body).status_code == status
+    assert client.post(url, headers=enricher, data={"summary": "x"}).status_code == 415
+    assert enrichment_audits(store) == []
+    assert rows_of(store, enrichments) == []
+    # The limit: every accepted enrichment has its audit event, the refused one has none.
+    for _ in range(MAX_ENRICHMENTS_PER_CHANGE):
+        assert post(client, event_id, enricher, good_body()).status_code == 201
+    assert len(enrichment_audits(store)) == MAX_ENRICHMENTS_PER_CHANGE
+    assert post(client, event_id, enricher, good_body()).status_code == 409
+    assert len(enrichment_audits(store)) == MAX_ENRICHMENTS_PER_CHANGE
+
+
+@pytest.mark.parametrize("method", ["PUT", "PATCH", "DELETE"])
+def test_an_enrichment_cannot_be_changed_or_deleted(
+    client: TestClient, store: Database, enricher: dict[str, str], method: str
+) -> None:
+    event_id = add_event(store)
+    created = post(client, event_id, enricher, good_body()).json()
+    kept = rows_of(store, enrichments)
+    audits = rows_of(store, audit_events)
+    paths = (
+        f"/api/v1/changes/{event_id}/enrichments",
+        f"/api/v1/changes/{event_id}/enrichments/{created['id']}",
+        f"/api/v1/changes/{event_id}",
+        "/api/v1/changes",
+    )
+    for path in paths:
+        response = client.request(method, path, headers=enricher, json=good_body(summary="edited"))
+        assert response.status_code in (404, 405), (method, path)
+    assert rows_of(store, enrichments) == kept
+    assert rows_of(store, audit_events) == audits
+
+
+def credential_shaped(label: str) -> tuple[str, dict[str, str]]:
+    """A canary and four credential-shaped texts that hold it, one per shape."""
+    canary = f"CANARY-{label}-{secrets.token_hex(12)}"
+    return canary, {
+        "url": "https://svc:" + canary + "@controller.example.invalid/api",
+        "prefixed": "gh" + "p_" + canary,
+        "jwt": "ey" + "J" + "hbGciOiJIUzI1NiJ9" + "." + canary + "." + "c2lnbmF0dXJl",
+    }
+
+
+def test_path_name_rationale_and_order_detail_are_redacted(
+    client: TestClient, store: Database, reader: dict[str, str]
+) -> None:
+    in_path, path_shapes = credential_shaped("path")
+    in_name, name_shapes = credential_shaped("name")
+    in_why, why_shapes = credential_shaped("why")
+    in_key, key_shapes = credential_shaped("key")
+    in_list, list_shapes = credential_shaped("list")
+    in_nested, nested_shapes = credential_shaped("nested")
+    event_id = add_event(
+        store,
+        items=(
+            {
+                "path": "wifi." + path_shapes["prefixed"],
+                "object_name_at_time": name_shapes["url"],
+                "rationale": "Fired for " + why_shapes["jwt"],
+                "order_detail": {
+                    "key": key_shapes["prefixed"],
+                    "after": [list_shapes["url"], "plain text"],
+                    "nested": {"after": nested_shapes["jwt"], "count": 3},
+                },
+            },
+            {"path": "name", "object_name_at_time": "LAN", "rationale": "A rename is low risk."},
+        ),
+    )
+    response = client.get(f"/api/v1/changes/{event_id}", headers=reader)
+    assert response.status_code == 200
+    for canary in (in_path, in_name, in_why, in_key, in_list, in_nested):
+        assert canary not in response.text
+        assert canary.removeprefix("CANARY-") not in response.text
+    secret_item, plain_item = response.json()["items"]
+    assert secret_item["path"].startswith("wifi.")
+    assert "***REDACTED***" in secret_item["path"]
+    assert secret_item["object_name"] != name_shapes["url"]
+    assert secret_item["rationale"].startswith("Fired for ")
+    detail = secret_item["order_detail"]
+    assert detail["after"][1] == "plain text"
+    assert detail["nested"]["count"] == 3
+    assert "***REDACTED***" in json.dumps(detail)
+    # Ordinary text passes through unchanged.
+    assert (plain_item["path"], plain_item["object_name"]) == ("name", "LAN")
+    assert plain_item["rationale"] == "A rename is low risk."
