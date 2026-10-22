@@ -51,6 +51,15 @@ def associated_data(source_id: int, key_id: str) -> bytes:
     return f"driftsniff-credential-v1/source/{source_id}/key/{key_id}".encode("ascii")
 
 
+def channel_associated_data(channel_id: int, key_id: str) -> bytes:
+    """The same for the configuration of a notification channel (P9-T4).
+
+    A different text from ``associated_data``, so a source credential can never be opened as a
+    channel configuration, or the other way round, even when both have the same id.
+    """
+    return f"driftsniff-channel-v1/channel/{channel_id}/key/{key_id}".encode("ascii")
+
+
 class CredentialCipher:
     """Encrypts and decrypts source credentials with one credential key.
 
@@ -74,12 +83,7 @@ class CredentialCipher:
 
     def encrypt(self, source_id: int, plaintext: bytes) -> EncryptedCredential:
         """Encrypt a credential of a source; a fresh random nonce is used every time."""
-        if len(plaintext) > MAX_CREDENTIAL_BYTES:
-            raise CredentialCryptoError(f"a credential is larger than {MAX_CREDENTIAL_BYTES} bytes")
-        nonce = os.urandom(NONCE_BYTES)
-        sealed = self._aead.encrypt(nonce, plaintext, associated_data(source_id, self.key_id))
-        packed = bytes([VERSION_BYTE]) + nonce + sealed
-        return EncryptedCredential(base64.b64encode(packed).decode("ascii"), self.key_id)
+        return self._seal(plaintext, associated_data(source_id, self.key_id))
 
     def decrypt(self, source_id: int, ciphertext: str, key_id: str) -> bytes:
         """Decrypt the stored value of a source.
@@ -88,6 +92,25 @@ class CredentialCipher:
         before any decryption is tried; a wrong key, a value of another source, an edited
         ``key_id`` and damaged data all fail with CredentialDecryptError.
         """
+        return self._open(ciphertext, key_id, associated_data(source_id, key_id))
+
+    def encrypt_channel(self, channel_id: int, plaintext: bytes) -> EncryptedCredential:
+        """Encrypt the configuration of a notification channel (bound to the channel id)."""
+        return self._seal(plaintext, channel_associated_data(channel_id, self.key_id))
+
+    def decrypt_channel(self, channel_id: int, ciphertext: str, key_id: str) -> bytes:
+        """Decrypt the stored configuration of a channel; the failures are those of ``decrypt``."""
+        return self._open(ciphertext, key_id, channel_associated_data(channel_id, key_id))
+
+    def _seal(self, plaintext: bytes, context: bytes) -> EncryptedCredential:
+        if len(plaintext) > MAX_CREDENTIAL_BYTES:
+            raise CredentialCryptoError(f"a credential is larger than {MAX_CREDENTIAL_BYTES} bytes")
+        nonce = os.urandom(NONCE_BYTES)
+        sealed = self._aead.encrypt(nonce, plaintext, context)
+        packed = bytes([VERSION_BYTE]) + nonce + sealed
+        return EncryptedCredential(base64.b64encode(packed).decode("ascii"), self.key_id)
+
+    def _open(self, ciphertext: str, key_id: str, context: bytes) -> bytes:
         if key_id != self.key_id:
             raise CredentialDecryptError(
                 f"the credential was encrypted with key {key_id}, but key {self.key_id} is loaded"
@@ -103,7 +126,7 @@ class CredentialCipher:
         nonce = packed[1 : 1 + NONCE_BYTES]
         sealed = packed[1 + NONCE_BYTES :]
         try:
-            return self._aead.decrypt(nonce, sealed, associated_data(source_id, key_id))
+            return self._aead.decrypt(nonce, sealed, context)
         except InvalidTag:
             raise CredentialDecryptError(
                 "the stored credential cannot be decrypted: wrong key or damaged data"

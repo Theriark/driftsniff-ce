@@ -183,6 +183,7 @@ def _serve(settings: Settings) -> int:
     import uvicorn
 
     from driftsniff.main import create_app
+    from driftsniff.notify.deliveries import NotificationService
     from driftsniff.web.auth import AuthService
     from driftsniff.web.bearer import TokenService
 
@@ -212,6 +213,7 @@ def _serve(settings: Settings) -> int:
                 retention=RetentionJob(database),
                 auth=auth,
                 tokens=TokenService(database),
+                notifications=NotificationService(database, master_key, base_url=settings.base_url),
             ),
             host=host,
             port=settings.port,

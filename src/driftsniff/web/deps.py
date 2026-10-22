@@ -14,6 +14,7 @@ from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request
 
+from driftsniff.notify.deliveries import NotificationService
 from driftsniff.web.auth import ROLE_RANK, SESSION_COOKIE, AuthService, Principal
 from driftsniff.web.bearer import (
     TOKEN_SCOPES,
@@ -64,6 +65,14 @@ def get_token_service(request: Request) -> TokenService:
     service: TokenService | None = request.app.state.tokens
     if service is None:
         raise HTTPException(status_code=503, detail="API tokens are not available")
+    return service
+
+
+def get_notification_service(request: Request) -> NotificationService:
+    """The notification service; 503 when the application was built without one."""
+    service: NotificationService | None = request.app.state.notifications
+    if service is None:
+        raise HTTPException(status_code=503, detail="notifications are not available")
     return service
 
 

@@ -4,13 +4,15 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.concurrency import run_in_threadpool
 
 from driftsniff import __version__
 from driftsniff.config import Settings
+from driftsniff.notify.deliveries import NotificationService
 from driftsniff.secrets.keys import MasterKey
 from driftsniff.sources.retention import RetentionJob
 from driftsniff.sources.scheduler import Scheduler
-from driftsniff.web import routes_api, routes_push
+from driftsniff.web import routes_api, routes_notifications, routes_push
 from driftsniff.web.auth import AuthService
 from driftsniff.web.bearer import TokenService
 from driftsniff.web.csrf import BrowserHardeningMiddleware
@@ -22,6 +24,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Start the scheduler and the retention job with the application; stop them with it."""
     scheduler: Scheduler | None = app.state.scheduler
     retention: RetentionJob | None = app.state.retention
+    notifications: NotificationService | None = app.state.notifications
     if scheduler is not None:
         await scheduler.start()
     try:
@@ -33,6 +36,8 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
             await retention.stop()
         if scheduler is not None:
             await scheduler.stop()
+        if notifications is not None:
+            await run_in_threadpool(notifications.close)
 
 
 def create_app(
@@ -43,6 +48,7 @@ def create_app(
     retention: RetentionJob | None = None,
     auth: AuthService | None = None,
     tokens: TokenService | None = None,
+    notifications: NotificationService | None = None,
 ) -> FastAPI:
     """Build the application; settings default to the DRIFTSNIFF_ environment.
 
@@ -55,6 +61,10 @@ def create_app(
     ``/logout`` and the role checks of ``driftsniff.web.deps``; without one they answer 503.
     The ``tokens`` service (API tokens) serves the admin routes under ``/tokens`` and the token
     checks of the ``/api/v1`` routes; without one they answer 503.
+    The ``notifications`` service (the webhook or mail channel) serves the admin routes under
+    ``/notifications``; without one they answer 503. It is stopped with the application, after
+    the deliveries that are running have finished. The run pipeline sends events through its
+    ``notify_event`` (the ``notifier`` of ``RunPipeline``).
     Every response gets the security headers and every browser write the origin and CSRF checks
     of ``driftsniff.web.csrf``.
     """
@@ -74,8 +84,10 @@ def create_app(
     app.state.retention = retention
     app.state.auth = auth
     app.state.tokens = tokens
+    app.state.notifications = notifications
     app.add_middleware(BrowserHardeningMiddleware)
     app.include_router(ui_router)
     app.include_router(routes_push.router)
     app.include_router(routes_api.router)
+    app.include_router(routes_notifications.router)
     return app

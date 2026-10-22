@@ -32,7 +32,13 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from driftsniff.core.canonical import JsonValue
 from driftsniff.db.engine import Database
-from driftsniff.db.tables import DEFAULT_WORKSPACE_ID, audit_events, settings, sources
+from driftsniff.db.tables import (
+    DEFAULT_WORKSPACE_ID,
+    audit_events,
+    notification_channel,
+    settings,
+    sources,
+)
 from driftsniff.secrets.crypto import CredentialCipher, CredentialCryptoError
 from driftsniff.secrets.fingerprint import Fingerprint, Fingerprinter
 from driftsniff.secrets.keys import MasterKey
@@ -316,6 +322,40 @@ def rekey_credentials(
     return count
 
 
+def rekey_channels(connection: sa.Connection, old: CredentialCipher, new: CredentialCipher) -> int:
+    """Re-encrypt the stored configuration of every notification channel (the same rules as
+    :func:`rekey_credentials`). Returns the number of channels re-encrypted.
+    """
+    rows = connection.execute(
+        sa.select(
+            notification_channel.c.id,
+            notification_channel.c.config_ciphertext,
+            notification_channel.c.key_id,
+        ).where(notification_channel.c.key_id.is_not(None))
+    ).all()
+    count = 0
+    for channel_id, ciphertext, key_id in rows:
+        if key_id == new.key_id:
+            continue
+        if key_id != old.key_id:
+            raise RekeyError(
+                f"the notification channel {channel_id} was encrypted with key {key_id}, "
+                f"which is neither the old key {old.key_id} nor the new key {new.key_id}"
+            )
+        try:
+            plaintext = old.decrypt_channel(channel_id, ciphertext, key_id)
+            sealed = new.encrypt_channel(channel_id, plaintext)
+        except CredentialCryptoError as error:
+            raise RekeyError(f"the notification channel {channel_id}: {error}") from None
+        connection.execute(
+            sa.update(notification_channel)
+            .where(notification_channel.c.id == channel_id)
+            .values(config_ciphertext=sealed.ciphertext, key_id=sealed.key_id)
+        )
+        count += 1
+    return count
+
+
 @dataclass(frozen=True, slots=True)
 class RekeyResult:
     """What starting a rekey did."""
@@ -337,11 +377,10 @@ def run_rekey(database: Database, old: MasterKey | None, new: MasterKey, at: str
             old_key_id = _lost_key_id(connection, new.key_id)
         else:
             old_key_id = old.key_id
-            count = rekey_credentials(
-                connection,
-                CredentialCipher.from_master(old),
-                CredentialCipher.from_master(new),
-            )
+            old_cipher = CredentialCipher.from_master(old)
+            new_cipher = CredentialCipher.from_master(new)
+            count = rekey_credentials(connection, old_cipher, new_cipher)
+            rekey_channels(connection, old_cipher, new_cipher)
         source_ids = tuple(
             connection.execute(sa.select(sources.c.id).where(sources.c.enabled.is_(True)))
             .scalars()
