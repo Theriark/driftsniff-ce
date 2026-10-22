@@ -373,9 +373,8 @@ def test_plain_clients_and_the_api_keep_the_json_answers(
 ) -> None:
     auth.create_user("vera", CORRECT, "viewer")
     assert client.get("/no-such-page").json() == {"detail": "Not Found"}
-    assert client.get("/no-such-page", headers=browser()).headers["content-type"].startswith(
-        "text/html"
-    )
+    missing = client.get("/no-such-page", headers=browser())
+    assert missing.headers["content-type"].startswith("text/html")
     api = client.get("/api/v1/changes", headers=browser())
     assert api.status_code == 401
     assert api.headers["content-type"].startswith("application/json")

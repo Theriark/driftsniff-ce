@@ -195,13 +195,17 @@ def status_page(request: Request, principal: Principal | None, status: int) -> H
     return page("status.html", shell, status=status, error=PageError(title, text))
 
 
-async def handle_http_exception(request: Request, exc: StarletteHTTPException) -> Response:
+async def handle_http_exception(request: Request, exc: Exception) -> Response:
     """Pages for a browser, the default JSON answer for everyone else.
 
-    401 sends the browser to sign in (or to the setup page while no admin exists); 403 and 404
-    render their status page with the shell of whoever is signed in. Every other status, every
-    API path and every non-browser client get FastAPI's own answer, unchanged.
+    Registered for ``HTTPException`` (Starlette types the handler on ``Exception``, so anything
+    else is raised again unchanged). 401 sends the browser to sign in (or to the setup page
+    while no admin exists); 403 and 404 render their status page with the shell of whoever is
+    signed in. Every other status, every API path and every non-browser client get FastAPI's
+    own answer, unchanged.
     """
+    if not isinstance(exc, StarletteHTTPException):
+        raise exc
     path = request.url.path
     auth: AuthService | None = request.app.state.auth
     if wants_html(request) and is_page_path(path):
