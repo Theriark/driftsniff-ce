@@ -2049,3 +2049,90 @@ textarea.input {
   stroke-width: 1.5;
   stroke-linejoin: round;
 }
+
+/* ---- additions of P10-T3 (sign-in, setup, dashboard frame, status pages) ------------- */
+
+/* The brand mark on the guide's light rounded tile, in both themes: the mark file is
+   transparent and the guide never shows it bare on a dark surface. The tile is the brand paper
+   value, fixed on purpose (it is not a theme token, it is the tile the guide draws). */
+.mark-tile {
+  display: inline-grid;
+  place-items: center;
+  width: 112px;
+  height: 112px;
+  border-radius: 28px;
+  background: #F5F5F0;
+}
+
+.mark-tile img {
+  width: 96px;
+  height: 96px;
+}
+
+/* one centred column: the mark, a heading, one sentence, the card with the single action */
+.auth {
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+  padding-top: var(--sp-6);
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: var(--sp-3);
+}
+
+.auth h1 {
+  font-size: var(--fs-24);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--track-display);
+  font-weight: 700;
+  margin-top: var(--sp-2);
+}
+
+.auth__lead {
+  color: var(--text-2);
+  max-width: 44ch;
+}
+
+.auth .banner {
+  width: 100%;
+  text-align: left;
+  margin-top: var(--sp-2);
+}
+
+.auth__card {
+  width: 100%;
+  text-align: left;
+  margin-top: var(--sp-3);
+  padding: var(--sp-8);
+}
+
+.auth__card .input {
+  width: 100%;
+}
+
+.auth__card .btn--primary,
+.auth > .btn--primary {
+  justify-content: center;
+  margin-top: var(--sp-2);
+}
+
+.auth__card .btn--primary {
+  width: 100%;
+}
+
+.auth__note {
+  font-size: var(--fs-14);
+  color: var(--text-2);
+  max-width: 44ch;
+}
+
+@media (max-width: 767px) {
+  .auth {
+    padding-top: var(--sp-2);
+  }
+
+  .auth__card {
+    padding: var(--sp-6);
+  }
+}
