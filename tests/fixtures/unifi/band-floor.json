@@ -1,0 +1,68 @@
+{
+  "band": "floor",
+  "applicationVersion": "10.1.84",
+  "unverified": true,
+  "note": "Hand written for the contract tests. The shape follows docs/vendor-notes/unifi.md and every path, field name and value is UNVERIFIED: dependency D5 (the vendor API reference) is open and no lab controller was used. No secret value is stored here: a string that starts with @canary: is replaced by a fresh synthetic canary when a test loads the file. Addresses are from the documentation ranges (RFC 5737).",
+  "objects": {
+    "networks": [
+      {"id": "net-1", "name": "Internal", "enabled": true, "management": true, "vlanId": 1, "internetAccessEnabled": true, "dhcpGuarding": {"trustedDhcpServerIpAddresses": ["192.0.2.1"]}, "dhcpConfig": {"dnsServers": ["192.0.2.53", "192.0.2.54"]}},
+      {"id": "net-2", "name": "Guest", "enabled": true, "management": false, "vlanId": 20, "internetAccessEnabled": true, "dhcpGuarding": {"trustedDhcpServerIpAddresses": ["192.0.2.1"]}, "dhcpConfig": {"dnsServers": ["192.0.2.53"]}}
+    ],
+    "wifi/broadcasts": [
+      {"id": "wifi-1", "name": "Staff", "enabled": true, "type": "STANDARD", "network": {"networkId": "net-1"}, "securityConfiguration": {"type": "WPA2_PERSONAL", "passphrase": "@canary:wifi-staff-passphrase"}, "broadcastingFrequenciesGHz": [2.4, 5], "hideName": false, "clientIsolationEnabled": false},
+      {"id": "wifi-2", "name": "Guest", "enabled": true, "type": "STANDARD", "network": {"networkId": "net-2"}, "securityConfiguration": {"type": "WPA2_PERSONAL", "passphrase": "@canary:wifi-guest-passphrase"}, "broadcastingFrequenciesGHz": [2.4, 5], "hideName": false, "clientIsolationEnabled": true}
+    ],
+    "firewall/zones": [
+      {"id": "zone-1", "name": "Internal", "networkIds": ["net-1"]},
+      {"id": "zone-2", "name": "External", "networkIds": []},
+      {"id": "zone-3", "name": "Guest", "networkIds": ["net-2"]}
+    ],
+    "firewall/policies": [
+      {"id": "pol-1", "name": "Internal to internet", "enabled": true, "action": {"type": "ALLOW", "allowReturnTraffic": true}, "source": {"zoneId": "zone-1"}, "destination": {"zoneId": "zone-2"}, "loggingEnabled": false},
+      {"id": "pol-2", "name": "Guest to internet", "enabled": true, "action": {"type": "ALLOW", "allowReturnTraffic": true}, "source": {"zoneId": "zone-3"}, "destination": {"zoneId": "zone-2"}, "loggingEnabled": false},
+      {"id": "pol-3", "name": "Guest to internal", "enabled": true, "action": {"type": "BLOCK", "allowReturnTraffic": false}, "source": {"zoneId": "zone-3"}, "destination": {"zoneId": "zone-1"}, "loggingEnabled": false}
+    ],
+    "acl-rules": [
+      {"id": "acl-1", "name": "Block telnet", "type": "IPV4", "enabled": true, "action": "BLOCK"},
+      {"id": "acl-2", "name": "Allow printing", "type": "IPV4", "enabled": true, "action": "ALLOW"}
+    ],
+    "dns/policies": [
+      {"id": "dns-1", "type": "A_RECORD", "enabled": true, "domain": "host-a.example.test"},
+      {"id": "dns-2", "type": "A_RECORD", "enabled": true, "domain": "host-b.example.test"}
+    ],
+    "traffic-matching-lists": [
+      {"id": "tml-1", "name": "Printers", "type": "IPV4_ADDRESSES", "items": ["192.0.2.20"]},
+      {"id": "tml-2", "name": "Print ports", "type": "PORTS", "items": ["631", "9100"]}
+    ],
+    "wans": [
+      {"id": "wan-1", "name": "Internet 1", "dnsServers": ["192.0.2.1", "192.0.2.2"]},
+      {"id": "wan-2", "name": "Internet 2", "dnsServers": ["192.0.2.3"]}
+    ],
+    "vpn/site-to-site-tunnels": [
+      {"id": "tun-1", "name": "Branch one", "type": "IPSEC", "enabled": true, "preSharedKey": "@canary:vpn-tunnel-one-key"},
+      {"id": "tun-2", "name": "Branch two", "type": "IPSEC", "enabled": true, "preSharedKey": "@canary:vpn-tunnel-two-key"}
+    ],
+    "vpn/servers": [
+      {"id": "vpn-1", "name": "Remote access", "type": "WIREGUARD", "enabled": true, "preSharedKey": "@canary:vpn-server-one-key"},
+      {"id": "vpn-2", "name": "Legacy access", "type": "L2TP", "enabled": false, "preSharedKey": "@canary:vpn-server-two-key"}
+    ],
+    "radius/profiles": [
+      {"id": "rad-1", "name": "Office RADIUS", "sharedSecret": "@canary:radius-office-secret"},
+      {"id": "rad-2", "name": "Guest RADIUS", "sharedSecret": "@canary:radius-guest-secret"}
+    ],
+    "device-tags": [
+      {"id": "tag-1", "name": "Access points", "deviceIds": ["dev-2"]},
+      {"id": "tag-2", "name": "Gateways", "deviceIds": ["dev-1"]}
+    ],
+    "devices": [
+      {"id": "dev-1", "name": "Gateway", "model": "GW-Lite", "firmwareVersion": "4.0.6", "state": "ONLINE", "uptimeSec": 86400, "lastHeartbeatAt": "2026-10-21T08:00:00Z", "statistics": {"rxBytes": 864000, "txBytes": 345600}},
+      {"id": "dev-2", "name": "Access point", "model": "AP-Pro", "firmwareVersion": "6.6.77", "state": "ONLINE", "uptimeSec": 172800, "lastHeartbeatAt": "2026-10-21T08:00:05Z", "statistics": {"rxBytes": 1728000, "txBytes": 691200}}
+    ]
+  },
+  "firewallOrder": [
+    {"site": "site-a", "source": "zone-1", "destination": "zone-2", "before": ["pol-1"], "after": []},
+    {"site": "site-a", "source": "zone-3", "destination": "zone-2", "before": ["pol-2"], "after": []},
+    {"site": "site-a", "source": "zone-3", "destination": "zone-1", "before": ["pol-3"], "after": []}
+  ],
+  "aclOrder": {"site-a": ["acl-1", "acl-2"]}
+}
