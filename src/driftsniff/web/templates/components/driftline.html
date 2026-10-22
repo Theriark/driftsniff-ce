@@ -1,0 +1,36 @@
+{# The drift line (docs/design-direction.md section 2): one strip per source, the last 30 days
+   of checks, oldest on the left. A thin tick is a check without change, a hollow tick a failed
+   or partial run, a severity shape a check that found changes (it links to the event and names
+   it in its title). The labels under the strip are HTML text, so they never shrink below 14 px.
+   checks is a list of {kind: ok|failed|change, severity, summary, href}; id_prefix makes the
+   title and desc ids unique on a page with several strips. #}
+{% macro drift_line(name, checks, id_prefix, href="", meta="", short=false) %}
+{% set marks = drift_marks(checks) %}
+{% set width = drift_width(checks | length) %}
+<div class="driftline{% if short %} driftline--short{% endif %}">
+  {% if not short %}
+  {% if href %}<a class="driftline__name" href="{{ href }}">{{ name }}</a>{% else %}<span class="driftline__name">{{ name }}</span>{% endif %}
+  <span class="driftline__meta">{{ meta }}</span>
+  {% endif %}
+  <div class="driftline__strip">
+    <svg viewBox="0 0 {{ width }} {{ drift_height }}" role="img" aria-labelledby="{{ id_prefix }}-t {{ id_prefix }}-d">
+      <title id="{{ id_prefix }}-t">Drift line of {{ name }}, last 30 days</title>
+      <desc id="{{ id_prefix }}-d">{{ checks | length }} checks. A thin tick is a check without change, a taller shape a check with changes, a hollow tick a failed or partial run.</desc>
+      <line class="axis" x1="0" y1="30" x2="{{ width }}" y2="30"/>
+      {% for mark in marks %}
+      {% if mark.kind == "ok" %}
+      <line class="tick" x1="{{ mark.x | int }}" y1="14" x2="{{ mark.x | int }}" y2="26"><title>Check, no change</title></line>
+      {% elif mark.kind == "failed" %}
+      <rect class="tick--hollow" x="{{ (mark.x - 3) | int }}" y="12" width="6" height="14"><title>Check failed or partial</title></rect>
+      {% else %}
+      <a href="{{ mark.href }}">
+        {%- if mark.severity == "low" %}<circle class="mark mark--low" cx="{{ mark.x | int }}" cy="18" r="6"/>{% else %}<path class="mark mark--{{ mark.severity }}" d="{{ mark.d }}"/>{% endif -%}
+        <title>{{ severity_labels[mark.severity] }}: {{ mark.summary }}</title>
+      </a>
+      {% endif %}
+      {% endfor %}
+    </svg>
+    <div class="driftline__axis"><span>30 days ago</span><span>today</span></div>
+  </div>
+</div>
+{%- endmacro %}

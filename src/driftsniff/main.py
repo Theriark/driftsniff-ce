@@ -14,7 +14,7 @@ from driftsniff.plugins.registry import PluginRegistry
 from driftsniff.secrets.keys import MasterKey
 from driftsniff.sources.retention import RetentionJob
 from driftsniff.sources.scheduler import Scheduler
-from driftsniff.web import routes_api, routes_notifications, routes_push
+from driftsniff.web import routes_api, routes_notifications, routes_push, routes_static
 from driftsniff.web.auth import AuthService
 from driftsniff.web.bearer import TokenService
 from driftsniff.web.csrf import BrowserHardeningMiddleware
@@ -73,7 +73,8 @@ def create_app(
     they answer 503 (the OpenAPI document at ``/api/v1/openapi.json`` needs no service). The
     ``plugins`` registry holds the implementation of every extension point, checked at start.
     Every response gets the security headers and every browser write the origin and CSRF checks
-    of ``driftsniff.web.csrf``.
+    of ``driftsniff.web.csrf``. The stylesheet, the vendored htmx and the brand copies are served
+    under ``/static/`` by ``driftsniff.web.routes_static``.
     """
     resolved = Settings.from_env() if settings is None else settings
     app = FastAPI(
@@ -97,6 +98,7 @@ def create_app(
     app.state.openapi_cache = None
     app.add_middleware(BrowserHardeningMiddleware)
     app.include_router(ui_router)
+    app.include_router(routes_static.router)
     app.include_router(routes_push.router)
     app.include_router(routes_api.router)
     app.include_router(routes_notifications.router)

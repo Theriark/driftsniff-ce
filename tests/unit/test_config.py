@@ -15,6 +15,7 @@ def test_defaults() -> None:
     assert settings.log_level == "info"
     assert settings.key_file == Path("/keys/master.key")
     assert settings.data_dir == Path("/data")
+    assert settings.environment_label == ""
 
 
 def test_every_setting_can_be_overridden() -> None:
@@ -26,6 +27,7 @@ def test_every_setting_can_be_overridden() -> None:
             "DRIFTSNIFF_KEY_FILE": "/run/keys/master.key",
             "DRIFTSNIFF_DATA_DIR": "/var/lib/driftsniff",
             "DRIFTSNIFF_PORT": "9000",
+            "DRIFTSNIFF_ENVIRONMENT_LABEL": "Development",
         }
     )
     assert settings.base_url == "https://example.test/driftsniff"
@@ -34,6 +36,7 @@ def test_every_setting_can_be_overridden() -> None:
     assert settings.key_file == Path("/run/keys/master.key")
     assert settings.data_dir == Path("/var/lib/driftsniff")
     assert settings.port == 9000
+    assert settings.environment_label == "Development"
 
 
 def test_default_base_url_follows_the_port() -> None:
@@ -62,6 +65,10 @@ def test_port_boundaries_are_accepted(port: str) -> None:
         ("DRIFTSNIFF_BASE_URL", "https://example.test/?q=1"),
         ("DRIFTSNIFF_KEY_FILE", "   "),
         ("DRIFTSNIFF_DATA_DIR", ""),
+        ("DRIFTSNIFF_ENVIRONMENT_LABEL", ""),
+        ("DRIFTSNIFF_ENVIRONMENT_LABEL", "x" * 25),
+        ("DRIFTSNIFF_ENVIRONMENT_LABEL", "<b>Dev</b>"),
+        ("DRIFTSNIFF_ENVIRONMENT_LABEL", "Dév"),
     ],
 )
 def test_invalid_values_are_rejected(name: str, value: str) -> None:
@@ -72,3 +79,8 @@ def test_invalid_values_are_rejected(name: str, value: str) -> None:
 def test_process_environment_is_the_default_source(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("DRIFTSNIFF_PORT", "9200")
     assert Settings.from_env().port == 9200
+
+
+@pytest.mark.parametrize("label", ["Development", "Stage 2", "lab-1", "x" * 24])
+def test_environment_label_accepts_plain_short_text(label: str) -> None:
+    assert Settings.from_env({"DRIFTSNIFF_ENVIRONMENT_LABEL": label}).environment_label == label

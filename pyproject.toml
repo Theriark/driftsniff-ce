@@ -21,6 +21,7 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "driftsniff.rules" = ["*.yaml", "packs/*/*.yaml", "types/*.yaml"]
+"driftsniff.web" = ["templates/*.html", "templates/components/*.html", "static/*", "static/brand/*"]
 
 [tool.ruff]
 line-length = 100

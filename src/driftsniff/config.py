@@ -13,6 +13,8 @@ DEFAULT_PORT = 8080
 DEFAULT_LOG_LEVEL = "info"
 DEFAULT_KEY_FILE = "/keys/master.key"
 DEFAULT_DATA_DIR = "/data"
+# The header badge that names the installation (for example Development); off when unset.
+ENVIRONMENT_LABEL_MAX_CHARS = 24
 
 
 class ConfigError(ValueError):
@@ -68,6 +70,17 @@ def _parse_base_url(value: str) -> str:
     return f"{parts.scheme}://{parts.netloc}{parts.path.rstrip('/')}"
 
 
+def _parse_environment_label(value: str) -> str:
+    if len(value) > ENVIRONMENT_LABEL_MAX_CHARS or not all(
+        character.isascii() and (character.isalnum() or character in " -") for character in value
+    ):
+        raise ConfigError(
+            f"{ENV_PREFIX}ENVIRONMENT_LABEL must be 1 to {ENVIRONMENT_LABEL_MAX_CHARS} ASCII "
+            "letters, digits, spaces or hyphens"
+        )
+    return value
+
+
 @dataclass(frozen=True, slots=True)
 class Settings:
     """Validated application settings."""
@@ -80,6 +93,8 @@ class Settings:
     port: int
     # The old master key during a rekey (DRIFTSNIFF_OLD_KEY_FILE); None otherwise.
     old_key_file: Path | None = None
+    # The badge in the header (DRIFTSNIFF_ENVIRONMENT_LABEL); empty shows no badge.
+    environment_label: str = ""
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> Self:
@@ -102,6 +117,7 @@ class Settings:
         key_file_text = _raw(source, "KEY_FILE")
         data_dir_text = _raw(source, "DATA_DIR")
         old_key_file_text = _raw(source, "OLD_KEY_FILE")
+        label_text = _raw(source, "ENVIRONMENT_LABEL")
         return cls(
             base_url=base_url,
             trusted_proxy=trusted_proxy,
@@ -110,4 +126,5 @@ class Settings:
             data_dir=Path(DEFAULT_DATA_DIR if data_dir_text is None else data_dir_text),
             port=port,
             old_key_file=None if old_key_file_text is None else Path(old_key_file_text),
+            environment_label="" if label_text is None else _parse_environment_label(label_text),
         )

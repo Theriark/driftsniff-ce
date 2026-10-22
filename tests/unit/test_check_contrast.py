@@ -2,9 +2,9 @@
 
 Run under pytest (CI / Tests): the module uses pytest fixtures and markers, so it does not load
 under unittest. The last four tests run against the committed files, so the pull request checks
-fail when a token pair drops below its minimum or when docs/mockups/theme.css drifts from the
-JSON; the last one executes the script as a separate process, the same command a CI step would
-run, so CI / Tests is the contrast step of every pull request.
+fail when a token pair drops below its minimum or when docs/mockups/theme.css or the shipped
+app.css drifts from the JSON; the last one executes the script as a separate process, the same
+command a CI step would run, so CI / Tests is the contrast step of every pull request.
 """
 
 import json
@@ -33,6 +33,7 @@ REPOSITORY = Path(__file__).resolve().parents[2]
 SCRIPT = REPOSITORY / "scripts" / "check_contrast.py"
 TOKENS = REPOSITORY / "docs" / "design-colours.json"
 THEME_CSS = REPOSITORY / "docs" / "mockups" / "theme.css"
+APP_CSS = REPOSITORY / "src" / "driftsniff" / "web" / "static" / "app.css"
 BRAND = {"ink": "#1E1E24", "slate": "#6B7280", "alert": "#C8342B", "paper": "#F5F5F0"}
 # Tokens that are only ever a background: they appear in checks as the background side.
 BACKGROUND_ROLES = {
@@ -221,9 +222,11 @@ def test_the_committed_tokens_keep_the_brand_colours_and_the_dark_theme() -> Non
                 assert (role, theme) in foregrounds, f"{theme} token {role} has no contrast check"
 
 
-def test_the_mockup_theme_copies_the_token_values() -> None:
+@pytest.mark.parametrize("stylesheet", [THEME_CSS, APP_CSS], ids=["theme.css", "app.css"])
+def test_the_stylesheets_copy_the_token_values(stylesheet: Path) -> None:
+    """The mock-up theme and the shipped app.css (P10-T2) both carry the JSON values."""
     themes, _ = load_tokens(TOKENS)
-    css = THEME_CSS.read_text(encoding="utf-8")
+    css = stylesheet.read_text(encoding="utf-8")
     light, dark = css.split("@media (prefers-color-scheme: dark)", 1)
     for theme, block in (("light", light), ("dark", dark)):
         found = dict(re.findall(r"--([a-z0-9-]+):\s*(#[0-9A-Fa-f]{6});", block))

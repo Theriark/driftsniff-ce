@@ -21,6 +21,7 @@ from driftsniff.web.auth import (
     AuthService,
     LoginFailedError,
     LoginThrottledError,
+    Principal,
     SessionGrant,
     SetupCodeError,
     SetupUnavailableError,
@@ -28,7 +29,8 @@ from driftsniff.web.auth import (
     request_is_https,
     set_session_cookie,
 )
-from driftsniff.web.deps import get_auth_service
+from driftsniff.web.deps import get_auth_service, require_viewer
+from driftsniff.web.preferences import parse_density, safe_next, set_density_cookie
 
 router = APIRouter()
 
@@ -199,4 +201,23 @@ async def logout(
         await run_in_threadpool(auth.logout, cookie_value)
     response = RedirectResponse("/login", status_code=303)
     clear_session_cookie(response, secure=_is_secure(request))
+    return response
+
+
+@router.post("/preferences/density")
+async def set_density(
+    request: Request, _user: Annotated[Principal, Depends(require_viewer)]
+) -> Response:
+    """Remember the row density of data tables (comfortable or compact) in a cookie.
+
+    A normal form post from the density switch of P10-T2; ``next`` is the page to go back to
+    and is only ever a path of this site.
+    """
+    fields = await read_fields(request)
+    try:
+        density = parse_density(fields.get("density", ""))
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    response = RedirectResponse(safe_next(fields.get("next")), status_code=303)
+    set_density_cookie(response, density, secure=_is_secure(request))
     return response
