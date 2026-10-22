@@ -273,7 +273,10 @@ def test_row_13_control_a_drop_to_two_backups_is_medium() -> None:
     before = one(id="j1", name="nightly", settings={"exportRetention": 30})
     after = one(id="j1", name="nightly", settings={"exportRetention": 2})
     result = shipped().classify(only(items("backup-jobs", before, after)))
-    assert (result.severity, result.rule_id) == ("medium", "xo.backup_job_settings.export_retention")
+    assert (result.severity, result.rule_id) == (
+        "medium",
+        "xo.backup_job_settings.export_retention",
+    )
 
 
 def test_no_xo_row_ends_as_an_unclassified_item() -> None:
