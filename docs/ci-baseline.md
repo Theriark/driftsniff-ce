@@ -4,7 +4,7 @@ Audited ref: `development` at `05d1e5cc1e5d0a9fe445e51f00a1302dedff39c9`. Audit 
 
 The repository holds two workflow files, one helper script and no application code. There is no `AGENTS.md`, no Dockerfile, no `pyproject.toml`, no `LICENSE` and no Dependabot file. `main`, `stage` and `production` all exist and point at the README-only baseline commit `25bd02b0`.
 
-Sections 1 and 2 are the P1-T1 audit as it was; sections 2.1 (P1-T5) and 2.2 (P1-T6) record what changed afterwards. Sections 3 and 7 describe the current workflows; section 8 (P2-T4) describes the coverage gate and the migration job; section 9 (P3-T4) describes the canary leak harness job.
+Sections 1 and 2 are the P1-T1 audit as it was; sections 2.1 (P1-T5) and 2.2 (P1-T6) record what changed afterwards. Sections 3 and 7 describe the current workflows; section 8 (P2-T4) describes the coverage gate and the migration job; section 9 (P3-T4) describes the canary leak harness job; section 11 (P9-T6) describes the security suite that the same job runs.
 
 ## 1. Workflows
 
@@ -92,7 +92,7 @@ A pull request into `development` needs every job below to be green. The names a
 | `CI / Types` | `types` | `mypy` passes | `gate` |
 | `CI / Tests` | `test` | `pytest` passes with coverage settings from `pyproject.toml`, and the step `Coverage gate and job summary` finds at least 90 percent on each of `driftsniff.core`, `driftsniff.secrets` and `driftsniff.rules` (section 8) | `gate` |
 | `CI / Migrations` | `migration` | A database copy at every earlier revision upgrades to head with the same schema as an empty database, and a downgrade from every revision is refused (section 8) | `gate` |
-| `CI / Canary leak harness` | `canary` | No synthetic `CANARY-` credential injected into a fake source is found in the database file, its rows, the logs, raised errors or the output after the real redact, normalise and store path runs, and the harness itself is shown to fail when a canary does leak (section 9) | `gate` |
+| `CI / Canary leak harness` | `canary` | No synthetic `CANARY-` credential injected into a fake source is found in the database file, its rows, the logs, raised errors or the output after the real redact, normalise and store path runs, and the harness itself is shown to fail when a canary does leak; the same job runs the security suite of P9-T6 (route table, authentication, script payloads, canaries in API output, the OpenAPI document, notifications and the backup file) (sections 9 and 11) | `gate` |
 | `CI / Dependency audit` | `audit` | `pip-audit` finds no known vulnerability in the hashed `requirements.txt` | `gate` |
 | `CI / Secret scan` | `secrets` | `gitleaks` finds no secret in the files or in the commits of the pull request | `gate` |
 | `CI / Licences` | `licences` | The GPL negative test passes (`tests/unit/test_check_licenses.py`) and `scripts/check_licenses.py` accepts every dependency licence | `gate` |
@@ -232,7 +232,7 @@ The job is part of the pull request checks in `ci.yml`; no new workflow file exi
 
 Required check: `CI / Canary leak harness` is in the list of section 3. It becomes binding only when a repository admin adds it to the branch protection of `development` (section 4); the crew cannot do that.
 
-Limits: the job exercises the surfaces that exist today. Notifications, API output and exports (P9) and the real collectors (P7 and P8) extend the harness when they exist, in the pull requests that add them; a new surface needs no change to `ci.yml` as long as its tests live under `tests/security`.
+Limits: the job exercises the surfaces that exist today. Notifications (P9-T4), API output, the OpenAPI document and the backup file (P9-T6, section 11) and the real collectors (P7 and P8) extend the harness in the pull requests that add them; a new surface needs no change to `ci.yml` as long as its tests live under `tests/security`.
 
 ## 10. Property tests and the nightly profile (P4-T3)
 
@@ -297,3 +297,23 @@ Limits:
 - Scheduled runs can be delayed or skipped by GitHub under load, and GitHub disables a schedule after 60 days without repository activity. A missing night is not a pass.
 - A failing night shows as a red `CI` run with event `schedule`; it is not tied to a commit that someone just pushed, so read the job summary before assuming a regression.
 - Nobody is notified by the job itself; reading the Actions tab is part of the weekly Delivery check.
+
+## 11. Security suite (P9-T6)
+
+No new job and no workflow change: the suite lives in `tests/security/` and runs inside the two jobs that already collect that folder, `CI / Canary leak harness` (section 9, command `python -m pytest -q -o addopts="" tests/security`) and `CI / Tests`. `CI / Canary leak harness` is therefore the required check that carries it (it is in the list of section 3). It becomes binding only when a repository admin adds it to the branch protection of `development` (section 4); the crew cannot do that.
+
+| File | What it proves | Fails when |
+|---|---|---|
+| `test_route_table.py` with `routekit.py` | Every route of the application is in `ROUTE_TABLE` with the access it needs (public, push key, viewer, operator, admin, token read, token enrich), and every route lets through exactly the callers that access allows: nobody, each role with a real session (valid Origin and CSRF value, so a 403 is the role check), each API token kind and a made-up token | A route exists that is not in the table, a row has no route, a route of an unknown kind is added (for example a mounted application), or a caller that must be refused gets anything but 401 or 403 |
+| `test_authn.py` | No credential gives 401 on every route that needs one; a wrong password and an unknown user look the same; a forged cookie, the stored hash of a cookie or the CSRF value is not a session; logout and disabling a user end the session, the tokens and the login; a token is accepted only in the `Authorization: Bearer` field; every kind of bad token gets the same answer | Any of those answers differs |
+| `test_xss.py` | Script payloads in the source name, object name, rationale, notes and every enrichment field come back unchanged as JSON, with `application/json`, `nosniff`, the content security policy and `no-store`; refusals that repeat the input are inert too | An answer is not JSON, lacks a header, or changes the text |
+| `test_api_canaries.py` | No canary in the API output (list, detail, enrichment answer, token list, notification channel and deliveries, with every response header), in the OpenAPI document or in the backup file (bytes and rows); the scan reports a value that is shown by design | A canary appears on any of those surfaces, or the scan stops finding the one it must |
+
+How to extend it: a new route needs a row in `ROUTE_TABLE` (`tests/security/routekit.py`) in the same pull request, and P10 adds its pages and the same payloads (`PAYLOADS` in `test_xss.py`) as escaped text. Shared setup is `tests/security/appkit.py` (the application with every service, one user per role, one token per scope set) and `tests/security/conftest.py` (the `kit` fixture).
+
+Limits:
+
+- The route matrix calls each route with an empty JSON body. It proves who is let in or refused, not that the route then works; the route's own tests do that.
+- The push route is checked with a gateway that knows no source, so every caller gets 401 for the missing key. The accepted-key path is in `tests/unit/test_push_endpoint.py`.
+- There are no viewer or operator routes yet; the matrix already runs those callers against every route and will cover the routes P10 adds once they are in the table.
+- Nothing here sends a request to a real UniFi controller, Xen Orchestra or mail server; all of it is local and synthetic.
