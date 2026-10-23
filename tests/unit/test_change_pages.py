@@ -17,6 +17,7 @@ from driftsniff.changes.views import ChangeFilters, ChangePageView, ItemView, Mo
 from driftsniff.web.change_pages import (
     EXACT_SEVERITIES,
     count_words,
+    display_value,
     field_label,
     filter_query,
     filters_text,
@@ -72,6 +73,8 @@ def item(**changes: Any) -> ItemView:
         ("HA_enabled", "High availability"),
         ("settings/mgmt/ssh-enabled", "Ssh enabled"),
         ("x_passphrase", "Passphrase"),
+        ("securityConfiguration.type", "Security type"),
+        ("clientIsolationEnabled", "Client isolation"),
     ],
 )
 def test_a_field_path_reads_as_words(path: str, label: str) -> None:
@@ -113,6 +116,18 @@ def test_a_fingerprint_is_grouped_in_fours_and_a_missing_one_is_none() -> None:
     assert fingerprint_words("ab12cd34e") == "ab12 cd34 e"
     assert fingerprint_words(None) == "none"
     assert fingerprint_words("") == "none"
+
+
+def test_a_stored_json_string_is_shown_without_its_quotes() -> None:
+    assert display_value('"Office 5G"') == "Office 5G"
+    assert display_value('"say \\"hi\\""') == 'say "hi"'
+    assert display_value('""') == ""
+    assert display_value("true") == "true"
+    assert display_value("10") == "10"
+    assert display_value('["a", "b"]') == '["a", "b"]'
+    assert display_value("Guest") == "Guest"
+    assert display_value('"unterminated') == '"unterminated'
+    assert display_value('"a" and "b"') == '"a" and "b"'
 
 
 def test_the_difference_is_the_middle_that_differs() -> None:

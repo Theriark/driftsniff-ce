@@ -11,6 +11,7 @@ filter options (the sources and the resource types that have changes) on one rea
 Every text returned is plain text; the templates print it through autoescape.
 """
 
+import json
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -62,6 +63,12 @@ KIND_LABELS: Final = {
 # The last segment of a path is looked up here; a name that is not here is spelled out.
 FIELD_LABELS: Final = {
     "": "Whole object",
+    "securityConfiguration.type": "Security type",
+    "securityConfiguration.passphrase": "Passphrase",
+    "network.networkId": "Network",
+    "clientIsolationEnabled": "Client isolation",
+    "hideName": "Hidden name",
+    "broadcastingFrequenciesGHz": "Frequencies",
     "name": "Name",
     "name_label": "Name",
     "name_description": "Description",
@@ -189,6 +196,22 @@ def fingerprint_words(fingerprint: str | None) -> str:
     if not fingerprint:
         return "none"
     return " ".join(fingerprint[start : start + 4] for start in range(0, len(fingerprint), 4))
+
+
+def display_value(stored: str) -> str:
+    """A stored value as the page shows it: a JSON string loses its quotes and escapes.
+
+    Values are stored as canonical JSON text, so a name reads ``"Office"``; the quotes are noise
+    next to the marked difference. Any other text (a number, true, a list, or text that is not
+    JSON) is shown as stored.
+    """
+    if len(stored) < 2 or not (stored.startswith('"') and stored.endswith('"')):
+        return stored
+    try:
+        decoded = json.loads(stored)
+    except ValueError:
+        return stored
+    return decoded if isinstance(decoded, str) else stored
 
 
 @dataclass(frozen=True, slots=True)
