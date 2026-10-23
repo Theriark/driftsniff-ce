@@ -181,6 +181,11 @@ the last finished run failed (with the length of the failing streak); never chec
 when `last_checked_at` is older than three times the source's interval; the last run was
 partial; `state` is `token_expiring`; else healthy. Certificate checks off (the `insecure`
 option) is a flag next to the kind, not a kind, so an insecure source can also be failing.
+A push source has the same kinds in push words (`PUSH_STATUS_TEXT`): Nothing pushed yet
+instead of No check yet, "push failed", "nothing pushed for", and pushes instead of checks in
+its drift line. `SourceHealth.last_attempt` is the end of the newest finished run, failed or
+not, so the sources pages show a last attempt that agrees with a Failing status
+(a failed run does not move `last_checked_at`).
 The `state` words are read as the plan names them; no collector writes them yet (part B,
 P7-T2 and P8-T2), so until then those two kinds never appear on a real installation.
 
@@ -235,7 +240,7 @@ red when chosen.
 
 | Route | Role | What it does |
 |---|---|---|
-| `GET /sources` | viewer | the list: status (the dashboard's rule), the flags insecure TLS, unsupported version and credential expiring, last check, version, short drift line; JSON for a script |
+| `GET /sources` | viewer | the list: status (the dashboard's rule), the flags insecure TLS, unsupported version and credential expiring, last attempt (the end of the newest finished run, failed or not, so it agrees with a Failing status), version, short drift line; JSON for a script |
 | `GET /sources/new?type=` | admin | the add form of UniFi Network, Xen Orchestra or a push source |
 | `POST /sources/new` | admin | add; a refused form comes back with each field marked |
 | `POST /sources/test` | admin | test connection of the add form |

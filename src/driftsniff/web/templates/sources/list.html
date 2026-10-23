@@ -1,6 +1,6 @@
 {# The source list (P10-T5). listing is a driftsniff.web.source_pages.SourceListing: one row per
    source with its status (the dashboard's rule), its flags (insecure TLS, unsupported version,
-   credential expiring), the last check, the controller version and the short drift line of the
+   credential expiring), the last attempt, the controller version and the short drift line of the
    last 30 days. Only an admin sees the add action; a viewer's empty state says who adds sources. #}
 {% extends "base.html" %}
 {% from "page_header.html" import page_header %}
@@ -31,7 +31,7 @@
   {{ density_switch(shell.density, shell.path, shell.csrf_token) }}
 </div>
 <section class="card card--flush" aria-labelledby="sources-cap">
-  {% call data_table("Sources", [{"label": "Source", "class": "primary-cell"}, {"label": "Status"}, {"label": "Last check", "class": "col-hide-s"}, {"label": "Version", "class": "col-hide-s"}, {"label": "Drift line, last 30 days", "class": "col-hide-m"}], density=shell.density, caption_id="sources-cap") %}
+  {% call data_table("Sources", [{"label": "Source", "class": "primary-cell"}, {"label": "Status"}, {"label": "Last attempt", "class": "col-hide-s"}, {"label": "Version", "class": "col-hide-s"}, {"label": "Drift line, last 30 days", "class": "col-hide-m"}], density=shell.density, caption_id="sources-cap") %}
   {% for row in listing.rows %}
   <tr>
     <th scope="row" class="primary-cell"><a href="{{ row.health.href }}">{{ row.health.name }}</a><span class="sub">{{ row.type_label }}{% if not row.health.enabled %}, disabled{% endif %}</span></th>
@@ -39,7 +39,7 @@
       <div class="badges">{{ status_badge(row.health.kind, row.status_text) }}{% for badge in row.badges %} {{ status_badge(badge.kind, badge.text) }}{% endfor %}</div>
       {% if row.health.reason != row.status_text %}<span class="sub">{{ row.health.reason }}</span>{% endif %}
     </td>
-    <td class="col-hide-s">{% if row.last_checked %}{{ time_tag(row.last_checked, listing.now) }}{% else %}<span class="sub">No check yet</span>{% endif %}</td>
+    <td class="col-hide-s">{% if row.last_attempt %}{{ time_tag(row.last_attempt, listing.now) }}{% else %}<span class="sub">{{ "Nothing pushed yet" if row.health.type == "push" else "No check yet" }}</span>{% endif %}</td>
     <td class="col-hide-s">{% if row.health.version %}<span class="num">{{ row.health.version }}</span>{% else %}<span class="sub">none reported</span>{% endif %}</td>
     <td class="col-hide-m drift-cell">{{ drift_line(row.health.name, row.driftline.checks, row.driftline.id_prefix, short=true) }}</td>
   </tr>

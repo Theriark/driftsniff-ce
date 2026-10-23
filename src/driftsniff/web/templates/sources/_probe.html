@@ -13,6 +13,6 @@
 {{ banner("success", "The controller answered", ("Version " ~ probe.version ~ ". " if probe.version else "No version reported. ") ~ answered ~ " of " ~ probe_rows | length ~ " resources answered 200. Nothing was stored.") }}
 {{ coverage_table(probe_rows, now, "Test connection, coverage by resource", "probe-cov", foot="A 403 means the credential may lack a permission; a 404 means this version has no such resource.", stored=false) }}
 {% else %}
-{{ banner("error", "The connection test failed", (probe.error_text or "The controller could not be used.") ~ " Nothing was stored.") }}
+{{ banner("error", "The connection test failed", (sentence(probe.error_text) if probe.error_text else "The controller could not be used.") ~ " Nothing was stored.") }}
 {% endif %}
 {% endif %}

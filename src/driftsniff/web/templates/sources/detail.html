@@ -23,9 +23,9 @@
       <span>{{ detail.type_label }}{% if view.controller_version %} <span class="num">{{ view.controller_version }}</span>{% endif %}</span>
       {% if detail.polled %}<span>{{ detail.interval }}</span>{% endif %}
       {% if detail.polled %}
-      <span>{% if detail.last_checked %}Last check {{ time_tag(detail.last_checked, detail.now) }}{% else %}No check yet{% endif %}</span>
+      <span>{% if detail.last_attempt %}Last attempt {{ time_tag(detail.last_attempt, detail.now) }}{% else %}No check yet{% endif %}</span>
       {% else %}
-      <span>{% if detail.last_checked %}Last push {{ time_tag(detail.last_checked, detail.now) }}{% else %}Nothing pushed yet{% endif %}</span>
+      <span>{% if detail.last_attempt %}Last push {{ time_tag(detail.last_attempt, detail.now) }}{% else %}Nothing pushed yet{% endif %}</span>
       {% endif %}
       <span><span class="num">{{ number(detail.object_count) }}</span> {{ "object" if detail.object_count == 1 else "objects" }}</span>
     </div>
@@ -70,7 +70,11 @@
   </section>
   {% endif %}
   {% if health.kind == "failing" %}
+  {% if detail.polled %}
   {{ banner("error", "The last check failed", "driftsniff keeps the last good configuration and tries again on the interval; stored data is unchanged. Reason: " ~ health.reason ~ ".") }}
+  {% else %}
+  {{ banner("error", "The last push failed", "driftsniff keeps the last good configuration until the sender pushes again; stored data is unchanged. Reason: " ~ health.reason ~ ".") }}
+  {% endif %}
   {% elif health.kind == "unsupported" %}
   {{ banner("error", "This controller version is not supported", "The version is below the supported floor, so no collection runs. Update the controller, then run the source again.") }}
   {% endif %}

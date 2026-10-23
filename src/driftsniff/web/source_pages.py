@@ -42,7 +42,6 @@ from driftsniff.sources.service import (
 from driftsniff.web.dashboard import (
     STATE_TOKEN_EXPIRING,
     STATE_UNSUPPORTED,
-    STATUS_TEXT,
     DriftRow,
     SourceHealth,
     parse_stamp,
@@ -50,7 +49,7 @@ from driftsniff.web.dashboard import (
     source_overview,
     source_type_label,
 )
-from driftsniff.web.templating import number
+from driftsniff.web.templating import number, sentence
 
 RECENT_RUNS: Final = 8
 TLS_MODE_LABELS: Final = {
@@ -160,7 +159,7 @@ class SourceRow:
     health: SourceHealth
     status_text: str
     type_label: str
-    last_checked: datetime | None
+    last_attempt: datetime | None
     badges: tuple[Badge, ...]
     driftline: DriftRow
 
@@ -268,7 +267,7 @@ def probe_row(source_type: str, row: ProbeRow) -> CoverageRow:
         note = "The read failed."
         count = None
     if row.error_text and row.status != STATUS_OK:
-        note = _sentence(row.error_text)
+        note = sentence(row.error_text)
     return CoverageRow(row.resource, label, row.status, kind, text, note, count, None, None, hidden)
 
 
@@ -277,11 +276,6 @@ def probe_rows(source_type: str, result: ProbeResult | None) -> tuple[CoverageRo
     if result is None:
         return ()
     return tuple(probe_row(source_type, row) for row in result.rows)
-
-
-def _sentence(text: str) -> str:
-    cleaned = text[:1].upper() + text[1:]
-    return cleaned if cleaned.endswith(".") else cleaned + "."
 
 
 @dataclass(frozen=True, slots=True)
@@ -317,7 +311,7 @@ class SourceDetail:
     view: SourceView
     health: SourceHealth
     status_text: str
-    last_checked: datetime | None
+    last_attempt: datetime | None
     badges: tuple[Badge, ...]
     driftline: DriftRow
     coverage: tuple[CoverageRow, ...]
@@ -375,7 +369,7 @@ class SourcePages:
         return self._clock()
 
     def listing(self) -> SourceListing:
-        """Every source in name order with its status, flags, last check and drift line."""
+        """Every source in name order with its status, flags, last attempt and drift line."""
         now = self._clock()
         with self._db.read() as connection:
             rows = connection.execute(sa.select(*_SOURCE_COLUMNS).order_by(sources.c.name)).all()
@@ -383,9 +377,9 @@ class SourcePages:
         result = tuple(
             SourceRow(
                 health=state,
-                status_text=STATUS_TEXT[state.kind],
+                status_text=state.status_text,
                 type_label=source_type_label(state.type),
-                last_checked=_stamp_or_none(row.last_checked_at),
+                last_attempt=state.last_attempt,
                 badges=badges_of(state, str(row.state), _options(row), now),
                 driftline=line,
             )
@@ -423,8 +417,8 @@ class SourcePages:
             now=now,
             view=view,
             health=health[0],
-            status_text=STATUS_TEXT[health[0].kind],
-            last_checked=_stamp_or_none(view.last_checked_at),
+            status_text=health[0].status_text,
+            last_attempt=health[0].last_attempt,
             badges=badges_of(health[0], view.state, options, now),
             driftline=lines[0],
             coverage=coverage_rows(view.type, options, stored),

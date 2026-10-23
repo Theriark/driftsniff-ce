@@ -81,6 +81,9 @@ STATUS_TEXT: Final = {
     "warn": "Credential expiring",
     "open": "No check yet",
 }
+# A push source is never checked: its sender pushes. Its words where they differ from a pull's.
+PUSH_SOURCE: Final = "push"
+PUSH_STATUS_TEXT: Final = {"open": "Nothing pushed yet"}
 PROBLEM_KINDS: Final = frozenset({"failing", "partial", "stale", "unsupported", "warn"})
 
 SEVERITY_SHARE: Final = {
@@ -296,6 +299,13 @@ class SourceHealth:
     insecure: bool
     version: str | None
     href: str
+    # When the newest finished check ended, failed or not; a failed run leaves last_checked_at.
+    last_attempt: datetime | None = None
+
+    @property
+    def status_text(self) -> str:
+        """The status badge text, in push words for a push source."""
+        return status_text(self.kind, self.type)
 
 
 @dataclass(frozen=True, slots=True)
@@ -347,6 +357,13 @@ def resource_label(resource: str) -> str:
 
 def source_type_label(source_type: str) -> str:
     return SOURCE_TYPE_LABELS.get(source_type, source_type)
+
+
+def status_text(kind: str, source_type: str) -> str:
+    """The badge text of a health kind; a push source says pushed where a pull says checked."""
+    if source_type == PUSH_SOURCE:
+        return PUSH_STATUS_TEXT.get(kind, STATUS_TEXT[kind])
+    return STATUS_TEXT[kind]
 
 
 def day_label(day: date, today: date) -> str:
@@ -487,26 +504,31 @@ def _source_health(
     insecure = bool(options.get(OPTION_INSECURE, False))
     version = None if row.controller_version is None else str(row.controller_version)
     state = str(row.state)
-    kind, reason = "ok", "Last check found no problem"
+    push = str(row.type) == PUSH_SOURCE
+    check, checks = ("push", "pushes") if push else ("check", "checks")
+    kind, reason = "ok", f"Last {check} found no problem"
     if not row.enabled:
         kind, reason = "open", "Disabled"
     elif state == STATE_UNSUPPORTED:
         kind, reason = "unsupported", "The controller version is below the supported floor"
     elif last_run is not None and last_run.status == "failed":
-        streak = "check failed" if failed_streak <= 1 else f"{failed_streak} checks failed in a row"
+        streak = f"{check} failed"
+        if failed_streak > 1:
+            streak = f"{failed_streak} {checks} failed in a row"
         detail = last_run.error_summary or last_run.error_class or "no detail recorded"
         kind, reason = "failing", f"{streak}: {detail}"
     elif row.last_checked_at is None:
-        kind, reason = "open", "No check yet"
+        kind, reason = "open", status_text("open", str(row.type))
     else:
         interval = interval_of(options)
         silent = (now - parse_stamp(str(row.last_checked_at))).total_seconds()
         if silent > STALE_INTERVALS * interval:
             ago = silent_text(silent)
-            kind, reason = "stale", f"no check for {ago}, expected every {interval} seconds"
+            silence = f"nothing pushed for {ago}" if push else f"no check for {ago}"
+            kind, reason = "stale", f"{silence}, expected every {interval} seconds"
         elif last_run is not None and last_run.status == "partial":
             detail = last_run.error_summary or last_run.error_class or "a resource was not read"
-            kind, reason = "partial", f"last check was partial: {detail}"
+            kind, reason = "partial", f"last {check} was partial: {detail}"
         elif state == STATE_TOKEN_EXPIRING:
             kind, reason = "warn", "The credential expires within 14 days"
     return SourceHealth(
@@ -519,7 +541,16 @@ def _source_health(
         insecure=insecure,
         version=version,
         href=f"/sources/{int(row.id)}",
+        last_attempt=last_attempt(row.last_checked_at, last_run),
     )
+
+
+def last_attempt(last_checked_at: object, last_run: Any | None) -> datetime | None:
+    """The newer of the end of the last finished run and ``last_checked_at``, or None."""
+    stamps = [parse_stamp(str(last_checked_at))] if last_checked_at is not None else []
+    if last_run is not None and last_run.finished_at is not None:
+        stamps.append(parse_stamp(str(last_run.finished_at)))
+    return max(stamps, default=None)
 
 
 def _source_attention(health: SourceHealth) -> list[Attention]:
@@ -534,7 +565,7 @@ def _source_attention(health: SourceHealth) -> list[Attention]:
             Attention(
                 "status",
                 health.kind,
-                STATUS_TEXT[health.kind],
+                health.status_text,
                 f"{health.name}: {health.reason}",
                 health.href,
                 where,
@@ -760,10 +791,10 @@ def _stats(
     urgent_week = _per_day(recent, last_week, urgent)
     urgent_before = sum(_per_day(recent, previous_week, urgent))
     healthy = sum(1 for source in health if source.kind == "ok" and source.enabled)
-    unwell = Counter(source.kind for source in health if source.kind != "ok" and source.enabled)
-    unwell_text = ", ".join(
-        f"{count} {STATUS_TEXT[kind].lower()}" for kind, count in sorted(unwell.items())
+    unwell = Counter(
+        source.status_text.lower() for source in health if source.kind != "ok" and source.enabled
     )
+    unwell_text = ", ".join(f"{count} {text}" for text, count in sorted(unwell.items()))
     return (
         Stat(
             "Open changes",
@@ -887,7 +918,11 @@ def _driftlines(
         meta = source_type_label(source.type)
         if source.version:
             meta += f" {source.version}"
-        meta += f", {number(count)} {'check' if count == 1 else 'checks'} in 30 days"
+        if source.type == PUSH_SOURCE:
+            noun = "push" if count == 1 else "pushes"
+        else:
+            noun = "check" if count == 1 else "checks"
+        meta += f", {number(count)} {noun} in 30 days"
         row = DriftRow(source.name, source.href, meta, f"dl-{source.id}", tuple(checks), per_day)
         rows.append(row)
     return tuple(rows)
