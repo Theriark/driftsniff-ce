@@ -276,14 +276,12 @@ stops reading after 60 seconds. With JavaScript the button replaces only the res
 (`hx-post`, always answered 200 so htmx swaps it) and the typed credential stays in the form;
 without it the form page comes back with the result and the credential field empty.
 
-**Known gaps (no owner yet, not invented here).** The collector factory that builds a
-collector from a stored source, and the scheduler wiring of `serve`, do not exist. `serve`
-therefore passes no probe factory and no scheduler: test connection answers that it is not
-available on this installation yet (503, the panel says so) and run now answers that runs are
-not scheduled (503). Both work against the existing interfaces (`ProbeFactory` and
-`Scheduler.run_now`) as soon as that wiring is assigned. The collectors do not read
-`resources_off` yet either: the factory must pass it on. UniFi and XO field names remain
-unverified (docs/vendor-notes/).
+**Wiring (P10, THE-978).** `serve` builds the collector factory (`driftsniff.sources.factory`),
+the run pipeline and the scheduler (`driftsniff.sources.wiring`) and gives the pages the factory as
+their probe factory. Test connection builds its collector from the values of the form; run now,
+the schedule and the sync after every create, edit, enable, disable and delete use the scheduler.
+The resources in `resources_off` are not listed by the collector, so they are never requested.
+Known gap: UniFi and XO field names remain unverified (docs/vendor-notes/).
 
 **Navigation.** The shell lists only Dashboard and Sources; Changes, History, Configuration and
 Settings come back with P10-T6 to P10-T8. The dashboard's empty state offers Add source to an

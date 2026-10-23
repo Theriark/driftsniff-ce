@@ -246,11 +246,13 @@ def _serve(settings: Settings) -> int:
     from driftsniff.notify.deliveries import NotificationService
     from driftsniff.plugins.defaults import make_defaults
     from driftsniff.plugins.registry import PluginError, load_plugins
-    from driftsniff.secrets.crypto import CredentialCipher
-    from driftsniff.sources.service import SourceService
+    from driftsniff.rules.loader import RuleLoadError
+    from driftsniff.secrets.scanner import OverrideFileError
+    from driftsniff.sources.wiring import build_collection
     from driftsniff.web.auth import AuthService
     from driftsniff.web.bearer import TokenService
     from driftsniff.web.dashboard import DashboardService
+    from driftsniff.web.routes_push import PushGateway
     from driftsniff.web.source_pages import SourcePages
 
     status = _migrate(settings)
@@ -280,22 +282,31 @@ def _serve(settings: Settings) -> int:
         if setup_code is not None:
             # Shown once: only a hash is stored. `driftsniff create-admin-code` makes another.
             print(f"first-run setup code (shown once): {setup_code}", flush=True)
+        notifications = NotificationService(database, master_key, base_url=settings.base_url)
+        try:
+            collection = build_collection(
+                database, master_key, settings.data_dir, notifier=notifications.notify_event
+            )
+        except (RuleLoadError, OverrideFileError) as error:
+            print(f"driftsniff: {error}", file=sys.stderr)
+            return EXIT_CONFIG
         uvicorn.run(
             create_app(
                 settings,
                 master_key,
+                scheduler=collection.scheduler,
+                push_gateway=PushGateway(collection.service, collection.pipeline),
                 retention=RetentionJob(database),
                 auth=auth,
                 tokens=TokenService(database),
-                notifications=NotificationService(database, master_key, base_url=settings.base_url),
+                notifications=notifications,
                 changes=ChangeService(database),
                 plugins=plugins,
                 dashboard=DashboardService(database),
-                # No probe factory and no scheduler yet: the collector factory that builds a
-                # collector from a stored source has no owner, so test connection and run now
-                # say that they are not available (docs/web-interface.md section 10).
+                # Test connection builds its collector with the factory; run now and the
+                # schedule use the scheduler, which create_app starts with the application.
                 sources=SourcePages(
-                    database, SourceService(database, CredentialCipher.from_master(master_key))
+                    database, collection.service, probe_factory=collection.factory.for_target
                 ),
             ),
             host=host,
