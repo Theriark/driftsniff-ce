@@ -129,9 +129,7 @@ def seed_dev_accounts(
                 f"the user {username_for(role)} exists with another role; not changed"
             )
     planned = {
-        role: new_password()
-        for role in SEED_ROLES
-        if found.get(role) is None or reset_passwords
+        role: new_password() for role in SEED_ROLES if found.get(role) is None or reset_passwords
     }
     if planned:
         _write_credentials(credentials_path, planned)
