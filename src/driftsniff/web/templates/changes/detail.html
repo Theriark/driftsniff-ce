@@ -1,0 +1,150 @@
+{# The change detail (P10-T6, mock-up docs/mockups/change-detail.html). detail is a
+   driftsniff.changes.views.ChangeDetailView. Top to bottom: the summary head with the severity
+   and status, the detection window written as between two UTC times (never a claim about who
+   changed it), the counts and the actions the role allows; the banners; then the evidence on
+   the left (the items grouped by object, the external analysis) and the decisions on the right
+   (acknowledge with a comment, the acknowledgements so far, the notes). A viewer sees the
+   evidence and the lists, never a form. No drift line here until the F4 decision on its edge
+   alignment; the source link leads to the strip. #}
+{% extends "base.html" %}
+{% from "components/states.html" import banner, success_banner %}
+{% from "components/badges.html" import severity_badge, status_badge %}
+{% from "components/details.html" import time_tag %}
+{% from "changes/_item.html" import change_item with context %}
+{% block content %}
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="/changes">Changes</a> / <a href="/sources/{{ change.source_id }}">{{ change.source_name }}</a> / Change {{ number(change.id) }}</nav>
+<div class="summary-head">
+  <div>
+    <div class="badges">{{ severity_badge(change.severity) }} {% if change.status == "acknowledged" %}{{ status_badge("ok", "Acknowledged") }}{% else %}{{ status_badge("warn", "Open", "i-dash") }}{% endif %}{% if detail.muted_item_count %} {{ status_badge("stale", count_words(detail.muted_item_count, "muted item")) }}{% endif %}</div>
+    <h1>{{ change.summary }}</h1>
+    <div class="meta">
+      <span>Source <a href="/sources/{{ change.source_id }}">{{ change.source_name }}</a></span>
+      <span>Detected {{ window }}</span>
+      <span>{{ counts }}</span>
+      <span>Rule pack <span class="num">{{ change.rule_pack_version }}</span></span>
+      <span>Change {{ number(change.id) }}</span>
+    </div>
+  </div>
+  {% if can_operate %}
+  <div class="page-header__actions">
+    <a class="btn btn--primary" href="#acknowledge">{{ "Acknowledge again" if change.status == "acknowledged" else "Acknowledge" }}</a>
+    <a class="btn" href="#notes">Add a note</a>
+  </div>
+  {% endif %}
+</div>
+
+{% set banners %}
+  {% if notice %}{{ success_banner(notice[0], notice[1]) }}{% endif %}
+  {% if problem %}{{ banner("error", problem[0], problem[1]) }}{% endif %}
+  {% if detail.items_truncated %}{{ banner("warn", "Only the first 1,000 items are shown", "This change holds more items than the page lists. The stored change is complete; the change API returns every item.") }}{% endif %}
+{% endset %}
+{% if banners | trim %}<div class="section stack">{{ banners }}</div>{% endif %}
+
+<div class="section grid-5-7">
+  <div class="stack">
+    <section class="card" aria-labelledby="items-h">
+      <div class="section-head section-head--card">
+        <h2 id="items-h">What changed</h2>
+        <span class="hint">{{ counts }}. Every item names its rule; open the question under it for the reason.</span>
+      </div>
+      {% for group in detail.groups %}
+      <div class="object-group">
+        <h3>{{ resource_label(group.resource) }}{% if group.object_name %} {{ group.object_name }}{% endif %}{% if group.object_id %} <span class="path mono">object {{ group.object_id }}</span>{% endif %}</h3>
+        {% for item in group.items %}
+        {{ change_item(item, change.id, can_operate, shell.csrf_token, reason_limit) }}
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="quiet">This change has no items of its own; the summary above is all that was recorded.</p>
+      {% endfor %}
+    </section>
+
+    <section class="card" aria-labelledby="ext-h">
+      <h2 id="ext-h">External analysis, not verified by the product</h2>
+      {% if detail.enrichments %}
+      <div class="stack">
+        {% for row in detail.enrichments %}
+        <div class="external">
+          <p class="provider">{{ row.provider_label }} <span class="caveat">added {{ time_tag(parse_stamp(row.created_at), now) }}</span></p>
+          <p>{{ row.summary }}</p>
+          {% if row.payload is not none %}
+          <details class="disclosure">
+            <summary>Data the program attached</summary>
+            <pre class="payload mono">{{ row.payload | tojson(indent=2) }}</pre>
+          </details>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="quiet">No external program has added anything to this change. Text added through the enrichment API appears here as plain text.</p>
+      {% endif %}
+    </section>
+  </div>
+
+  <div class="side">
+    <section class="card" id="acknowledge" aria-labelledby="ack-h">
+      <h2 id="ack-h">Acknowledge</h2>
+      {% if detail.acknowledgements %}
+      <ul class="note-list">
+        {% for row in detail.acknowledgements %}
+        <li>{% if row.comment %}{{ row.comment }}{% else %}<span class="sub">Acknowledged without a comment</span>{% endif %} <span class="by">{{ row.author }}, {{ time_tag(parse_stamp(row.created_at), now) }}</span></li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+      {% if can_operate %}
+      <form method="post" action="/changes/{{ change.id }}/acknowledge" class="stack" novalidate>
+        <input type="hidden" name="csrf_token" value="{{ shell.csrf_token }}">
+        <div class="field">
+          <label for="ack-comment">Comment (optional)</label>
+          <textarea class="input" id="ack-comment" name="comment" rows="3" maxlength="{{ ack_limit }}" placeholder="What you decided and why" aria-describedby="ack-comment-help{% if ack_error %} ack-comment-error{% endif %}"{% if ack_error %} aria-invalid="true" autofocus{% endif %}>{{ ack_comment }}</textarea>
+          <span class="help" id="ack-comment-help">Acknowledging records your name and the time. It never changes the severity, and every acknowledgement is kept.</span>
+          {% if ack_error %}<span class="error" id="ack-comment-error">{{ ack_error }}</span>{% endif %}
+        </div>
+        <div class="form-row"><button class="btn btn--primary" type="submit">{{ "Acknowledge again" if change.status == "acknowledged" else "Acknowledge change" }}</button></div>
+      </form>
+      {% elif not detail.acknowledgements %}
+      <p class="quiet">Nobody has acknowledged this change yet. An operator or an admin acknowledges it; your role reads only.</p>
+      {% else %}
+      <p class="quiet">Your role reads only; an operator or an admin acknowledges.</p>
+      {% endif %}
+    </section>
+
+    <section class="card" id="notes" aria-labelledby="notes-h">
+      <h2 id="notes-h">Notes</h2>
+      {% if detail.notes %}
+      <ul class="note-list">
+        {% for row in detail.notes %}
+        <li>{{ row.body }} <span class="by">{{ row.author }}, {{ time_tag(parse_stamp(row.created_at), now) }}</span></li>
+        {% endfor %}
+      </ul>
+      {% elif not can_operate %}
+      <p class="quiet">No notes yet. An operator or an admin writes them.</p>
+      {% endif %}
+      {% if can_operate %}
+      <form method="post" action="/changes/{{ change.id }}/notes" class="stack" novalidate>
+        <input type="hidden" name="csrf_token" value="{{ shell.csrf_token }}">
+        <div class="field">
+          <label for="note">Add a note</label>
+          <textarea class="input" id="note" name="note" rows="3" maxlength="{{ note_limit }}" placeholder="What you found, or what to do next" aria-describedby="note-help{% if note_error %} note-error{% endif %}"{% if note_error %} aria-invalid="true" autofocus{% endif %}>{{ note_body }}</textarea>
+          <span class="help" id="note-help">Notes are kept with the change and never edited.</span>
+          {% if note_error %}<span class="error" id="note-error">{{ note_error }}</span>{% endif %}
+        </div>
+        <div class="form-row"><button class="btn" type="submit">Save note</button></div>
+      </form>
+      {% endif %}
+    </section>
+
+    <section class="card" aria-labelledby="about-h">
+      <h2 id="about-h">About this change</h2>
+      <dl class="kv">
+        <dt>Source</dt><dd><a href="/sources/{{ change.source_id }}">{{ change.source_name }}</a></dd>
+        <dt>Detected</dt><dd>{{ window }}</dd>
+        <dt>Recorded</dt><dd>{{ time_tag(parse_stamp(change.created_at), now) }}</dd>
+        <dt>Rule pack</dt><dd class="mono">{{ change.rule_pack_version }}</dd>
+        <dt>Mutes</dt><dd>{% if detail.muted_item_count %}{{ count_words(detail.muted_item_count, "item") }} of this change {{ "is" if detail.muted_item_count == 1 else "are" }} hidden from the change list by a mute.{% else %}No item of this change is muted.{% endif %} <a href="/changes">Muted paths are listed under the change list.</a></dd>
+      </dl>
+    </section>
+  </div>
+</div>
+{% endblock %}

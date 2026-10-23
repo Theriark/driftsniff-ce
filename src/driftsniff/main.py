@@ -17,6 +17,7 @@ from driftsniff.sources.retention import RetentionJob
 from driftsniff.sources.scheduler import Scheduler
 from driftsniff.web import (
     routes_api,
+    routes_changes,
     routes_notifications,
     routes_push,
     routes_sources,
@@ -24,6 +25,7 @@ from driftsniff.web import (
 )
 from driftsniff.web.auth import AuthService
 from driftsniff.web.bearer import TokenService
+from driftsniff.web.change_pages import ChangePages
 from driftsniff.web.csrf import BrowserHardeningMiddleware
 from driftsniff.web.dashboard import DashboardService
 from driftsniff.web.pages import handle_http_exception
@@ -65,6 +67,7 @@ def create_app(
     plugins: PluginRegistry | None = None,
     dashboard: DashboardService | None = None,
     sources: SourcePages | None = None,
+    change_pages: ChangePages | None = None,
 ) -> FastAPI:
     """Build the application; settings default to the DRIFTSNIFF_ environment.
 
@@ -90,6 +93,9 @@ def create_app(
     connection, run now, enable, disable, delete) read and act through it; without one they
     answer 503. Run now uses the ``scheduler`` and answers that runs are not scheduled without
     one; test connection uses the probe factory of ``sources`` the same way.
+    The ``change_pages`` service (``/changes`` and below, and ``/mutes``: the change list, the
+    change detail, acknowledge, notes and mutes) reads and acts through it; without one they
+    answer 503.
     Every response gets the security headers and every browser write the origin and CSRF checks
     of ``driftsniff.web.csrf``. The stylesheet, the vendored htmx and the brand copies are served
     under ``/static/`` by ``driftsniff.web.routes_static``. A browser that meets a 401, 403 or
@@ -117,11 +123,13 @@ def create_app(
     app.state.plugins = plugins
     app.state.dashboard = dashboard
     app.state.sources = sources
+    app.state.change_pages = change_pages
     app.state.openapi_cache = None
     app.add_middleware(BrowserHardeningMiddleware)
     app.add_exception_handler(StarletteHTTPException, handle_http_exception)
     app.include_router(ui_router)
     app.include_router(routes_sources.router)
+    app.include_router(routes_changes.router)
     app.include_router(routes_static.router)
     app.include_router(routes_push.router)
     app.include_router(routes_api.router)

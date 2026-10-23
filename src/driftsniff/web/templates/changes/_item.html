@@ -1,0 +1,60 @@
+{# One change item of the detail (P10-T6): the evidence block. Severity shape, the readable
+   field label, what happened, the rule id; then the evidence (a before and after pair with
+   the differing part underlined, a secret as its fingerprints only, an order move in words);
+   then the rationale behind the why-is-this-rated disclosure, and for an operator the mute
+   control when the item may be muted. Every text is plain text printed through autoescape. #}
+{% from "components/badges.html" import severity_badge %}
+
+{% macro change_item(item, event_id, can_operate, csrf_token, reason_limit) %}
+{% set refusal = mute_refusal(item.severity, item.change_kind, item.path) %}
+<div class="item{% if item.muted %} item--muted{% endif %}" id="item-{{ item.id }}">
+  <div class="item__head">
+    {{ severity_badge(item.severity) }}
+    <span class="item__field">{{ item_summary(item) }}</span>
+    <span class="item__rule">rule <span class="mono">{{ item.rule_id }}</span></span>
+    {% if item.muted %}<span class="item__muted">Muted: hidden from the change list</span>{% endif %}
+  </div>
+  {% if item.path and item.change_kind != "schema_drift" %}
+  <span class="item__path mono">{{ item.path }}</span>
+  {% endif %}
+  {% if item.secret %}
+  <p><span class="fingerprint"><svg aria-hidden="true" focusable="false"><use href="#i-key"/></svg>secret {{ kind_label(item.change_kind) | lower }}, fingerprint {{ fingerprint_words(item.before_fingerprint) }} to {{ fingerprint_words(item.after_fingerprint) }}</span></p>
+  <p class="item__rule">Secret values are never stored or shown. The fingerprint is keyed, so it cannot be turned back into the value.</p>
+  {% elif item.change_kind == "moved" %}
+  <p>{{ move_text(item.move) if item.move else (item.order_detail.summary if item.order_detail and item.order_detail.summary else "An entry of the ordered list moved.") }}</p>
+  {% elif item.change_kind == "order_changed" %}
+  <p>{{ item.order_detail.summary if item.order_detail and item.order_detail.summary else "The order of the list changed without a single moved entry." }}</p>
+  {% elif item.change_kind == "schema_drift" %}
+  <p>Fields that this version of the controller did not have before: <span class="mono">{{ item.path }}</span>. They are recorded once and not rated above low.</p>
+  {% else %}
+  {% set parts = split_difference(item.before or "", item.after or "") %}
+  <div class="diff">
+    <div class="before"><span class="label">Before</span>{% if item.before is none %}<mark>absent</mark>{% elif item.before == "" %}<mark>empty</mark>{% else %}{{ parts[0].prefix }}<mark>{{ parts[0].changed }}</mark>{{ parts[0].suffix }}{% endif %}</div>
+    <div class="after"><span class="label">After</span>{% if item.after is none %}<mark>absent</mark>{% elif item.after == "" %}<mark>empty</mark>{% else %}{{ parts[1].prefix }}<mark>{{ parts[1].changed }}</mark>{{ parts[1].suffix }}{% endif %}</div>
+  </div>
+  {% endif %}
+  <details class="rationale">
+    <summary>Why is this rated {{ severity_labels[item.severity] | lower }}?</summary>
+    <p>{{ item.rationale }}{% if not item.rationale_recorded %} This item was stored before rules carried an id, so the rule id reads unrated.{% endif %}</p>
+  </details>
+  {% if can_operate and not item.muted %}
+  {% if refusal is none %}
+  <details class="disclosure item__mute">
+    <summary>Mute this path</summary>
+    <form method="post" action="/changes/items/{{ item.id }}/mute" class="form-row">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="event" value="{{ event_id }}">
+      <div class="field">
+        <label for="reason-{{ item.id }}">Reason (optional)</label>
+        <input class="input" id="reason-{{ item.id }}" name="reason" maxlength="{{ reason_limit }}" autocomplete="off" aria-describedby="reason-{{ item.id }}-help">
+        <span class="help" id="reason-{{ item.id }}-help">Hides <span class="mono">{{ item.path }}</span> of {{ resource_label(item.resource) | lower }} from the change list for every source of that type. Nothing is deleted.</span>
+      </div>
+      <button class="btn btn--small" type="submit">Mute path</button>
+    </form>
+  </details>
+  {% else %}
+  <p class="item__rule">Not offered: {{ refusal }}.</p>
+  {% endif %}
+  {% endif %}
+</div>
+{%- endmacro %}
