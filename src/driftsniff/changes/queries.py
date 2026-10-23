@@ -299,9 +299,7 @@ def _groups(item_rows: Sequence[Any], mutes: Sequence[PathMute]) -> tuple[Object
 
 
 def _acknowledgement(row: Any) -> AcknowledgementRow:
-    return AcknowledgementRow(
-        int(row.id), str(row.username), str(row.comment), str(row.created_at)
-    )
+    return AcknowledgementRow(int(row.id), str(row.username), str(row.comment), str(row.created_at))
 
 
 def _note(row: Any) -> NoteRow:
