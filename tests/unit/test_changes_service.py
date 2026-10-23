@@ -73,7 +73,7 @@ PAYLOADS = (
 def make_principal(store: Database, name: str, role: str) -> Principal:
     auth = AuthService(store, hasher=make_password_hasher(memory_kib=8, time_cost=1))
     user_id = auth.create_user(name, CORRECT, role)
-    return Principal(user_id=user_id, username=name, role=role, session_id=0, csrf_token="x")
+    return Principal(user_id=user_id, username=name, role=role, session_id=0, csrf_token=f"csrf-{name}")
 
 
 def add_event(
@@ -810,7 +810,7 @@ def test_every_text_is_plain_text_and_prints_escaped(store: Database) -> None:
     assert [row.comment for row in detail.acknowledgements] == list(PAYLOADS)
     assert [row.provider_label for row in detail.enrichments] == list(PAYLOADS)
     assert [row.summary for row in detail.enrichments] == list(PAYLOADS)
-    assert [row.payload["html"] for row in detail.enrichments] == list(PAYLOADS)
+    assert [(row.payload or {})["html"] for row in detail.enrichments] == list(PAYLOADS)
     assert [group.object_name for group in detail.groups] == list(PAYLOADS)
     assert detail.change.source_name == PAYLOADS[1]
     # The template side: autoescape turns every payload into text.
