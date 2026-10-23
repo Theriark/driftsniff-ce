@@ -98,6 +98,12 @@ def number(value: int) -> str:
     return f"{value:,}"
 
 
+def sentence(text: str) -> str:
+    """A reason as a sentence: a capital first letter and a full stop at the end."""
+    cleaned = text[:1].upper() + text[1:]
+    return cleaned if cleaned.endswith(".") else cleaned + "."
+
+
 def initials(name: str) -> str:
     """Up to two letters for the avatar: the first letter of the first two words, else two."""
     words = [part for part in name.replace(".", " ").replace("_", " ").split() if part]
@@ -229,6 +235,7 @@ def make_environment() -> Environment:
         status_icons=STATUS_ICONS,
         densities=DENSITIES,
         number=number,
+        sentence=sentence,
         initials=initials,
         relative_time=relative_time,
         utc_label=utc_label,

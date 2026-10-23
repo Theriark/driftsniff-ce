@@ -50,7 +50,7 @@ from driftsniff.web.dashboard import (
     source_overview,
     source_type_label,
 )
-from driftsniff.web.templating import number
+from driftsniff.web.templating import number, sentence
 
 RECENT_RUNS: Final = 8
 TLS_MODE_LABELS: Final = {
@@ -268,7 +268,7 @@ def probe_row(source_type: str, row: ProbeRow) -> CoverageRow:
         note = "The read failed."
         count = None
     if row.error_text and row.status != STATUS_OK:
-        note = _sentence(row.error_text)
+        note = sentence(row.error_text)
     return CoverageRow(row.resource, label, row.status, kind, text, note, count, None, None, hidden)
 
 
@@ -277,11 +277,6 @@ def probe_rows(source_type: str, result: ProbeResult | None) -> tuple[CoverageRo
     if result is None:
         return ()
     return tuple(probe_row(source_type, row) for row in result.rows)
-
-
-def _sentence(text: str) -> str:
-    cleaned = text[:1].upper() + text[1:]
-    return cleaned if cleaned.endswith(".") else cleaned + "."
 
 
 @dataclass(frozen=True, slots=True)
