@@ -3,13 +3,15 @@
 ``GET /setup`` and ``GET /login`` show the forms (P10-T3); the posts take a form post (or a JSON
 body) and answer with a redirect and a cookie, or with the failure. A browser (one that asks for
 ``text/html``) gets the page again with the failure drawn in; every other client gets the plain
-JSON answer. Every failure text is generic. ``GET /`` is the dashboard (its data arrives in
-P10-T4; for now it shows the designed empty state).
+JSON answer. Every failure text is generic. ``GET /`` is the dashboard: its figures come from
+``driftsniff.web.dashboard`` (P10-T4); without that service, or without a source, it shows the
+designed empty state.
 """
 
 import json
 import os
 import re
+from datetime import UTC, datetime
 from typing import Annotated, Literal
 from urllib.parse import parse_qs
 
@@ -34,6 +36,7 @@ from driftsniff.web.auth import (
     request_is_https,
     set_session_cookie,
 )
+from driftsniff.web.dashboard import Dashboard, DashboardService
 from driftsniff.web.deps import get_auth_service, require_viewer
 from driftsniff.web.pages import (
     LOGIN_PATH,
@@ -180,7 +183,13 @@ async def dashboard(
     request: Request, user: Annotated[Principal, Depends(require_viewer)]
 ) -> Response:
     """The start page of a signed-in user. Without a session a browser is sent to sign in."""
-    return page("dashboard.html", shell_for(request, user, "Dashboard", "dashboard"))
+    service: DashboardService | None = request.app.state.dashboard
+    if service is None:
+        data = Dashboard(now=datetime.now(UTC), has_sources=False)
+    else:
+        data = await run_in_threadpool(service.load)
+    shell = shell_for(request, user, "Dashboard", "dashboard")
+    return page("dashboard.html", shell, dashboard=data)
 
 
 @router.get("/setup")

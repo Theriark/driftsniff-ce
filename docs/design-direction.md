@@ -269,6 +269,11 @@ files from `../../brand/`); switch the system colour scheme to see the dark them
   brand mark on the guide's light rounded tile in the `empty_state` macro too, since the mark
   file is transparent and section 3 forbids it bare on a dark surface. See
   `docs/web-interface.md` section 8.
+- P10-T4 (THE-863) built the dashboard from the mock-up with the real queries. Where this
+  document and the plan were silent it chose: one mark per check up to 31 checks in 30 days and
+  one mark per UTC day beyond that (the worst outcome of the day), a constant 2 GiB storage
+  warning size, and the severity badges as the legend swatches. See `docs/web-interface.md`
+  section 9.
 - Screenshots of the mock-ups at 1440, 768 and 390 px are not produced in P10-T1: the browser
   tool refuses `file:` addresses and reaches only `*.theriark.dev`, where the mock-ups are not
   served. Delivery waived them for P10-T1 and made them an acceptance of P10-T2, which takes

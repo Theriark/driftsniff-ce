@@ -94,6 +94,11 @@ class DriftMark:
     d: str = ""
 
 
+def number(value: int) -> str:
+    """A count with thousands separators (the dashboard figures and table cells)."""
+    return f"{value:,}"
+
+
 def initials(name: str) -> str:
     """Up to two letters for the avatar: the first letter of the first two words, else two."""
     words = [part for part in name.replace(".", " ").replace("_", " ").split() if part]
@@ -224,6 +229,7 @@ def make_environment() -> Environment:
         severity_labels=SEVERITY_LABELS,
         status_icons=STATUS_ICONS,
         densities=DENSITIES,
+        number=number,
         initials=initials,
         relative_time=relative_time,
         utc_label=utc_label,

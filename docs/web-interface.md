@@ -155,3 +155,61 @@ client), every failure state of both forms, the generic error with the user name
 the password never echoed, the wait banner with `Retry-After`, `next` kept only for a local
 path, sign-out confirmation, the 403 and 404 pages, and the JSON answers of plain clients. The
 route table lists `GET /`, `GET /setup` and `GET /login`.
+
+## 9. The dashboard (P10-T4)
+
+Task THE-863 (Jira DRS-235). Owner: Frontend Developer. The start page with its data. The
+queries live in `src/driftsniff/web/dashboard.py` (`DashboardService.load`, one read
+connection, every figure from SQL); `GET /` in `routes_ui.py` calls it in a worker thread and
+hands the result to `templates/dashboard.html`, which prints and never computes. The charts are
+the macros of `templates/components/charts.html` (posture ring, trend chart, bar list); the
+drift line is the macro of P10-T2. `serve` builds the service on the one database; an
+application built without it (some tests) shows the empty state.
+
+| Part | What it shows | Where the numbers come from |
+|---|---|---|
+| Stat cards | open changes (events with status open) with the count of events created in the last 7 UTC days, the difference to the 7 days before and a sparkline of those days; critical and high open events; sources healthy out of all sources; storage used | `change_events` grouped by status and by day; the source health below; the size of `driftsniff.db` plus its `-wal` file |
+| Posture ring | open change items by severity, counts only, never a score; each row links to the filtered change list | `change_items` of open events grouped by severity |
+| Needs attention | the open critical and high events (critical first, newest first, at most 8), then every source that is failing, partial, stale, unsupported or whose credential is expiring, and every source with certificate checks off | `change_events`; the source health below |
+| Drift lines | one strip per source, in name order | `runs` of the last 30 days (status ok, partial or failed; a skipped run is not a check) matched to the event the run wrote (`change_events.created_at` equals `runs.finished_at`, the pipeline writes both from one clock reading) |
+| Trend | change items per UTC day for 30 days, stacked by severity, with the table behind a disclosure | `change_items` joined to their event, grouped by day and severity |
+| Breakdowns | open items by source and by resource type (at most 8 rows each), bars in tenths | the same join grouped by source and by resource; the labels are our own table `RESOURCE_LABELS` |
+| Activity | the 20 newest of: events, acknowledgements, notes, finished runs and audit events | each table, 20 newest, merged and cut; refused token calls and enrichments are left out |
+
+**Source health** (`SourceHealth.kind`), in this order: disabled; `state` is `unsupported`;
+the last finished run failed (with the length of the failing streak); never checked; stale,
+when `last_checked_at` is older than three times the source's interval; the last run was
+partial; `state` is `token_expiring`; else healthy. Certificate checks off (the `insecure`
+option) is a flag next to the kind, not a kind, so an insecure source can also be failing.
+The `state` words are read as the plan names them; no collector writes them yet (part B,
+P7-T2 and P8-T2), so until then those two kinds never appear on a real installation.
+
+**Decisions where the plan is silent.** (1) The drift line is one mark per check up to 31
+checks in 30 days; a source checked more often (the default interval is five minutes, so most
+polled sources) gets one mark per UTC day that had a check, carrying the worst outcome of that
+day: a change mark in the colour and shape of the day's highest event, else a hollow tick for
+a day with a failed or partial run, else a thin tick. The strip's `desc` says how many checks
+it stands for and the card's hint names the rule. (2) The storage card compares the database
+file with a constant warning size of 2 GiB (`STORAGE_WARNING_BYTES`); a setting can replace
+it in P10-T8. (3) "New this week" counts events created in the last seven UTC days whatever
+their status now, so an acknowledgement does not move the sparkline. (4) The links behind the
+numbers point at the filtered views of P10-T5 to P10-T8 (`/changes?status=open&severity=...`,
+`/changes?status=open&source=ID`, `/changes?status=open&resource=NAME`, `/sources/ID`,
+`/settings#about`); until those pages exist they answer the designed not-found page.
+(5) Nothing on the dashboard is a before or after value, a note body, an acknowledgement
+comment or a credential: titles are the stored event summaries, run errors are the scrubbed
+class word and short line of the run record.
+
+**Checks.** `tests/unit/test_dashboard.py`: the pure helpers (ring arcs sum to the
+circumference, chart grid and stacked bars, width classes, day and window words, storage
+card); the queries on a seeded database (stat cards, posture, every source health kind, the
+failing streak, the drift line per check and per day, the trend table, the breakdowns, the
+activity order and exclusions); the page as a browser (every section and chart with its title
+and description, one primary action, the hostile source name escaped, the canaries absent, the
+empty state without sources); and the plan's timing check: with 1,000 objects, 600 runs, 100
+events and 2,000 items the page renders in under 500 ms (measured on the second request, after
+the template cache is warm). The route table is unchanged (`GET /` was already listed).
+
+**Not done here.** Screenshots at 1440, 768 and 390 px are taken on Development after the
+deployment of this pull request (task THE-862 covers the P10-T3 pages); the Frontend Developer
+critique for this page goes into that evidence.
