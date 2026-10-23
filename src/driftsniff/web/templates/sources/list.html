@@ -39,7 +39,7 @@
       <div class="badges">{{ status_badge(row.health.kind, row.status_text) }}{% for badge in row.badges %} {{ status_badge(badge.kind, badge.text) }}{% endfor %}</div>
       {% if row.health.reason != row.status_text %}<span class="sub">{{ row.health.reason }}</span>{% endif %}
     </td>
-    <td class="col-hide-s">{% if row.last_attempt %}{{ time_tag(row.last_attempt, listing.now) }}{% else %}<span class="sub">No check yet</span>{% endif %}</td>
+    <td class="col-hide-s">{% if row.last_attempt %}{{ time_tag(row.last_attempt, listing.now) }}{% else %}<span class="sub">{{ "Nothing pushed yet" if row.health.type == "push" else "No check yet" }}</span>{% endif %}</td>
     <td class="col-hide-s">{% if row.health.version %}<span class="num">{{ row.health.version }}</span>{% else %}<span class="sub">none reported</span>{% endif %}</td>
     <td class="col-hide-m drift-cell">{{ drift_line(row.health.name, row.driftline.checks, row.driftline.id_prefix, short=true) }}</td>
   </tr>

@@ -3,6 +3,8 @@
 F1: a failed test connection gives its reason as a sentence before "Nothing was stored.".
 F2: the sources pages show the last attempt (the newest finished run, failed or not), so the
 time agrees with a Failing status; a failed run does not move ``last_checked_at``.
+F3: a push source speaks of pushes where a pull source speaks of checks (status, reason, drift
+line meta, the sources healthy card and the failure banner); the pull words do not change.
 
 The pages are driven through the real application with plain inserts of sources and runs, the
 way the run pipeline writes them. Everything is synthetic.
@@ -27,7 +29,7 @@ from driftsniff.secrets.keys import MasterKey
 from driftsniff.sources.probe import ProbeResult, ProbeTarget, start_probe
 from driftsniff.sources.service import SourceService
 from driftsniff.web.auth import SESSION_COOKIE, AuthService, make_password_hasher
-from driftsniff.web.dashboard import DashboardService, stamp
+from driftsniff.web.dashboard import DashboardService, stamp, status_text
 from driftsniff.web.source_pages import SourcePages
 from driftsniff.web.templating import Shell, render, sentence
 
@@ -235,3 +237,68 @@ def test_the_pages_show_the_last_attempt_after_a_failed_run(
     assert "Healthy" in detail and "Last attempt 2 minutes ago" in detail
     detail = Text(page(client, f"/sources/{untouched}")).joined()
     assert "No check yet" in detail and "Last attempt" not in detail
+
+
+# ---- F3: push sources say pushed, pull sources keep checked ----------------------------------
+
+
+def test_a_push_source_speaks_of_pushes_and_a_pull_source_of_checks(store: Database) -> None:
+    # source 1 of the store fixture is a push source that has never been pushed to
+    pull = add_source(store, "never-read")
+    pushed = add_source(store, "netbox", "push")
+    add_run(store, pushed, at(minutes=-1), "ok")
+    quiet = add_source(store, "quiet-push", "push")
+    add_run(store, quiet, at(minutes=-31), "ok")
+    half = add_source(store, "half-push", "push")
+    add_run(store, half, at(minutes=-1), "partial")
+    broken = add_source(store, "broken-push", "push")
+    add_run(store, broken, at(minutes=-3), "failed")
+    add_run(store, broken, at(minutes=-1), "failed")
+    data = DashboardService(store, clock=lambda: NOW).load()
+    health = {source.id: source for source in data.sources}
+    assert health[1].kind == "open" and health[1].reason == "Nothing pushed yet"
+    assert health[1].status_text == "Nothing pushed yet"
+    assert health[pull].kind == "open" and health[pull].reason == "No check yet"
+    assert health[pull].status_text == "No check yet"
+    assert health[pushed].reason == "Last push found no problem"
+    assert health[pushed].status_text == "Healthy"
+    assert health[quiet].kind == "stale"
+    assert health[quiet].reason == "nothing pushed for 31 minutes, expected every 300 seconds"
+    assert health[half].kind == "partial"
+    assert health[half].reason.startswith("last push was partial: ")
+    assert health[broken].status_text == "Failing"
+    assert health[broken].reason == "2 pushes failed in a row: the controller could not be reached"
+    lines = {row.name: row for row in data.driftlines}
+    assert lines["lab-controller"].meta == "Push source, 0 pushes in 30 days"
+    assert lines["netbox"].meta == "Push source, 1 push in 30 days"
+    assert lines["broken-push"].meta == "Push source, 2 pushes in 30 days"
+    assert lines["never-read"].meta == "UniFi Network, 0 checks in 30 days"
+    assert status_text("open", "push") == "Nothing pushed yet"
+    assert status_text("failing", "push") == "Failing"
+    assert status_text("open", "xo") == "No check yet"
+
+
+def test_the_pages_say_nothing_pushed_yet_for_a_push_source(
+    store: Database, client: TestClient
+) -> None:
+    pull = add_source(store, "never-read")
+    push = add_source(store, "netbox", "push")
+    listing = page(client, "/sources")
+    for name in ("lab-controller", "netbox"):
+        row = list_row(listing, name)
+        assert "Nothing pushed yet" in row and "No check yet" not in row, name
+    row = list_row(listing, "never-read")
+    assert "No check yet" in row and "Nothing pushed yet" not in row
+    detail = Text(page(client, f"/sources/{push}")).joined()
+    assert "Nothing pushed yet" in detail and "No check yet" not in detail
+    assert "No check yet" in Text(page(client, f"/sources/{pull}")).joined()
+    dashboard = Text(page(client, "/")).joined()
+    assert "Push source, 0 pushes in 30 days" in dashboard
+    assert "UniFi Network, 0 checks in 30 days" in dashboard
+    assert "Push source, 0 checks" not in dashboard
+    assert "1 no check yet, 2 nothing pushed yet" in dashboard  # the sources healthy card
+    add_run(store, push, at(hours=-1), "failed")
+    failed = Text(page(client, f"/sources/{push}")).joined()
+    assert "The last push failed" in failed and "The last check failed" not in failed
+    assert "push failed: the controller could not be reached" in failed
+    assert "Last push 1 hour ago" in failed

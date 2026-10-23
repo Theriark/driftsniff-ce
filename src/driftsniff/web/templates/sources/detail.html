@@ -70,7 +70,11 @@
   </section>
   {% endif %}
   {% if health.kind == "failing" %}
+  {% if detail.polled %}
   {{ banner("error", "The last check failed", "driftsniff keeps the last good configuration and tries again on the interval; stored data is unchanged. Reason: " ~ health.reason ~ ".") }}
+  {% else %}
+  {{ banner("error", "The last push failed", "driftsniff keeps the last good configuration until the sender pushes again; stored data is unchanged. Reason: " ~ health.reason ~ ".") }}
+  {% endif %}
   {% elif health.kind == "unsupported" %}
   {{ banner("error", "This controller version is not supported", "The version is below the supported floor, so no collection runs. Update the controller, then run the source again.") }}
   {% endif %}
