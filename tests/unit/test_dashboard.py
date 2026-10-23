@@ -514,7 +514,7 @@ def test_source_health_covers_failing_insecure_disabled_and_new(
 ) -> None:
     health = {source.name: source for source in service.load().sources}
     lab = health["lab-controller"]
-    assert lab.kind == "failing" and lab.reason == "check failed: no answer within 30 seconds"
+    assert lab.kind == "failing" and lab.reason == "push failed: no answer within 30 seconds"
     xo = health["office-xo"]
     assert xo.kind == "ok" and xo.insecure and xo.version == "5.108"
     gateway = health["branch-gw"]
@@ -560,7 +560,7 @@ def test_the_attention_list_puts_critical_events_first_then_the_sources(
         f"/changes/{seeded['critical']}#acknowledge",
     )
     failing = attention[1]
-    assert failing.title == "lab-controller: check failed: no answer within 30 seconds"
+    assert failing.title == "lab-controller: push failed: no answer within 30 seconds"
     assert failing.where == "Push source" and failing.action_label == "Open source"
     insecure = attention[2]
     assert insecure.title == "office-xo runs with certificate checks off"
@@ -575,7 +575,7 @@ def test_a_failing_streak_is_counted(store: Database, service: DashboardService)
             sa.update(sources).where(sources.c.id == 1).values(last_checked_at=at(minutes=-20))
         )
     lab = service.load().sources[0]
-    assert lab.reason == "3 checks failed in a row: timeout"
+    assert lab.reason == "3 pushes failed in a row: timeout"
 
 
 def test_a_skipped_run_does_not_hide_a_failing_source(
@@ -615,7 +615,7 @@ def test_the_drift_lines_mark_each_check_or_each_day(
     lines = {row.name: row for row in service.load().driftlines}
     lab = lines["lab-controller"]
     assert not lab.per_day and lab.href == "/sources/1"
-    assert lab.meta == "Push source, 3 checks in 30 days"
+    assert lab.meta == "Push source, 3 pushes in 30 days"
     assert [check["kind"] for check in lab.checks] == ["ok", "change", "failed"]
     assert lab.checks[1] == {
         "kind": "change",
