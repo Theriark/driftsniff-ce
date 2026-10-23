@@ -24,7 +24,10 @@
 </nav>
 {% endif %}
 
-{% if form_error %}<div class="page-banner">{{ banner("error", "The source was not saved", form_error) }}</div>{% endif %}
+{# A refused submit comes back with focus on its banner, so the reason is read first. #}
+{% set field_errors = errors | length - (1 if errors.get("type") else 0) %}
+{% if form_error %}<div class="page-banner" tabindex="-1" autofocus>{{ banner("error", "The source was not saved", form_error) }}</div>
+{% elif field_errors %}<div class="page-banner" tabindex="-1" autofocus>{{ banner("error", "Check the marked fields", "Fix the " ~ ("field" if field_errors == 1 else field_errors ~ " fields") ~ " marked below, then try again.") }}</div>{% endif %}
 {% if errors.get("type") %}<div class="page-banner">{{ banner("error", "Choose a source type", errors["type"]) }}</div>{% endif %}
 
 <form class="source-form" method="post" action="{{ '/sources/' ~ source.id ~ '/edit' if editing else '/sources/new' }}" novalidate>
@@ -112,7 +115,7 @@
   {% if polled %}
   <section class="card form-card" aria-labelledby="sec-test">
     <h2 id="sec-test">Test connection</h2>
-    <p class="help">Reads the version and every resource once with the values above, read only, and shows what answered. Nothing is stored.</p>
+    <p class="quiet">Reads the version and every resource once with the values above, read only, and shows what answered. Nothing is stored.</p>
     <div id="probe-loading" class="htmx-indicator">{{ skeleton("Testing the connection", rows=4) }}</div>
     <div id="probe-result" class="probe-result" aria-live="polite">{% include "sources/_probe.html" %}</div>
   </section>
@@ -125,7 +128,7 @@
     <button class="btn" type="submit" formaction="{{ test_action }}" hx-post="{{ test_action }}" hx-target="#probe-result" hx-swap="innerHTML" hx-indicator="#probe-loading">Test connection</button>
     {% else %}
     <button class="btn btn--unavailable" type="submit" formaction="{{ test_action }}" aria-describedby="test-unavailable">Test connection</button>
-    <span class="help" id="test-unavailable">Not available on this installation yet.</span>
+    <span class="quiet" id="test-unavailable">Not available on this installation yet.</span>
     {% endif %}
     {% endif %}
     <a class="btn btn--quiet" href="{{ back }}">Cancel</a>

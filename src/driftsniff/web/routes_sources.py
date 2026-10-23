@@ -115,6 +115,22 @@ NOTICES: Final = {
     "run-started": ("Run started", "Its result appears under Recent runs when it ends."),
     "deleted": ("Source deleted", "Its snapshots, change events and coverage were removed."),
 }
+# Without a scheduler no check runs, so these notices say so instead of promising one.
+UNSCHEDULED_NOTICES: Final = {
+    "created": (
+        "Source added",
+        "Checks are not scheduled on this installation yet, so coverage stays empty "
+        "until they are.",
+    ),
+    "saved": (
+        "Changes saved",
+        "Checks are not scheduled on this installation yet; the first check uses them.",
+    ),
+    "enabled": (
+        "Source enabled",
+        "Checks are not scheduled on this installation yet; it is checked once they are.",
+    ),
+}
 
 PROBE_UNAVAILABLE: Final = (
     "Test connection is not available on this installation yet",
@@ -159,8 +175,16 @@ def _roles(user: Principal) -> dict[str, bool]:
     }
 
 
+def _scheduled(request: Request) -> bool:
+    """Whether this installation runs checks: serve may be built without a scheduler."""
+    return request.app.state.scheduler is not None
+
+
 def _notice(request: Request) -> tuple[str, str] | None:
-    return NOTICES.get(request.query_params.get("notice", ""))
+    word = request.query_params.get("notice", "")
+    if not _scheduled(request) and word in UNSCHEDULED_NOTICES:
+        return UNSCHEDULED_NOTICES[word]
+    return NOTICES.get(word)
 
 
 def _redirect(path: str) -> RedirectResponse:
@@ -704,6 +728,7 @@ def _detail_page(
         problem=problem,
         delete_error=delete_error,
         push_key=push_key,
+        scheduled=_scheduled(request),
         **_roles(user),
     )
 

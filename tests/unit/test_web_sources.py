@@ -763,6 +763,43 @@ def test_run_now_without_a_scheduler_says_runs_are_not_scheduled(store: Database
         assert "Runs are not scheduled on this installation yet" in text
 
 
+def test_without_a_scheduler_the_pages_promise_no_check(store: Database) -> None:
+    world = make_world(store, scheduler=False)
+    with world.client:
+        source_id = add_unifi(world)
+        for notice in ("created", "saved", "enabled"):
+            page = assert_page(world.get(f"/sources/{source_id}?notice={notice}", "operator"))
+            text = page.joined()
+            assert "Checks are not scheduled on this installation yet" in text
+            assert "within one interval" not in text
+            assert "on its interval" not in text
+            assert "The next check of this source" not in text
+        buttons = page.find("button")
+        run = next(b for b in buttons if b.get("aria-describedby") == "runs-unscheduled")
+        assert "btn--unavailable" in (run.get("class") or "")
+        assert {"id": "runs-unscheduled", "class": "quiet"} in page.find("p")
+
+
+def test_with_a_scheduler_the_source_page_names_the_first_check(world: World) -> None:
+    source_id = add_unifi(world)
+    page = assert_page(world.get(f"/sources/{source_id}?notice=created", "operator"))
+    text = page.joined()
+    assert "Its first check runs within one interval; coverage fills in." in text
+    assert "Checks are not scheduled" not in text
+    assert all(b.get("aria-describedby") != "runs-unscheduled" for b in page.find("button"))
+
+
+def test_a_refused_submit_puts_focus_on_its_reason(world: World) -> None:
+    source_id = add_unifi(world)
+    form = assert_page(world.post("/sources/new", unifi_form(name="")), 422)
+    focused = [attrs for _, attrs in form.tags if "autofocus" in attrs]
+    assert len(focused) == 1 and focused[0].get("tabindex") == "-1"
+    assert "Fix the field marked below, then try again." in form.joined()
+    detail = assert_page(world.post(f"/sources/{source_id}/delete", {"confirm": "wrong"}), 422)
+    focused = [attrs for _, attrs in detail.tags if "autofocus" in attrs]
+    assert [attrs.get("id") for attrs in focused] == ["confirm-name"]
+
+
 def test_disable_and_enable_change_the_source_and_tell_the_scheduler(world: World) -> None:
     source_id = add_unifi(world)
     synced = world.scheduler.synced
