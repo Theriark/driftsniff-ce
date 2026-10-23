@@ -15,13 +15,20 @@ from driftsniff.plugins.registry import PluginRegistry
 from driftsniff.secrets.keys import MasterKey
 from driftsniff.sources.retention import RetentionJob
 from driftsniff.sources.scheduler import Scheduler
-from driftsniff.web import routes_api, routes_notifications, routes_push, routes_static
+from driftsniff.web import (
+    routes_api,
+    routes_notifications,
+    routes_push,
+    routes_sources,
+    routes_static,
+)
 from driftsniff.web.auth import AuthService
 from driftsniff.web.bearer import TokenService
 from driftsniff.web.csrf import BrowserHardeningMiddleware
 from driftsniff.web.dashboard import DashboardService
 from driftsniff.web.pages import handle_http_exception
 from driftsniff.web.routes_ui import router as ui_router
+from driftsniff.web.source_pages import SourcePages
 
 
 @asynccontextmanager
@@ -57,6 +64,7 @@ def create_app(
     changes: enrich_api.ChangeService | None = None,
     plugins: PluginRegistry | None = None,
     dashboard: DashboardService | None = None,
+    sources: SourcePages | None = None,
 ) -> FastAPI:
     """Build the application; settings default to the DRIFTSNIFF_ environment.
 
@@ -78,6 +86,10 @@ def create_app(
     ``plugins`` registry holds the implementation of every extension point, checked at start.
     The ``dashboard`` service reads the figures of the start page; without one the start page
     shows its empty state.
+    The ``sources`` pages (``/sources`` and below: the list, the add and edit forms, test
+    connection, run now, enable, disable, delete) read and act through it; without one they
+    answer 503. Run now uses the ``scheduler`` and answers that runs are not scheduled without
+    one; test connection uses the probe factory of ``sources`` the same way.
     Every response gets the security headers and every browser write the origin and CSRF checks
     of ``driftsniff.web.csrf``. The stylesheet, the vendored htmx and the brand copies are served
     under ``/static/`` by ``driftsniff.web.routes_static``. A browser that meets a 401, 403 or
@@ -104,10 +116,12 @@ def create_app(
     app.state.changes = changes
     app.state.plugins = plugins
     app.state.dashboard = dashboard
+    app.state.sources = sources
     app.state.openapi_cache = None
     app.add_middleware(BrowserHardeningMiddleware)
     app.add_exception_handler(StarletteHTTPException, handle_http_exception)
     app.include_router(ui_router)
+    app.include_router(routes_sources.router)
     app.include_router(routes_static.router)
     app.include_router(routes_push.router)
     app.include_router(routes_api.router)

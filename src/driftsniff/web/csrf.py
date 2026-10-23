@@ -32,7 +32,7 @@ from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from driftsniff.web.auth import SESSION_COOKIE
-from driftsniff.web.routes_ui import MAX_FORM_BYTES
+from driftsniff.web.routes_ui import MAX_FORM_BYTES, MAX_FORM_FIELDS
 
 CSRF_FIELD: Final = "csrf_token"
 CSRF_HEADER: Final = "x-csrf-token"
@@ -59,7 +59,6 @@ SECURITY_HEADERS: Final = {
 NO_STORE: Final = "no-store"
 
 _FORM_CONTENT_TYPE: Final = "application/x-www-form-urlencoded"
-_MAX_FORM_FIELDS: Final = 20
 _DEFAULT_PORTS: Final = {"http": 80, "https": 443}
 
 _WRONG_ORIGIN: Final = "the request does not come from this site"
@@ -156,7 +155,7 @@ async def _read_limited(receive: Receive) -> bytes:
 def _form_token(body: bytes) -> str | None:
     try:
         fields = parse_qs(
-            body.decode("utf-8"), keep_blank_values=True, max_num_fields=_MAX_FORM_FIELDS
+            body.decode("utf-8"), keep_blank_values=True, max_num_fields=MAX_FORM_FIELDS
         )
     except ValueError:  # UnicodeDecodeError is a ValueError
         return None
