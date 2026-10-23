@@ -2632,3 +2632,16 @@ textarea.input {
     grid-column: 1 / -1;
   }
 }
+
+/* on a phone the change list drops its Status column and shows the status under the summary,
+   so the table fits the screen and no badge is cut off */
+.data-table .row-status-s {
+  display: none;
+}
+
+@media (max-width: 479px) {
+  .data-table .row-status-s {
+    display: block;
+    margin-top: var(--sp-1);
+  }
+}

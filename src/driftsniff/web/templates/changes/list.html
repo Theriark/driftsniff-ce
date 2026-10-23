@@ -73,18 +73,20 @@
       {"label": "Change", "class": "primary-cell"},
       {"label": "Source", "class": "col-hide-s"},
       {"label": "Detected", "class": "col-hide-s", "sort_href": sort_hrefs.oldest if filters.sort != "oldest" else sort_hrefs.newest, "sort_dir": "ascending" if filters.sort == "oldest" else ("descending" if filters.sort == "newest" else none)},
-      {"label": "Status"}
+      {"label": "Status", "class": "col-hide-s"}
     ], density=shell.density, caption_id="changes-cap") %}
   {% for row in listing.rows %}
+  {% set row_status %}{% if row.status == "acknowledged" %}{{ status_badge("ok", "Acknowledged") }}{% else %}{{ status_badge("warn", "Open", "i-dash") }}{% endif %}{% endset %}
   <tr>
     <td>{{ severity_badge(row.severity) }}</td>
     <th scope="row" class="primary-cell">
       <a href="/changes/{{ row.id }}">{{ row.summary }}</a>
       <span class="sub">{{ count_words(row.item_count, "item") }}{% if row.acknowledgement_count %}, {{ count_words(row.acknowledgement_count, "acknowledgement") }}{% endif %}{% if row.note_count %}, {{ count_words(row.note_count, "note") }}{% endif %}{% if row.enrichment_count %}, {{ count_words(row.enrichment_count, "external analysis", "external analyses") }}{% endif %}</span>
+      <span class="row-status-s">{{ row_status }}</span>
     </th>
     <td class="col-hide-s"><a href="/sources/{{ row.source_id }}">{{ row.source_name }}</a></td>
     <td class="col-hide-s">{{ time_tag(parse_stamp(row.created_at), now) }}</td>
-    <td>{% if row.status == "acknowledged" %}{{ status_badge("ok", "Acknowledged") }}{% else %}{{ status_badge("warn", "Open", "i-dash") }}{% endif %}</td>
+    <td class="col-hide-s">{{ row_status }}</td>
   </tr>
   {% endfor %}
   {% endcall %}
