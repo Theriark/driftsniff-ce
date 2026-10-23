@@ -1,9 +1,14 @@
-"""Command line interface: serve, migrate, backup, rekey, create-admin-code, healthcheck."""
+"""Command line interface: serve, migrate, backup, rekey, create-admin-code, healthcheck.
+
+``seed-dev-accounts`` is a seventh, Development-only command (docs/dev-test-accounts.md); it is
+listed apart from the six product commands and refuses to run outside Development.
+"""
 
 import argparse
 import http.client
 import json
 import logging
+import os
 import sys
 from collections.abc import Sequence
 from datetime import UTC, datetime
@@ -16,6 +21,13 @@ from driftsniff.config import ConfigError, Settings
 from driftsniff.db.backup import KEY_WARNING, BackupError, backup_database, default_backup_path
 from driftsniff.db.engine import Database, database_path
 from driftsniff.db.migrate import DatabaseTooNewError, upgrade_to_head
+from driftsniff.devseed import (
+    CREDENTIALS_FILE_NAME,
+    DevSeedError,
+    check_development_only,
+    seed_dev_accounts,
+    username_for,
+)
 from driftsniff.secrets.keys import (
     MasterKey,
     MasterKeyError,
@@ -40,6 +52,9 @@ COMMANDS = {
     "rekey": "Re-encrypt stored credentials with a new master key.",
     "create-admin-code": "Print a one-time code for creating the first admin.",
     "healthcheck": "Exit 0 when the local server answers /healthz (container health check).",
+}
+DEV_COMMANDS = {
+    "seed-dev-accounts": "Development only: create one test account per role for browser checks.",
 }
 
 
@@ -66,6 +81,18 @@ def build_parser() -> argparse.ArgumentParser:
                 action="store_true",
                 help="the old master key is lost: re-stamp fingerprints without comparing them",
             )
+    for name, summary in DEV_COMMANDS.items():
+        dev_parser = subparsers.add_parser(name, help=summary, description=summary)
+        dev_parser.add_argument(
+            "--reset-passwords",
+            action="store_true",
+            help="give all three accounts new passwords, clear a lock and end their sessions",
+        )
+        dev_parser.add_argument(
+            "--credentials-file",
+            type=Path,
+            help=f"where new passwords are written (default: DATA_DIR/{CREDENTIALS_FILE_NAME})",
+        )
     return parser
 
 
@@ -167,6 +194,47 @@ def _create_admin_code(settings: Settings) -> int:
         return EXIT_CONFIG
     print(f"setup code: {code}")
     print("Enter it on the setup page. It works once and replaces any earlier code.")
+    return 0
+
+
+def _seed_dev_accounts(
+    settings: Settings, *, reset_passwords: bool, credentials_file: Path | None
+) -> int:
+    """Create the Development test accounts; the passwords go to a file, never to the output."""
+    try:
+        check_development_only(settings, os.environ)
+        settings.data_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+        database = Database(database_path(settings.data_dir))
+        try:
+            upgrade_to_head(database)
+            report = seed_dev_accounts(
+                database,
+                credentials_file or settings.data_dir / CREDENTIALS_FILE_NAME,
+                reset_passwords=reset_passwords,
+            )
+        finally:
+            database.close()
+    except DevSeedError as error:
+        print(f"driftsniff: {error}", file=sys.stderr)
+        return EXIT_CONFIG
+    except DatabaseTooNewError as error:
+        print(f"driftsniff: {error}", file=sys.stderr)
+        return EXIT_DATABASE_TOO_NEW
+    except (OSError, SQLAlchemyError) as error:
+        print(f"driftsniff: database error: {error}", file=sys.stderr)
+        return EXIT_CONFIG
+    for outcome, roles in (
+        ("created", report.created),
+        ("password replaced", report.reset),
+        ("already exists, unchanged", report.existing),
+    ):
+        for role in roles:
+            print(f"{role}: {outcome} (user name {username_for(role)})")
+    if report.credentials_path is None:
+        print("no new passwords: nothing was written (use --reset-passwords to replace them)")
+    else:
+        print(f"new passwords were written to {report.credentials_path} (mode 0600)")
+        print("Register each pair, then delete that file.")
     return 0
 
 
@@ -283,4 +351,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _rekey(settings, old_key_lost=args.old_key_lost)
     if command == "create-admin-code":
         return _create_admin_code(settings)
+    if command == "seed-dev-accounts":
+        return _seed_dev_accounts(
+            settings,
+            reset_passwords=args.reset_passwords,
+            credentials_file=args.credentials_file,
+        )
     return _serve(settings)
