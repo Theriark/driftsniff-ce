@@ -362,6 +362,40 @@ def test_an_other_cookie_does_not_trip_the_api_rule(client: TestClient) -> None:
     assert client.get("/api/v1/probe", headers={"Cookie": "other=CANARY-1"}).status_code == 200
 
 
+def _origin_a_browser_sends(policy: str) -> str:
+    """The ``Origin`` of a plain same-site form post under a response's ``Referrer-Policy``.
+
+    The Fetch standard serialises the origin of a non-GET request as ``null`` when the policy is
+    ``no-referrer``; every other policy that keeps same-origin referrers sends the real origin.
+    """
+    return "null" if policy == "no-referrer" else ORIGIN
+
+
+def test_a_browser_form_post_under_our_own_referrer_policy_is_not_refused(
+    client: TestClient,
+) -> None:
+    policy = client.get("/healthz").headers["referrer-policy"]
+    assert policy != "no-referrer"
+    origin = _origin_a_browser_sends(policy)
+    form = {"username": "ada", "password": CORRECT}
+    assert client.post("/login", headers={"Origin": origin}, data=form).status_code == 303
+    setup = client.post("/setup", headers={"Origin": origin}, data={"code": "AAAA-AAAA-AAAA-AAAA"})
+    assert setup.status_code != 403
+
+
+def test_a_form_post_with_the_null_origin_is_still_refused_before_login(client: TestClient) -> None:
+    form = {"username": "ada", "password": CORRECT}
+    response = client.post("/login", headers={"Origin": "null"}, data=form)
+    assert response.status_code == 403
+    assert response.json() == {"detail": "the request does not come from this site"}
+    assert SESSION_COOKIE not in response.headers.get("set-cookie", "")
+
+
+def test_a_form_post_without_an_origin_reaches_login(client: TestClient) -> None:
+    form = {"username": "ada", "password": CORRECT}
+    assert client.post("/login", data=form).status_code == 303
+
+
 # -- headers and CORS --------------------------------------------------------------------------
 
 
@@ -400,7 +434,7 @@ def test_every_response_carries_the_security_headers(
         headers = response.headers
         assert headers["content-security-policy"] == CONTENT_SECURITY_POLICY, label
         assert headers["x-content-type-options"] == "nosniff", label
-        assert headers["referrer-policy"] == "no-referrer", label
+        assert headers["referrer-policy"] == "same-origin", label
         assert headers["cache-control"] == "no-store", label
 
 

@@ -36,11 +36,21 @@ Every response, including errors and refusals, carries:
 |---|---|
 | `Content-Security-Policy` | `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'` (no inline script, no inline style, no eval) |
 | `X-Content-Type-Options` | `nosniff` |
-| `Referrer-Policy` | `no-referrer` |
+| `Referrer-Policy` | `same-origin` (see below) |
 | `Cache-Control` | `no-store`, on every route except `/static/` (a route that sets its own value keeps it) |
 
 There is no CORS middleware and no `Access-Control-*` header on any response, and a preflight
 request gets none.
+
+### Why `same-origin` and not `no-referrer`
+
+With `Referrer-Policy: no-referrer` a browser sends `Origin: null` on every plain form post (Fetch
+standard, "serializing a request origin"). The origin check refuses `Origin: null`, so first-run
+setup, sign-in, sign-out and every other form of the product failed with a 403 (found on
+Development, THE-862). `same-origin` keeps the referrer private: it sends the page address only
+to this site and nothing to any other site, and the form post carries the real `Origin`. The check
+itself is unchanged: `Origin: null` (also sent from sandboxed frames and some cross-site redirects)
+and every foreign origin are still refused. `tests/unit/test_web_csrf.py` covers both.
 
 ## Rules for the templates (P10)
 
