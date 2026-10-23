@@ -22,9 +22,10 @@ from driftsniff.db.backup import KEY_WARNING, BackupError, backup_database, defa
 from driftsniff.db.engine import Database, database_path
 from driftsniff.db.migrate import DatabaseTooNewError, upgrade_to_head
 from driftsniff.devseed import (
-    CREDENTIALS_FILE_NAME,
     DevSeedError,
     check_development_only,
+    passwords_from_env,
+    seed_at_startup,
     seed_dev_accounts,
     username_for,
 )
@@ -54,7 +55,7 @@ COMMANDS = {
     "healthcheck": "Exit 0 when the local server answers /healthz (container health check).",
 }
 DEV_COMMANDS = {
-    "seed-dev-accounts": "Development only: create one test account per role for browser checks.",
+    "seed-dev-accounts": "Development only: create the test accounts from the configured passwords",
 }
 
 
@@ -86,12 +87,7 @@ def build_parser() -> argparse.ArgumentParser:
         dev_parser.add_argument(
             "--reset-passwords",
             action="store_true",
-            help="give all three accounts new passwords, clear a lock and end their sessions",
-        )
-        dev_parser.add_argument(
-            "--credentials-file",
-            type=Path,
-            help=f"where new passwords are written (default: DATA_DIR/{CREDENTIALS_FILE_NAME})",
+            help="put the configured passwords on accounts that exist, clear a lock, end sessions",
         )
     return parser
 
@@ -197,21 +193,16 @@ def _create_admin_code(settings: Settings) -> int:
     return 0
 
 
-def _seed_dev_accounts(
-    settings: Settings, *, reset_passwords: bool, credentials_file: Path | None
-) -> int:
-    """Create the Development test accounts; the passwords go to a file, never to the output."""
+def _seed_dev_accounts(settings: Settings, *, reset_passwords: bool) -> int:
+    """Create the Development test accounts from the configured passwords (never printed)."""
     try:
         check_development_only(settings, os.environ)
+        passwords = passwords_from_env(os.environ)
         settings.data_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
         database = Database(database_path(settings.data_dir))
         try:
             upgrade_to_head(database)
-            report = seed_dev_accounts(
-                database,
-                credentials_file or settings.data_dir / CREDENTIALS_FILE_NAME,
-                reset_passwords=reset_passwords,
-            )
+            report = seed_dev_accounts(database, passwords, reset_passwords=reset_passwords)
         finally:
             database.close()
     except DevSeedError as error:
@@ -230,11 +221,11 @@ def _seed_dev_accounts(
     ):
         for role in roles:
             print(f"{role}: {outcome} (user name {username_for(role)})")
-    if report.credentials_path is None:
-        print("no new passwords: nothing was written (use --reset-passwords to replace them)")
-    else:
-        print(f"new passwords were written to {report.credentials_path} (mode 0600)")
-        print("Register each pair, then delete that file.")
+    for role in report.differing:
+        print(
+            f"{role}: the stored password is not the configured one "
+            "(use --reset-passwords to replace it)"
+        )
     return 0
 
 
@@ -279,6 +270,9 @@ def _serve(settings: Settings) -> int:
         except PluginError as error:
             print(f"driftsniff: {error}", file=sys.stderr)
             return EXIT_CONFIG
+        # Development only (by address): the three test accounts; before the setup code, because
+        # an admin account ends first-run setup.
+        seed_at_startup(settings, os.environ, database)
         setup_code = auth.ensure_setup_code()
         if setup_code is not None:
             # Shown once: only a hash is stored. `driftsniff create-admin-code` makes another.
@@ -352,9 +346,5 @@ def main(argv: Sequence[str] | None = None) -> int:
     if command == "create-admin-code":
         return _create_admin_code(settings)
     if command == "seed-dev-accounts":
-        return _seed_dev_accounts(
-            settings,
-            reset_passwords=args.reset_passwords,
-            credentials_file=args.credentials_file,
-        )
+        return _seed_dev_accounts(settings, reset_passwords=args.reset_passwords)
     return _serve(settings)
