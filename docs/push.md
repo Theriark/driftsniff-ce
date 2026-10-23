@@ -63,8 +63,8 @@ the body, a field name or a key.
 - The key is compared by SHA-256 in constant time. There is no rate limit on wrong keys yet.
 - Redaction is the pipeline's: a field the type table classes as secret is stored as a
   fingerprint only, and free text is scanned. The allow-list decides what is read at all.
-- `driftsniff serve` does not build a push gateway yet; the factory that builds the run pipeline
-  for the web layer does (P7 to P9). Until then the endpoint answers 503 in a running server.
+- `driftsniff serve` builds the push gateway with the same run pipeline as the polled sources
+  (`driftsniff.sources.wiring`); a run it stores tells the notifier like any other.
 
 ## Tests
 
