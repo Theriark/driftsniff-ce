@@ -2436,3 +2436,128 @@ textarea.input {
 .probe-result:empty {
   display: none;
 }
+
+/* ---- additions of P10-T6 (change list and change detail) ----------------------------- */
+
+/* the severity cell of the change list is as narrow as its badge */
+.data-table td:first-child .sev {
+  white-space: nowrap;
+}
+
+/* a flush card with nothing to list says so with the card's own padding */
+.card-pad--top {
+  padding-top: var(--sp-6);
+}
+
+/* the Unmute button sits at the end of its row without stretching the column */
+.data-table .row-action {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.data-table .row-action form {
+  margin: 0;
+}
+
+/* the heading row inside a card: the title and a hint on one line, like a section head */
+.section-head--card {
+  margin-bottom: var(--sp-4);
+}
+
+/* the path of an item under its summary line, in the value face */
+.item__path {
+  display: block;
+  font-size: var(--fs-14);
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+
+/* a muted item stays readable but steps back; the word says why */
+.item--muted {
+  opacity: 0.72;
+}
+
+.item__muted {
+  font-size: var(--fs-14);
+  color: var(--text-2);
+  border: 1px dashed var(--slate);
+  border-radius: var(--radius-s);
+  padding: 0 var(--sp-2);
+}
+
+/* the mute form of an item: the reason field and its button on one row */
+.item__mute > form {
+  margin-top: var(--sp-2);
+}
+
+.item__mute .field {
+  flex: 1 1 280px;
+}
+
+/* the data an external program attached, as text in a scrolling box */
+.payload {
+  font-size: var(--fs-14);
+  background: var(--surface-2);
+  border-radius: var(--radius-s);
+  padding: var(--sp-3);
+  overflow: auto;
+  max-height: 320px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* the muted paths under the change list: a card that opens on its heading */
+.mutes > summary {
+  cursor: pointer;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sp-2) var(--sp-4);
+  list-style: none;
+}
+
+.mutes > summary::-webkit-details-marker {
+  display: none;
+}
+
+.mutes > summary h2 {
+  font-size: var(--fs-20);
+  line-height: var(--lh-tight);
+  margin: 0;
+}
+
+.mutes > summary h2::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: var(--sp-2);
+  border-right: 2px solid var(--text-2);
+  border-bottom: 2px solid var(--text-2);
+  transform: translateY(-3px) rotate(-45deg);
+  transition: transform var(--t-fast) var(--ease-out);
+}
+
+.mutes[open] > summary h2::before {
+  transform: translateY(-5px) rotate(45deg);
+}
+
+.mutes > summary .hint {
+  font-size: var(--fs-14);
+  color: var(--text-2);
+}
+
+.mutes[open] > summary {
+  margin-bottom: var(--sp-4);
+}
+
+.mutes .table-wrap {
+  margin: 0 calc(-1 * var(--sp-6)) calc(-1 * var(--sp-6));
+  border-top: 1px solid var(--border);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mutes > summary h2::before {
+    transition: none;
+  }
+}

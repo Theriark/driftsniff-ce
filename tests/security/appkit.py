@@ -1,9 +1,9 @@
 """A complete application for the security suite (P9-T6).
 
 ``running_kit`` builds the real application with every service it has (sign-in, API tokens,
-notifications, the change API, a push gateway with no sources and the sources pages with a test
-connection that refuses every target), a migrated database, one user per role and one API token
-per scope set. The tests of this folder use it to ask the same question
+notifications, the change API, a push gateway with no sources, the sources pages with a test
+connection that refuses every target and the change pages), a migrated database, one user per
+role and one API token per scope set. The tests of this folder use it to ask the same question
 of every route: who may do this, and what happens to everyone else.
 
 Everything is synthetic. The user password and every token are made at test time; text that must
@@ -35,6 +35,7 @@ from driftsniff.sources.probe import ProbeTarget
 from driftsniff.sources.service import SourceService
 from driftsniff.web.auth import SESSION_COOKIE, AuthService, make_password_hasher
 from driftsniff.web.bearer import TokenService
+from driftsniff.web.change_pages import ChangePages
 from driftsniff.web.routes_push import PushGateway
 from driftsniff.web.source_pages import SourcePages
 
@@ -139,6 +140,7 @@ def running_kit(folder: Path) -> Iterator[Kit]:
                 SourceService(store, CredentialCipher.from_master(MASTER)),
                 probe_factory=_no_collector,
             ),
+            change_pages=ChangePages(store),
         )
         with TestClient(app, base_url=ORIGIN, follow_redirects=False) as client:
             kit = Kit(app, client, store, auth, tokens, user_ids)

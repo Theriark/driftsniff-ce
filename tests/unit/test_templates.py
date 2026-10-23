@@ -147,10 +147,11 @@ def test_the_shell_navigation_marks_the_current_page_and_lists_every_entry() -> 
 
 
 def test_the_navigation_lists_only_pages_that_exist() -> None:
-    # /changes, /history, /configuration and /settings come back with their own P10 tasks.
-    assert [href for _key, _label, href in NAV_ITEMS] == ["/", "/sources"]
+    # /history, /configuration and /settings come back with their own P10 tasks (T7, T8).
+    assert [href for _key, _label, href in NAV_ITEMS] == ["/", "/changes", "/sources"]
     hrefs = {attrs.get("href") for attrs in Parsed(page(ADMIN)).find("a")}
-    for missing in ("/changes", "/history", "/configuration", "/settings"):
+    assert "/changes" in hrefs
+    for missing in ("/history", "/configuration", "/settings"):
         assert missing not in hrefs
 
 

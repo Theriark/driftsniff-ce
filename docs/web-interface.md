@@ -300,3 +300,66 @@ and the route table rows in `tests/security/routekit.py`.
 
 **Not done here.** Screenshots at 1440, 768 and 390 px and the UI critique are taken on
 Development after this pull request is deployed, by a later check.
+
+## 11. The change list and the change detail (P10-T6, slice B)
+
+Task THE-1005 (Jira DRS-275). Owner: Frontend Developer. The services (queries, acknowledge,
+notes, mutes, their audit events and the escaping contract) are slice A, THE-993, described in
+[changes-service.md](changes-service.md). This slice adds the routes
+(`src/driftsniff/web/routes_changes.py`), the words and the small reads of the pages
+(`src/driftsniff/web/change_pages.py`: field labels, item summaries, move text, the marked
+difference, filter options, links and pager), the templates (`templates/changes/list.html`,
+`detail.html`, `_item.html`), the P10-T6 part of `app.css`, the Changes entry of the navigation
+and the service wiring (`create_app(change_pages=ChangePages(database))` in `serve`).
+
+| Route | Role | What it does |
+|---|---|---|
+| `GET /changes` | viewer | one page of 50 changes: search (`q`), source, severity, status, resource, date range, sort, page, `muted=1`; JSON for a script |
+| `GET /changes/{event_id}` | viewer | the change detail: items grouped by object, acknowledgements, notes, external analysis; JSON for a script |
+| `POST /changes/{event_id}/acknowledge` | operator | appends an acknowledgement (comment optional), redirects to the change with a notice |
+| `POST /changes/{event_id}/notes` | operator | appends a note (never empty), redirects to the change |
+| `POST /changes/items/{item_id}/mute` | operator | mutes the path of one item for its resource type (never a critical item), redirects to the change named in the form's `event` field |
+| `POST /mutes/{mute_id}/remove` | operator | removes a mute, redirects to the form's `next` (a local path, else the change list) with its old notice replaced |
+
+**The list.** The filter bar is a plain GET form. Its severity select is a floor (`min`:
+Critical, High and above, Medium and above, Low and above); the route turns it into the
+`severity` values the service filters by, and a dashboard link whose set is not a floor (for
+example `severity=medium` from the posture ring) is shown as "Medium only" and kept in hidden
+inputs. Sort is by the Severity and Detected column heads. The hint line names the filters in
+force, the number of changes hidden by mutes (with a link that includes them) and, when more
+than 5,000 changes matched, that mutes were applied to the newest 5,000 only
+(`mute_scan_truncated`). Mutes apply to this list only (not to the dashboard counts or the
+change API, see changes-service.md); the muted paths are therefore listed under the table in a
+disclosure, with Unmute for an operator. A viewer sees no control. The empty state (no change
+at all) sends to the sources; a filter that matches nothing says so with a clear link.
+
+**The detail.** The summary head shows the severity and status badges, the summary, the
+detection window written as between two UTC times (never who changed it), the counts and the
+rule pack. Items are grouped by object; each item is an evidence block: severity shape, the
+readable field label and what happened (`FIELD_LABELS` and `KIND_LABELS`, our own tables), the
+rule id, then the before and after pair with the differing part underlined
+(`split_difference`), or the two fingerprints of a secret (values never travel, see slice A),
+or an order move in words (`move_text`: X moved from after A to before B), then the rationale
+behind "Why is this rated ...?". An operator gets "Mute this path" under an item that may be
+muted and the reason it cannot under one that may not (critical, schema drift, wildcard). The
+right column holds Acknowledge (the acknowledgements so far, then the form), Notes (the notes,
+then the form) and About. A refused text comes back with the field marked and the typed text
+kept; the reason never quotes the text (slice A's rule). Enrichments print under "External
+analysis, not verified by the product" as text, with the attached data as JSON text in a
+disclosure.
+
+**Decisions where the plan is silent.** (1) No drift line on the change detail until the F4
+decision (drift line edge alignment at 390 px, THE-991 carry-over); the source link leads to the
+strip. (2) No bulk acknowledge and no CSV export: no service exists behind them. (3) Mutes are
+managed from the change list, the only place they apply. (4) The status filter defaults to all
+changes (the service's default); the dashboard links set `status=open` themselves.
+
+**Checks.** `tests/unit/test_web_changes.py` (the three acceptance checks through the real
+application: the XSS payloads of the security suite in notes, names and enrichments render
+escaped on both pages; every item shows its rule id and rationale; acknowledging twice keeps
+both rows; plus the filters, the pager, the floor select, the role rules, the refused texts,
+mute and unmute), `tests/unit/test_change_pages.py` (the words and the links), the route table
+rows and `tests/security/test_planned_routes.py`.
+
+**Not done here.** Screenshots at 1440, 768 and 390 px and the UI critique are taken on
+Development after this pull request is deployed, by a later check of the same task.

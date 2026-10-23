@@ -251,6 +251,7 @@ def _serve(settings: Settings) -> int:
     from driftsniff.sources.wiring import build_collection
     from driftsniff.web.auth import AuthService
     from driftsniff.web.bearer import TokenService
+    from driftsniff.web.change_pages import ChangePages
     from driftsniff.web.dashboard import DashboardService
     from driftsniff.web.routes_push import PushGateway
     from driftsniff.web.source_pages import SourcePages
@@ -308,6 +309,7 @@ def _serve(settings: Settings) -> int:
                 sources=SourcePages(
                     database, collection.service, probe_factory=collection.factory.for_target
                 ),
+                change_pages=ChangePages(database),
             ),
             host=host,
             port=settings.port,

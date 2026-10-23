@@ -61,6 +61,13 @@ ROUTE_TABLE: dict[tuple[str, str], Access] = {
     ("POST", "/sources/{source_id}/disable"): Access.ADMIN,
     ("POST", "/sources/{source_id}/delete"): Access.ADMIN,
     ("POST", "/sources/{source_id}/push-key"): Access.ADMIN,
+    # The change pages (P10-T6): a viewer reads, an operator acknowledges, notes and mutes.
+    ("GET", "/changes"): Access.VIEWER,
+    ("GET", "/changes/{event_id}"): Access.VIEWER,
+    ("POST", "/changes/{event_id}/acknowledge"): Access.OPERATOR,
+    ("POST", "/changes/{event_id}/notes"): Access.OPERATOR,
+    ("POST", "/changes/items/{item_id}/mute"): Access.OPERATOR,
+    ("POST", "/mutes/{mute_id}/remove"): Access.OPERATOR,
     ("GET", "/tokens"): Access.ADMIN,
     ("POST", "/tokens"): Access.ADMIN,
     ("POST", "/tokens/{token_id}/revoke"): Access.ADMIN,
@@ -77,11 +84,9 @@ ROUTE_TABLE: dict[tuple[str, str], Access] = {
     ("POST", "/api/v1/push/{source_id}"): Access.PUSH_KEY,
 }
 
-# The routes of the change list and the change detail (P10-T6) that the frontend slice adds. They
-# are not routes yet, so they cannot be rows of ROUTE_TABLE (the table test fails on a row without
-# a route); the slice that adds a route moves its row into ROUTE_TABLE and deletes it here.
-# ``test_planned_routes.py`` holds the rows to the role rules until then: a viewer reads, an
-# operator acknowledges, notes and mutes (the service refuses a lower role as well).
+# The routes the change pages were planned with before the frontend slice added them (P10-T6).
+# Every row is a route now and sits in ROUTE_TABLE above with the same access;
+# ``test_planned_routes.py`` keeps the two in step so the plan's role rules stay visible.
 PLANNED_ROUTES: dict[tuple[str, str], Access] = {
     ("GET", "/changes"): Access.VIEWER,
     ("GET", "/changes/{event_id}"): Access.VIEWER,

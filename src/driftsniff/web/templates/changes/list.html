@@ -1,0 +1,151 @@
+{# The change list (P10-T6, mock-up docs/mockups/changes.html). listing is a
+   driftsniff.changes.views.ChangePageView: one page of 50 changes, newest first unless sorted
+   otherwise. The filter bar is a plain GET form; the severity select is a floor (the chosen
+   severity and every worse one), and a dashboard link whose set is not a floor keeps its
+   severities in hidden inputs. The table prints the rows; every number and name is a link.
+   Mutes are applied here and only here, so the muted paths are listed under the table, with
+   Unmute for an operator. A viewer sees no operator control anywhere on this page. #}
+{% extends "base.html" %}
+{% from "page_header.html" import page_header %}
+{% from "components/states.html" import empty_state, banner, success_banner %}
+{% from "components/badges.html" import severity_badge, status_badge %}
+{% from "components/table.html" import data_table, density_switch %}
+{% from "components/forms.html" import search_box, select_field %}
+{% from "components/details.html" import time_tag %}
+{% block banners %}
+{% if notice %}<div class="page-banner">{{ success_banner(notice[0], notice[1]) }}</div>{% endif %}
+{% endblock %}
+{% block content %}
+{{ page_header("Changes", "Every detected change with its severity, rule and status. A muted path is hidden here but still stored.") }}
+
+<form class="filter-bar" method="get" action="/changes" role="search" aria-label="Filter changes">
+  {{ search_box("q", "q", "Search the summary and object names", value=filters.search, placeholder="Search summary or object name") }}
+  {{ select_field("f-source", "source", "Source", source_options, selected=(filters.source_id | string if filters.source_id else "")) }}
+  <div class="field">
+    <label for="f-min">Severity</label>
+    <select class="input" id="f-min" name="min">
+      <option value=""{% if not severity_choice %} selected{% endif %}>Any</option>
+      {% for value, label in severity_floors %}
+      <option value="{{ value }}"{% if value == severity_choice %} selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+      {% if exact_severities %}<option value="exact" selected>{{ exact_label }} only</option>{% endif %}
+    </select>
+  </div>
+  {% for name in exact_severities %}<input type="hidden" name="severity" value="{{ name }}">{% endfor %}
+  {{ select_field("f-status", "status", "Status", status_options, selected=filters.status or "") }}
+  {% if resource_options | length > 1 %}
+  {{ select_field("f-resource", "resource", "Resource", resource_options, selected=filters.resource or "") }}
+  {% endif %}
+  <div class="field">
+    <label for="f-from">From</label>
+    <input class="input" id="f-from" name="from" type="date" value="{{ filters.created_from.isoformat() if filters.created_from else '' }}">
+  </div>
+  <div class="field">
+    <label for="f-to">To</label>
+    <input class="input" id="f-to" name="to" type="date" value="{{ filters.created_to.isoformat() if filters.created_to else '' }}">
+  </div>
+  {% if filters.sort != "newest" %}<input type="hidden" name="sort" value="{{ filters.sort }}">{% endif %}
+  {% if filters.include_muted %}<input type="hidden" name="muted" value="1">{% endif %}
+  <button class="btn" type="submit">Apply</button>
+  {% if active_filters %}<a class="btn btn--quiet" href="{{ clear_href }}">Clear</a>{% endif %}
+</form>
+
+{% if not listing.rows and not active_filters and not listing.muted_hidden %}
+<div class="card">
+  {{ empty_state("No changes yet", "driftsniff records a change the first time a check finds a difference between two readings of a source. Until then there is nothing to review here.", "/sources", "See the sources") }}
+</div>
+{% else %}
+<div class="toolbar">
+  <p class="hint">
+    {% if active_filters %}{{ summary }}: {{ active_filters }}.{% else %}{{ summary }}.{% endif %}
+    {% if listing.muted_hidden %} <a href="{{ show_muted_href }}">{{ count_words(listing.muted_hidden, "change") }} hidden by mutes</a>.{% endif %}
+    {% if filters.include_muted %} Muted changes are included. <a href="{{ hide_muted_href }}">Hide them</a>.{% endif %}
+    {% if listing.mute_scan_truncated %} Mutes were applied to the newest 5,000 matching changes only; narrow the filters to be sure.{% endif %}
+  </p>
+  {{ density_switch(shell.density, shell.path, shell.csrf_token) }}
+</div>
+<section class="card card--flush" aria-labelledby="changes-cap">
+  {% if listing.rows %}
+  {% call data_table("Detected changes", [
+      {"label": "Severity", "sort_href": sort_hrefs.severity, "sort_dir": "descending" if filters.sort == "severity" else none},
+      {"label": "Change", "class": "primary-cell"},
+      {"label": "Source", "class": "col-hide-s"},
+      {"label": "Detected", "class": "col-hide-s", "sort_href": sort_hrefs.oldest if filters.sort != "oldest" else sort_hrefs.newest, "sort_dir": "ascending" if filters.sort == "oldest" else ("descending" if filters.sort == "newest" else none)},
+      {"label": "Status"}
+    ], density=shell.density, caption_id="changes-cap") %}
+  {% for row in listing.rows %}
+  <tr>
+    <td>{{ severity_badge(row.severity) }}</td>
+    <th scope="row" class="primary-cell">
+      <a href="/changes/{{ row.id }}">{{ row.summary }}</a>
+      <span class="sub">{{ count_words(row.item_count, "item") }}{% if row.acknowledgement_count %}, {{ count_words(row.acknowledgement_count, "acknowledgement") }}{% endif %}{% if row.note_count %}, {{ count_words(row.note_count, "note") }}{% endif %}{% if row.enrichment_count %}, {{ count_words(row.enrichment_count, "external analysis", "external analyses") }}{% endif %}</span>
+    </th>
+    <td class="col-hide-s"><a href="/sources/{{ row.source_id }}">{{ row.source_name }}</a></td>
+    <td class="col-hide-s">{{ time_tag(parse_stamp(row.created_at), now) }}</td>
+    <td>{% if row.status == "acknowledged" %}{{ status_badge("ok", "Acknowledged") }}{% else %}{{ status_badge("warn", "Open", "i-dash") }}{% endif %}</td>
+  </tr>
+  {% endfor %}
+  {% endcall %}
+  {% else %}
+  <div class="card-pad card-pad--top">
+    {% if active_filters %}
+    <p class="quiet">No change matches these filters. <a href="{{ clear_href }}">Clear the filters</a> to see every change.</p>
+    {% else %}
+    <p class="quiet">Every change is hidden by a mute. Nothing was deleted: <a href="{{ show_muted_href }}">show the muted changes</a>.</p>
+    {% endif %}
+  </div>
+  {% endif %}
+  <div class="table-foot">
+    <span>{{ summary }}</span>
+    {% if pager %}
+    <nav class="pager" aria-label="Pages">
+      {% for link in pager %}
+      {% if link.current %}<span aria-current="page">{{ link.label }}</span>{% else %}<a href="{{ link.href }}">{{ link.label }}</a>{% endif %}
+      {% endfor %}
+    </nav>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+
+{% if mutes %}
+<section class="section" aria-labelledby="mutes-h">
+  <details class="card mutes">
+    <summary><h2 id="mutes-h">Muted paths, {{ mutes | length }}</h2><span class="hint">A mute hides a path from this list for every source of its resource type; the items stay stored with their severity, and a critical item is never hidden.</span></summary>
+    <div class="table-wrap">
+      <table class="data-table">
+        <caption class="visually-hidden">Muted paths</caption>
+        <thead>
+          <tr>
+            <th scope="col">Resource</th>
+            <th scope="col">Path</th>
+            <th scope="col" class="col-hide-s">Reason</th>
+            <th scope="col" class="col-hide-s">Muted by</th>
+            {% if can_operate %}<th scope="col"><span class="visually-hidden">Action</span></th>{% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for mute in mutes %}
+          <tr>
+            <td>{{ resource_label(mute.resource) }}</td>
+            <td class="mono">{{ mute.path_pattern }}</td>
+            <td class="col-hide-s">{% if mute.reason %}{{ mute.reason }}{% else %}<span class="sub">No reason given</span>{% endif %}</td>
+            <td class="col-hide-s">{{ mute.author }}, {{ time_tag(parse_stamp(mute.created_at), now) }}</td>
+            {% if can_operate %}
+            <td class="row-action">
+              <form method="post" action="/mutes/{{ mute.id }}/remove">
+                <input type="hidden" name="csrf_token" value="{{ shell.csrf_token }}">
+                <input type="hidden" name="next" value="{{ shell.path }}">
+                <button class="btn btn--small" type="submit">Unmute</button>
+              </form>
+            </td>
+            {% endif %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </details>
+</section>
+{% endif %}
+{% endblock %}
