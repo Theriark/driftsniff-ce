@@ -1,6 +1,7 @@
 {# The start page (P10-T4). dashboard is a driftsniff.web.dashboard.Dashboard: every figure
    was computed there from SQL, this template prints it. Without a source the page is the
-   designed empty state with the one action; with sources it is, top to bottom, the stat cards,
+   designed empty state with the one action (for an admin; anyone else is told who adds
+   sources, because only an admin may); with sources it is, top to bottom, the stat cards,
    the posture ring and the needs-attention list, the drift lines, the trend chart and the
    breakdowns, and the activity timeline. Every number links to the filtered view behind it. #}
 {% extends "base.html" %}
@@ -15,11 +16,15 @@
 {% if not dashboard.has_sources %}
 {{ page_header("Dashboard", "What changed, how bad it is, and what to do about it.") }}
 <div class="card">
+  {% if shell.user_role == "admin" %}
   {{ empty_state("Nothing to watch yet", "Add a UniFi Network or Xen Orchestra source and driftsniff records every change from its first check.", "/sources/new", "Add source") }}
+  {% else %}
+  {{ empty_state("Nothing to watch yet", "An admin adds the sources driftsniff watches. Ask an admin of this installation to add a UniFi Network or Xen Orchestra source; its changes appear here from the first check.") }}
+  {% endif %}
 </div>
 {% else %}
 {% call page_header("Dashboard", "What changed across your sources in the last 30 days, and what still needs a decision.") %}
-<a class="btn btn--primary" href="/sources/new">Add source</a>
+{% if shell.user_role == "admin" %}<a class="btn btn--primary" href="/sources/new">Add source</a>{% endif %}
 {% endcall %}
 
 <div class="stat-grid">
