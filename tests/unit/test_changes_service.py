@@ -73,7 +73,13 @@ PAYLOADS = (
 def make_principal(store: Database, name: str, role: str) -> Principal:
     auth = AuthService(store, hasher=make_password_hasher(memory_kib=8, time_cost=1))
     user_id = auth.create_user(name, CORRECT, role)
-    return Principal(user_id=user_id, username=name, role=role, session_id=0, csrf_token=f"csrf-{name}")
+    return Principal(
+        user_id=user_id,
+        username=name,
+        role=role,
+        session_id=0,
+        csrf_token=f"csrf-{name}",
+    )
 
 
 def add_event(
