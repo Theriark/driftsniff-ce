@@ -42,7 +42,6 @@ from driftsniff.sources.service import (
 from driftsniff.web.dashboard import (
     STATE_TOKEN_EXPIRING,
     STATE_UNSUPPORTED,
-    STATUS_TEXT,
     DriftRow,
     SourceHealth,
     parse_stamp,
@@ -378,7 +377,7 @@ class SourcePages:
         result = tuple(
             SourceRow(
                 health=state,
-                status_text=STATUS_TEXT[state.kind],
+                status_text=state.status_text,
                 type_label=source_type_label(state.type),
                 last_attempt=state.last_attempt,
                 badges=badges_of(state, str(row.state), _options(row), now),
@@ -418,7 +417,7 @@ class SourcePages:
             now=now,
             view=view,
             health=health[0],
-            status_text=STATUS_TEXT[health[0].kind],
+            status_text=health[0].status_text,
             last_attempt=health[0].last_attempt,
             badges=badges_of(health[0], view.state, options, now),
             driftline=lines[0],
