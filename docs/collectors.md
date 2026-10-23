@@ -57,6 +57,19 @@ Resources not reached when the time is up fail with error class `run_timeout`. A
 started when it would end after the run's deadline. A `403`, a `404`, a connection problem or a
 body that is not JSON is not retried.
 
+## The collector factory
+
+`driftsniff.sources.factory.CollectorFactory` builds the collector of a source for the scheduler
+(`for_source`, from the stored source with its decrypted credential) and for the test connection
+(`for_target`, from the values of the form). Both pass the TLS settings (`tls.md`),
+`allow_plain_http` and, for Xen Orchestra, the entered credential expiry. A source whose collector
+cannot be built (a credential that cannot be decrypted, a CA file that is gone) gets a collector
+whose probe fails with a fixed text, so the run record says why. The resources in the source option
+`resources_off` are removed from the list the collector gives the pipeline: they are never
+requested, and the stored state of such a resource stays as it was, so turning one off reports
+nothing as removed. A push source has no factory collector; the push endpoint builds its own from
+the posted body.
+
 ## Run status
 
 | Status | Meaning |
