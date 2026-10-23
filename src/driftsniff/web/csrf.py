@@ -47,10 +47,14 @@ CONTENT_SECURITY_POLICY: Final = (
     "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
     "frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
 )
+# ``same-origin`` sends the referrer (and an honest ``Origin``) on a post to this site and nothing
+# at all to another site. ``no-referrer`` made every browser send ``Origin: null`` on a plain form
+# post, which the origin check rightly refuses, so no form of the product could be submitted.
+REFERRER_POLICY: Final = "same-origin"
 SECURITY_HEADERS: Final = {
     "Content-Security-Policy": CONTENT_SECURITY_POLICY,
     "X-Content-Type-Options": "nosniff",
-    "Referrer-Policy": "no-referrer",
+    "Referrer-Policy": REFERRER_POLICY,
 }
 NO_STORE: Final = "no-store"
 
