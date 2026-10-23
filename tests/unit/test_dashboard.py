@@ -262,6 +262,8 @@ def seeded(store: Database, auth: AuthService) -> dict[str, int]:
     """
     ada = auth.create_user("ada", CORRECT, "admin")
     with store.write() as connection:
+        # The service stamps its audit row with the real clock; move it behind the fixed time.
+        connection.execute(sa.update(audit_events).values(at=at(days=-20)))
         connection.execute(
             sa.update(sources).where(sources.c.id == 1).values(last_checked_at=at(minutes=-30))
         )

@@ -29,6 +29,7 @@ from typing import Any, Final
 import sqlalchemy as sa
 from sqlalchemy import Connection
 
+from driftsniff.collectors.tls import OPTION_INSECURE
 from driftsniff.db.engine import Database
 from driftsniff.db.tables import (
     acknowledgements,
@@ -40,7 +41,7 @@ from driftsniff.db.tables import (
     sources,
     users,
 )
-from driftsniff.sources.service import OPTION_INSECURE, interval_of
+from driftsniff.sources.service import interval_of
 from driftsniff.web.templating import SEVERITIES, SEVERITY_LABELS, number
 
 TREND_DAYS: Final = 30
@@ -1011,35 +1012,35 @@ def _activity(connection: Connection, names: Mapping[int, str]) -> tuple[Activit
         .order_by(change_events.c.created_at.desc(), change_events.c.id.desc())
         .limit(ACTIVITY_LIMIT)
     ).all()
-    for row in event_rows:
-        severity = str(row.max_severity)
-        source = names.get(int(row.source_id), "a removed source")
+    for event_row in event_rows:
+        severity = str(event_row.max_severity)
+        source = names.get(int(event_row.source_id), "a removed source")
         entries.append(
             Activity(
                 "alert" if severity == "critical" else "event",
                 "",
                 f"{SEVERITY_LABELS[severity]} change",
-                f"/changes/{int(row.id)}",
-                f" on {source}: {row.summary}",
-                parse_stamp(str(row.created_at)),
+                f"/changes/{int(event_row.id)}",
+                f" on {source}: {event_row.summary}",
+                parse_stamp(str(event_row.created_at)),
             )
         )
     for table, verb in ((acknowledgements, "acknowledged"), (notes, "added a note on")):
-        rows = connection.execute(
+        user_rows = connection.execute(
             sa.select(table.c.created_at, table.c.event_id, users.c.username)
             .select_from(table.join(users, table.c.user_id == users.c.id))
             .order_by(table.c.created_at.desc(), table.c.id.desc())
             .limit(ACTIVITY_LIMIT)
         ).all()
-        for row in rows:
+        for user_row in user_rows:
             entries.append(
                 Activity(
                     "",
-                    f"{row.username} {verb} ",
-                    f"change {number(int(row.event_id))}",
-                    f"/changes/{int(row.event_id)}",
+                    f"{user_row.username} {verb} ",
+                    f"change {number(int(user_row.event_id))}",
+                    f"/changes/{int(user_row.event_id)}",
                     "",
-                    parse_stamp(str(row.created_at)),
+                    parse_stamp(str(user_row.created_at)),
                 )
             )
     run_rows = connection.execute(
@@ -1054,19 +1055,19 @@ def _activity(connection: Connection, names: Mapping[int, str]) -> tuple[Activit
         .order_by(runs.c.finished_at.desc(), runs.c.id.desc())
         .limit(ACTIVITY_LIMIT)
     ).all()
-    for row in run_rows:
-        if row.status == "ok":
-            tail = f" finished, {number(int(row.object_count))} objects"
+    for run_row in run_rows:
+        if run_row.status == "ok":
+            tail = f" finished, {number(int(run_row.object_count))} objects"
         else:
-            tail = f" {row.status}: {row.error_summary or 'no detail recorded'}"
+            tail = f" {run_row.status}: {run_row.error_summary or 'no detail recorded'}"
         entries.append(
             Activity(
                 "run",
                 "Check of ",
-                names.get(int(row.source_id), "a removed source"),
-                f"/sources/{int(row.source_id)}",
+                names.get(int(run_row.source_id), "a removed source"),
+                f"/sources/{int(run_row.source_id)}",
                 tail,
-                parse_stamp(str(row.finished_at)),
+                parse_stamp(str(run_row.finished_at)),
             )
         )
     audit_rows = connection.execute(
@@ -1077,12 +1078,13 @@ def _activity(connection: Connection, names: Mapping[int, str]) -> tuple[Activit
         .order_by(audit_events.c.at.desc(), audit_events.c.id.desc())
         .limit(ACTIVITY_LIMIT)
     ).all()
-    for row in audit_rows:
-        action = str(row.action)
+    for audit_row in audit_rows:
+        action = str(audit_row.action)
         verb = AUDIT_VERBS.get(action, action.replace(".", " ").replace("_", " "))
-        label, href = _audit_target("" if row.target is None else str(row.target), names)
-        text = f"{row.actor} {verb}" + (" " if label else "")
-        entries.append(Activity("", text, label, href, "", parse_stamp(str(row.at))))
+        target = "" if audit_row.target is None else str(audit_row.target)
+        label, href = _audit_target(target, names)
+        text = f"{audit_row.actor} {verb}" + (" " if label else "")
+        entries.append(Activity("", text, label, href, "", parse_stamp(str(audit_row.at))))
     entries.sort(key=lambda entry: entry.when, reverse=True)
     return tuple(entries[:ACTIVITY_LIMIT])
 
