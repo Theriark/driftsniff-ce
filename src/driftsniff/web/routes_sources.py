@@ -484,8 +484,15 @@ async def list_sources(
         return JSONResponse({"sources": [_view_json(view) for view in views]})
     listing = await run_in_threadpool(pages.listing)
     shell = shell_for(request, user, "Sources", "sources")
-    notice = _notice(request)
-    return page("sources/list.html", shell, listing=listing, notice=notice, **_roles(user))
+    roles = _roles(user)
+    return page(
+        "sources/list.html",
+        shell,
+        listing=listing,
+        notice=_notice(request),
+        can_operate=roles["can_operate"],
+        can_admin=roles["can_admin"],
+    )
 
 
 @router.get("/sources/new")
