@@ -1,8 +1,9 @@
 """A complete application for the security suite (P9-T6).
 
 ``running_kit`` builds the real application with every service it has (sign-in, API tokens,
-notifications, the change API and a push gateway with no sources), a migrated database, one user
-per role and one API token per scope set. The tests of this folder use it to ask the same question
+notifications, the change API, a push gateway with no sources and the sources pages with a test
+connection that refuses every target), a migrated database, one user per role and one API token
+per scope set. The tests of this folder use it to ask the same question
 of every route: who may do this, and what happens to everyone else.
 
 Everything is synthetic. The user password and every token are made at test time; text that must
@@ -21,16 +22,21 @@ from contract.fake_notify import make_store
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from driftsniff.collectors.base import Collector, CollectorError
 from driftsniff.config import Settings
 from driftsniff.db.engine import Database
 from driftsniff.db.tables import change_events, change_items, notes, snapshots
 from driftsniff.enrich.api import ChangeService
 from driftsniff.main import create_app
 from driftsniff.notify.deliveries import NotificationService
+from driftsniff.secrets.crypto import CredentialCipher
 from driftsniff.secrets.keys import MasterKey
+from driftsniff.sources.probe import ProbeTarget
+from driftsniff.sources.service import SourceService
 from driftsniff.web.auth import SESSION_COOKIE, AuthService, make_password_hasher
 from driftsniff.web.bearer import TokenService
 from driftsniff.web.routes_push import PushGateway
+from driftsniff.web.source_pages import SourcePages
 
 ORIGIN = "http://testserver"
 MASTER = MasterKey(bytes(range(32)))
@@ -62,6 +68,11 @@ class _NoSources:
 
     def push_target(self, source_id: int) -> None:
         return None
+
+
+def _no_collector(_target: ProbeTarget) -> Collector:
+    """The probe factory of the kit: no target is ever reachable."""
+    raise CollectorError("connection", "the controller could not be reached")
 
 
 class _GatewayStub:
@@ -123,6 +134,11 @@ def running_kit(folder: Path) -> Iterator[Kit]:
             tokens=tokens,
             notifications=notifications,
             changes=ChangeService(store),
+            sources=SourcePages(
+                store,
+                SourceService(store, CredentialCipher.from_master(MASTER)),
+                probe_factory=_no_collector,
+            ),
         )
         with TestClient(app, base_url=ORIGIN, follow_redirects=False) as client:
             kit = Kit(app, client, store, auth, tokens, user_ids)

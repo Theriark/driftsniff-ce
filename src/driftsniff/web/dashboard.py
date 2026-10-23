@@ -558,6 +558,27 @@ def _source_attention(health: SourceHealth) -> list[Attention]:
     return rows
 
 
+def source_overview(
+    connection: Connection, source_rows: Sequence[Any], now: datetime
+) -> tuple[tuple[SourceHealth, ...], tuple[DriftRow, ...]]:
+    """The health and the drift line of each source row, by the rules of the dashboard.
+
+    The sources pages (``driftsniff.web.source_pages``) use it so that a source has the same
+    status and the same strip there as on the start page. A row needs the columns id, name, type,
+    enabled, last_checked_at, controller_version, state and options.
+    """
+    since = day_start(now.date() - timedelta(days=DRIFT_DAYS))
+    last_runs = _last_runs(connection)
+    runs_30 = _runs_since(connection, since)
+    events_30 = _events_since(connection, since)
+    streaks = _failed_streaks(runs_30)
+    health = tuple(
+        _source_health(row, last_runs.get(int(row.id)), streaks.get(int(row.id), 0), now)
+        for row in source_rows
+    )
+    return health, _driftlines(health, runs_30, events_30, now)
+
+
 # ---- the service -------------------------------------------------------------------------
 
 

@@ -13,7 +13,7 @@ collector and run pipeline (`collectors.md`) and the scheduler (`scheduler.md`) 
 | type | `unifi`, `xo` or `push`; it cannot change later |
 | base address | `unifi` and `xo` only; `https://`, no user name, password, query or fragment, trailing slashes removed |
 | credential | `unifi` and `xo` only; required; encrypted before it is stored |
-| options | `allow_plain_http` (true or false), `interval_seconds` (whole seconds, 60 to 3600, default 300, polled sources only) and `push_fields` (push sources only, see `push.md`); an unknown option, a wrong type or a value out of range is refused |
+| options | `allow_plain_http` (true or false), `interval_seconds` (whole seconds, 60 to 3600, default 300, polled sources only), the TLS options of `tls.md`, `resources_off` (`unifi` and `xo` only: a list of at most 100 distinct resource names the admin turned off), `credential_expires_on` (`xo` only: the expiry date of the credential an admin entered, `YYYY-MM-DD`) and `push_fields` (push sources only, see `push.md`); an unknown option, a wrong type, a value out of range or an option of another type is refused |
 | enabled | a disabled source is not collected |
 
 A `push` source has no address and no credential. It has a sender key instead, made with
@@ -67,5 +67,5 @@ channels belong to no source and are kept.
 ## Tests
 
 `tests/unit/test_source_addresses.py`, `tests/unit/test_source_service.py` and
-`tests/unit/test_push_source_service.py`. Run with
+`tests/unit/test_push_source_service.py` and `tests/unit/test_source_options.py`. Run with
 `pytest tests/unit/test_source_addresses.py tests/unit/test_source_service.py tests/unit/test_push_source_service.py`.

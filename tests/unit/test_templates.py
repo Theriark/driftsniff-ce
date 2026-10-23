@@ -6,6 +6,7 @@ content security policy imposes on every template (no inline script, no style at
 helper functions of ``driftsniff.web.templating`` are checked on their own as well.
 """
 
+import dataclasses
 import json
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
@@ -137,12 +138,20 @@ def test_the_shell_has_the_landmarks_and_the_skip_link() -> None:
 
 
 def test_the_shell_navigation_marks_the_current_page_and_lists_every_entry() -> None:
-    parsed = Parsed(page(ADMIN))
+    parsed = Parsed(page(dataclasses.replace(ADMIN, nav_current="sources")))
     links = {attrs.get("href"): attrs for attrs in parsed.find("a")}
     for _key, label, href in NAV_ITEMS:
         assert href in links, label
-    assert links["/changes"].get("aria-current") == "page"
-    assert "aria-current" not in links["/sources"]
+    assert links["/sources"].get("aria-current") == "page"
+    assert "aria-current" not in links["/"]
+
+
+def test_the_navigation_lists_only_pages_that_exist() -> None:
+    # /changes, /history, /configuration and /settings come back with their own P10 tasks.
+    assert [href for _key, _label, href in NAV_ITEMS] == ["/", "/sources"]
+    hrefs = {attrs.get("href") for attrs in Parsed(page(ADMIN)).find("a")}
+    for missing in ("/changes", "/history", "/configuration", "/settings"):
+        assert missing not in hrefs
 
 
 def test_the_shell_header_uses_the_horizontal_logo_at_48_px_with_a_dark_source() -> None:

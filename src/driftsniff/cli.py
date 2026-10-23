@@ -246,9 +246,12 @@ def _serve(settings: Settings) -> int:
     from driftsniff.notify.deliveries import NotificationService
     from driftsniff.plugins.defaults import make_defaults
     from driftsniff.plugins.registry import PluginError, load_plugins
+    from driftsniff.secrets.crypto import CredentialCipher
+    from driftsniff.sources.service import SourceService
     from driftsniff.web.auth import AuthService
     from driftsniff.web.bearer import TokenService
     from driftsniff.web.dashboard import DashboardService
+    from driftsniff.web.source_pages import SourcePages
 
     status = _migrate(settings)
     if status != 0:
@@ -288,6 +291,12 @@ def _serve(settings: Settings) -> int:
                 changes=ChangeService(database),
                 plugins=plugins,
                 dashboard=DashboardService(database),
+                # No probe factory and no scheduler yet: the collector factory that builds a
+                # collector from a stored source has no owner, so test connection and run now
+                # say that they are not available (docs/web-interface.md section 10).
+                sources=SourcePages(
+                    database, SourceService(database, CredentialCipher.from_master(master_key))
+                ),
             ),
             host=host,
             port=settings.port,

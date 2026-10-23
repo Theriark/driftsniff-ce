@@ -1,0 +1,134 @@
+{# The add and edit forms of a source (P10-T5), one per type: UniFi Network, Xen Orchestra and
+   push. values is a driftsniff.web.routes_sources.FormValues; it never holds the credential or
+   the insecure confirmation text, so neither is ever filled back in. The credential field is
+   write-only: empty on the edit form, where leaving it empty keeps the stored one. The TLS mode
+   is a radio group; the field each mode needs sits under it and the stylesheet shows it only for
+   the chosen mode (without :has support every field shows, and the server checks them anyway).
+   Test connection posts the same form to the test route; with JavaScript only the result panel
+   is replaced, without it the page comes back with the result. Nothing is stored by a test. #}
+{% extends "base.html" %}
+{% from "page_header.html" import page_header %}
+{% from "components/forms.html" import text_field %}
+{% from "components/states.html" import banner, skeleton %}
+{% block content %}
+{% set polled = values.source_type in ("unifi", "xo") %}
+{% set back = "/sources/" ~ source.id if editing else "/sources" %}
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="/sources">Sources</a> / {% if editing %}<a href="/sources/{{ source.id }}">{{ source.name }}</a> / Edit{% else %}Add a source{% endif %}</nav>
+{{ page_header(shell.title, "Edit what driftsniff reads and how. The type of a source cannot change." if editing else "Choose what driftsniff should watch, then tell it how to read it. It only ever reads.") }}
+
+{% if not editing %}
+<nav class="type-switch" aria-label="Source type">
+  {% for kind, label in source_types %}
+  <a href="/sources/new?type={{ kind }}"{% if kind == values.source_type %} aria-current="page"{% endif %}>{{ label }}</a>
+  {% endfor %}
+</nav>
+{% endif %}
+
+{% if form_error %}<div class="page-banner">{{ banner("error", "The source was not saved", form_error) }}</div>{% endif %}
+{% if errors.get("type") %}<div class="page-banner">{{ banner("error", "Choose a source type", errors["type"]) }}</div>{% endif %}
+
+<form class="source-form" method="post" action="{{ '/sources/' ~ source.id ~ '/edit' if editing else '/sources/new' }}" novalidate>
+  <input type="hidden" name="csrf_token" value="{{ shell.csrf_token }}">
+  <input type="hidden" name="full_form" value="1">
+  {% if not editing %}<input type="hidden" name="type" value="{{ values.source_type }}">{% endif %}
+
+  <section class="card form-card" aria-labelledby="sec-source">
+    <h2 id="sec-source">{{ "Source" if polled else "Push source" }}</h2>
+    {{ text_field("name", "name", "Name", value=values.name, help="How this source is called everywhere in driftsniff, for example branch-gw. Up to 100 characters.", error=errors.get("name", ""), autocomplete="off", required=true) }}
+    {% if polled %}
+    {{ text_field("base_url", "base_url", "Address", value=values.base_url, type="url", help="The address of the " ~ ("UniFi Network application" if values.source_type == "unifi" else "Xen Orchestra server") ~ ", starting with https://. No user name, query or path to the API.", error=errors.get("base_url", ""), autocomplete="off", placeholder="https://controller.example", required=not editing, mono=true) }}
+    <div class="check">
+      <input id="allow_plain_http" name="allow_plain_http" type="checkbox" value="on"{% if values.allow_plain_http %} checked{% endif %} aria-describedby="allow_plain_http-help">
+      <label for="allow_plain_http">Allow a plain http address</label>
+      <span class="help" id="allow_plain_http-help">Only for a lab without TLS: the {{ credential_label }} then travels unencrypted. Saving it writes an audit event.</span>
+    </div>
+    {{ text_field("credential", "credential", credential_label, type="password", help=("Leave empty to keep the stored " ~ credential_label ~ ". A new one replaces it. " if editing else "") ~ "It is stored encrypted and never shown again, not even to you.", error=errors.get("credential", ""), autocomplete="off", required=not editing, mono=true) }}
+    {% if values.source_type == "xo" %}
+    {{ text_field("credential_expires_on", "credential_expires_on", "Credential expires on (optional)", value=values.credential_expires_on, type="date", help="driftsniff warns from 14 days before this date. When Xen Orchestra reports the expiry itself, that date wins.", error=errors.get("credential_expires_on", ""), autocomplete="off") }}
+    {% endif %}
+    {% else %}
+    <div class="field">
+      <label for="push_fields">Declared resources and fields</label>
+      <textarea class="input mono" id="push_fields" name="push_fields" rows="6" spellcheck="false" aria-describedby="push_fields-help{% if errors.get('push_fields') %} push_fields-error{% endif %}"{% if errors.get('push_fields') %} aria-invalid="true"{% endif %}>{{ values.push_fields }}</textarea>
+      <span class="help" id="push_fields-help">One resource per line: its name, a colon, then the top-level fields the sender may send, for example networks: _id, name, vlan. Every other field is dropped on arrival.</span>
+      {% if errors.get("push_fields") %}<span class="error" id="push_fields-error">{{ errors["push_fields"] }}</span>{% endif %}
+    </div>
+    {% endif %}
+  </section>
+
+  {% if polled %}
+  <section class="card form-card" aria-labelledby="sec-checks">
+    <h2 id="sec-checks">Checks</h2>
+    {{ text_field("interval_minutes", "interval_minutes", "Check every (minutes)", value=values.interval_minutes, type="number", help="1 to 60 minutes. Each check reads every resource that is on.", error=errors.get("interval_minutes", ""), autocomplete="off") }}
+    <fieldset class="choices" aria-describedby="resources-help{% if errors.get('resources') %} resources-error{% endif %}">
+      <legend>Resources to read</legend>
+      <p class="help" id="resources-help">Turn off what you do not want to track. A resource that is off keeps its history but is not read again.</p>
+      <div class="choice-grid">
+        {% for resource in resources %}
+        <div class="check">
+          <input id="res-{{ resource.name }}" name="resource" type="checkbox" value="{{ resource.name }}"{% if resource.checked %} checked{% endif %}>
+          <label for="res-{{ resource.name }}">{{ resource.label }}</label>
+        </div>
+        {% endfor %}
+      </div>
+      {% if errors.get("resources") %}<span class="error" id="resources-error">{{ errors["resources"] }}</span>{% endif %}
+    </fieldset>
+  </section>
+
+  <section class="card form-card" id="tls" aria-labelledby="sec-tls">
+    <h2 id="sec-tls">Certificate checks</h2>
+    <fieldset class="choices tls-modes">
+      <legend>TLS mode</legend>
+      {% for mode, label in tls_modes %}
+      <div class="choice{% if mode == 'insecure' %} choice--risk{% endif %}">
+        <input id="tls-{{ mode }}" name="tls_mode" type="radio" value="{{ mode }}"{% if mode == values.tls_mode %} checked{% endif %} aria-describedby="tls-{{ mode }}-help">
+        <label for="tls-{{ mode }}">{{ label }}</label>
+        <span class="help" id="tls-{{ mode }}-help">
+          {%- if mode == "verify" %}The default. The certificate must chain to a public CA and name the host.
+          {%- elif mode == "ca_file" %}For a controller with a certificate from your own CA. The bundle is a PEM file of at most 64 KB in the CA folder of the data volume.
+          {%- elif mode == "pinned" %}For a self-signed certificate. Only the certificate with this SHA-256 is accepted, checked before the {{ credential_label }} is sent.
+          {%- else %}Turns every certificate check off. Anyone on the path can read the {{ credential_label }}. The source then carries the Insecure TLS badge.{% endif -%}
+        </span>
+        {% if mode == "ca_file" %}
+        <div class="choice__extra">{{ text_field("tls_ca_file", "tls_ca_file", "CA bundle file name", value=values.tls_ca_file, help="A plain file name, for example lab-ca.pem.", error=errors.get("tls_ca_file", ""), autocomplete="off", mono=true) }}</div>
+        {% elif mode == "pinned" %}
+        <div class="choice__extra">{{ text_field("tls_pin", "tls_pin", "Certificate SHA-256", value=values.tls_pin, help="64 hex characters, the SHA-256 of the certificate in DER form.", error=errors.get("tls_pin", ""), autocomplete="off", mono=true) }}</div>
+        {% elif mode == "insecure" %}
+        <div class="choice__extra">
+          {% if insecure_now %}
+          <p class="help">Certificate checks are already off for this source.</p>
+          {% else %}
+          {{ text_field("tls_confirmation", "tls_confirmation", "Type " ~ confirmation_text ~ " to confirm", help="The exact sentence is required to switch checks off; it writes an audit event.", error=errors.get("tls_confirmation", ""), autocomplete="off", placeholder=confirmation_text) }}
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </fieldset>
+    {% if errors.get("tls_mode") %}<span class="error">{{ errors["tls_mode"] }}</span>{% endif %}
+  </section>
+  {% endif %}
+
+  {% if polled %}
+  <section class="card form-card" aria-labelledby="sec-test">
+    <h2 id="sec-test">Test connection</h2>
+    <p class="help">Reads the version and every resource once with the values above, read only, and shows what answered. Nothing is stored.</p>
+    <div id="probe-loading" class="htmx-indicator">{{ skeleton("Testing the connection", rows=4) }}</div>
+    <div id="probe-result" class="probe-result" aria-live="polite">{% include "sources/_probe.html" %}</div>
+  </section>
+  {% endif %}
+
+  <div class="form-actions">
+    <button class="btn btn--primary" type="submit">{{ "Save changes" if editing else "Add source" }}</button>
+    {% if polled %}
+    {% if probe_available %}
+    <button class="btn" type="submit" formaction="{{ test_action }}" hx-post="{{ test_action }}" hx-target="#probe-result" hx-swap="innerHTML" hx-indicator="#probe-loading">Test connection</button>
+    {% else %}
+    <button class="btn btn--unavailable" type="submit" formaction="{{ test_action }}" aria-describedby="test-unavailable">Test connection</button>
+    <span class="help" id="test-unavailable">Not available on this installation yet.</span>
+    {% endif %}
+    {% endif %}
+    <a class="btn btn--quiet" href="{{ back }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

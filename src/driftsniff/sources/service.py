@@ -13,6 +13,9 @@ Rules this module enforces (docs/sources.md has the user view):
   for polled sources. The mode ``insecure`` needs the confirmation text the caller passes as
   ``tls_confirmation``, sets the flag option ``insecure`` (the interface shows it as a badge) and
   writes the audit event ``source.tls_insecure_enabled``.
+* ``resources_off`` lists the resources the admin turned off for a polled source (the run reads
+  the others); ``credential_expires_on`` is the expiry date an admin entered for the credential
+  of an ``xo`` source (``YYYY-MM-DD``; the collector prefers the one Xen Orchestra reports).
 * A push source is read through a sender key. ``set_push_key`` makes a new random key, stores
   only its SHA-256 (``push_token_hash``), returns the key once and writes the audit event
   ``source.push_key``; ``push_target`` hands the endpoint the hash and the declared field
@@ -30,7 +33,7 @@ import re
 import secrets
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 import sqlalchemy as sa
 from sqlalchemy import Connection
@@ -74,6 +77,8 @@ MAX_NAME_CHARS = 100
 OPTION_ALLOW_PLAIN_HTTP = "allow_plain_http"
 OPTION_INTERVAL_SECONDS = "interval_seconds"
 OPTION_PUSH_FIELDS = "push_fields"
+OPTION_RESOURCES_OFF = "resources_off"
+OPTION_CREDENTIAL_EXPIRES_ON = "credential_expires_on"
 DEFAULT_INTERVAL_SECONDS = 300
 MIN_INTERVAL_SECONDS = 60
 MAX_INTERVAL_SECONDS = 3600
@@ -86,7 +91,11 @@ ALLOWED_OPTIONS: Mapping[str, type] = {
     OPTION_TLS_CA_FILE: str,
     OPTION_TLS_PIN: str,
     OPTION_INSECURE: bool,
+    OPTION_RESOURCES_OFF: list,
+    OPTION_CREDENTIAL_EXPIRES_ON: str,
 }
+MAX_RESOURCES_OFF = 100
+MAX_RESOURCE_NAME_CHARS = 100
 MAX_PUSH_RESOURCES = 100
 MAX_PUSH_FIELDS_PER_RESOURCE = 200
 MAX_PUSH_NAME_CHARS = 100
@@ -195,8 +204,68 @@ def _check_options(options: Mapping[str, object]) -> dict[str, object]:
                 f"the source option {key} must be from {MIN_INTERVAL_SECONDS} "
                 f"to {MAX_INTERVAL_SECONDS} seconds"
             )
-        checked[key] = _check_push_fields(value) if key == OPTION_PUSH_FIELDS else value
+        if key == OPTION_PUSH_FIELDS:
+            value = _check_push_fields(value)
+        elif key == OPTION_RESOURCES_OFF:
+            value = _check_resources_off(value)
+        elif key == OPTION_CREDENTIAL_EXPIRES_ON:
+            value = _check_expiry_date(value)
+        checked[key] = value
     return _check_tls_options(checked)
+
+
+def _check_resources_off(value: object) -> list[str]:
+    """The resources turned off: distinct, non-empty, printable names, at most 100."""
+    if not isinstance(value, list):
+        raise SourceValidationError(f"the source option {OPTION_RESOURCES_OFF} must be list")
+    if len(value) > MAX_RESOURCES_OFF:
+        raise SourceValidationError(
+            f"{OPTION_RESOURCES_OFF} names at most {MAX_RESOURCES_OFF} resources"
+        )
+    for name in value:
+        if (
+            not isinstance(name, str)
+            or not name
+            or len(name) > MAX_RESOURCE_NAME_CHARS
+            or not name.isprintable()
+        ):
+            raise SourceValidationError(
+                f"{OPTION_RESOURCES_OFF} has a resource name that is not valid"
+            )
+    if len(set(value)) != len(value):
+        raise SourceValidationError(f"{OPTION_RESOURCES_OFF} names a resource twice")
+    return list(value)
+
+
+def _check_expiry_date(value: object) -> str:
+    """The entered expiry date of a credential as ``YYYY-MM-DD``."""
+    text = value if isinstance(value, str) else ""
+    parsed: date | None
+    try:
+        parsed = date.fromisoformat(text)
+    except ValueError:
+        parsed = None
+    if parsed is None or parsed.isoformat() != text:
+        raise SourceValidationError(
+            f"the source option {OPTION_CREDENTIAL_EXPIRES_ON} is a date written as YYYY-MM-DD"
+        )
+    return text
+
+
+def _check_type_options(source_type: str, options: Mapping[str, object]) -> None:
+    """Refuse an option that the type of the source has no use for."""
+    if OPTION_PUSH_FIELDS in options and source_type != "push":
+        raise SourceValidationError(f"only a push source has the option {OPTION_PUSH_FIELDS}")
+    if source_type not in POLLED_TYPES and any(key in options for key in TLS_OPTIONS):
+        raise SourceValidationError("only a unifi or xo source has TLS options")
+    if OPTION_RESOURCES_OFF in options and source_type not in POLLED_TYPES:
+        raise SourceValidationError(
+            f"only a unifi or xo source has the option {OPTION_RESOURCES_OFF}"
+        )
+    if OPTION_CREDENTIAL_EXPIRES_ON in options and source_type != "xo":
+        raise SourceValidationError(
+            f"only an xo source has the option {OPTION_CREDENTIAL_EXPIRES_ON}"
+        )
 
 
 def _check_tls_options(checked: dict[str, object]) -> dict[str, object]:
@@ -375,10 +444,7 @@ class SourceService:
             raise SourceValidationError(f"unknown source type {source_type!r}")
         cleaned_name = _check_name(name)
         checked_options = _check_options(options or {})
-        if OPTION_PUSH_FIELDS in checked_options and source_type != "push":
-            raise SourceValidationError(f"only a push source has the option {OPTION_PUSH_FIELDS}")
-        if source_type not in POLLED_TYPES and any(key in checked_options for key in TLS_OPTIONS):
-            raise SourceValidationError("only a unifi or xo source has TLS options")
+        _check_type_options(source_type, checked_options)
         if _is_insecure(checked_options):
             _require_confirmation(tls_confirmation)
         address: str | None = None
@@ -456,23 +522,11 @@ class SourceService:
                 has_polled_fields = base_url is not None or credential is not None
                 if row.type not in POLLED_TYPES and has_polled_fields:
                     raise SourceValidationError("a push source has no address and no credential")
-                if (
-                    row.type not in POLLED_TYPES
-                    and checked_options is not None
-                    and any(key in checked_options for key in TLS_OPTIONS)
-                ):
-                    raise SourceValidationError("only a unifi or xo source has TLS options")
+                if checked_options is not None:
+                    _check_type_options(str(row.type), checked_options)
                 became_insecure = _is_insecure(effective) and not _is_insecure(row.options)
                 if became_insecure:
                     _require_confirmation(tls_confirmation)
-                if (
-                    checked_options is not None
-                    and OPTION_PUSH_FIELDS in checked_options
-                    and row.type != "push"
-                ):
-                    raise SourceValidationError(
-                        f"only a push source has the option {OPTION_PUSH_FIELDS}"
-                    )
                 if base_url is not None or checked_options is not None:
                     current = base_url if base_url is not None else row.base_url
                     if current is not None:

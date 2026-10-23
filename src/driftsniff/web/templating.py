@@ -44,14 +44,13 @@ STATUS_ICONS: Final = {
 }
 DENSITIES: Final = ("comfortable", "compact")
 
-# The navigation of the shell: key, label, path. The key marks the current page.
+# The navigation of the shell: key, label, path. The key marks the current page. Only pages that
+# exist are listed (Delivery decision on P10-T5): each P10 task adds its own entry back, in this
+# order, when its page lands: Changes (/changes, P10-T6) after Dashboard; History (/history) and
+# Configuration (/configuration, P10-T7) and Settings (/settings, P10-T8) after Sources.
 NAV_ITEMS: Final = (
     ("dashboard", "Dashboard", "/"),
-    ("changes", "Changes", "/changes"),
     ("sources", "Sources", "/sources"),
-    ("history", "History", "/history"),
-    ("configuration", "Configuration", "/configuration"),
-    ("settings", "Settings", "/settings"),
 )
 
 # Drift line geometry (docs/design-direction.md section 2): a 32 unit tall strip, one position
