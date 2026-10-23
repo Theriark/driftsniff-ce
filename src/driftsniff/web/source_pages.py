@@ -160,7 +160,7 @@ class SourceRow:
     health: SourceHealth
     status_text: str
     type_label: str
-    last_checked: datetime | None
+    last_attempt: datetime | None
     badges: tuple[Badge, ...]
     driftline: DriftRow
 
@@ -312,7 +312,7 @@ class SourceDetail:
     view: SourceView
     health: SourceHealth
     status_text: str
-    last_checked: datetime | None
+    last_attempt: datetime | None
     badges: tuple[Badge, ...]
     driftline: DriftRow
     coverage: tuple[CoverageRow, ...]
@@ -370,7 +370,7 @@ class SourcePages:
         return self._clock()
 
     def listing(self) -> SourceListing:
-        """Every source in name order with its status, flags, last check and drift line."""
+        """Every source in name order with its status, flags, last attempt and drift line."""
         now = self._clock()
         with self._db.read() as connection:
             rows = connection.execute(sa.select(*_SOURCE_COLUMNS).order_by(sources.c.name)).all()
@@ -380,7 +380,7 @@ class SourcePages:
                 health=state,
                 status_text=STATUS_TEXT[state.kind],
                 type_label=source_type_label(state.type),
-                last_checked=_stamp_or_none(row.last_checked_at),
+                last_attempt=state.last_attempt,
                 badges=badges_of(state, str(row.state), _options(row), now),
                 driftline=line,
             )
@@ -419,7 +419,7 @@ class SourcePages:
             view=view,
             health=health[0],
             status_text=STATUS_TEXT[health[0].kind],
-            last_checked=_stamp_or_none(view.last_checked_at),
+            last_attempt=health[0].last_attempt,
             badges=badges_of(health[0], view.state, options, now),
             driftline=lines[0],
             coverage=coverage_rows(view.type, options, stored),

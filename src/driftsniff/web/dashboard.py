@@ -296,6 +296,8 @@ class SourceHealth:
     insecure: bool
     version: str | None
     href: str
+    # When the newest finished check ended, failed or not; a failed run leaves last_checked_at.
+    last_attempt: datetime | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -519,7 +521,16 @@ def _source_health(
         insecure=insecure,
         version=version,
         href=f"/sources/{int(row.id)}",
+        last_attempt=last_attempt(row.last_checked_at, last_run),
     )
+
+
+def last_attempt(last_checked_at: object, last_run: Any | None) -> datetime | None:
+    """The newer of the end of the last finished run and ``last_checked_at``, or None."""
+    stamps = [parse_stamp(str(last_checked_at))] if last_checked_at is not None else []
+    if last_run is not None and last_run.finished_at is not None:
+        stamps.append(parse_stamp(str(last_run.finished_at)))
+    return max(stamps, default=None)
 
 
 def _source_attention(health: SourceHealth) -> list[Attention]:
