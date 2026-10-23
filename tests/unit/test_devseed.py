@@ -3,12 +3,12 @@
 import json
 import logging
 import re
-import stat
 from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
 import sqlalchemy as sa
+import uvicorn
 
 from driftsniff import devseed
 from driftsniff.cli import COMMANDS, DEV_COMMANDS, main
@@ -17,46 +17,72 @@ from driftsniff.db.engine import Database, database_path
 from driftsniff.db.migrate import upgrade_to_head
 from driftsniff.db.tables import USER_ROLES, audit_events, users
 from driftsniff.devseed import (
-    CREDENTIALS_FILE_NAME,
     MARKER_VALUE,
     MARKER_VARIABLE,
     SEED_ROLES,
     DevSeedError,
     DevSeedRefusedError,
     check_development_only,
-    new_password,
+    password_variable_for,
+    passwords_from_env,
+    seed_at_startup,
     seed_dev_accounts,
     username_for,
 )
+from driftsniff.secrets.redact import RedactingFilter
 from driftsniff.web.auth import (
     AuthService,
     LoginFailedError,
     SetupUnavailableError,
-    check_password_policy,
     make_password_hasher,
 )
 
 CHEAP_HASHER = make_password_hasher(memory_kib=8, time_cost=1)
-PASSWORD_SHAPE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.+-]{10,62}[A-Za-z0-9]")
 ROOT = Path(__file__).resolve().parents[2]
-# A synthetic value that stands for a credential somebody else already holds.
+DEV_URL = "https://ce-dev-driftsniff.theriark.dev"
+# Synthetic values that stand for the generated passwords and for a credential somebody holds.
 CANARY = "CANARY-existing-credential-0001"
+
+
+def configured(role: str) -> str:
+    """The synthetic generated value of a role's password variable."""
+    return f"CANARY-{role}-generated-0123456789"
+
+
+def configured_env() -> dict[str, str]:
+    return {password_variable_for(role): configured(role) for role in SEED_ROLES}
+
+
+def configured_values() -> dict[str, str]:
+    return {role: configured(role) for role in SEED_ROLES}
 
 
 @pytest.fixture(autouse=True)
 def cheap_hashing(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The command line hashes with the production cost; the tests need not wait for it."""
+    """The seed hashes with the production cost; the tests need not wait for it."""
     monkeypatch.setattr(devseed, "make_password_hasher", lambda: CHEAP_HASHER)
+
+
+@pytest.fixture(autouse=True)
+def clean_root_log_filters() -> Iterator[None]:
+    """serve installs the log filter on the root handlers; do not leave it for other tests."""
+    yield
+    for handler in logging.getLogger().handlers:
+        for item in list(handler.filters):
+            if isinstance(item, RedactingFilter):
+                handler.removeFilter(item)
 
 
 @pytest.fixture
 def development(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
-    """A Development-marked installation whose data directory does not exist yet."""
+    """A Development-marked installation, passwords configured, data directory not yet made."""
     data_dir = tmp_path / "data"
     monkeypatch.setenv("DRIFTSNIFF_DATA_DIR", str(data_dir))
     monkeypatch.setenv(MARKER_VARIABLE, MARKER_VALUE)
     monkeypatch.delenv("DRIFTSNIFF_BASE_URL", raising=False)
     monkeypatch.delenv("DRIFTSNIFF_ENVIRONMENT_LABEL", raising=False)
+    for name, value in configured_env().items():
+        monkeypatch.setenv(name, value)
     return data_dir
 
 
@@ -84,13 +110,6 @@ def stored_accounts(data_dir: Path) -> dict[str, tuple[str, str]]:
     return {row.username: (row.role, row.password_hash) for row in rows}
 
 
-def credentials(data_dir: Path) -> dict[str, dict[str, str]]:
-    """The accounts in the credentials file the command wrote."""
-    document = json.loads((data_dir / CREDENTIALS_FILE_NAME).read_text(encoding="utf-8"))
-    accounts: dict[str, dict[str, str]] = document["accounts"]
-    return accounts
-
-
 def can_sign_in(data_dir: Path, username: str, secret: str) -> bool:
     database = Database(database_path(data_dir))
     try:
@@ -102,7 +121,12 @@ def can_sign_in(data_dir: Path, username: str, secret: str) -> bool:
     return True
 
 
-# -- the Development-only guard --------------------------------------------------------------
+def everything_stored_in(data_dir: Path) -> bytes:
+    """The bytes of every file under the data directory (database, journal, anything else)."""
+    return b"".join(path.read_bytes() for path in sorted(data_dir.rglob("*")) if path.is_file())
+
+
+# -- the Development-only guard of the command -----------------------------------------------
 
 
 def test_refuses_without_the_development_marker(
@@ -159,9 +183,20 @@ def test_refuses_an_environment_badge_that_is_not_development(
     assert not development.exists()
 
 
+def test_refuses_without_the_configured_passwords(
+    development: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.delenv(password_variable_for("operator"))
+    assert main(["seed-dev-accounts"]) == 1
+    error = capsys.readouterr().err
+    assert password_variable_for("operator") in error
+    assert password_variable_for("admin") not in error
+    assert not development.exists()
+
+
 @pytest.mark.parametrize(
     "base_url",
-    ["https://ce-dev-driftsniff.theriark.dev", "http://localhost:8080", "http://127.0.0.1:9000"],
+    [DEV_URL, "http://localhost:8080", "http://127.0.0.1:9000"],
 )
 def test_accepts_the_development_addresses(base_url: str) -> None:
     settings = Settings.from_env({"DRIFTSNIFF_BASE_URL": base_url})
@@ -186,22 +221,89 @@ def test_no_deployment_file_sets_the_marker(name: str) -> None:
     assert MARKER_VARIABLE not in (ROOT / name).read_text(encoding="utf-8")
 
 
+# -- the manifest ----------------------------------------------------------------------------
+
+PREVIOUS_ENV = [
+    {"name": "DRIFTSNIFF_BASE_URL", "kind": "base_url"},
+    {"name": "DRIFTSNIFF_TRUSTED_PROXY", "kind": "literal", "value": "true"},
+    {"name": "DRIFTSNIFF_LOG_LEVEL", "kind": "literal", "value": "info"},
+    {"name": "DRIFTSNIFF_PORT", "kind": "literal", "value": "8080"},
+    {"name": "DRIFTSNIFF_DATA_DIR", "kind": "literal", "value": "/data"},
+    {"name": "DRIFTSNIFF_KEY_FILE", "kind": "literal", "value": "/keys/master.key"},
+]
+
+
+def manifest() -> dict[str, object]:
+    document: dict[str, object] = json.loads(
+        (ROOT / "deploy" / "dokploy.json").read_text(encoding="utf-8")
+    )
+    return document
+
+
+def test_the_manifest_keeps_the_database_the_volumes_and_every_earlier_setting() -> None:
+    document = manifest()
+    assert set(document) == {"database", "volumes", "env", "browserAccounts"}
+    assert document["database"] is None
+    assert document["volumes"] == ["/data", "/keys"]
+    env = document["env"]
+    assert isinstance(env, list)
+    assert env[: len(PREVIOUS_ENV)] == PREVIOUS_ENV
+
+
+def test_the_generated_passwords_are_declared_without_a_value() -> None:
+    env = manifest()["env"]
+    assert isinstance(env, list)
+    declared = [item for item in env if item not in PREVIOUS_ENV]
+    assert declared == [
+        {"name": password_variable_for(role), "kind": "token24"} for role in SEED_ROLES
+    ]
+
+
+def test_the_browser_accounts_have_only_the_allowed_fields_and_match_the_seed() -> None:
+    accounts = manifest()["browserAccounts"]
+    assert isinstance(accounts, list)
+    assert [item["email"] for item in accounts] == [username_for(role) for role in SEED_ROLES]
+    assert [item["label"] for item in accounts] == list(SEED_ROLES)
+    for item, role in zip(accounts, SEED_ROLES, strict=True):
+        assert set(item) == {"email", "label", "passwordEnv"}
+        assert item["passwordEnv"] == password_variable_for(role)
+
+
+def test_every_password_variable_of_the_accounts_is_a_generated_development_password() -> None:
+    document = manifest()
+    env = document["env"]
+    accounts = document["browserAccounts"]
+    assert isinstance(env, list)
+    assert isinstance(accounts, list)
+    generated = {item["name"] for item in env if item["kind"] == "token24"}
+    for item in accounts:
+        assert item["passwordEnv"] in generated
+        assert re.fullmatch(r"DRIFTSNIFF_DEV_[A-Z]+_PASSWORD", item["passwordEnv"])
+
+
+def test_no_password_literal_is_in_the_manifest() -> None:
+    text = (ROOT / "deploy" / "dokploy.json").read_text(encoding="utf-8")
+    assert "CANARY" not in text
+    env = manifest()["env"]
+    assert isinstance(env, list)
+    for item in env:
+        if "PASSWORD" in item["name"]:
+            assert set(item) == {"name", "kind"}
+
+
 # -- what the command creates ----------------------------------------------------------------
 
 
-def test_creates_one_account_per_role(
+def test_creates_one_account_per_role_with_the_configured_passwords(
     development: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     assert main(["seed-dev-accounts"]) == 0
     accounts = stored_accounts(development)
-    assert set(accounts) == {username_for(role) for role in SEED_ROLES}
+    assert set(accounts) == set(SEED_ROLES)
     for role in SEED_ROLES:
         assert accounts[username_for(role)][0] == role
-    written = credentials(development)
-    assert set(written) == set(SEED_ROLES)
-    for role in SEED_ROLES:
-        assert written[role]["username"] == username_for(role)
-        assert can_sign_in(development, username_for(role), written[role]["password"])
+        assert can_sign_in(development, username_for(role), configured(role))
+        assert not can_sign_in(development, username_for(role), configured("other"))
     output = capsys.readouterr().out
     for role in SEED_ROLES:
         assert f"{role}: created" in output
@@ -211,22 +313,11 @@ def test_the_roles_are_the_roles_of_the_product() -> None:
     assert set(SEED_ROLES) == set(USER_ROLES)
 
 
-def test_the_passwords_are_throwaway_and_fit_the_registration_rules(development: Path) -> None:
+def test_the_command_writes_no_file_of_credentials(development: Path) -> None:
     assert main(["seed-dev-accounts"]) == 0
-    written = [entry["password"] for entry in credentials(development).values()]
-    assert len(set(written)) == len(SEED_ROLES)
-    for item in written:
-        assert 12 <= len(item) <= 64
-        assert PASSWORD_SHAPE.fullmatch(item) is not None
-        check_password_policy(item)
-    mode = stat.S_IMODE((development / CREDENTIALS_FILE_NAME).stat().st_mode)
-    assert mode == 0o600
-
-
-def test_new_passwords_are_never_repeated_and_never_start_with_a_dash() -> None:
-    seen = {new_password() for _ in range(300)}
-    assert len(seen) == 300
-    assert all(PASSWORD_SHAPE.fullmatch(item) for item in seen)
+    names = {path.name for path in development.rglob("*") if path.is_file()}
+    assert not any("credential" in name for name in names)
+    assert not any(name.endswith(".json") for name in names)
 
 
 def test_a_second_run_changes_nothing(
@@ -234,30 +325,19 @@ def test_a_second_run_changes_nothing(
 ) -> None:
     assert main(["seed-dev-accounts"]) == 0
     capsys.readouterr()
-    before_file = (development / CREDENTIALS_FILE_NAME).read_bytes()
-    before_accounts = stored_accounts(development)
+    before = stored_accounts(development)
     assert main(["seed-dev-accounts"]) == 0
     output = capsys.readouterr().out
-    assert stored_accounts(development) == before_accounts
-    assert (development / CREDENTIALS_FILE_NAME).read_bytes() == before_file
+    assert stored_accounts(development) == before
     for role in SEED_ROLES:
         assert f"{role}: already exists, unchanged" in output
     assert "created" not in output
-    assert "no new passwords" in output
+    assert "not the configured one" not in output
 
 
-def test_a_second_run_writes_no_file_after_the_first_one_was_deleted(development: Path) -> None:
+def test_a_missing_account_is_added_and_the_others_are_left_alone(development: Path) -> None:
     assert main(["seed-dev-accounts"]) == 0
-    (development / CREDENTIALS_FILE_NAME).unlink()
-    assert main(["seed-dev-accounts"]) == 0
-    assert not (development / CREDENTIALS_FILE_NAME).exists()
-
-
-def test_a_missing_account_is_added_and_the_others_keep_their_password(
-    development: Path,
-) -> None:
-    assert main(["seed-dev-accounts"]) == 0
-    first = credentials(development)
+    before = stored_accounts(development)
     database = Database(database_path(development))
     try:
         with database.write() as connection:
@@ -265,104 +345,130 @@ def test_a_missing_account_is_added_and_the_others_keep_their_password(
     finally:
         database.close()
     assert main(["seed-dev-accounts"]) == 0
-    second = credentials(development)
-    assert second["admin"] == first["admin"]
-    assert second["operator"] == first["operator"]
-    assert second["viewer"]["password"] != first["viewer"]["password"]
-    assert can_sign_in(development, username_for("viewer"), second["viewer"]["password"])
+    after = stored_accounts(development)
+    assert after["admin"] == before["admin"]
+    assert after["operator"] == before["operator"]
+    assert can_sign_in(development, username_for("viewer"), configured("viewer"))
 
 
-def test_the_credentials_file_can_be_put_elsewhere(development: Path, tmp_path: Path) -> None:
-    target = tmp_path / "elsewhere.json"
-    assert main(["seed-dev-accounts", "--credentials-file", str(target)]) == 0
-    assert target.is_file()
-    assert not (development / CREDENTIALS_FILE_NAME).exists()
+# -- existing accounts and data --------------------------------------------------------------
 
 
-def test_a_failing_credentials_file_leaves_no_account_behind(
-    development: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    target = tmp_path / "missing-directory" / "credentials.json"
-    assert main(["seed-dev-accounts", "--credentials-file", str(target)]) == 1
-    assert "could not write the credentials file" in capsys.readouterr().err
-    assert stored_accounts(development) == {}
+def test_other_users_and_their_data_are_preserved(migrated: Database) -> None:
+    auth = AuthService(migrated, hasher=CHEAP_HASHER)
+    auth.create_user("alice", CANARY, "operator")
+    with migrated.read() as connection:
+        before = connection.execute(sa.select(users)).all()
+    seed_dev_accounts(migrated, configured_values(), hasher=CHEAP_HASHER)
+    seed_dev_accounts(migrated, configured_values(), hasher=CHEAP_HASHER)
+    with migrated.read() as connection:
+        rows = connection.execute(sa.select(users).order_by(users.c.id)).all()
+    assert rows[: len(before)] == before
+    assert {row.username for row in rows} == {"alice", *SEED_ROLES}
+    assert auth.login("alice", CANARY, "127.0.0.1").principal.role == "operator"
 
 
-# -- existing accounts -----------------------------------------------------------------------
-
-
-def test_an_existing_account_is_left_alone_and_gets_no_entry(
-    migrated: Database, tmp_path: Path
+def test_an_existing_account_with_another_password_is_left_alone_and_reported(
+    migrated: Database,
 ) -> None:
     auth = AuthService(migrated, hasher=CHEAP_HASHER)
     auth.create_user(username_for("admin"), CANARY, "admin")
-    target = tmp_path / "credentials.json"
-    report = seed_dev_accounts(migrated, target, hasher=CHEAP_HASHER)
+    with migrated.read() as connection:
+        before = connection.execute(
+            sa.select(users.c.password_hash).where(users.c.username == "admin")
+        ).scalar_one()
+    report = seed_dev_accounts(migrated, configured_values(), hasher=CHEAP_HASHER)
     assert report.existing == ("admin",)
     assert report.created == ("operator", "viewer")
-    text = target.read_text(encoding="utf-8")
-    assert set(json.loads(text)["accounts"]) == {"operator", "viewer"}
-    assert CANARY not in text
+    assert report.differing == ("admin",)
+    with migrated.read() as connection:
+        after = connection.execute(
+            sa.select(users.c.password_hash).where(users.c.username == "admin")
+        ).scalar_one()
+    assert after == before
     assert auth.login(username_for("admin"), CANARY, "127.0.0.1").principal.role == "admin"
 
 
-def test_an_earlier_unregistered_file_is_kept_for_the_accounts_it_covers(
-    migrated: Database, tmp_path: Path
+def test_the_command_reports_an_account_with_another_password(
+    development: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    AuthService(migrated, hasher=CHEAP_HASHER).create_user(username_for("admin"), CANARY, "admin")
-    target = tmp_path / "credentials.json"
-    earlier = {
-        "version": 1,
-        "accounts": {"admin": {"username": username_for("admin"), "password": CANARY}},
-    }
-    target.write_text(json.dumps(earlier), encoding="utf-8")
-    seed_dev_accounts(migrated, target, hasher=CHEAP_HASHER)
-    written = json.loads(target.read_text(encoding="utf-8"))["accounts"]
-    assert written["admin"]["password"] == CANARY
-    assert set(written) == set(SEED_ROLES)
+    development.mkdir(parents=True)
+    database = Database(database_path(development))
+    try:
+        upgrade_to_head(database)
+        AuthService(database, hasher=CHEAP_HASHER).create_user("viewer", CANARY, "viewer")
+    finally:
+        database.close()
+    assert main(["seed-dev-accounts"]) == 0
+    output = capsys.readouterr().out
+    assert "viewer: the stored password is not the configured one" in output
+    assert "--reset-passwords" in output
+    assert CANARY not in output
 
 
-def test_an_account_with_another_role_stops_the_run_before_any_change(
-    migrated: Database, tmp_path: Path
-) -> None:
+def test_an_account_with_another_role_stops_the_run_before_any_change(migrated: Database) -> None:
     AuthService(migrated, hasher=CHEAP_HASHER).create_user(
         username_for("admin"), "a long enough password", "viewer"
     )
-    target = tmp_path / "credentials.json"
     with pytest.raises(DevSeedError, match="another role"):
-        seed_dev_accounts(migrated, target, hasher=CHEAP_HASHER)
-    assert not target.exists()
+        seed_dev_accounts(migrated, configured_values(), hasher=CHEAP_HASHER)
     with migrated.read() as connection:
         names = {row.username for row in connection.execute(sa.select(users.c.username))}
     assert names == {username_for("admin")}
 
 
-def test_a_corrupt_earlier_file_is_replaced(migrated: Database, tmp_path: Path) -> None:
-    target = tmp_path / "credentials.json"
-    target.write_text("{not json", encoding="utf-8")
-    seed_dev_accounts(migrated, target, hasher=CHEAP_HASHER)
-    assert set(json.loads(target.read_text(encoding="utf-8"))["accounts"]) == set(SEED_ROLES)
-
-
-def test_the_first_admin_setup_is_gone_after_the_seed(migrated: Database, tmp_path: Path) -> None:
+def test_the_first_admin_setup_is_gone_after_the_seed(migrated: Database) -> None:
     auth = AuthService(migrated, hasher=CHEAP_HASHER)
     setup_code = auth.issue_setup_code()
-    seed_dev_accounts(migrated, tmp_path / "credentials.json", hasher=CHEAP_HASHER)
+    seed_dev_accounts(migrated, configured_values(), hasher=CHEAP_HASHER)
     assert auth.has_admin()
     with pytest.raises(SetupUnavailableError):
         auth.complete_setup(setup_code, "ada", "a long enough password", "127.0.0.1")
 
 
+# -- the configured passwords ----------------------------------------------------------------
+
+
+def test_passwords_from_env_names_every_missing_variable_and_no_value() -> None:
+    env = {password_variable_for("admin"): configured("admin")}
+    with pytest.raises(DevSeedError) as caught:
+        passwords_from_env(env)
+    message = str(caught.value)
+    assert password_variable_for("operator") in message
+    assert password_variable_for("viewer") in message
+    assert configured("admin") not in message
+
+
+def test_an_empty_variable_counts_as_missing() -> None:
+    env = {**configured_env(), password_variable_for("viewer"): ""}
+    with pytest.raises(DevSeedError, match=password_variable_for("viewer")):
+        passwords_from_env(env)
+
+
+def test_a_password_below_the_policy_is_refused_without_showing_it() -> None:
+    short = "CANARY-short"
+    env = {**configured_env(), password_variable_for("admin"): short}
+    with pytest.raises(DevSeedError) as caught:
+        passwords_from_env(env)
+    assert password_variable_for("admin") in str(caught.value)
+    assert short not in str(caught.value)
+
+
+def test_passwords_from_env_returns_the_values_by_role() -> None:
+    assert passwords_from_env(configured_env()) == configured_values()
+
+
 # -- resetting passwords ---------------------------------------------------------------------
 
 
-def test_reset_passwords_replaces_them_unlocks_and_ends_sessions(development: Path) -> None:
+def test_reset_passwords_replaces_them_unlocks_and_ends_sessions(
+    development: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     assert main(["seed-dev-accounts"]) == 0
-    first = credentials(development)
     database = Database(database_path(development))
     try:
         auth = AuthService(database, hasher=CHEAP_HASHER)
-        grant = auth.login(username_for("operator"), first["operator"]["password"], "127.0.0.1")
+        grant = auth.login(username_for("operator"), configured("operator"), "127.0.0.1")
         with database.write() as connection:
             connection.execute(
                 sa.update(users)
@@ -371,12 +477,12 @@ def test_reset_passwords_replaces_them_unlocks_and_ends_sessions(development: Pa
             )
     finally:
         database.close()
-    assert main(["seed-dev-accounts", "--reset-passwords"]) == 0
-    second = credentials(development)
     for role in SEED_ROLES:
-        assert second[role]["password"] != first[role]["password"]
-        assert not can_sign_in(development, username_for(role), first[role]["password"])
-        assert can_sign_in(development, username_for(role), second[role]["password"])
+        monkeypatch.setenv(password_variable_for(role), configured(role) + "-rotated")
+    assert main(["seed-dev-accounts", "--reset-passwords"]) == 0
+    for role in SEED_ROLES:
+        assert not can_sign_in(development, username_for(role), configured(role))
+        assert can_sign_in(development, username_for(role), configured(role) + "-rotated")
     database = Database(database_path(development))
     try:
         assert AuthService(database, hasher=CHEAP_HASHER).authenticate(grant.cookie_value) is None
@@ -387,41 +493,184 @@ def test_reset_passwords_replaces_them_unlocks_and_ends_sessions(development: Pa
     assert actions.count(devseed.ACTION_CREDENTIALS_RESET) == len(SEED_ROLES)
 
 
-# -- nothing secret is printed or logged -----------------------------------------------------
+# -- nothing secret is printed, logged or stored in clear ------------------------------------
 
 
-def test_no_password_or_setup_code_reaches_the_output_or_the_logs(
-    development: Path, capsys: pytest.CaptureFixture[str], caplog: pytest.LogCaptureFixture
+def test_no_password_reaches_the_output_the_logs_or_the_disk(
+    development: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     caplog.set_level(logging.DEBUG)
-    development.mkdir(parents=True)
-    database = Database(database_path(development))
-    try:
-        upgrade_to_head(database)
-        setup_code = AuthService(database, hasher=CHEAP_HASHER).issue_setup_code()
-    finally:
-        database.close()
-    capsys.readouterr()
     assert main(["seed-dev-accounts"]) == 0
-    issued = [entry["password"] for entry in credentials(development).values()]
     assert main(["seed-dev-accounts"]) == 0
     assert main(["seed-dev-accounts", "--reset-passwords"]) == 0
-    issued += [entry["password"] for entry in credentials(development).values()]
+    monkeypatch.delenv(password_variable_for("viewer"))
+    assert main(["seed-dev-accounts"]) == 1
     captured = capsys.readouterr()
     shown = captured.out + captured.err + caplog.text
-    assert len(issued) == 2 * len(SEED_ROLES)
-    for item in [setup_code, setup_code.replace("-", ""), *issued]:
-        assert item not in shown
+    stored = everything_stored_in(development)
+    for role in SEED_ROLES:
+        assert configured(role) not in shown
+        assert configured(role).encode() not in stored
+    assert "CANARY" not in shown
 
 
-def test_the_output_names_the_file_and_the_user_names(
+def test_the_output_names_the_user_names(
     development: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     assert main(["seed-dev-accounts"]) == 0
     output = capsys.readouterr().out
-    assert str(development / CREDENTIALS_FILE_NAME) in output
     for role in SEED_ROLES:
-        assert username_for(role) in output
+        assert f"user name {username_for(role)}" in output
+
+
+# -- the start-up hook -----------------------------------------------------------------------
+
+
+def settings_for(url: str, label: str = "") -> Settings:
+    env = {"DRIFTSNIFF_BASE_URL": url}
+    if label:
+        env["DRIFTSNIFF_ENVIRONMENT_LABEL"] = label
+    return Settings.from_env(env)
+
+
+def user_names(database: Database) -> set[str]:
+    with database.read() as connection:
+        return {row.username for row in connection.execute(sa.select(users.c.username))}
+
+
+def test_startup_does_nothing_and_logs_nothing_without_the_variables(
+    migrated: Database, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.DEBUG)
+    assert seed_at_startup(settings_for(DEV_URL), {}, migrated) is None
+    assert user_names(migrated) == set()
+    assert caplog.records == []
+
+
+def test_startup_creates_the_accounts_on_a_development_address(
+    migrated: Database, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.DEBUG)
+    report = seed_at_startup(settings_for(DEV_URL), configured_env(), migrated)
+    assert report is not None
+    assert report.created == SEED_ROLES
+    assert user_names(migrated) == set(SEED_ROLES)
+    assert "created" in caplog.text
+    assert "CANARY" not in caplog.text
+
+
+def test_startup_is_a_no_op_the_second_time(
+    migrated: Database, caplog: pytest.LogCaptureFixture
+) -> None:
+    seed_at_startup(settings_for(DEV_URL), configured_env(), migrated)
+    with migrated.read() as connection:
+        before = connection.execute(sa.select(users).order_by(users.c.id)).all()
+    caplog.clear()
+    caplog.set_level(logging.DEBUG)
+    report = seed_at_startup(settings_for(DEV_URL), configured_env(), migrated)
+    assert report is not None
+    assert report.created == ()
+    assert report.existing == SEED_ROLES
+    with migrated.read() as connection:
+        assert connection.execute(sa.select(users).order_by(users.c.id)).all() == before
+    assert "already exist" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://ce-stg-driftsniff.theriark.dev",
+        "https://ee-dev-driftsniff.theriark.dev",
+        "https://driftsniff.theriark.dev",
+        "https://ce-dev-driftsniff.example.com",
+        "http://localhost:8080",
+        "http://127.0.0.1:8080",
+    ],
+)
+def test_startup_never_seeds_a_stage_production_or_local_address(
+    url: str, migrated: Database, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.DEBUG)
+    assert seed_at_startup(settings_for(url), configured_env(), migrated) is None
+    assert user_names(migrated) == set()
+    assert "not a Development address" in caplog.text
+    assert "CANARY" not in caplog.text
+
+
+def test_startup_never_seeds_another_environment_badge(migrated: Database) -> None:
+    settings = settings_for(DEV_URL, label="Stage")
+    assert seed_at_startup(settings, configured_env(), migrated) is None
+    assert user_names(migrated) == set()
+
+
+def test_startup_with_an_incomplete_configuration_logs_the_names_and_changes_nothing(
+    migrated: Database, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.DEBUG)
+    env = {password_variable_for("admin"): configured("admin")}
+    assert seed_at_startup(settings_for(DEV_URL), env, migrated) is None
+    assert user_names(migrated) == set()
+    assert password_variable_for("operator") in caplog.text
+    assert "CANARY" not in caplog.text
+
+
+def test_startup_survives_a_database_failure(
+    caplog: pytest.LogCaptureFixture, tmp_path: Path
+) -> None:
+    caplog.set_level(logging.DEBUG)
+    database = Database(database_path(tmp_path))
+    try:
+        assert seed_at_startup(settings_for(DEV_URL), configured_env(), database) is None
+    finally:
+        database.close()
+    assert "not seeded" in caplog.text
+    assert "CANARY" not in caplog.text
+
+
+def test_serve_seeds_the_accounts_before_the_setup_code_and_leaks_nothing(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.DEBUG)
+    monkeypatch.setattr(uvicorn, "run", lambda app, **kwargs: None)
+    data_dir = tmp_path / "data"
+    monkeypatch.setenv("DRIFTSNIFF_DATA_DIR", str(data_dir))
+    monkeypatch.setenv("DRIFTSNIFF_KEY_FILE", str(tmp_path / "keys" / "master.key"))
+    monkeypatch.setenv("DRIFTSNIFF_BASE_URL", DEV_URL)
+    monkeypatch.delenv(MARKER_VARIABLE, raising=False)
+    for name, value in configured_env().items():
+        monkeypatch.setenv(name, value)
+    assert main(["serve"]) == 0
+    assert main(["serve"]) == 0
+    captured = capsys.readouterr()
+    assert "setup code" not in captured.out
+    assert set(stored_accounts(data_dir)) == set(SEED_ROLES)
+    for role in SEED_ROLES:
+        assert can_sign_in(data_dir, username_for(role), configured(role))
+    shown = captured.out + captured.err + caplog.text
+    assert "CANARY" not in shown
+    assert b"CANARY" not in everything_stored_in(data_dir)
+
+
+def test_serve_on_stage_ignores_the_variables(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(uvicorn, "run", lambda app, **kwargs: None)
+    data_dir = tmp_path / "data"
+    monkeypatch.setenv("DRIFTSNIFF_DATA_DIR", str(data_dir))
+    monkeypatch.setenv("DRIFTSNIFF_KEY_FILE", str(tmp_path / "keys" / "master.key"))
+    monkeypatch.setenv("DRIFTSNIFF_BASE_URL", "https://ce-stg-driftsniff.theriark.dev")
+    monkeypatch.setenv(MARKER_VARIABLE, MARKER_VALUE)
+    for name, value in configured_env().items():
+        monkeypatch.setenv(name, value)
+    assert main(["serve"]) == 0
+    assert stored_accounts(data_dir) == {}
+    assert "first-run setup code" in capsys.readouterr().out
 
 
 # -- the command line ------------------------------------------------------------------------
