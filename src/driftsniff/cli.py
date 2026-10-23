@@ -189,6 +189,7 @@ def _serve(settings: Settings) -> int:
     from driftsniff.plugins.registry import PluginError, load_plugins
     from driftsniff.web.auth import AuthService
     from driftsniff.web.bearer import TokenService
+    from driftsniff.web.dashboard import DashboardService
 
     status = _migrate(settings)
     if status != 0:
@@ -224,6 +225,7 @@ def _serve(settings: Settings) -> int:
                 notifications=NotificationService(database, master_key, base_url=settings.base_url),
                 changes=ChangeService(database),
                 plugins=plugins,
+                dashboard=DashboardService(database),
             ),
             host=host,
             port=settings.port,

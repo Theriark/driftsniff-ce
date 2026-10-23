@@ -19,6 +19,7 @@ from driftsniff.web import routes_api, routes_notifications, routes_push, routes
 from driftsniff.web.auth import AuthService
 from driftsniff.web.bearer import TokenService
 from driftsniff.web.csrf import BrowserHardeningMiddleware
+from driftsniff.web.dashboard import DashboardService
 from driftsniff.web.pages import handle_http_exception
 from driftsniff.web.routes_ui import router as ui_router
 
@@ -55,6 +56,7 @@ def create_app(
     notifications: NotificationService | None = None,
     changes: enrich_api.ChangeService | None = None,
     plugins: PluginRegistry | None = None,
+    dashboard: DashboardService | None = None,
 ) -> FastAPI:
     """Build the application; settings default to the DRIFTSNIFF_ environment.
 
@@ -74,6 +76,8 @@ def create_app(
     The ``changes`` service serves ``GET /api/v1/changes`` and the enrichment route; without one
     they answer 503 (the OpenAPI document at ``/api/v1/openapi.json`` needs no service). The
     ``plugins`` registry holds the implementation of every extension point, checked at start.
+    The ``dashboard`` service reads the figures of the start page; without one the start page
+    shows its empty state.
     Every response gets the security headers and every browser write the origin and CSRF checks
     of ``driftsniff.web.csrf``. The stylesheet, the vendored htmx and the brand copies are served
     under ``/static/`` by ``driftsniff.web.routes_static``. A browser that meets a 401, 403 or
@@ -99,6 +103,7 @@ def create_app(
     app.state.notifications = notifications
     app.state.changes = changes
     app.state.plugins = plugins
+    app.state.dashboard = dashboard
     app.state.openapi_cache = None
     app.add_middleware(BrowserHardeningMiddleware)
     app.add_exception_handler(StarletteHTTPException, handle_http_exception)
