@@ -213,3 +213,87 @@ the template cache is warm). The route table is unchanged (`GET /` was already l
 **Not done here.** Screenshots at 1440, 768 and 390 px are taken on Development after the
 deployment of this pull request (task THE-862 covers the P10-T3 pages); the Frontend Developer
 critique for this page goes into that evidence.
+
+## 10. The sources pages (P10-T5)
+
+Task THE-955 (Jira DRS-255). Files: `web/routes_sources.py` (the routes and the form
+handling), `web/source_pages.py` (the queries: list, source page, coverage panel),
+`sources/probe.py` (the read-only test connection), `templates/sources/` (`list.html`,
+`detail.html`, `form.html`, `_coverage.html`, `_probe.html`) and the P10-T5 part of `app.css`.
+
+**Design direction.** Job of the screens: tell an admin, at a glance, whether each watched
+system answered its last check and what driftsniff can see of it, and let them add or fix a
+source without guessing. Who repeats it: an admin after every controller change, an operator
+when a check failed. Tone: a quiet, precise instrument. Signature visual: the drift line,
+short on each row of the list and full width on the source page, beside the coverage panel
+(one row per resource with the last answer, the objects and since when it is stale). Type and
+palette follow `docs/design-direction.md`; alert red only for failing, critical and the delete
+card; the insecure TLS badge is the one filled status badge. The forms are one card per part
+(the source, the checks, certificate checks, test connection) so a long XO form reads as four
+short steps; the TLS mode is a radio group of four cards, the insecure card outlined in alert
+red when chosen.
+
+| Route | Role | What it does |
+|---|---|---|
+| `GET /sources` | viewer | the list: status (the dashboard's rule), the flags insecure TLS, unsupported version and credential expiring, last check, version, short drift line; JSON for a script |
+| `GET /sources/new?type=` | admin | the add form of UniFi Network, Xen Orchestra or a push source |
+| `POST /sources/new` | admin | add; a refused form comes back with each field marked |
+| `POST /sources/test` | admin | test connection of the add form |
+| `GET /sources/{id}` | viewer | the source page: status, flags, drift line, coverage panel, recent runs, facts, and the actions the role allows |
+| `GET` and `POST /sources/{id}/edit` | admin | the edit form; the type cannot change |
+| `POST /sources/{id}/test` | admin | test connection of the edit form; an empty credential tests with the stored one |
+| `POST /sources/{id}/run` | operator | run now; refused within 30 seconds of the last one (429 with `Retry-After` and the wait in words), while a run is going (409), for a disabled or push source (409) and when no scheduler runs (503) |
+| `POST /sources/{id}/enable`, `/disable` | admin | enable or disable; the scheduler is told at once |
+| `POST /sources/{id}/delete` | admin | delete; the typed name must equal the source name (spaces around it are ignored), else 422 and nothing is deleted |
+| `POST /sources/{id}/push-key` | admin | a new sender key for a push source, shown once in that answer |
+
+**The credential is write-only.** It is read from the post and handed to the source service
+(which encrypts it) or to the test; no page, JSON answer, redirect or field value carries it.
+The edit form shows the field empty, and an empty field keeps the stored credential. The
+confirmation sentence of the TLS mode insecure (`I understand the risk`) is never filled back
+in. The only secret a page shows is the sender key of a push source, once, in the answer of
+the post that made it; the source page afterwards only says that one exists.
+
+**Form fields.** A browser always sends `full_form`, so an unticked box means off. A script
+that posts JSON may leave fields out; each one it leaves out keeps its stored value. The
+interval is entered in minutes (1 to 60) and stored as `interval_seconds`. The resource tick
+boxes are stored as `resources_off` (the resources not ticked; none stored when all are on).
+The XO expiry date is stored as `credential_expires_on` (`YYYY-MM-DD`); the list and the source
+page show credential expiring when the stored state says so or when that date is 14 days away
+or past. A form may hold up to 64 fields (`MAX_FORM_FIELDS`, shared with the CSRF check; the 16
+KB bound is unchanged): the XO form has a box for each of its 20 resources.
+
+**Coverage panel.** One row per resource of the type in the collector's order, then any stored
+row of another resource. A stored row is printed as stored: `200`; `403, stale` with the time it
+became stale; `404, not on this version`; `Error` (or `HTTP 502` for another status) with the
+stale time. A resource turned off says Off, one never read says Not read yet. An XO resource
+whose type table lists `hidden_by_xo` fields names them: hidden by XO, changes not observable.
+
+**Test connection.** `driftsniff.sources.probe` asks a collector for the version, the
+resources and one read of each, keeps the status and the object count per resource and drops
+the objects. It writes nothing (no source, run, coverage row, snapshot or audit event); the test
+stops reading after 60 seconds. With JavaScript the button replaces only the result panel
+(`hx-post`, always answered 200 so htmx swaps it) and the typed credential stays in the form;
+without it the form page comes back with the result and the credential field empty.
+
+**Known gaps (no owner yet, not invented here).** The collector factory that builds a
+collector from a stored source, and the scheduler wiring of `serve`, do not exist. `serve`
+therefore passes no probe factory and no scheduler: test connection answers that it is not
+available on this installation yet (503, the panel says so) and run now answers that runs are
+not scheduled (503). Both work against the existing interfaces (`ProbeFactory` and
+`Scheduler.run_now`) as soon as that wiring is assigned. The collectors do not read
+`resources_off` yet either: the factory must pass it on. UniFi and XO field names remain
+unverified (docs/vendor-notes/).
+
+**Navigation.** The shell lists only Dashboard and Sources; Changes, History, Configuration and
+Settings come back with P10-T6 to P10-T8. The dashboard's empty state offers Add source to an
+admin only and tells anyone else that an admin adds sources.
+
+**Checks.** `tests/unit/test_web_sources.py` (the three acceptance checks: the credential canary
+over every page and answer, the coverage rows against the stored rows for every status, the
+typed-name delete; plus roles, forms, TLS confirmation, test connection storing nothing, run
+now and enable or disable), `tests/unit/test_source_probe.py`, `tests/unit/test_source_options.py`
+and the route table rows in `tests/security/routekit.py`.
+
+**Not done here.** Screenshots at 1440, 768 and 390 px and the UI critique are taken on
+Development after this pull request is deployed, by a later check.

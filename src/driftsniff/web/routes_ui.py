@@ -57,7 +57,9 @@ from driftsniff.web.preferences import parse_density, safe_next, set_density_coo
 router = APIRouter()
 
 MAX_FORM_BYTES = 16 * 1024
-_MAX_FORM_FIELDS = 20
+# The add and edit forms of a source carry a tick box per resource (up to 20 for Xen Orchestra)
+# besides their other fields, so a form may hold this many fields (the 16 KB bound stays).
+MAX_FORM_FIELDS = 64
 _FORM_CONTENT_TYPE = "application/x-www-form-urlencoded"
 _JSON_CONTENT_TYPE = "application/json"
 
@@ -112,11 +114,14 @@ def _json_fields(document: dict[str, object], *, structured: bool) -> dict[str, 
     return fields
 
 
-async def read_fields(request: Request, *, structured: bool = False) -> dict[str, str]:
+async def read_fields(
+    request: Request, *, structured: bool = False, multi: frozenset[str] = frozenset()
+) -> dict[str, str]:
     """The text fields of a form post or a JSON object body (at most 16 KB).
 
     ``structured`` also accepts whole numbers and lists of text in a JSON body (see
-    :func:`_json_fields`).
+    :func:`_json_fields`). A form field named in ``multi`` keeps every value it was sent with,
+    joined by commas (tick boxes of one name); any other field keeps its first value.
     """
     declared = request.headers.get("content-length", "")
     if declared.isdigit() and int(declared) > MAX_FORM_BYTES:
@@ -138,9 +143,12 @@ async def read_fields(request: Request, *, structured: bool = False) -> dict[str
             return _json_fields(document, structured=structured)
         if content_type == _FORM_CONTENT_TYPE:
             parsed = parse_qs(
-                body.decode("utf-8"), keep_blank_values=True, max_num_fields=_MAX_FORM_FIELDS
+                body.decode("utf-8"), keep_blank_values=True, max_num_fields=MAX_FORM_FIELDS
             )
-            return {key: values[0] for key, values in parsed.items()}
+            return {
+                key: ",".join(values) if key in multi else values[0]
+                for key, values in parsed.items()
+            }
     except (ValueError, RecursionError) as error:
         raise HTTPException(status_code=400, detail="the request body is not valid") from error
     raise HTTPException(status_code=415, detail="send a form post or a JSON object")
