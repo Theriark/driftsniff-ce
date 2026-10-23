@@ -18,7 +18,7 @@
 {% block content %}
 {{ page_header("Changes", "Every detected change with its severity, rule and status. A muted path is hidden here but still stored.") }}
 
-<form class="filter-bar" method="get" action="/changes" role="search" aria-label="Filter changes">
+<form class="filter-bar filter-bar--grid" method="get" action="/changes" role="search" aria-label="Filter changes">
   {{ search_box("q", "q", "Search the summary and object names", value=filters.search, placeholder="Search summary or object name") }}
   {{ select_field("f-source", "source", "Source", source_options, selected=(filters.source_id | string if filters.source_id else "")) }}
   <div class="field">
@@ -46,8 +46,10 @@
   </div>
   {% if filters.sort != "newest" %}<input type="hidden" name="sort" value="{{ filters.sort }}">{% endif %}
   {% if filters.include_muted %}<input type="hidden" name="muted" value="1">{% endif %}
-  <button class="btn" type="submit">Apply</button>
-  {% if active_filters %}<a class="btn btn--quiet" href="{{ clear_href }}">Clear</a>{% endif %}
+  <div class="filter-bar__actions">
+    <button class="btn" type="submit">Apply</button>
+    {% if active_filters %}<a class="btn btn--quiet" href="{{ clear_href }}">Clear</a>{% endif %}
+  </div>
 </form>
 
 {% if not listing.rows and not active_filters and not listing.muted_hidden %}
@@ -95,16 +97,16 @@
     {% endif %}
   </div>
   {% endif %}
+  {% if pager %}
   <div class="table-foot">
     <span>{{ summary }}</span>
-    {% if pager %}
     <nav class="pager" aria-label="Pages">
       {% for link in pager %}
       {% if link.current %}<span aria-current="page">{{ link.label }}</span>{% else %}<a href="{{ link.href }}">{{ link.label }}</a>{% endif %}
       {% endfor %}
     </nav>
-    {% endif %}
   </div>
+  {% endif %}
 </section>
 {% endif %}
 

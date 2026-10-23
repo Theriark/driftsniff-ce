@@ -2561,3 +2561,74 @@ textarea.input {
     transition: none;
   }
 }
+
+/* the last row of a table loses its rule on the row heading too, not only on its cells */
+.data-table tbody tr:last-child th {
+  border-bottom: 0;
+}
+
+/* the change detail: the evidence takes the wide column, the decisions the narrow one */
+.grid-7-5 {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  gap: var(--sp-6);
+  align-items: start;
+}
+
+@media (max-width: 1023px) {
+  .grid-7-5 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* with the side column in view, the forms are on screen: the jump links of the head would
+   only repeat them, so they show only when the page is one column */
+@media (min-width: 1024px) {
+  .summary-head .page-header__actions {
+    display: none;
+  }
+}
+
+/* the heading of a card section and its hint stacked, so the heading never wraps */
+.section-head--card {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-1);
+}
+
+/* the filter bar of the change list as an aligned grid: labels above, fields in columns */
+.filter-bar--grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
+  gap: var(--sp-3);
+  align-items: end;
+}
+
+.filter-bar--grid .search {
+  grid-column: span 2;
+}
+
+.filter-bar--grid .field {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--sp-1);
+}
+
+.filter-bar--grid .field .input {
+  width: 100%;
+}
+
+.filter-bar__actions {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+@media (max-width: 479px) {
+  .filter-bar--grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .filter-bar--grid .search {
+    grid-column: 1 / -1;
+  }
+}
