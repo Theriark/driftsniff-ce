@@ -102,11 +102,12 @@ depend on a mute. `ChangeQueries` is the first place that applies it.
 - Not covered here: the dashboard counts and the change API (`/api/v1/changes`) do not apply
   mutes yet.
 
-## Planned routes
+## Routes
 
-The routes are added by the interface slice. Their rows wait in `PLANNED_ROUTES` of
-`tests/security/routekit.py` (the route table test fails on a row without a route, so they cannot
-be in `ROUTE_TABLE` yet); whoever adds a route moves its row into `ROUTE_TABLE`.
+The routes are the interface slice's, in `src/driftsniff/web/routes_changes.py` (see
+`docs/web-interface.md` section 11). They are rows of `ROUTE_TABLE` in
+`tests/security/routekit.py`; `PLANNED_ROUTES` keeps the plan's rows and
+`tests/security/test_planned_routes.py` checks that each one is a route with the planned access.
 
 | Method and path | Access |
 |---|---|
