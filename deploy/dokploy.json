@@ -7,6 +7,14 @@
     {"name": "DRIFTSNIFF_LOG_LEVEL", "kind": "literal", "value": "info"},
     {"name": "DRIFTSNIFF_PORT", "kind": "literal", "value": "8080"},
     {"name": "DRIFTSNIFF_DATA_DIR", "kind": "literal", "value": "/data"},
-    {"name": "DRIFTSNIFF_KEY_FILE", "kind": "literal", "value": "/keys/master.key"}
+    {"name": "DRIFTSNIFF_KEY_FILE", "kind": "literal", "value": "/keys/master.key"},
+    {"name": "DRIFTSNIFF_DEV_ADMIN_PASSWORD", "kind": "token24"},
+    {"name": "DRIFTSNIFF_DEV_OPERATOR_PASSWORD", "kind": "token24"},
+    {"name": "DRIFTSNIFF_DEV_VIEWER_PASSWORD", "kind": "token24"}
+  ],
+  "browserAccounts": [
+    {"email": "admin", "label": "admin", "passwordEnv": "DRIFTSNIFF_DEV_ADMIN_PASSWORD"},
+    {"email": "operator", "label": "operator", "passwordEnv": "DRIFTSNIFF_DEV_OPERATOR_PASSWORD"},
+    {"email": "viewer", "label": "viewer", "passwordEnv": "DRIFTSNIFF_DEV_VIEWER_PASSWORD"}
   ]
 }
