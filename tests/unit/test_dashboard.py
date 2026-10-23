@@ -578,6 +578,37 @@ def test_a_failing_streak_is_counted(store: Database, service: DashboardService)
     assert lab.reason == "3 checks failed in a row: timeout"
 
 
+def test_a_skipped_run_does_not_hide_a_failing_source(
+    store: Database, service: DashboardService
+) -> None:
+    broken = add_source(store, "CANARY-broken", "xo", last_checked_at=at(minutes=-1))
+    add_run(store, broken, at(minutes=-10), "failed", error_summary="CANARY-timeout")
+    add_run(store, broken, at(minutes=-1), "skipped")
+    health = {source.id: source for source in service.load().sources}[broken]
+    assert health.kind == "failing"
+    assert health.reason == "check failed: CANARY-timeout"
+
+
+def test_a_source_with_only_skipped_runs_is_not_failing_or_healthy_by_them(
+    store: Database, service: DashboardService
+) -> None:
+    waiting = add_source(store, "CANARY-waiting", "xo", last_checked_at=at(minutes=-1))
+    add_run(store, waiting, at(minutes=-1), "skipped")
+    health = {source.id: source for source in service.load().sources}[waiting]
+    assert health.kind == "ok"
+
+
+def test_a_resource_name_is_encoded_in_the_breakdown_link(
+    store: Database, service: DashboardService
+) -> None:
+    source = add_source(store, "CANARY-link", "unifi", last_checked_at=at(minutes=-1))
+    add_event(store, source, at(minutes=-5), "low", [("CANARY a&b=c d#e", "low")])
+    data = service.load()
+    hrefs = [row.href for row in data.by_resource]
+    assert "/changes?status=open&resource=CANARY%20a%26b%3Dc%20d%23e" in hrefs
+    assert not any("a&b=c" in href for href in hrefs)
+
+
 def test_the_drift_lines_mark_each_check_or_each_day(
     service: DashboardService, seeded: dict[str, int]
 ) -> None:

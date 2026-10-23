@@ -25,6 +25,7 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Final
+from urllib.parse import quote
 
 import sqlalchemy as sa
 from sqlalchemy import Connection
@@ -51,6 +52,8 @@ DRIFT_MAX_CHECKS: Final = 31
 ACTIVITY_LIMIT: Final = 20
 ATTENTION_EVENTS: Final = 8
 BREAKDOWN_ROWS: Final = 8
+# A skipped run is not a check: only these statuses count as one.
+CHECK_STATUSES: Final = ("ok", "partial", "failed")
 # A source is stale when nothing has been checked for this many intervals.
 STALE_INTERVALS: Final = 3
 # The storage card compares the database file with this size (the plan names no setting, so
@@ -656,10 +659,10 @@ def _events_per_day(connection: Connection, since: str) -> dict[date, Counter[st
 
 
 def _last_runs(connection: Connection) -> dict[int, Any]:
-    """The last finished run of every source, by source id."""
+    """The last finished check of every source, by source id (a skipped run is not a check)."""
     newest = (
         sa.select(sa.func.max(runs.c.id))
-        .where(runs.c.status.is_not(None))
+        .where(runs.c.status.in_(CHECK_STATUSES))
         .group_by(runs.c.source_id)
         .scalar_subquery()
     )
@@ -680,7 +683,7 @@ def _runs_since(connection: Connection, since: str) -> list[Any]:
     rows = connection.execute(
         sa.select(runs.c.id, runs.c.source_id, runs.c.finished_at, runs.c.status)
         .where(runs.c.started_at >= since)
-        .where(runs.c.status.in_(("ok", "partial", "failed")))
+        .where(runs.c.status.in_(CHECK_STATUSES))
         .order_by(runs.c.started_at, runs.c.id)
     ).all()
     return list(rows)
@@ -989,7 +992,7 @@ def _breakdowns(
     by_resource = tuple(
         BarRow(
             resource_label(str(row[0])),
-            f"/changes?status=open&resource={row[0]}",
+            f"/changes?status=open&resource={quote(str(row[0]), safe='')}",
             int(row[1]),
             width_class(int(row[1]), largest_resource),
         )
@@ -1051,7 +1054,7 @@ def _activity(connection: Connection, names: Mapping[int, str]) -> tuple[Activit
             runs.c.object_count,
             runs.c.error_summary,
         )
-        .where(runs.c.status.in_(("ok", "partial", "failed")))
+        .where(runs.c.status.in_(CHECK_STATUSES))
         .order_by(runs.c.finished_at.desc(), runs.c.id.desc())
         .limit(ACTIVITY_LIMIT)
     ).all()
