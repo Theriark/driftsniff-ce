@@ -187,7 +187,7 @@ def test_a_push_source_has_no_factory_collector(factory: CollectorFactory) -> No
 def test_a_credential_a_header_cannot_carry_is_refused_without_echoing_it(
     factory: CollectorFactory,
 ) -> None:
-    secret = "CANARY has a space"
+    secret = "CANARY has a space"  # noqa: S105 - a test canary, not a credential
     result = start_probe(factory.for_target, ProbeTarget("unifi", ADDRESS, secret.encode()))
     assert (result.ok, result.error_class) == (False, ERROR_NOT_STARTED)
     assert secret not in (result.error_text or "")

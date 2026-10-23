@@ -44,7 +44,7 @@ from .fake_unifi import CANARY_HEADER, Scenario, fake_unifi
 
 ORIGIN = "http://testserver"
 MASTER = MasterKey(bytes(range(32)))
-PASSWORD = "CANARY-correct horse battery"
+PASSWORD = "CANARY-correct horse battery"  # noqa: S105 - a test canary, not a credential
 BROWSER = {"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"}
 WAIT_SECONDS = 20.0
 
