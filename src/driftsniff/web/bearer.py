@@ -287,6 +287,10 @@ class TokenService:
         info = TokenInfo(token_id, clean_name, prefix, clean_scopes, actor, None, expires_at, None)
         return CreatedToken(value, info)
 
+    def now(self) -> datetime:
+        """The time of this service's clock; the admin routes report status at this time."""
+        return self._clock()
+
     def list_tokens(self) -> list[TokenInfo]:
         """Every token, newest first; revoked and expired ones stay in the list."""
         query = (
