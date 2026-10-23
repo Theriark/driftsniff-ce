@@ -19,7 +19,7 @@ Every value below is an example or a public name. No real credential belongs in 
 | `DRIFTSNIFF_KEY_FILE` | `/keys/master.key` | Created on the key volume at first start. |
 | Memory limit | 512 MB | Matches `mem_limit: 512m` in `compose.yaml` and the container smoke test. |
 
-The six `DRIFTSNIFF_` names are exactly the ones in `deploy/dokploy.json`; that file is the source and this table must follow it. No setting is a secret: the master key is generated on the key volume and source credentials are entered in the web page, so no secret value is configured in Dokploy.
+The six `DRIFTSNIFF_` names above are exactly the first six in `deploy/dokploy.json`; that file is the source and this table must follow it. None of these is a secret: the master key is generated on the key volume and source credentials are entered in the web page. The manifest adds three generated test-account passwords (`DRIFTSNIFF_DEV_ADMIN_PASSWORD`, `DRIFTSNIFF_DEV_OPERATOR_PASSWORD`, `DRIFTSNIFF_DEV_VIEWER_PASSWORD`, kind `token24`, no value in the repository) and the `browserAccounts` list that names the three accounts; see [dev-test-accounts.md](dev-test-accounts.md). They are used only when the base URL is a `ce-dev-` address.
 
 The container runs as a non-root user with a read-only root file system; only `/tmp` (memory), `/data` and `/keys` are writable.
 

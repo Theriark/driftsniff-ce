@@ -1,68 +1,69 @@
 # Development test accounts
 
-How the crew gets sign-in accounts on the Development site (`https://ce-dev-driftsniff.theriark.dev`) so every flow can be tested in a real browser. Development only: nothing here runs on Stage or Production. Code: `driftsniff/devseed.py` and the `seed-dev-accounts` command in `driftsniff/cli.py`; tests: `tests/unit/test_devseed.py`. Sign-in and roles are described in [auth.md](auth.md).
+How the crew gets sign-in accounts on the Development site (`https://ce-dev-driftsniff.theriark.dev`) so every flow can be tested in a real browser. Development only: nothing here runs on Stage or Production. Code: `driftsniff/devseed.py`, the start-up call in `driftsniff/cli.py` and its `seed-dev-accounts` command; tests: `tests/unit/test_devseed.py`. Sign-in and roles are described in [auth.md](auth.md).
 
 ## What it creates
 
-One account per role of the product. The user name is the account's identifier; the passwords are made when the command runs.
+One account per role of the product. The user name is the role itself, and the password is the one the deployment controller generated for that role.
 
-| Role | User name | May |
-|---|---|---|
-| `admin` | `dev-admin@theriark.dev` | everything |
-| `operator` | `dev-operator@theriark.dev` | acknowledge, write notes, run a source now, mute paths |
-| `viewer` | `dev-viewer@theriark.dev` | read |
+| Role | User name | Password variable | May |
+|---|---|---|---|
+| `admin` | `admin` | `DRIFTSNIFF_DEV_ADMIN_PASSWORD` | everything |
+| `operator` | `operator` | `DRIFTSNIFF_DEV_OPERATOR_PASSWORD` | acknowledge, write notes, run a source now, mute paths |
+| `viewer` | `viewer` | `DRIFTSNIFF_DEV_VIEWER_PASSWORD` | read |
 
-The names are role labels, not people; no mail is ever sent to them. Each password has 32 random characters from letters, digits and `- _ . +` (it starts with a letter or digit, so a command line takes it) and is never reused: a new run or a reset makes new ones.
+The names are role labels, not people; no mail is ever sent to them. The browser sign-in form takes the user name in its first field, which is why the manifest below calls it `email`.
 
-## The Development-only switch
+## How the accounts get there (no operator step)
 
-The command refuses to do anything (exit code 1, no database change, no file written) unless all three hold:
+1. `deploy/dokploy.json` declares the three passwords in `env` with kind `token24` and **no** `value`, and lists the accounts in `browserAccounts`; each entry has only `email`, `label` and `passwordEnv`:
 
-1. `DRIFTSNIFF_DEV_SEED=development-only` is set in the environment of the command. Nothing in the repository sets it: it is not in `deploy/dokploy.json`, `compose.yaml`, the `Dockerfile` or a workflow (a test checks this), so Stage, which is prepared from the same files, never has it.
-2. `DRIFTSNIFF_BASE_URL` is `https://ce-dev-<name>.theriark.dev` or a local address (`localhost`, `127.0.0.1`). A Stage address (`ce-stg-...`), a production address or any other host is refused even when the switch is set.
-3. `DRIFTSNIFF_ENVIRONMENT_LABEL`, when set, names Development (it contains `dev`).
+   ```
+   {"email": "admin", "label": "admin", "passwordEnv": "DRIFTSNIFF_DEV_ADMIN_PASSWORD"}
+   ```
 
-## How Platform runs it in the Development container
+   `email` is the user name the application creates (`username_for` in `devseed.py`), `label` is the role, and `passwordEnv` is the variable that holds that role's password. A test compares the manifest with the code, so they cannot drift apart. The six earlier settings, the volumes and `database` are unchanged.
+2. The Platform step `dokploy_prepare` generates each `token24` value privately (or reuses the existing one), writes it to the Development application's settings, and registers the browser secret **names** (for the admin: `DRIFTSNIFF_DEV_ADMIN_EMAIL` and `DRIFTSNIFF_DEV_ADMIN_PASSWORD`; the same for `OPERATOR` and `VIEWER`). It runs no command in the container. No password is in the repository, a workflow, a comment or a log.
+3. When the Development container starts (`driftsniff serve`), it runs the seed after the database migration and before the first-run setup code: it creates each of the three accounts that does not exist yet, with the password from its variable.
 
-Run it as a one-off command in the running Development container, with the switch set for that command only (do not store the switch in the application's settings):
+The Test Engineer then signs in with the registered names in the real browser; registering the accounts is not the same as a passed sign-in.
+
+## The Development-only guard
+
+The start-up seed runs only when **both** hold:
+
+1. All three password variables are set. With none set (every Production start) it does nothing and logs nothing.
+2. `DRIFTSNIFF_BASE_URL` is a `ce-dev-<name>.theriark.dev` address. Stage and Production are prepared from the same manifest and may receive the same variables, so the address decides: a Stage address (`ce-stg-...`), a production address, `localhost` or any other host is refused with one warning that names no value, and nothing is created. A `DRIFTSNIFF_ENVIRONMENT_LABEL` that does not name Development (it must contain `dev`) also refuses.
+
+An incomplete configuration (some variables missing, or a password shorter than 12 characters) creates nothing and logs an error that names the variables only. A failure of the seed is logged and never stops the application from starting.
+
+The marker `DRIFTSNIFF_DEV_SEED=development-only` is not used at start-up: nothing in the repository may set it (`deploy/dokploy.json`, `compose.yaml`, the `Dockerfile` and the workflow are checked by a test), and the controller interface declares only generated passwords. It stays the extra guard of the manual command below.
+
+## The manual command
 
 ```
-driftsniff seed-dev-accounts
+driftsniff seed-dev-accounts [--reset-passwords]
 ```
 
-with `DRIFTSNIFF_DEV_SEED=development-only` in the command's environment (for example `docker exec -e DRIFTSNIFF_DEV_SEED=development-only <container> driftsniff seed-dev-accounts`, or the Dokploy terminal of the Development application). The container's own `DRIFTSNIFF_DATA_DIR` and `DRIFTSNIFF_BASE_URL` apply, so it works on the same database as the running application.
-
-The command prints, per role, `created`, `password replaced` or `already exists, unchanged`, together with the user name. It never prints a password and never logs one. New passwords are written to `DATA_DIR/dev-seed-credentials.json` (mode 0600, readable only by the container user; change the place with `--credentials-file`). The file looks like this (values here are shapes only):
-
-```
-{"version": 1, "accounts": {"admin": {"username": "dev-admin@theriark.dev", "password": "<32 characters>"}, ...}}
-```
-
-Then, by whoever read the file, one registration per role with the crew's task client (run on the crew side, not inside the container), so the crew's browser tests find the pair under its secret names (the names are `DRIFTSNIFF_DEV_ADMIN_EMAIL` / `DRIFTSNIFF_DEV_ADMIN_PASSWORD` and the same for `OPERATOR` and `VIEWER`; write only the names in comments and documents):
-
-```
-python3 /opt/pi-crews/shared/theriark_crew_task_client.py --action browser_account --repo driftsniff-ce --env dev --label admin --email <user name> --password <value from the file>
-```
-
-Repeat for `operator` and `viewer`. When all three are registered, **delete the file** (`rm /data/dev-seed-credentials.json`). Whoever reads the file handles the passwords; they must not be pasted into a task, a comment, a document, a pull request or a log.
+For a local installation or to replace passwords. It refuses (exit code 1, no database change) unless `DRIFTSNIFF_DEV_SEED=development-only` is in its environment, the address is a Development one (`ce-dev-<name>.theriark.dev`, `localhost` or `127.0.0.1`), the badge does not name another environment and all three password variables are set. It prints, per role, `created`, `password replaced` or `already exists, unchanged` with the user name, never a password, and writes no file.
 
 ## Running it again
 
-- **Second run, nothing changed.** An account that exists is left alone (its password is stored only as a hash, so there is nothing to write for it). The command says `already exists, unchanged` and writes no file.
-- **A missing account** is created with a new password; only that account gets an entry in the file. An entry from an earlier run that was never registered stays in the file for the accounts it covers.
-- **Lost or unknown passwords:** `driftsniff seed-dev-accounts --reset-passwords` gives all three accounts new passwords, clears a lock and a disabled flag, ends their sessions and writes an audit event `user.credentials_reset` for each. Register the new pairs again (the task client replaces the old ones).
-- **A seed user name that exists with another role** stops the run before any change.
+- **Second start or second run, nothing changed.** An account that exists is left alone (its password is stored only as a hash). Other users and all data are preserved; only the three seed user names are ever touched.
+- **A missing account** is created; the others are not changed.
+- **An existing account with another password** (for example a person created `admin` in first-run setup, or the generated value was replaced) is left alone and reported: the start-up log and the command say that the stored password is not the configured one. `driftsniff seed-dev-accounts --reset-passwords` then puts the configured password on all three accounts, clears a lock and a disabled flag, ends their sessions and writes an audit event `user.credentials_reset` for each.
+- **A seed user name that exists with another role** stops the seed before any change (logged at start-up, which continues).
 
 ## Relation to first-run setup
 
-An admin created here ends first-run setup: `/setup` answers 404 once any admin exists, as described in [auth.md](auth.md). The one-time setup code in the container log is not needed and is never used or printed by this command.
+An admin created here ends first-run setup: `/setup` answers 404 once any admin exists, as described in [auth.md](auth.md). On Development the one-time setup code is therefore not printed after the seed has run.
 
 ## Not covered
 
-- The command has no effect on the web interface; accounts appear on the Users screen only when that screen exists.
-- It does not run on its own. Nothing starts it at deployment; a person or Platform runs it once after a fresh Development data volume.
-- The registered pairs are test credentials for Development only. They are not valid on Stage, which has its own accounts prepared separately at Stage promotion.
+- The seed has no effect on the web interface; accounts appear on the Users screen only when that screen exists.
+- It does not make Stage accounts. Stage has its own accounts prepared separately at Stage promotion.
+- The values are test credentials for Development only. They are not valid anywhere else.
 
 ## Rollback
 
-Remove the command (`cli.py`, `devseed.py`); nothing else depends on it and no migration is involved. To remove the accounts from a Development database, disable them in the web interface once the Users screen exists, or restore the data volume from a backup.
+Remove the three password entries and `browserAccounts` from `deploy/dokploy.json` and the start-up call in `cli.py` (`seed_at_startup`); nothing else depends on them and no migration is involved. To remove the accounts from a Development database, disable them in the web interface once the Users screen exists, or restore the data volume from a backup.

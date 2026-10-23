@@ -10,7 +10,7 @@ history of what it did (enrichments, audit events) keeps its meaning.
 """
 
 import re
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Annotated, Any, Final
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Request
@@ -60,7 +60,7 @@ async def list_tokens(
 ) -> JSONResponse:
     """Every API token with its prefix, scopes, status and last use; never a value."""
     tokens = await run_in_threadpool(service.list_tokens)
-    now = datetime.now(UTC)
+    now = service.now()
     return JSONResponse({"tokens": [_describe(info, now) for info in tokens]})
 
 
@@ -89,7 +89,7 @@ async def create_token(
         )
     except TokenInputError as error:
         return JSONResponse({"detail": str(error)}, status_code=422)
-    body = _describe(created.info, datetime.now(UTC))
+    body = _describe(created.info, service.now())
     body["token"] = created.value
     body["note"] = "this is the only time the token is shown; store it now"
     return JSONResponse(body, status_code=201)

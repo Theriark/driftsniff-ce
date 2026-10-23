@@ -510,6 +510,24 @@ def test_the_list_shows_the_status_of_every_token(
     assert keeps["status"] == expires["status"] == "active"
 
 
+def test_the_token_routes_report_the_status_at_the_service_clock(
+    client: TestClient, admin: Session, auth: AuthService, clock: Clock
+) -> None:
+    """The answer of the routes follows the injected clock, never the day the test runs."""
+    made = make_token(client, admin, expires_in_days=1)
+    assert made["status"] == "active"
+    assert made["expires_at"] == "2026-10-23T08:00:00Z"
+    clock.advance(hours=23, minutes=59)
+    session = open_session(client, auth, "admin")
+    listing = client.get("/tokens", headers=session.headers(csrf=False)).json()["tokens"]
+    assert [entry["status"] for entry in listing] == ["active"]
+    clock.advance(minutes=1)
+    session = open_session(client, auth, "admin")
+    listing = client.get("/tokens", headers=session.headers(csrf=False)).json()["tokens"]
+    assert [entry["status"] for entry in listing] == ["expired"]
+    assert listing[0]["expires_at"] == made["expires_at"]
+
+
 # -- last use ---------------------------------------------------------------------------------
 
 
