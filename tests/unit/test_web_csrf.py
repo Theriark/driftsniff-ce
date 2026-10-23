@@ -380,7 +380,8 @@ def test_a_browser_form_post_under_our_own_referrer_policy_is_not_refused(
     form = {"username": "ada", "password": CORRECT}
     assert client.post("/login", headers={"Origin": origin}, data=form).status_code == 303
     setup = client.post("/setup", headers={"Origin": origin}, data={"code": "AAAA-AAAA-AAAA-AAAA"})
-    assert setup.status_code != 403
+    # the setup answer itself (a wrong code), not the origin refusal
+    assert setup.json() == {"detail": "the setup code is not valid"}
 
 
 def test_a_form_post_with_the_null_origin_is_still_refused_before_login(client: TestClient) -> None:
