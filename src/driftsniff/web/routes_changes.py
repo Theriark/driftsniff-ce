@@ -132,8 +132,8 @@ def get_change_pages(request: Request) -> ChangePages:
 Pages = Annotated[ChangePages, Depends(get_change_pages)]
 
 
-def _roles(user: Principal) -> dict[str, bool]:
-    return {"can_operate": ROLE_RANK[user.role] >= ROLE_RANK["operator"]}
+def _can_operate(user: Principal) -> bool:
+    return ROLE_RANK[user.role] >= ROLE_RANK["operator"]
 
 
 def _redirect(path: str) -> RedirectResponse:
@@ -227,7 +227,7 @@ async def list_changes(
         parse_stamp=parse_stamp,
         count_words=count_words,
         resource_label=resource_label,
-        **_roles(user),
+        can_operate=_can_operate(user),
     )
 
 
@@ -290,7 +290,7 @@ def _detail_page(
         split_difference=split_difference,
         mute_refusal=mute_refusal,
         count_words=count_words,
-        **_roles(user),
+        can_operate=_can_operate(user),
     )
 
 

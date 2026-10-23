@@ -50,7 +50,7 @@
   {% if active_filters %}<a class="btn btn--quiet" href="{{ clear_href }}">Clear</a>{% endif %}
 </form>
 
-{% if not listing.rows and not active_filters %}
+{% if not listing.rows and not active_filters and not listing.muted_hidden %}
 <div class="card">
   {{ empty_state("No changes yet", "driftsniff records a change the first time a check finds a difference between two readings of a source. Until then there is nothing to review here.", "/sources", "See the sources") }}
 </div>
@@ -88,7 +88,11 @@
   {% endcall %}
   {% else %}
   <div class="card-pad card-pad--top">
+    {% if active_filters %}
     <p class="quiet">No change matches these filters. <a href="{{ clear_href }}">Clear the filters</a> to see every change.</p>
+    {% else %}
+    <p class="quiet">Every change is hidden by a mute. Nothing was deleted: <a href="{{ show_muted_href }}">show the muted changes</a>.</p>
+    {% endif %}
   </div>
   {% endif %}
   <div class="table-foot">

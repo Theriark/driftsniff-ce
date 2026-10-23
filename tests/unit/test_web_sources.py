@@ -519,8 +519,8 @@ def test_only_an_admin_opens_the_forms_and_changes_a_source(world: World) -> Non
 def test_the_navigation_shows_only_pages_that_exist(world: World) -> None:
     parsed = assert_page(world.get("/sources"))
     nav = {a.get("href") for a in parsed.find("a")}
-    assert "/sources" in nav
-    for missing in ("/changes", "/history", "/configuration", "/settings"):
+    assert "/sources" in nav and "/changes" in nav  # Changes came back with P10-T6
+    for missing in ("/history", "/configuration", "/settings"):
         assert missing not in nav
 
 

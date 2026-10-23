@@ -229,6 +229,16 @@ def rows_of(store: Database, table: sa.Table) -> list[Any]:
         return list(connection.execute(sa.select(table).order_by(table.c.id)).all())
 
 
+def actions_of(store: Database, prefix: str) -> list[str]:
+    """The audit actions that start with ``prefix``, oldest first (the fixture users add
+    ``user.created`` rows of their own)."""
+    return [
+        str(row.action)
+        for row in rows_of(store, audit_events)
+        if str(row.action).startswith(prefix)
+    ]
+
+
 def add_second_source(store: Database, name: str = "office-xo") -> int:
     with store.write() as connection:
         return int(
@@ -238,14 +248,16 @@ def add_second_source(store: Database, name: str = "office-xo") -> int:
         )
 
 
-def add_enrichment(store: Database, event_id: int, user_id: int, text: str) -> None:
+def add_enrichment(store: Database, event_id: int, user_id: int, text: str, number: int) -> None:
+    """An enrichment of ``event_id`` whose label, summary and data are ``text``; ``number`` keeps
+    the token row of each call unique."""
     with store.write() as connection:
         token_id = connection.execute(
             sa.text(
                 "INSERT INTO api_tokens (user_id, name, token_prefix, token_hash, scopes) "
-                "VALUES (:user_id, 'canary', 'CANARY-p', 'canary-hash', '[]') RETURNING id"
+                "VALUES (:user_id, 'canary', :prefix, :hash, '[]') RETURNING id"
             ),
-            {"user_id": user_id},
+            {"user_id": user_id, "prefix": f"CANARY-{number}", "hash": f"canary-hash-{number}"},
         ).scalar_one()
         connection.execute(
             sa.insert(enrichments).values(
@@ -304,11 +316,11 @@ def plant_payloads(world: World) -> int:
     event_id = add_event(world.store, items=items, summary=PAYLOADS[0])
     with world.store.write() as connection:
         connection.execute(sa.update(sources).where(sources.c.id == 1).values(name=PAYLOADS[1]))
-    for text in PAYLOADS:
+    for number, text in enumerate(PAYLOADS):
         assert world.post(f"/changes/{event_id}/notes", {"note": text}).status_code == 303
         posted = world.post(f"/changes/{event_id}/acknowledge", {"comment": text})
         assert posted.status_code == 303
-        add_enrichment(world.store, event_id, world.user_ids["admin"], text)
+        add_enrichment(world.store, event_id, world.user_ids["admin"], text, number)
     first = item_ids(world.store, event_id)[0]
     muted = world.post(
         f"/changes/items/{first}/mute", {"reason": PAYLOADS[0], "event": str(event_id)}
@@ -429,10 +441,7 @@ def test_acknowledging_twice_keeps_both_rows(world: World) -> None:
         (world.user_ids["admin"], ""),
     ]
     assert rows_of(world.store, change_events)[0].status == "acknowledged"
-    assert [row.action for row in rows_of(world.store, audit_events)] == [
-        "change.acknowledged",
-        "change.acknowledged",
-    ]
+    assert actions_of(world.store, "change.") == ["change.acknowledged", "change.acknowledged"]
     _html, parsed = page(world, f"/changes/{event_id}?notice=acknowledged")
     text = parsed.joined()
     assert "Change acknowledged" in text
@@ -555,7 +564,7 @@ def test_the_viewer_sees_no_control_and_is_refused_on_every_post(world: World) -
     assert 'action="/changes/' not in html and "Mute this path" not in html
     assert "Muted: hidden from the change list" in detail.joined()
     mute_id = int(rows_of(world.store, path_mutes)[0].id)
-    posts = (
+    posts: tuple[tuple[str, dict[str, str]], ...] = (
         (f"/changes/{event_id}/acknowledge", {"comment": "x"}),
         (f"/changes/{event_id}/notes", {"note": "x"}),
         (f"/changes/items/{item_id}/mute", {"reason": "x"}),
@@ -661,10 +670,7 @@ def test_a_mute_hides_the_change_from_the_list_and_an_unmute_shows_it_again(
     assert "Muted paths" not in back.joined()
     elsewhere = world.post(f"/mutes/{mute.id}/remove", {"next": "https://evil.example/"})
     assert elsewhere.status_code == 404  # gone, and never a redirect off the site
-    assert [row.action for row in rows_of(world.store, audit_events)] == [
-        "mute.added",
-        "mute.removed",
-    ]
+    assert actions_of(world.store, "mute.") == ["mute.added", "mute.removed"]
 
 
 def test_a_critical_item_cannot_be_muted_and_the_page_says_so(world: World) -> None:
@@ -717,9 +723,8 @@ def test_the_changes_entry_of_the_navigation_is_current_on_both_pages(world: Wor
     event_id = add_event(world.store, items=({"path": "name"},), summary="Network renamed")
     for path in ("/changes", f"/changes/{event_id}"):
         _html, parsed = page(world, path, role="viewer")
-        links = {attrs.get("href"): attrs for attrs in parsed.find("a")}
-        assert links["/changes"].get("aria-current") == "page", path
-        assert "aria-current" not in links["/"], path
+        current = [attrs.get("href") for attrs in parsed.find("a") if attrs.get("aria-current")]
+        assert current == ["/changes"], path
     html, detail = page(world, f"/changes/{event_id}", role="viewer")
     assert "<title>Network renamed, driftsniff</title>" in html
     crumbs = [attrs for attrs in detail.find("nav") if attrs.get("aria-label") == "Breadcrumb"]
