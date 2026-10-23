@@ -22,7 +22,11 @@
     <div class="meta">
       <span>{{ detail.type_label }}{% if view.controller_version %} <span class="num">{{ view.controller_version }}</span>{% endif %}</span>
       {% if detail.polled %}<span>{{ detail.interval }}</span>{% endif %}
+      {% if detail.polled %}
       <span>{% if detail.last_checked %}Last check {{ time_tag(detail.last_checked, detail.now) }}{% else %}No check yet{% endif %}</span>
+      {% else %}
+      <span>{% if detail.last_checked %}Last push {{ time_tag(detail.last_checked, detail.now) }}{% else %}Nothing pushed yet{% endif %}</span>
+      {% endif %}
       <span><span class="num">{{ number(detail.object_count) }}</span> {{ "object" if detail.object_count == 1 else "objects" }}</span>
     </div>
   </div>
@@ -34,7 +38,8 @@
       {% if scheduled %}
       <button class="btn btn--primary" type="submit">Run now</button>
       {% else %}
-      <button class="btn btn--unavailable" type="submit" aria-describedby="runs-unscheduled">Run now</button>
+      {# disabled, so it cannot post to the 503 page; the line under Recent runs says why #}
+      <button class="btn btn--unavailable" type="submit" disabled aria-describedby="runs-unscheduled">Run now</button>
       {% endif %}
     </form>
     {% endif %}
@@ -89,7 +94,7 @@
   <div class="section-head"><h2 id="cov-h">Coverage by resource</h2>{% if detail.polled %}<span class="hint">{{ detail.resources_total - detail.resources_off | length }} of {{ detail.resources_total }} resources on</span>{% endif %}</div>
   {% if detail.coverage %}
   <div class="card card--flush">
-    {{ coverage_table(detail.coverage, detail.now, "Coverage by resource", "cov-cap", foot="A 404 means the version has no such resource. A 403 keeps the last good data and marks it stale.") }}
+    {{ coverage_table(detail.coverage, detail.now, "Coverage by resource", "cov-cap", foot="A 404 means the version has no such resource. A 403 keeps the last good data and marks it stale." if detail.polled else "", full=true) }}
   </div>
   {% else %}
   <div class="card"><p class="quiet">This push source declares no resources yet. An admin declares them in the edit form.</p></div>

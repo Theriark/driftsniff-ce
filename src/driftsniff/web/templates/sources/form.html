@@ -127,7 +127,7 @@
     {% if probe_available %}
     <button class="btn" type="submit" formaction="{{ test_action }}" hx-post="{{ test_action }}" hx-target="#probe-result" hx-swap="innerHTML" hx-indicator="#probe-loading">Test connection</button>
     {% else %}
-    <button class="btn btn--unavailable" type="submit" formaction="{{ test_action }}" aria-describedby="test-unavailable">Test connection</button>
+    <button class="btn btn--unavailable" type="submit" formaction="{{ test_action }}" disabled aria-describedby="test-unavailable">Test connection</button>
     <span class="quiet" id="test-unavailable">Not available on this installation yet.</span>
     {% endif %}
     {% endif %}

@@ -37,7 +37,7 @@
     <th scope="row" class="primary-cell"><a href="{{ row.health.href }}">{{ row.health.name }}</a><span class="sub">{{ row.type_label }}{% if not row.health.enabled %}, disabled{% endif %}</span></th>
     <td>
       <div class="badges">{{ status_badge(row.health.kind, row.status_text) }}{% for badge in row.badges %} {{ status_badge(badge.kind, badge.text) }}{% endfor %}</div>
-      <span class="sub">{{ row.health.reason }}</span>
+      {% if row.health.reason != row.status_text %}<span class="sub">{{ row.health.reason }}</span>{% endif %}
     </td>
     <td class="col-hide-s">{% if row.last_checked %}{{ time_tag(row.last_checked, listing.now) }}{% else %}<span class="sub">No check yet</span>{% endif %}</td>
     <td class="col-hide-s">{% if row.health.version %}<span class="num">{{ row.health.version }}</span>{% else %}<span class="sub">none reported</span>{% endif %}</td>

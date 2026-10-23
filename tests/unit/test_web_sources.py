@@ -40,6 +40,7 @@ from driftsniff.sources.probe import ProbeTarget
 from driftsniff.sources.scheduler import RunNowResult, RunNowStatus, Scheduler
 from driftsniff.sources.service import SourceService
 from driftsniff.web.auth import SESSION_COOKIE, AuthService, make_password_hasher
+from driftsniff.web.routes_sources import PUSH_NOTICES
 from driftsniff.web.source_pages import SourcePages
 
 ORIGIN = "http://testserver"
@@ -720,6 +721,9 @@ def test_test_connection_says_when_it_is_not_available(store: Database) -> None:
     with world.client:
         form = assert_page(world.get("/sources/new"))
         assert "Not available on this installation yet." in form.joined()
+        buttons = form.find("button")
+        test = next(b for b in buttons if b.get("aria-describedby") == "test-unavailable")
+        assert "disabled" in test
         panel = world.post("/sources/test", unifi_form(), extra={"HX-Request": "true"})
         assert panel.status_code == 200 and "not available on this installation" in panel.text
         page = assert_page(world.post("/sources/test", unifi_form()), 503)
@@ -777,7 +781,41 @@ def test_without_a_scheduler_the_pages_promise_no_check(store: Database) -> None
         buttons = page.find("button")
         run = next(b for b in buttons if b.get("aria-describedby") == "runs-unscheduled")
         assert "btn--unavailable" in (run.get("class") or "")
+        assert "disabled" in run
         assert {"id": "runs-unscheduled", "class": "quiet"} in page.find("p")
+
+
+def add_push(world: World) -> int:
+    created = world.post(
+        "/sources/new",
+        {"full_form": "1", "type": "push", "name": "netbox", "push_fields": "networks: _id, name"},
+    )
+    assert created.status_code == 303
+    return int(created.headers["location"].split("/")[2].split("?")[0])
+
+
+@pytest.mark.parametrize("scheduler", [True, False])
+def test_a_push_source_page_speaks_of_pushes_not_checks(store: Database, scheduler: bool) -> None:
+    world = make_world(store, scheduler=scheduler)
+    with world.client:
+        source_id = add_push(world)
+        for notice, (title, line) in PUSH_NOTICES.items():
+            text = assert_page(world.get(f"/sources/{source_id}?notice={notice}", "admin")).joined()
+            assert title in text and line in text, notice
+            assert "not scheduled" not in text and "interval" not in text, notice
+        page = assert_page(world.get(f"/sources/{source_id}", "admin"))
+        text = page.joined()
+        assert "Nothing pushed yet" in text
+        assert "Not pushed yet" in text and "No push has carried this resource yet." in text
+        assert "A 404 means" not in text and "No run has read" not in text
+        assert f"/sources/{source_id}/run" not in {f.get("action") for f in page.find("form")}
+
+
+def test_the_coverage_table_grows_with_the_page(world: World) -> None:
+    source_id = add_unifi(world)
+    page = assert_page(world.get(f"/sources/{source_id}"))
+    classes = [div.get("class") or "" for div in page.find("div")]
+    assert [c for c in classes if "table-wrap" in c] == ["table-wrap table-wrap--full"]
 
 
 def test_with_a_scheduler_the_source_page_names_the_first_check(world: World) -> None:

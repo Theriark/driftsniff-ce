@@ -1426,6 +1426,11 @@ textarea.input {
   max-height: 70vh;
 }
 
+/* a short table that grows with the page instead of scrolling inside a box */
+.table-wrap--full {
+  max-height: none;
+}
+
 .data-table {
   width: 100%;
   border-collapse: separate;
@@ -1894,6 +1899,21 @@ textarea.input {
 .banner .btn {
   margin-left: auto;
   flex: none;
+}
+
+/* on a phone the action goes under the text, lined up with it, so the text keeps its width */
+@media (max-width: 479px) {
+  .banner {
+    flex-wrap: wrap;
+  }
+
+  .banner > div {
+    flex: 1 1 calc(100% - 18px - var(--sp-3));
+  }
+
+  .banner .btn {
+    margin-left: calc(18px + var(--sp-3));
+  }
 }
 
 .empty {

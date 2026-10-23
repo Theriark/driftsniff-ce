@@ -207,10 +207,12 @@ def coverage_row(
             return CoverageRow(
                 resource, label, COVERAGE_OFF, "open", "Off", "Turned off for this source.", None
             )
-        note = "No run has read this resource yet."
-        return CoverageRow(
-            resource, label, COVERAGE_NEVER, "open", "Not read yet", note, hidden_by_xo=hidden
-        )
+        # a push source is never read: the sender brings the resource, so say what is missing
+        if source_type == "push":
+            text, note = "Not pushed yet", "No push has carried this resource yet."
+        else:
+            text, note = "Not read yet", "No run has read this resource yet."
+        return CoverageRow(resource, label, COVERAGE_NEVER, "open", text, note, hidden_by_xo=hidden)
     status = str(stored.last_status)
     last_ok = _stamp_or_none(stored.last_ok_at)
     stale = _stamp_or_none(stored.stale_since)
