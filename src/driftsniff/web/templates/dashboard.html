@@ -1,12 +1,112 @@
-{# The start page of a signed-in user. P10-T3 ships the frame and the designed empty state (no
-   sources yet, one action); P10-T4 adds the stat cards, the posture ring, the drift lines, the
-   trend and the activity timeline, all from fixtures and queries. #}
+{# The start page (P10-T4). dashboard is a driftsniff.web.dashboard.Dashboard: every figure
+   was computed there from SQL, this template prints it. Without a source the page is the
+   designed empty state with the one action; with sources it is, top to bottom, the stat cards,
+   the posture ring and the needs-attention list, the drift lines, the trend chart and the
+   breakdowns, and the activity timeline. Every number links to the filtered view behind it. #}
 {% extends "base.html" %}
 {% from "page_header.html" import page_header %}
 {% from "components/states.html" import empty_state %}
+{% from "components/cards.html" import stat_card %}
+{% from "components/badges.html" import severity_badge, status_badge %}
+{% from "components/driftline.html" import drift_line %}
+{% from "components/details.html" import time_tag %}
+{% from "components/charts.html" import posture_ring, trend_chart, bar_list %}
 {% block content %}
+{% if not dashboard.has_sources %}
 {{ page_header("Dashboard", "What changed, how bad it is, and what to do about it.") }}
 <div class="card">
   {{ empty_state("Nothing to watch yet", "Add a UniFi Network or Xen Orchestra source and driftsniff records every change from its first check.", "/sources/new", "Add source") }}
 </div>
+{% else %}
+{% call page_header("Dashboard", "What changed across your sources in the last 30 days, and what still needs a decision.") %}
+<a class="btn btn--primary" href="/sources/new">Add source</a>
+{% endcall %}
+
+<div class="stat-grid">
+  {% for stat in dashboard.stats %}
+  {{ stat_card(stat.label, stat.value, stat.href, unit=stat.unit, delta=stat.delta, delta_tone=stat.delta_tone, spark=stat.spark) }}
+  {% endfor %}
+</div>
+
+<div class="section grid-5-7">
+  <section class="card" aria-labelledby="posture-h">
+    <h2 id="posture-h">Open items by severity</h2>
+    {{ posture_ring(dashboard.posture, "ring") }}
+  </section>
+
+  <section class="card" aria-labelledby="attention-h">
+    <h2 id="attention-h">Needs attention</h2>
+    {% if dashboard.attention %}
+    <ul class="attention">
+      {% for row in dashboard.attention %}
+      <li{% if row.critical %} class="is-critical"{% endif %}>
+        {% if row.badge == "severity" %}{{ severity_badge(row.badge_value) }}{% else %}{{ status_badge(row.badge_value, row.badge_text) }}{% endif %}
+        <div class="what"><a href="{{ row.href }}">{{ row.title }}</a><span class="where">{{ row.where }}</span></div>
+        <a class="btn btn--small" href="{{ row.action_href }}">{{ row.action_label }}</a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="quiet">Nothing waits for a decision: no open critical or high change, and every source is healthy.</p>
+    {% endif %}
+  </section>
+</div>
+
+<section class="section" aria-labelledby="drift-h">
+  <div class="section-head">
+    <h2 id="drift-h">Drift line, last 30 days</h2>
+    <span class="hint">One mark per check; one per day for a source with more than 31 checks. Hover or focus a mark to read the event.</span>
+  </div>
+  <div class="card">
+    <div class="driftlines">
+      {% for row in dashboard.driftlines %}
+      {{ drift_line(row.name, row.checks, row.id_prefix, href=row.href, meta=row.meta) }}
+      {% endfor %}
+    </div>
+    <ul class="legend" aria-label="Legend">
+      <li><span class="swatch-tick" aria-hidden="true"></span>Check, no change</li>
+      <li><span class="swatch-hollow" aria-hidden="true"></span>Failed or partial run</li>
+      {% for severity in severities %}
+      <li>{{ severity_badge(severity) }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+</section>
+
+<div class="section grid-2">
+  <section class="card" aria-labelledby="trend-h">
+    <h2 id="trend-h">Change items per day</h2>
+    {{ trend_chart(dashboard.trend, "trend") }}
+  </section>
+  <section class="card" aria-labelledby="breakdown-h">
+    <h2 id="breakdown-h">Where the open items are</h2>
+    {% if dashboard.by_source %}
+    <h3 class="bars-title">By source</h3>
+    {{ bar_list(dashboard.by_source, "Open items by source", ink=true) }}
+    <h3 class="bars-title">By resource type</h3>
+    {{ bar_list(dashboard.by_resource, "Open items by resource type") }}
+    {% else %}
+    <p class="quiet">No open change items. When a check finds a change, this card says which source and which resource type it touched.</p>
+    {% endif %}
+  </section>
+</div>
+
+<section class="section" aria-labelledby="activity-h">
+  <div class="section-head">
+    <h2 id="activity-h">Activity</h2>
+    <span class="hint">Newest first, {{ dashboard.activity | length }} of the last 20 entries</span>
+  </div>
+  <div class="card">
+    {% if dashboard.activity %}
+    <ol class="timeline">
+      {% for entry in dashboard.activity %}
+      <li><span class="dot{% if entry.dot %} dot--{{ entry.dot }}{% endif %}"></span><span>{{ entry.text }}{% if entry.href %}<a href="{{ entry.href }}">{{ entry.link_label }}</a>{% else %}{{ entry.link_label }}{% endif %}{{ entry.tail }}</span>{{ time_tag(entry.when, dashboard.now) }}</li>
+      {% endfor %}
+    </ol>
+    {% else %}
+    <p class="quiet">Nothing has happened yet. The first check of a source appears here.</p>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
 {% endblock %}

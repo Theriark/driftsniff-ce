@@ -2136,3 +2136,37 @@ textarea.input {
     padding: var(--sp-6);
   }
 }
+
+/* ---- additions of P10-T4 (the dashboard) --------------------------------------------- */
+
+/* the breakdown bars take one of ten widths, so no template needs a style attribute */
+.bars .w-0 { width: 0; }
+.bars .w-50 { width: 50%; }
+.bars .w-60 { width: 60%; }
+.bars .w-80 { width: 80%; }
+.bars .w-90 { width: 90%; }
+
+/* the time of a timeline entry (the time_tag macro) sits in the third column */
+.timeline > li > time {
+  color: var(--text-2);
+  font-size: var(--fs-14);
+  white-space: nowrap;
+}
+
+/* a card that has nothing to list says so in one quiet sentence */
+.quiet {
+  color: var(--text-2);
+  font-size: var(--fs-14);
+  max-width: 44ch;
+}
+
+/* the legend under the drift lines uses the severity badges as its swatches */
+.legend .sev {
+  font-size: var(--fs-14);
+}
+
+/* the per-source strips stack with a rule between them */
+.driftlines > .driftline + .driftline {
+  border-top: 1px solid var(--border);
+  padding-top: var(--sp-3);
+}

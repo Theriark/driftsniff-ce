@@ -1,0 +1,79 @@
+{# The server-drawn charts of the dashboard (P10-T4): the posture ring, the trend chart and the
+   bar list. Every chart carries a title, a desc and a text alternative (the ring lists its
+   counts with the severity badges, the trend chart has its table, the bar list is text), and
+   no colour carries a meaning alone. The numbers and the geometry come from
+   driftsniff.web.dashboard; these macros only print them. #}
+{% from "components/badges.html" import severity_badge %}
+
+{# posture is a driftsniff.web.dashboard.Posture: total, counts (critical first), segments. #}
+{% macro posture_ring(posture, id_prefix) %}
+<div class="posture">
+  <svg viewBox="0 0 160 160" role="img" aria-labelledby="{{ id_prefix }}-t {{ id_prefix }}-d">
+    <title id="{{ id_prefix }}-t">Open change items by severity</title>
+    <desc id="{{ id_prefix }}-d">{{ posture.description }}</desc>
+    <circle class="ring-track" cx="80" cy="80" r="60"/>
+    {% for segment in posture.segments %}
+    <circle class="ring-seg ring-seg--{{ segment.severity }}" cx="80" cy="80" r="60" stroke-dasharray="{{ segment.dasharray }}" stroke-dashoffset="{{ segment.dashoffset }}" transform="rotate(-90 80 80)"/>
+    {% endfor %}
+    <text class="ring-value" x="80" y="86" text-anchor="middle">{{ number(posture.total) }}</text>
+    <text class="ring-caption" x="80" y="106" text-anchor="middle">open items</text>
+  </svg>
+  <div class="posture-list">
+    {% for count in posture.counts %}
+    <a href="{{ count.href }}">{{ severity_badge(count.severity) }}<span class="share">{{ count.share }}</span><span class="count num">{{ number(count.count) }}</span></a>
+    {% endfor %}
+  </div>
+</div>
+{%- endmacro %}
+
+{# trend is a driftsniff.web.dashboard.Trend: 30 days oldest first, the bars and grid lines of
+   a 600 by 170 drawing, and the description. The table behind the disclosure is the text
+   alternative; it lists the days that had items. #}
+{% macro trend_chart(trend, id_prefix) %}
+<div class="chart-wrap">
+  <svg class="chart" viewBox="0 0 600 170" role="img" aria-labelledby="{{ id_prefix }}-t {{ id_prefix }}-d">
+    <title id="{{ id_prefix }}-t">Change items per day, last 30 days, stacked by severity</title>
+    <desc id="{{ id_prefix }}-d">{{ trend.description }}</desc>
+    {% for line in trend.grid %}
+    <line class="grid-line" x1="30" y1="{{ line.y }}" x2="600" y2="{{ line.y }}"/>
+    <text class="axis-label" x="0" y="{{ line.label_y }}">{{ line.label }}</text>
+    {% endfor %}
+    <text class="axis-label" x="0" y="153">0</text>
+    {% for bar in trend.bars %}
+    <rect class="bar bar--{{ bar.severity }}" x="{{ bar.x }}" y="{{ bar.y }}" width="{{ bar.width }}" height="{{ bar.height }}"/>
+    {% endfor %}
+    <line class="grid-line" x1="30" y1="150" x2="600" y2="150"/>
+    <text class="axis-label" x="32" y="166">30 days ago</text>
+    <text class="axis-label" x="598" y="166" text-anchor="end">today</text>
+  </svg>
+</div>
+<details class="disclosure">
+  <summary>Show the numbers as a table</summary>
+  <div>
+    <table class="data-table data-table--compact">
+      <caption class="visually-hidden">Change items per day by severity</caption>
+      <thead>
+        <tr><th scope="col">Day</th><th scope="col" class="num">Low</th><th scope="col" class="num">Medium</th><th scope="col" class="num">High</th><th scope="col" class="num">Critical</th></tr>
+      </thead>
+      <tbody>
+        {% for day in trend.days if day.total %}
+        <tr><th scope="row">{{ day.label }}</th><td class="num">{{ day.low }}</td><td class="num">{{ day.medium }}</td><td class="num">{{ day.high }}</td><td class="num">{{ day.critical }}</td></tr>
+        {% else %}
+        <tr><td colspan="5">No change items in the last 30 days.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</details>
+{%- endmacro %}
+
+{# rows is a list of driftsniff.web.dashboard.BarRow: label, href, count and the width class
+   (w-10 to w-100 of app.css, so no style attribute is needed). ink draws the bars in ink
+   instead of slate. #}
+{% macro bar_list(rows, label, ink=false) %}
+<ul class="bars" aria-label="{{ label }}">
+  {% for row in rows %}
+  <li><a href="{{ row.href }}">{{ row.label }}</a><span class="track" aria-hidden="true"><span class="fill{% if ink %} fill--ink{% endif %} {{ row.width_class }}"></span></span><span class="value num">{{ number(row.count) }}</span></li>
+  {% endfor %}
+</ul>
+{%- endmacro %}
