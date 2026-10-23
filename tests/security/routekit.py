@@ -77,6 +77,20 @@ ROUTE_TABLE: dict[tuple[str, str], Access] = {
     ("POST", "/api/v1/push/{source_id}"): Access.PUSH_KEY,
 }
 
+# The routes of the change list and the change detail (P10-T6) that the frontend slice adds. They
+# are not routes yet, so they cannot be rows of ROUTE_TABLE (the table test fails on a row without
+# a route); the slice that adds a route moves its row into ROUTE_TABLE and deletes it here.
+# ``test_planned_routes.py`` holds the rows to the role rules until then: a viewer reads, an
+# operator acknowledges, notes and mutes (the service refuses a lower role as well).
+PLANNED_ROUTES: dict[tuple[str, str], Access] = {
+    ("GET", "/changes"): Access.VIEWER,
+    ("GET", "/changes/{event_id}"): Access.VIEWER,
+    ("POST", "/changes/{event_id}/acknowledge"): Access.OPERATOR,
+    ("POST", "/changes/{event_id}/notes"): Access.OPERATOR,
+    ("POST", "/changes/items/{item_id}/mute"): Access.OPERATOR,
+    ("POST", "/mutes/{mute_id}/remove"): Access.OPERATOR,
+}
+
 
 @dataclass(frozen=True, slots=True)
 class Caller:
@@ -150,7 +164,7 @@ def may_pass(access: Access, path: str, caller: Caller) -> bool:
 
 def concrete(path: str) -> str:
     """The path with every parameter filled by an id that exists nowhere."""
-    for name in ("token_id", "event_id", "source_id"):
+    for name in ("token_id", "event_id", "source_id", "item_id", "mute_id"):
         path = path.replace("{" + name + "}", "99999")
     return path
 
