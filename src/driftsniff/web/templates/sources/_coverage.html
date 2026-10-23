@@ -5,8 +5,10 @@
    Xen Orchestra never returns, so a change to them cannot be seen. #}
 {% from "components/badges.html" import status_badge %}
 {% from "components/details.html" import time_tag %}
-{% macro coverage_table(rows, now, caption, caption_id, foot="", stored=true) %}
-<div class="table-wrap">
+{# full=true lets the table grow with the page: a source has at most a few dozen resources, and
+   an inner scroll box hid the last rows and could not be scrolled from the keyboard. #}
+{% macro coverage_table(rows, now, caption, caption_id, foot="", stored=true, full=false) %}
+<div class="table-wrap{% if full %} table-wrap--full{% endif %}">
   <table class="data-table coverage-table">
     <caption id="{{ caption_id }}" class="visually-hidden">{{ caption }}</caption>
     <thead>

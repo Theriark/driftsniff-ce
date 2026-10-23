@@ -131,6 +131,16 @@ UNSCHEDULED_NOTICES: Final = {
         "Checks are not scheduled on this installation yet; it is checked once they are.",
     ),
 }
+# A push source is never checked: the sender brings each snapshot, with or without a scheduler.
+PUSH_NOTICES: Final = {
+    "created": (
+        "Source added",
+        "Make a sender key below and give it to the sender; its first push fills in coverage.",
+    ),
+    "saved": ("Changes saved", "The next push from the sender is read with them."),
+    "enabled": ("Source enabled", "Its pushes are read again."),
+    "disabled": ("Source disabled", "Its history is kept."),
+}
 
 PROBE_UNAVAILABLE: Final = (
     "Test connection is not available on this installation yet",
@@ -180,8 +190,10 @@ def _scheduled(request: Request) -> bool:
     return request.app.state.scheduler is not None
 
 
-def _notice(request: Request) -> tuple[str, str] | None:
+def _notice(request: Request, *, polled: bool = True) -> tuple[str, str] | None:
     word = request.query_params.get("notice", "")
+    if not polled and word in PUSH_NOTICES:
+        return PUSH_NOTICES[word]
     if not _scheduled(request) and word in UNSCHEDULED_NOTICES:
         return UNSCHEDULED_NOTICES[word]
     return NOTICES.get(word)
@@ -695,7 +707,7 @@ async def source_page(
     detail = await _detail(pages, source_id)
     if not wants_html(request):
         return JSONResponse({"source": _view_json(detail.view)})
-    return _detail_page(request, user, detail, notice=_notice(request))
+    return _detail_page(request, user, detail, notice=_notice(request, polled=detail.polled))
 
 
 async def _detail(pages: SourcePages, source_id: int) -> SourceDetail:
