@@ -155,7 +155,8 @@ def add_source(store: Database, name: str, source_type: str = "unifi") -> int:
 
 
 def add_run(store: Database, source_id: int, finished_at: str, status: str) -> None:
-    """A finished run as the pipeline writes it; a failed run leaves last_checked_at alone."""
+    """A finished run as the pipeline writes it: only an ok or partial run (``record_collection``)
+    moves ``last_checked_at``; a failed or skipped run leaves it alone."""
     failed = status == "failed"
     with store.write() as connection:
         connection.execute(
@@ -168,7 +169,7 @@ def add_run(store: Database, source_id: int, finished_at: str, status: str) -> N
                 error_summary="the controller could not be reached" if failed else None,
             )
         )
-        if not failed:
+        if status in ("ok", "partial"):
             connection.execute(
                 sa.update(sources)
                 .where(sources.c.id == source_id)
@@ -218,8 +219,8 @@ def test_the_pages_show_the_last_attempt_after_a_failed_run(
     add_run(store, healthy, at(minutes=-2), "ok")
     untouched = add_source(store, "untouched-gw")
     listing = page(client, "/sources")
-    assert "Last attempt" in Text(listing).joined()
-    assert "Last check" not in Text(listing).joined()
+    header = Text(listing.split("<tbody>")[0]).joined()  # the column heads, not the rows
+    assert "Last attempt" in header and "Last check" not in header
     row = list_row(listing, "failing-gw")
     assert "Failing" in row and "1 hour ago" in row
     assert "3 days ago" not in row and "No check yet" not in row
