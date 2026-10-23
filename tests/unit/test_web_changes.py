@@ -336,15 +336,17 @@ def test_payloads_in_notes_names_and_enrichments_render_escaped_on_both_pages(
     for path in ("/changes", "/changes?muted=1", f"/changes/{event_id}"):
         html, _parsed = page(world, path)
         # no payload is markup on the page: the three markup payloads are absent as typed,
-        # the tags they carry never open (page() also fails on any on* attribute), and the
-        # template payload is text, not 49; the escaped text may still read onerror=
+        # the tags they carry never open (page() also fails on any on* attribute), and no
+        # template syntax was evaluated; the escaped text may still read onerror=
         for text in PAYLOADS[:3]:
             assert text not in html, path
         for tag in ("<script>", "<img src=x", "<svg onload"):
             assert tag not in html, (path, tag)
         assert "&lt;script&gt;alert(&#39;CANARY-xss-0&#39;)&lt;/script&gt;" in html, path
-        assert "{{7*7}} ${7*7} CANARY-xss-4" in html and " 49 " not in html, path
+        assert " 49 " not in html, path
     detail, _parsed = page(world, f"/changes/{event_id}")
+    # the template payload sits in names, notes and enrichments, which only the detail shows
+    assert "{{7*7}} ${7*7} CANARY-xss-4" in detail
     # every planted text came back, escaped: the source name, the object names and the
     # rationales (the items), the notes, the comments, the enrichment labels and summaries and
     # the attached data; the mute reason sits under the list
