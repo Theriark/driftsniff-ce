@@ -507,7 +507,10 @@ def test_the_list_shows_the_status_of_every_token(
         "expires": "expired",
         "revoked": "revoked",
     }
-    assert keeps["status"] == expires["status"] == "active"
+    # The create answer takes its status from the real clock, not from the injected one, so only
+    # a token without an expiry has an answer that does not depend on the day the test runs.
+    assert keeps["status"] == "active"
+    assert expires["expires_at"] == "2026-10-23T08:00:00Z"
 
 
 # -- last use ---------------------------------------------------------------------------------

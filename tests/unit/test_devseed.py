@@ -446,7 +446,7 @@ def test_an_empty_variable_counts_as_missing() -> None:
 
 
 def test_a_password_below_the_policy_is_refused_without_showing_it() -> None:
-    short = "CANARY-short"
+    short = "CANARY-pw"
     env = {**configured_env(), password_variable_for("admin"): short}
     with pytest.raises(DevSeedError) as caught:
         passwords_from_env(env)
