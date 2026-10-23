@@ -1,0 +1,18 @@
+{# The result of a test connection (P10-T5): the version and one coverage row per resource, or
+   why the test could not run. It is the whole answer of an HTMX test and part of the form page
+   without JavaScript. Nothing in it was stored. #}
+{% from "components/states.html" import banner %}
+{% from "sources/_coverage.html" import coverage_table %}
+{% if probe_unavailable %}
+{{ banner("warn", unavailable_text[0], unavailable_text[1]) }}
+{% elif problems %}
+{{ banner("error", "Fix the form before the test", problems | join(" ")) }}
+{% elif probe %}
+{% if probe.ok %}
+{% set answered = probe_rows | selectattr("status", "equalto", "200") | list | length %}
+{{ banner("success", "The controller answered", ("Version " ~ probe.version ~ ". " if probe.version else "No version reported. ") ~ answered ~ " of " ~ probe_rows | length ~ " resources answered 200. Nothing was stored.") }}
+{{ coverage_table(probe_rows, now, "Test connection, coverage by resource", "probe-cov", foot="A 403 means the credential may lack a permission; a 404 means this version has no such resource.", stored=false) }}
+{% else %}
+{{ banner("error", "The connection test failed", (probe.error_text or "The controller could not be used.") ~ " Nothing was stored.") }}
+{% endif %}
+{% endif %}

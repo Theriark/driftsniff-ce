@@ -1,0 +1,50 @@
+{# The source list (P10-T5). listing is a driftsniff.web.source_pages.SourceListing: one row per
+   source with its status (the dashboard's rule), its flags (insecure TLS, unsupported version,
+   credential expiring), the last check, the controller version and the short drift line of the
+   last 30 days. Only an admin sees the add action; a viewer's empty state says who adds sources. #}
+{% extends "base.html" %}
+{% from "page_header.html" import page_header %}
+{% from "components/states.html" import empty_state, success_banner %}
+{% from "components/badges.html" import status_badge %}
+{% from "components/table.html" import data_table, density_switch %}
+{% from "components/driftline.html" import drift_line %}
+{% from "components/details.html" import time_tag %}
+{% block banners %}
+{% if notice %}<div class="page-banner">{{ success_banner(notice[0], notice[1]) }}</div>{% endif %}
+{% endblock %}
+{% block content %}
+{% if not listing.rows %}
+{{ page_header("Sources", "The systems driftsniff watches, and how each one answered its last check.") }}
+<div class="card">
+  {% if can_admin %}
+  {{ empty_state("Nothing to watch yet", "Add a UniFi Network controller, a Xen Orchestra server or a push sender. driftsniff records every change from the first check.", "/sources/new", "Add source") }}
+  {% else %}
+  {{ empty_state("No sources yet", "An admin adds the sources driftsniff watches. Ask an admin of this installation to add a UniFi Network or Xen Orchestra source.") }}
+  {% endif %}
+</div>
+{% else %}
+{% call page_header("Sources", "The systems driftsniff watches, and how each one answered its last check.") %}
+{% if can_admin %}<a class="btn btn--primary" href="/sources/new">Add source</a>{% endif %}
+{% endcall %}
+<div class="toolbar">
+  <p class="hint">{{ number(listing.rows | length) }} {{ "source" if listing.rows | length == 1 else "sources" }}. Status follows the last check; the strip shows the last 30 days.</p>
+  {{ density_switch(shell.density, shell.path, shell.csrf_token) }}
+</div>
+<section class="card card--flush" aria-labelledby="sources-cap">
+  {% call data_table("Sources", [{"label": "Source", "class": "primary-cell"}, {"label": "Status"}, {"label": "Last check", "class": "col-hide-s"}, {"label": "Version", "class": "col-hide-s"}, {"label": "Drift line, last 30 days", "class": "col-hide-m"}], density=shell.density, caption_id="sources-cap") %}
+  {% for row in listing.rows %}
+  <tr>
+    <th scope="row" class="primary-cell"><a href="{{ row.health.href }}">{{ row.health.name }}</a><span class="sub">{{ row.type_label }}{% if not row.health.enabled %}, disabled{% endif %}</span></th>
+    <td>
+      <div class="badges">{{ status_badge(row.health.kind, row.status_text) }}{% for badge in row.badges %} {{ status_badge(badge.kind, badge.text) }}{% endfor %}</div>
+      <span class="sub">{{ row.health.reason }}</span>
+    </td>
+    <td class="col-hide-s">{% if row.last_checked %}{{ time_tag(row.last_checked, listing.now) }}{% else %}<span class="sub">No check yet</span>{% endif %}</td>
+    <td class="col-hide-s">{% if row.health.version %}<span class="num">{{ row.health.version }}</span>{% else %}<span class="sub">none reported</span>{% endif %}</td>
+    <td class="col-hide-m drift-cell">{{ drift_line(row.health.name, row.driftline.checks, row.driftline.id_prefix, short=true) }}</td>
+  </tr>
+  {% endfor %}
+  {% endcall %}
+</section>
+{% endif %}
+{% endblock %}

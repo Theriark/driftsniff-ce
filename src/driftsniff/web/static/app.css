@@ -2170,3 +2170,249 @@ textarea.input {
   border-top: 1px solid var(--border);
   padding-top: var(--sp-3);
 }
+
+/* ---- additions of P10-T5 (sources pages) ---------------------------------------------- */
+
+/* a banner above the page header (a notice after a redirect, a refused form) */
+.page-banner {
+  margin-bottom: var(--sp-6);
+}
+
+/* the count line beside the density switch above a table */
+.toolbar .hint {
+  margin: 0;
+  margin-right: auto;
+  color: var(--text-2);
+  font-size: var(--fs-14);
+}
+
+/* the heading row of a flush card (the coverage panel), with the count on the right */
+.card-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-2) var(--sp-4);
+  padding: var(--sp-6) var(--sp-6) var(--sp-3);
+}
+
+.card-title h2 {
+  margin: 0;
+}
+
+.card-title .hint {
+  color: var(--text-2);
+  font-size: var(--fs-14);
+}
+
+.card-pad {
+  padding: 0 var(--sp-6) var(--sp-6);
+}
+
+.card-actions {
+  margin-top: var(--sp-4);
+}
+
+/* the strip of the source list sits in a table cell at its natural height */
+.drift-cell {
+  min-width: 240px;
+}
+
+.drift-cell .driftline__axis {
+  display: none;
+}
+
+/* the hidden-by-XO note under a resource name */
+.coverage-table .hidden-by-xo {
+  margin-top: var(--sp-1);
+}
+
+/* the source type choice of the add form: three links, the current one filled */
+.type-switch {
+  display: inline-flex;
+  flex-wrap: wrap;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-s);
+  overflow: hidden;
+  margin-bottom: var(--sp-6);
+  background: var(--surface);
+}
+
+.type-switch a {
+  display: inline-grid;
+  place-items: center;
+  min-height: 40px;
+  padding: 0 var(--sp-4);
+  font-size: var(--fs-14);
+  font-weight: 700;
+  color: var(--text-2);
+  text-decoration: none;
+}
+
+.type-switch a + a {
+  border-left: 1px solid var(--border);
+}
+
+.type-switch a[aria-current="page"] {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.type-switch a:hover:not([aria-current="page"]) {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+/* the add and edit forms: one card per part, the actions under the last one */
+.source-form {
+  display: grid;
+  gap: var(--sp-6);
+  max-width: 880px;
+}
+
+.form-card {
+  display: grid;
+  gap: var(--sp-4);
+  align-content: start;
+}
+
+.form-card > h2 {
+  margin: 0;
+}
+
+.form-card .field .input {
+  width: 100%;
+  max-width: 560px;
+}
+
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+/* a fieldset of choices: tick boxes (resources) or the radio group of the TLS mode */
+.choices {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  display: grid;
+  gap: var(--sp-3);
+}
+
+.choices legend {
+  padding: 0;
+  margin-bottom: var(--sp-2);
+  font-size: var(--fs-14);
+  font-weight: 700;
+}
+
+.choices > .help {
+  margin: 0;
+  font-size: var(--fs-14);
+  color: var(--text-2);
+}
+
+.choice-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--sp-1) var(--sp-4);
+}
+
+.check {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: var(--sp-1) var(--sp-2);
+  min-height: 32px;
+}
+
+.check label {
+  font-size: var(--fs-14);
+}
+
+.check .help {
+  grid-column: 2;
+  font-size: var(--fs-14);
+  color: var(--text-2);
+}
+
+.check input,
+.choice input[type="radio"] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--ink);
+}
+
+.choice {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: var(--sp-1) var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-s);
+  transition: border-color var(--t-fast) var(--ease-out);
+}
+
+.choice > label {
+  font-weight: 700;
+  font-size: var(--fs-16);
+}
+
+.choice > .help,
+.choice__extra {
+  grid-column: 2;
+}
+
+.choice > .help {
+  font-size: var(--fs-14);
+  color: var(--text-2);
+}
+
+.choice__extra {
+  margin-top: var(--sp-2);
+}
+
+.choice:has(input[type="radio"]:checked) {
+  border-color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--ink);
+}
+
+.choice--risk:has(input[type="radio"]:checked) {
+  border-color: var(--alert);
+  box-shadow: inset 0 0 0 1px var(--alert);
+}
+
+/* the field a TLS mode needs shows only under the chosen mode (the server checks it anyway) */
+.choice:has(input[type="radio"]:not(:checked)) .choice__extra {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .choice {
+    transition: none;
+  }
+}
+
+/* the sender key of a push source, shown once after it was made */
+.secret-once {
+  border-color: var(--ink);
+  display: grid;
+  gap: var(--sp-3);
+}
+
+.secret-once h2 {
+  margin: 0;
+}
+
+.secret-once .input {
+  width: 100%;
+}
+
+.probe-result:empty {
+  display: none;
+}

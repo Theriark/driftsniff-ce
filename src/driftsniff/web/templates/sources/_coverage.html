@@ -1,0 +1,35 @@
+{# The coverage panel (P10-T5): one row per resource with the last answer, the object count, the
+   last good read and a note. rows are driftsniff.web.source_pages.CoverageRow values, from the
+   stored coverage rows or from a test connection. A 403 keeps the last good data and says since
+   when it is stale; a 404 means the version has no such resource; hidden by XO names the values
+   Xen Orchestra never returns, so a change to them cannot be seen. #}
+{% from "components/badges.html" import status_badge %}
+{% from "components/details.html" import time_tag %}
+{% macro coverage_table(rows, now, caption, caption_id, foot="", stored=true) %}
+<div class="table-wrap">
+  <table class="data-table coverage-table">
+    <caption id="{{ caption_id }}" class="visually-hidden">{{ caption }}</caption>
+    <thead>
+      <tr>
+        <th scope="col">Resource</th>
+        <th scope="col">Last answer</th>
+        <th scope="col" class="num count">Objects</th>
+        {% if stored %}<th scope="col" class="col-hide-s">Last good read</th>{% endif %}
+        <th scope="col" class="col-hide-m">Note</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <th scope="row">{{ row.label }}{% if row.hidden_by_xo %}<span class="sub hidden-by-xo">Hidden by XO: {{ row.hidden_by_xo | join(", ") }}, changes not observable</span>{% endif %}</th>
+        <td>{{ status_badge(row.kind, row.text) }}</td>
+        <td class="num count">{% if row.object_count is none %}none{% else %}{{ number(row.object_count) }}{% endif %}</td>
+        {% if stored %}<td class="col-hide-s">{% if row.last_ok_at %}{{ time_tag(row.last_ok_at, now) }}{% else %}none{% endif %}</td>{% endif %}
+        <td class="col-hide-m"><span class="sub">{{ row.note }}{% if row.stale_since %} Stale since {{ time_tag(row.stale_since, now) }}.{% endif %}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% if foot %}<div class="table-foot"><span>{{ foot }}</span></div>{% endif %}
+{%- endmacro %}

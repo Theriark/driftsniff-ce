@@ -1,0 +1,146 @@
+{# The source page (P10-T5, mock-up docs/mockups/source.html). detail is a
+   driftsniff.web.source_pages.SourceDetail. Top to bottom: the summary head with the status,
+   the flags and the actions the role allows; the banners (a notice after a redirect, a refused
+   run, the failing state, insecure TLS, an expiring credential, a sender key shown once); the
+   drift line; the coverage panel beside the recent runs, the facts of the source and, for an
+   admin, the typed-name delete. The credential is never printed: only whether one is stored. #}
+{% extends "base.html" %}
+{% from "components/states.html" import banner, success_banner %}
+{% from "components/badges.html" import status_badge %}
+{% from "components/driftline.html" import drift_line %}
+{% from "components/details.html" import time_tag %}
+{% from "sources/_coverage.html" import coverage_table %}
+{% block content %}
+{% set view = detail.view %}
+{% set health = detail.health %}
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="/sources">Sources</a> / {{ view.name }}</nav>
+<div class="summary-head">
+  <div>
+    <div class="badges">{{ status_badge(health.kind, detail.status_text) }}{% for badge in detail.badges %} {{ status_badge(badge.kind, badge.text) }}{% endfor %} {% if view.enabled %}{{ status_badge("ok", "Enabled") }}{% else %}{{ status_badge("open", "Disabled") }}{% endif %}</div>
+    <h1>{{ view.name }}</h1>
+    <div class="meta">
+      <span>{{ detail.type_label }}{% if view.controller_version %} <span class="num">{{ view.controller_version }}</span>{% endif %}</span>
+      {% if detail.polled %}<span>{{ detail.interval }}</span>{% endif %}
+      <span>{% if detail.last_checked %}Last check {{ time_tag(detail.last_checked, detail.now) }}{% else %}No check yet{% endif %}</span>
+      <span><span class="num">{{ number(detail.object_count) }}</span> {{ "object" if detail.object_count == 1 else "objects" }}</span>
+    </div>
+  </div>
+  {% if can_operate %}
+  <div class="page-header__actions">
+    {% if detail.polled and view.enabled %}
+    <form method="post" action="/sources/{{ view.id }}/run">
+      <input type="hidden" name="csrf_token" value="{{ shell.csrf_token }}">
+      <button class="btn btn--primary" type="submit">Run now</button>
+    </form>
+    {% endif %}
+    {% if can_admin %}
+    <a class="btn" href="/sources/{{ view.id }}/edit">Edit</a>
+    <form method="post" action="/sources/{{ view.id }}/{{ 'disable' if view.enabled else 'enable' }}">
+      <input type="hidden" name="csrf_token" value="{{ shell.csrf_token }}">
+      <button class="btn{% if view.enabled %} btn--quiet{% elif not detail.polled %} btn--primary{% endif %}" type="submit">{{ "Disable" if view.enabled else "Enable" }}</button>
+    </form>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+
+<div class="section stack">
+  {% if notice %}{{ success_banner(notice[0], notice[1]) }}{% endif %}
+  {% if problem %}{{ banner("warn", problem[0], problem[1]) }}{% endif %}
+  {% if push_key %}
+  <section class="card secret-once" aria-labelledby="key-h">
+    <h2 id="key-h">Sender key, shown once</h2>
+    <p>Give this key to the sender now. driftsniff stores only its SHA-256, so it cannot show the key again; a key made earlier has stopped working.</p>
+    <div class="field">
+      <label for="push-key">Sender key</label>
+      <input class="input mono" id="push-key" name="push_key" value="{{ push_key }}" readonly autocomplete="off" spellcheck="false" aria-describedby="push-key-help">
+      <span class="help" id="push-key-help">The sender puts it in the X-Driftsniff-Push-Key header of POST /api/v1/push/{{ view.id }}.</span>
+    </div>
+  </section>
+  {% endif %}
+  {% if health.kind == "failing" %}
+  {{ banner("error", "The last check failed", "driftsniff keeps the last good configuration and tries again on the interval; stored data is unchanged. Reason: " ~ health.reason ~ ".") }}
+  {% elif health.kind == "unsupported" %}
+  {{ banner("error", "This controller version is not supported", "The version is below the supported floor, so no collection runs. Update the controller, then run the source again.") }}
+  {% endif %}
+  {% if health.insecure %}
+  <div id="tls">{{ banner("warn", "Certificate checks are off for this source", "Anyone on the path to the controller can read the " ~ detail.credential_label ~ ". Upload the controller CA bundle or pin its certificate to turn checks back on.", "/sources/" ~ view.id ~ "/edit#tls" if can_admin else "", "Change TLS mode") }}</div>
+  {% endif %}
+  {% if detail.expiring %}
+  <div id="credential">{{ banner("warn", "The credential expires soon", ("It expires on " ~ detail.expires_on.isoformat() ~ ". " if detail.expires_on else "") ~ "Make a new one in the controller and save it here before it stops working.", "/sources/" ~ view.id ~ "/edit#credential" if can_admin else "", "Renew credential") }}</div>
+  {% endif %}
+</div>
+
+<section class="section" aria-labelledby="src-drift-h">
+  <div class="section-head"><h2 id="src-drift-h">Drift line, last 30 days</h2><span class="hint">{{ detail.driftline.meta }}</span></div>
+  <div class="card">{{ drift_line(view.name, detail.driftline.checks, detail.driftline.id_prefix, short=true) }}</div>
+</section>
+
+<div class="section grid-5-7">
+  <section class="card card--flush" aria-labelledby="cov-h">
+    <div class="card-title"><h2 id="cov-h">Coverage by resource</h2>{% if detail.polled %}<span class="hint">{{ detail.resources_total - detail.resources_off | length }} of {{ detail.resources_total }} resources on</span>{% endif %}</div>
+    {% if detail.coverage %}
+    {{ coverage_table(detail.coverage, detail.now, "Coverage by resource", "cov-cap", foot="A 404 means the version has no such resource. A 403 keeps the last good data and marks it stale.") }}
+    {% else %}
+    <p class="quiet card-pad">This push source declares no resources yet. An admin declares them in the edit form.</p>
+    {% endif %}
+  </section>
+
+  <div class="side">
+    <section class="card" id="runs" aria-labelledby="runs-h">
+      <h2 id="runs-h">Recent runs</h2>
+      {% if detail.runs %}
+      <ol class="timeline">
+        {% for run in detail.runs %}
+        <li><span class="dot{% if run.dot %} dot--{{ run.dot }}{% endif %}"></span><span>{{ run.text }}</span>{{ time_tag(run.when, detail.now) }}</li>
+        {% endfor %}
+      </ol>
+      {% elif detail.polled %}
+      <p class="quiet">No run yet. The first check runs within one interval of saving{% if can_operate %}, or now with Run now{% endif %}.</p>
+      {% else %}
+      <p class="quiet">Nothing pushed yet. Each push the sender makes appears here.</p>
+      {% endif %}
+    </section>
+
+    <section class="card" aria-labelledby="about-h">
+      <h2 id="about-h">About this source</h2>
+      <dl class="kv">
+        <dt>Type</dt><dd>{{ detail.type_label }}</dd>
+        {% if detail.polled %}
+        <dt>Address</dt><dd class="mono">{{ view.base_url }}</dd>
+        <dt>{{ detail.credential_label }}</dt><dd>{{ "Stored encrypted, never shown again" if view.has_credential else "None stored" }}</dd>
+        {% if view.type == "xo" %}<dt>Expires</dt><dd>{{ detail.expires_on.isoformat() if detail.expires_on else "No date entered" }}</dd>{% endif %}
+        <dt>TLS mode</dt><dd>{{ detail.tls_label }}</dd>
+        <dt>Resources</dt><dd>{% if detail.resources_off %}{{ detail.resources_total - detail.resources_off | length }} of {{ detail.resources_total }} on; off: {{ detail.resources_off | join(", ") }}{% else %}All {{ detail.resources_total }} on{% endif %}</dd>
+        {% else %}
+        <dt>Endpoint</dt><dd class="mono">POST /api/v1/push/{{ view.id }}</dd>
+        <dt>Sender key</dt><dd>{{ "Made; only its SHA-256 is stored" if view.has_push_key else "None made yet" }}</dd>
+        {% endif %}
+      </dl>
+      {% if view.type == "push" and can_admin %}
+      <form method="post" action="/sources/{{ view.id }}/push-key" class="form-row card-actions">
+        <input type="hidden" name="csrf_token" value="{{ shell.csrf_token }}">
+        <button class="btn{% if not view.has_push_key %} btn--primary{% endif %}" type="submit">{{ "Make a new sender key" if view.has_push_key else "Make sender key" }}</button>
+      </form>
+      {% if view.has_push_key %}<p class="help">A new key stops the current one at once.</p>{% endif %}
+      {% endif %}
+    </section>
+
+    {% if can_admin %}
+    <section class="card confirm" id="delete" aria-labelledby="del-h">
+      <h2 id="del-h">Delete this source</h2>
+      <p class="item__rule">Removes the source, its snapshots, change events and coverage. Type the source name to confirm.</p>
+      <form method="post" action="/sources/{{ view.id }}/delete" class="stack">
+        <input type="hidden" name="csrf_token" value="{{ shell.csrf_token }}">
+        <div class="field">
+          <label for="confirm-name">Source name</label>
+          <input class="input" id="confirm-name" name="confirm" autocomplete="off" required placeholder="{{ view.name }}"{% if delete_error %} aria-invalid="true" aria-describedby="confirm-name-error"{% endif %}>
+          {% if delete_error %}<span class="error" id="confirm-name-error">{{ delete_error }}</span>{% endif %}
+        </div>
+        <div class="form-row"><button class="btn btn--danger" type="submit">Delete source</button></div>
+      </form>
+    </section>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
