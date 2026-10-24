@@ -110,7 +110,8 @@ def assert_policy_clean(text: str) -> Parsed:
 
 
 def forms(parsed: Parsed) -> set[str | None]:
-    return {attrs.get("action") for attrs in parsed.find("form")} - {"/logout"}
+    # the shell's own forms: sign out, and the change search of the top bar (a GET to /changes)
+    return {attrs.get("action") for attrs in parsed.find("form")} - {"/logout", "/changes"}
 
 
 # ---- the words and the links ------------------------------------------------------------------
