@@ -36,9 +36,25 @@ READ_ATTEMPTS = 4
 READ_BACKOFF_SECONDS = (3, 10, 20)
 READ_RETRYABLE_HTTP_CODES = RETRYABLE_HTTP_CODES | frozenset({401})
 
+# The re-read after the health check runs when the deployment is already live and verified, so
+# it gets a longer budget (7 calls, 123s of backoff) to ride out a 401 window that outlasted
+# the short read budget in run 39689087290. It stays fail-closed: if no read ever succeeds, or
+# any read reports another digest, the deployment fails.
+POST_HEALTH_READ_ATTEMPTS = 7
+POST_HEALTH_READ_BACKOFF_SECONDS = (3, 10, 20, 30, 30, 30)
+
 
 class DokployError(RuntimeError):
     pass
+
+
+def emit(message: str, *, error: bool = False) -> None:
+    """Print one line and flush so stdout and stderr lines reach the log in true order."""
+    if error:
+        sys.stdout.flush()
+        print(message, file=sys.stderr, flush=True)
+    else:
+        print(message, flush=True)
 
 
 def required_env(name: str) -> str:
@@ -94,9 +110,9 @@ def request_json(
         if not retryable or attempt >= attempts:
             raise error from cause
         delay = backoff[min(attempt - 1, len(backoff) - 1)]
-        print(
+        emit(
             f"WARN: {error}; attempt {attempt}/{attempts}, retrying in {delay}s",
-            file=sys.stderr,
+            error=True,
         )
         time.sleep(delay)
     if not body.strip():
@@ -142,20 +158,26 @@ def validate_commit(commit: str) -> None:
         raise DokployError("Expected commit must be a full lowercase 40-character SHA")
 
 
-def current_image(application_id: str, *, allow_missing: bool = False) -> str:
+def current_image(
+    application_id: str,
+    *,
+    allow_missing: bool = False,
+    attempts: int = READ_ATTEMPTS,
+    backoff: tuple[int, ...] = READ_BACKOFF_SECONDS,
+) -> str:
     """Return the application's dockerImage.
 
     Strict by default: an absent, null or blank image raises. With allow_missing=True such a
     value returns "" instead (an application that has never been deployed has no image yet).
     A value of any other type always raises. The read is retried on HTTP 401, gateway errors
-    and transport failures (see READ_ATTEMPTS).
+    and transport failures (READ_ATTEMPTS by default, or the caller's own bounded budget).
     """
     response = request_json(
         "GET",
         "application.one",
         query={"applicationId": application_id},
-        attempts=READ_ATTEMPTS,
-        backoff=READ_BACKOFF_SECONDS,
+        attempts=attempts,
+        backoff=backoff,
     )
     image = find_key(response, "dockerImage")
     if isinstance(image, str) and image.strip():
@@ -190,13 +212,13 @@ def wait_health(url: str, timeout_seconds: int, expected_commit: str) -> None:
             else:
                 matches += 1
                 if matches >= 2:
-                    print(f"PASS: {url} healthy on commit {observed} (two consecutive answers)")
+                    emit(f"PASS: {url} healthy on commit {observed} (two consecutive answers)")
                     return
                 last = "first matching answer; confirming"
         except (urllib.error.URLError, json.JSONDecodeError, TimeoutError, AttributeError) as exc:
             matches = 0
             last = str(exc)
-        print(f"WAIT: {url} {last}")
+        emit(f"WAIT: {url} {last}")
         time.sleep(5)
     raise DokployError(
         f"Health check timed out for {url} (expected commit {expected_commit}): {last}"
@@ -210,9 +232,9 @@ def deploy(args: argparse.Namespace) -> None:
     write_output("previous_image", previous)
     write_output("deployed_image", args.image)
     if not previous:
-        print(f"No previous image for {args.application_id}; first deployment")
+        emit(f"No previous image for {args.application_id}; first deployment")
     if previous == args.image and args.noop_ok:
-        print(f"No image change required for {args.application_id}")
+        emit(f"No image change required for {args.application_id}")
     else:
         request_json(
             "POST",
@@ -231,15 +253,20 @@ def deploy(args: argparse.Namespace) -> None:
                 "description": args.description,
             },
         )
-        print(f"Deployment requested for {args.application_id}: {args.image}")
+        emit(f"Deployment requested for {args.application_id}: {args.image}")
     wait_health(args.health_url, args.timeout, args.expected_commit)
-    # The deployment is already live and healthy here; the re-read retries like every read.
-    observed = current_image(args.application_id)
+    # The deployment is already live and healthy here; the re-read is side-effect free, so it
+    # uses the longer post-health budget and still fails closed if it never succeeds.
+    observed = current_image(
+        args.application_id,
+        attempts=POST_HEALTH_READ_ATTEMPTS,
+        backoff=POST_HEALTH_READ_BACKOFF_SECONDS,
+    )
     if observed != args.image:
         raise DokployError(
             f"Dokploy application {args.application_id} reports {observed}, expected {args.image}"
         )
-    print(f"PASS: Dokploy application image is exactly {observed}")
+    emit(f"PASS: Dokploy application image is exactly {observed}")
 
 
 def assert_image(args: argparse.Namespace) -> None:
@@ -249,7 +276,7 @@ def assert_image(args: argparse.Namespace) -> None:
         raise DokployError(
             f"Application {args.application_id} runs {observed}, expected {args.image}"
         )
-    print(f"PASS: {args.application_id} runs {observed}")
+    emit(f"PASS: {args.application_id} runs {observed}")
 
 
 def health(args: argparse.Namespace) -> None:
@@ -290,7 +317,7 @@ def main() -> int:
         args.func(args)
         return 0
     except DokployError as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
+        emit(f"ERROR: {exc}", error=True)
         return 1
 
 
