@@ -760,21 +760,23 @@ textarea.input {
   margin-bottom: var(--sp-3);
 }
 
+/* minmax(0, ...) like the section grids: a long value or sparkline wraps or clips inside its
+   card instead of widening the page */
 .stat-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--sp-4);
 }
 
 @media (max-width: 1023px) {
   .stat-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 479px) {
   .stat-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -1233,16 +1235,22 @@ textarea.input {
 
 /* ---- trend chart, breakdowns, timeline ------------------------------------------------- */
 
-/* the chart never shrinks below its 600 unit drawing width, so its 14 unit labels are at least
-   14 px; below that width it scrolls inside its wrapper, like the drift line */
+/* the chart draws 600 units wide and shrinks with its card down to 520 px, where its 14 unit
+   labels are still 12 px: the half-width card of a 1440 px screen (546 px) shows all 30 days
+   without scrolling. Narrower than that it scrolls inside its wrapper, like the drift line. The
+   wrapper is right-to-left so the scroll opens on today, the end that matters; the drawing
+   itself stays left-to-right */
 .chart-wrap {
   overflow-x: auto;
+  direction: rtl;
 }
 
 .chart {
+  display: block;
   width: 100%;
-  min-width: 600px;
+  min-width: 520px;
   height: auto;
+  direction: ltr;
 }
 
 .chart .bar--low {

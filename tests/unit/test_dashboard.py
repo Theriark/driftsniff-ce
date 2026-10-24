@@ -512,23 +512,63 @@ def test_the_empty_trend_has_one_tick_per_day_across_the_strip() -> None:
     assert empty_ticks(0) == ()
 
 
-def test_the_dashboard_grids_cannot_widen_the_page() -> None:
-    """G1: every track of the two dashboard grids is minmax(0, ...), at every width, so the
-    600 px trend chart scrolls inside its card instead of making the page scroll sideways."""
+def _css_rules() -> dict[str, list[str]]:
+    """The rule bodies of app.css by selector, comments removed, in source order; a selector
+    list gives its body to every selector it names."""
     stylesheet = Path(__file__).resolve().parents[2] / "src" / "driftsniff" / "web" / "static"
     css = (stylesheet / "app.css").read_text(encoding="utf-8")
     css = re.sub(r"/\*.*?\*/", "", css, flags=re.DOTALL)
-    rules = re.findall(r"([^{}]+)\{([^{}]*)\}", css)
-    tracks: dict[str, list[str]] = {}
-    for selector, body in rules:
-        found = re.search(r"grid-template-columns:\s*([^;]+);", body)
-        if found is None:
-            continue
+    rules: dict[str, list[str]] = {}
+    for selector, body in re.findall(r"([^{}]+)\{([^{}]*)\}", css):
         for name in (part.strip() for part in selector.split(",")):
-            if name in (".grid-2", ".grid-5-7"):
-                tracks.setdefault(name, []).append(found.group(1).strip())
-    assert tracks[".grid-2"] == ["minmax(0, 1fr) minmax(0, 1fr)", "minmax(0, 1fr)"]
-    assert tracks[".grid-5-7"] == ["minmax(0, 5fr) minmax(0, 7fr)", "minmax(0, 1fr)"]
+            rules.setdefault(name, []).append(body)
+    return rules
+
+
+def _column_tracks(rules: dict[str, list[str]], selector: str) -> list[str]:
+    """The grid-template-columns values declared for the selector, widest viewport first."""
+    tracks: list[str] = []
+    for body in rules[selector]:
+        found = re.search(r"grid-template-columns:\s*([^;]+);", body)
+        if found is not None:
+            tracks.append(found.group(1).strip())
+    return tracks
+
+
+def test_the_dashboard_grids_cannot_widen_the_page() -> None:
+    """G1: every track of the dashboard grids is minmax(0, ...), at every width, so a wide child
+    (the trend chart, a long stat value) scrolls or wraps inside its card instead of making the
+    page scroll sideways."""
+    rules = _css_rules()
+    assert _column_tracks(rules, ".grid-2") == [
+        "minmax(0, 1fr) minmax(0, 1fr)",
+        "minmax(0, 1fr)",
+    ]
+    assert _column_tracks(rules, ".grid-5-7") == [
+        "minmax(0, 5fr) minmax(0, 7fr)",
+        "minmax(0, 1fr)",
+    ]
+    assert _column_tracks(rules, ".stat-grid") == [
+        "repeat(4, minmax(0, 1fr))",
+        "repeat(2, minmax(0, 1fr))",
+        "minmax(0, 1fr)",
+    ]
+
+
+def test_the_trend_chart_fits_a_desktop_card_and_opens_on_today() -> None:
+    """At 1440 px the half-width card leaves 546 px for the chart, so a 600 px minimum hid the
+    bar of today behind a scroll. The chart may shrink to 520 px, where its 14 unit labels are
+    still 12 px, and the wrapper scrolls from the right so the newest day is in view first."""
+    rules = _css_rules()
+    chart = "".join(rules[".chart"])
+    wrap = "".join(rules[".chart-wrap"])
+    minimum = re.search(r"min-width:\s*(\d+)px", chart)
+    assert minimum is not None
+    assert 600 * 12 / 14 <= int(minimum.group(1)) <= 546
+    assert re.search(r"overflow-x:\s*auto", wrap)
+    assert re.search(r"direction:\s*rtl", wrap)
+    assert re.search(r"direction:\s*ltr", chart)
+    assert re.search(r"display:\s*block", chart)
 
 
 # ---- the queries ----------------------------------------------------------------------------
