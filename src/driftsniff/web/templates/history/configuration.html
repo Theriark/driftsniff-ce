@@ -13,6 +13,7 @@
 {% from "components/table.html" import pager as pager_bar %}
 {% from "components/forms.html" import search_box %}
 {% from "components/details.html" import time_tag %}
+{% block head %}<link rel="stylesheet" href="/static/history.css">{% endblock %}
 {% block content %}
 {% if unreadable %}
 {% call source_head("Configuration", "/configuration", source, history_href, "Reading history") %}

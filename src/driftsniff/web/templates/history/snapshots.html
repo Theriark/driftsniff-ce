@@ -8,6 +8,7 @@
 {% from "components/states.html" import empty_state %}
 {% from "components/table.html" import pager as pager_bar %}
 {% from "components/details.html" import time_tag %}
+{% block head %}<link rel="stylesheet" href="/static/history.css">{% endblock %}
 {% block content %}
 {% call source_head("History", "/history", view.source, configuration_href, "Current configuration") %}
 <span>{{ type_label }}{% if not view.source.enabled %}, disabled{% endif %}</span>
