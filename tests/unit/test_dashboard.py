@@ -482,6 +482,7 @@ def test_the_stat_cards_count_open_changes_new_changes_and_sources(
     # two events this week (the critical one and the acknowledged high one), one the week before
     assert open_changes.delta == "2 new this week, 1 more than the previous 7 days"
     assert open_changes.delta_tone == "up" and open_changes.spark == (0, 0, 0, 1, 0, 0, 1)
+    assert open_changes.trend == "up" and urgent.trend == healthy.trend == storage.trend == ""
     assert (urgent.label, urgent.value) == ("Critical and high, open", "1")
     assert urgent.delta == "1 critical, 0 high" and urgent.delta_tone == "alert"
     assert urgent.spark == (0, 0, 0, 1, 0, 0, 1)
@@ -722,7 +723,7 @@ def test_the_empty_dashboard_shows_the_designed_empty_state(
     text = "".join(parsed.text)
     assert "Nothing to watch yet" in text
     assert {"class": "btn btn--primary", "href": "/sources/new"} in parsed.find("a")
-    assert "stat-grid" not in client.get("/", headers=headers).text
+    assert "metric-grid" not in client.get("/", headers=headers).text
 
 
 def test_the_dashboard_page_renders_every_section_with_text_alternatives(
@@ -744,7 +745,7 @@ def test_the_dashboard_page_renders_every_section_with_text_alternatives(
     # one primary action, the four stat cards, each a link
     primary = [a for a in parsed.find("a") if a.get("class") == "btn btn--primary"]
     assert primary == [{"class": "btn btn--primary", "href": "/sources/new"}]
-    stats = [a for a in parsed.find("a") if a.get("class") == "card stat"]
+    stats = [a for a in parsed.find("a") if a.get("class") == "card metric"]
     assert [a["href"] for a in stats] == [
         "/changes?status=open",
         "/changes?status=open&severity=critical&severity=high",
@@ -846,6 +847,6 @@ def test_the_dashboard_with_the_thousand_object_fixture_renders_in_under_half_a_
     assert response.status_code == 200
     assert elapsed < 0.5, f"the dashboard took {elapsed:.3f} s"
     parsed = Parsed(response.text)
-    stats = [a for a in parsed.find("a") if a.get("class") == "card stat"]
+    stats = [a for a in parsed.find("a") if a.get("class") == "card metric"]
     assert len(stats) == 4
     assert len(parsed.find("li")) >= 20

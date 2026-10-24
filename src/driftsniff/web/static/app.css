@@ -758,47 +758,60 @@ textarea.input {
   margin-bottom: var(--sp-3);
 }
 
-.stat-grid {
+.metric-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: var(--sp-4);
 }
 
 @media (max-width: 1023px) {
-  .stat-grid {
+  .metric-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
 @media (max-width: 479px) {
-  .stat-grid {
+  .metric-grid {
     grid-template-columns: 1fr;
   }
 }
 
-.stat {
+/* The metric card (components/cards.html). The last row takes the spare height and the line
+   sits at its bottom, so in a row of cards every number starts at the same height and every
+   line ends at the same baseline, however long one line wraps. */
+.metric {
   display: grid;
-  grid-template-columns: 1fr auto;
-  grid-template-rows: auto auto auto;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto 1fr;
   gap: 0 var(--sp-3);
   padding: var(--sp-4) var(--sp-6);
   text-decoration: none;
   color: inherit;
+  transition: box-shadow var(--t-fast) var(--ease-out), border-color var(--t-fast) var(--ease-out);
 }
 
-.stat:hover {
+.metric:hover,
+.metric:focus-visible {
   color: inherit;
   box-shadow: var(--elev-2);
+  border-color: var(--slate);
 }
 
-.stat__label {
+/* the focus ring follows the card's corners instead of the 4 px of the global ring */
+.metric:focus-visible {
+  border-radius: var(--radius-m);
+}
+
+.metric__label {
   grid-column: 1 / -1;
   font-size: var(--fs-14);
   color: var(--text-2);
 }
 
-.stat__value {
+.metric__value {
   grid-column: 1;
+  grid-row: 2;
+  align-self: end;
   font-size: var(--fs-32);
   line-height: 1;
   font-weight: 700;
@@ -806,37 +819,58 @@ textarea.input {
   margin-top: var(--sp-2);
 }
 
-.stat__value small {
+.metric__value small {
   font-size: var(--fs-16);
   font-weight: 400;
   color: var(--text-2);
   letter-spacing: 0;
 }
 
-.stat__spark {
+.metric__spark {
   grid-column: 2;
-  grid-row: 2 / span 2;
+  grid-row: 2;
   align-self: end;
   width: 96px;
   height: 36px;
 }
 
-.stat__delta {
-  grid-column: 1;
-  font-size: var(--fs-14);
-  color: var(--text-2);
-  margin-top: var(--sp-2);
+.metric__spark polyline {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
 }
 
-.stat__delta--down {
+.metric__delta {
+  grid-column: 1 / -1;
+  grid-row: 3;
+  align-self: end;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: var(--fs-14);
+  color: var(--text-2);
+  margin-top: var(--sp-3);
+}
+
+/* the glyph sits on the first line of the text and takes the colour of the line */
+.metric__delta svg {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  margin-top: 0.3em;
+  fill: currentColor;
+}
+
+.metric__delta--down {
   color: var(--success);
 }
 
-.stat__delta--up {
+.metric__delta--up {
   color: var(--sev-high);
 }
 
-.stat__delta--alert {
+.metric__delta--alert {
   color: var(--alert);
 }
 
@@ -2060,14 +2094,6 @@ textarea.input {
   border-left: 2px solid var(--border);
   margin-top: var(--sp-2);
   font-size: var(--fs-14);
-}
-
-/* a sparkline described by its data: the table alternative is for screen readers only */
-.stat__spark polyline {
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.5;
-  stroke-linejoin: round;
 }
 
 /* ---- additions of P10-T3 (sign-in, setup, dashboard frame, status pages) ------------- */

@@ -270,20 +270,78 @@ def test_status_badges_have_an_icon_and_a_word_for_every_kind() -> None:
     assert Parsed(badge("warn", "Open", icon="i-dash")).find("use") == [{"href": "#i-dash"}]
 
 
-def test_stat_card_in_every_state() -> None:
-    card = component("cards.html", "stat_card")
+class Spoken(HTMLParser):
+    """The text a screen reader reads: every word outside an aria-hidden element."""
+
+    def __init__(self, text: str) -> None:
+        super().__init__()
+        self.hidden: list[bool] = []
+        self.words: list[str] = []
+        self.feed(text)
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        inside = bool(self.hidden) and self.hidden[-1]
+        self.hidden.append(inside or dict(attrs).get("aria-hidden") == "true")
+
+    def handle_endtag(self, tag: str) -> None:
+        self.hidden.pop()
+
+    def handle_data(self, data: str) -> None:
+        if not (self.hidden and self.hidden[-1]) and data.strip():
+            self.words.append(data.strip())
+
+
+def spoken(text: str) -> str:
+    return " ".join(Spoken(text).words)
+
+
+def test_metric_card_in_every_state() -> None:
+    card = component("cards.html", "metric_card")
     full = card(
-        "Open changes", 23, "/changes", delta="5 fewer", delta_tone="down", spark=[3, 5, 4, 8]
+        "Open changes",
+        23,
+        "/changes",
+        delta="5 fewer than last week",
+        tone="down",
+        trend="down",
+        spark=[3, 5, 4, 8],
     )
     parsed = Parsed(full)
-    assert parsed.find("a")[0] == {"class": "card stat", "href": "/changes"}
-    assert "stat__delta stat__delta--down num" in full
+    assert parsed.find("a")[0] == {"class": "card metric", "href": "/changes"}
+    spans = parsed.find("span")
+    assert {"class": "metric__value num", "aria-hidden": "true"} in spans
+    assert {"class": "metric__delta metric__delta--down", "aria-hidden": "true"} in spans
+    # the colour never works alone: the arrow and the words say the same
+    assert parsed.find("use") == [{"href": "#i-trend-down"}]
     assert parsed.find("polyline") == [{"points": "0.0,31.0 32.0,20.6 64.0,25.8 96.0,5.0"}]
-    assert "Last 4 values: 3, 5, 4, 8" in full
+    # one sentence for a screen reader, starting with the visible label
+    sentence = "Open changes: 23. 5 fewer than last week. Last 4 values: 3, 5, 4, 8."
+    assert spoken(full) == sentence
     bare = card("Sources healthy", 2, "/sources", unit="of 4")
     assert "<small> of 4</small>" in bare
-    assert "polyline" not in bare and "stat__delta" not in bare
+    assert "polyline" not in bare and "metric__delta" not in bare
+    assert spoken(bare) == "Sources healthy: 2 of 4."
     assert_policy_clean(full)
+
+
+def test_metric_card_glyph_follows_the_trend_then_the_tone() -> None:
+    card = component("cards.html", "metric_card")
+
+    def glyph(**kwargs: Any) -> list[dict[str, str | None]]:
+        return Parsed(card("Label", 1, "/x", delta="words", **kwargs)).find("use")
+
+    assert glyph(trend="up", tone="up") == [{"href": "#i-trend-up"}]
+    assert glyph(trend="flat") == [{"href": "#i-dash"}]
+    assert glyph(tone="up") == [{"href": "#sev-high"}]
+    assert glyph(tone="alert") == [{"href": "#sev-critical"}]
+    assert glyph() == []
+
+
+def test_metric_card_draws_no_sparkline_for_a_series_of_zeros() -> None:
+    card = component("cards.html", "metric_card")
+    quiet = card("Open changes", 0, "/changes", delta="none", trend="flat", spark=[0, 0, 0])
+    assert "polyline" not in quiet and "Last 3 values" not in quiet
+    assert spoken(quiet) == "Open changes: 0. None."
 
 
 def test_data_table_in_both_densities_with_sort_and_hidden_columns() -> None:

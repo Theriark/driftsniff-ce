@@ -7,7 +7,7 @@
 {% extends "base.html" %}
 {% from "page_header.html" import page_header %}
 {% from "components/states.html" import empty_state %}
-{% from "components/cards.html" import stat_card %}
+{% from "components/cards.html" import metric_card %}
 {% from "components/badges.html" import severity_badge, status_badge %}
 {% from "components/driftline.html" import drift_line %}
 {% from "components/details.html" import time_tag %}
@@ -27,9 +27,9 @@
 {% if shell.user_role == "admin" %}<a class="btn btn--primary" href="/sources/new">Add source</a>{% endif %}
 {% endcall %}
 
-<div class="stat-grid">
+<div class="metric-grid">
   {% for stat in dashboard.stats %}
-  {{ stat_card(stat.label, stat.value, stat.href, unit=stat.unit, delta=stat.delta, delta_tone=stat.delta_tone, spark=stat.spark) }}
+  {{ metric_card(stat.label, stat.value, stat.href, unit=stat.unit, delta=stat.delta, tone=stat.delta_tone, trend=stat.trend, spark=stat.spark) }}
   {% endfor %}
 </div>
 
