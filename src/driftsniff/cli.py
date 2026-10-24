@@ -21,6 +21,7 @@ from driftsniff.config import ConfigError, Settings
 from driftsniff.db.backup import KEY_WARNING, BackupError, backup_database, default_backup_path
 from driftsniff.db.engine import Database, database_path
 from driftsniff.db.migrate import DatabaseTooNewError, upgrade_to_head
+from driftsniff.devfixture import seed_fixture_at_startup
 from driftsniff.devseed import (
     DevSeedError,
     check_development_only,
@@ -294,6 +295,9 @@ def _serve(settings: Settings) -> int:
         except (RuleLoadError, OverrideFileError) as error:
             print(f"driftsniff: {error}", file=sys.stderr)
             return EXIT_CONFIG
+        # Development only (by address): labelled synthetic changes, with their own pipeline that
+        # sends no notification; before the scheduler and the web server start.
+        seed_fixture_at_startup(settings, database, master_key)
         uvicorn.run(
             create_app(
                 settings,
