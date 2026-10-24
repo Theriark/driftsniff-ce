@@ -48,7 +48,7 @@ from driftsniff.web.templating import TEMPLATES_DIR, Shell, render
 
 NOW = datetime(2026, 10, 24, 9, 0, tzinfo=UTC)
 CSRF = "CANARY-csrf-value"
-SECRET = "CANARY-the-secret-value"
+SECRET = "CANARY-the-secret-value"  # noqa: S105 (a canary, never a real secret)
 FINGERPRINT = "a1b2c3d4e5f6"
 UNIFI = SourceRef(id=2, name="Office UniFi", type="unifi", enabled=True)
 PUSH = SourceRef(id=1, name="lab-controller", type="push", enabled=True)

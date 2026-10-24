@@ -96,7 +96,7 @@ def _wants_page(request: Request) -> bool:
     return wants_html(request) or request.headers.get("hx-request") == "true"
 
 
-def _roles(user: Principal) -> dict[str, bool]:
+def _roles(user: Principal) -> dict[str, Any]:
     return {
         "can_operate": ROLE_RANK[user.role] >= ROLE_RANK["operator"],
         "can_admin": ROLE_RANK[user.role] >= ROLE_RANK["admin"],
