@@ -1,0 +1,25 @@
+{# The head of the history and the configuration page of one source (P10-T7): the breadcrumb,
+   the source name, the meta line (the caller's markup) and the actions the role allows. Nothing
+   on these pages writes: Run now posts to the source's own run route (operator, a polled and
+   enabled source, a running scheduler) and Edit source is the admin's form. The link to the
+   other page and to the source page are for every role. #}
+{% macro source_head(section, section_href, source, other_href, other_label) %}
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="{{ section_href }}">{{ section }}</a> / {{ source.name }}</nav>
+<div class="summary-head summary-head--wrap">
+  <div>
+    <h1>{{ source.name }}</h1>
+    <div class="meta">{{ caller() }}</div>
+  </div>
+  <div class="page-header__actions">
+    <a class="btn" href="{{ other_href }}">{{ other_label }}</a>
+    <a class="btn btn--quiet" href="/sources/{{ source.id }}">Source page</a>
+    {% if can_admin %}<a class="btn btn--quiet" href="/sources/{{ source.id }}/edit">Edit source</a>{% endif %}
+    {% if can_operate and polled and source.enabled and scheduled %}
+    <form method="post" action="/sources/{{ source.id }}/run">
+      <input type="hidden" name="csrf_token" value="{{ shell.csrf_token }}">
+      <button class="btn btn--primary" type="submit">Run now</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+{%- endmacro %}

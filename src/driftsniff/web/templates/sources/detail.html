@@ -141,6 +141,7 @@
         <dt>Sender key</dt><dd>{{ "Made; only its SHA-256 is stored" if view.has_push_key else "None made yet" }}</dd>
         {% endif %}
       </dl>
+      <p class="form-row card-actions"><a href="/history/{{ view.id }}">Reading history</a> <a href="/configuration/{{ view.id }}">Current configuration</a></p>
       {% if view.type == "push" and can_admin %}
       <form method="post" action="/sources/{{ view.id }}/push-key" class="form-row card-actions">
         <input type="hidden" name="csrf_token" value="{{ shell.csrf_token }}">

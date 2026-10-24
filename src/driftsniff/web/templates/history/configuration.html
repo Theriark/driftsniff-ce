@@ -1,0 +1,130 @@
+{# The current configuration of one source (P10-T7). view is a
+   driftsniff.history.views.ConfigurationView: the newest reading, one resource at a time, 50
+   objects a page. Left the resource rail (name, count, whether its order matters), right the
+   object sheets with their fields in the value face. An ordered resource carries the 1-based
+   place of each object in the gutter, because there the order is the configuration. A secret or
+   an unclassified field shows its keyed fingerprint and the word that says why, never a value.
+   The rail links and the search swap #config-browser through HTMX (the skeleton shows while the
+   request runs); without scripting they are plain links and a plain GET form. unreadable is the
+   designed 500 of a damaged store. #}
+{% extends "base.html" %}
+{% from "history/_head.html" import source_head with context %}
+{% from "components/states.html" import empty_state, error_state, banner, skeleton %}
+{% from "components/table.html" import pager as pager_bar %}
+{% from "components/forms.html" import search_box %}
+{% from "components/details.html" import time_tag %}
+{% block head %}<link rel="stylesheet" href="/static/history.css">{% endblock %}
+{% block content %}
+{% if unreadable %}
+{% call source_head("Configuration", "/configuration", source, history_href, "Reading history") %}
+<span>{{ type_label }}</span>
+{% endcall %}
+<div class="section">{{ error_state(unreadable[0], unreadable[1], retry_href) }}</div>
+{% else %}
+{% call source_head("Configuration", "/configuration", view.source, history_href, "Reading history") %}
+<span>{{ type_label }}{% if not view.source.enabled %}, disabled{% endif %}</span>
+{% if view.snapshot %}
+<span>Newest reading {{ time_tag(parse_stamp(view.snapshot.taken_at), now) }}{% if view.snapshot.kind == "baseline" %}, a baseline{% endif %}</span>
+{% if view.snapshot.controller_version %}<span>Controller <span class="mono">{{ view.snapshot.controller_version }}</span></span>{% endif %}
+{% endif %}
+{% endcall %}
+
+{% if not view.snapshot %}
+<div class="section card">
+  {{ empty_state("No reading yet", "The configuration shows the newest reading of this source. Nothing has been read yet: " ~ ("its first check stores one." if polled else "its sender has not pushed yet."), history_href, "Reading history") }}
+</div>
+{% elif not view.resources %}
+<div class="section card">
+  {{ empty_state("This reading holds no objects", "The newest reading of this source has no object in any resource. When the controller reports some, the next reading shows them here.", history_href, "Reading history") }}
+</div>
+{% else %}
+<div id="config-browser" class="section config-browser">
+  <nav class="resource-rail" aria-label="Resources">
+    <h2 class="resource-rail__title">Resources</h2>
+    <ul>
+      {% for row in view.resources %}
+      <li>
+        <a href="{{ resource_href(row.resource) }}" hx-get="{{ resource_href(row.resource) }}" hx-target="#config-browser" hx-select="#config-browser" hx-swap="outerHTML" hx-push-url="true" hx-indicator="#config-browser"{% if row.resource == view.selected_resource %} aria-current="page"{% endif %}>
+          <span class="resource-rail__name">{{ resource_label(row.resource) }}</span>
+          <span class="resource-rail__meta"><span class="num">{{ number(row.object_count) }}</span>{% if row.ordered %}, ordered{% endif %}{% if row.hidden_by_xo %}, fields hidden by XO{% endif %}</span>
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+  </nav>
+
+  <section class="objects" aria-labelledby="objects-h">
+    <div class="objects__head">
+      <div>
+        <h2 id="objects-h">{{ resource_label(view.selected_resource) }}</h2>
+        <p class="hint">{{ count_words(selected.object_count, "object") }}{% if selected.ordered %}, in the order the controller applies them{% endif %}. <span class="mono">{{ view.selected_resource }}</span></p>
+      </div>
+      <form class="objects__search" method="get" action="/configuration/{{ view.source.id }}" role="search" aria-label="Search {{ resource_label(view.selected_resource) | lower }}" hx-get="/configuration/{{ view.source.id }}" hx-target="#config-browser" hx-select="#config-browser" hx-swap="outerHTML" hx-push-url="true" hx-indicator="#config-browser">
+        <input type="hidden" name="resource" value="{{ view.selected_resource }}">
+        {{ search_box("config-q", "q", "Search names, keys, field paths and shown values", value=view.search, placeholder="Search this resource") }}
+        <button class="btn" type="submit">Search</button>
+      </form>
+    </div>
+
+    {% if selected.hidden_by_xo %}
+    {{ banner("warn", "Some fields are hidden by XO", "Xen Orchestra never returns these fields in clear, so a change to them cannot be observed: " ~ hidden_text(selected.hidden_by_xo) ~ ".") }}
+    {% endif %}
+
+    {{ skeleton("Loading the objects", rows=6, indicator=true) }}
+
+    <div class="htmx-hide-while-loading">
+      {% if view.search %}
+      <p class="hint objects__found" role="status">{% if view.total %}{{ summary }} found for &#8220;{{ view.search }}&#8221;.{% else %}No object matches &#8220;{{ view.search }}&#8221;.{% endif %} <a href="{{ clear_href }}">Clear the search</a></p>
+      {% endif %}
+      {% if view.search_truncated %}
+      <p class="hint">The search read the first 5,000 objects of this resource only; make it more specific to be sure.</p>
+      {% endif %}
+
+      {% if not view.objects and not view.search %}
+      <p class="quiet">This resource holds no object in the newest reading.</p>
+      {% endif %}
+
+      <ol class="sheets{% if selected.ordered %} sheets--ordered{% endif %}">
+        {% for obj in view.objects %}
+        <li class="sheet">
+          {% if obj.position is not none %}<span class="sheet__pos num"><span class="visually-hidden">Position </span>{{ obj.position }}</span>{% endif %}
+          <article class="sheet__body" aria-labelledby="obj-{{ loop.index }}">
+            <header class="sheet__head">
+              <h3 id="obj-{{ loop.index }}">{{ object_title(obj) }}</h3>
+              {% if obj.name %}<span class="sheet__key mono">{{ obj.key }}</span>{% endif %}
+            </header>
+            {% if obj.fields %}
+            <table class="fields">
+              <caption class="visually-hidden">Fields of {{ object_title(obj) }}</caption>
+              <tbody>
+                {% for field in obj.fields %}
+                {% set state = field_state(field) %}
+                <tr>
+                  <th scope="row" class="mono">{{ field.path }}</th>
+                  <td>
+                    {% if state == "value" %}
+                    <span class="mono field-value">{{ field.value }}</span>{% if field.truncated %} <span class="sub">cut at 2,000 characters</span>{% endif %}
+                    {% else %}
+                    <span class="fingerprint"><svg aria-hidden="true" focusable="false"><use href="#i-key"/></svg>{{ "secret" if state == "secret" else "unclassified, not shown" }} {{ fingerprint_words(field.fingerprint) }}</span>
+                    {% endif %}
+                    {% if field.hidden_by_xo %} <span class="chip">Hidden by XO</span>{% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+            {% else %}
+            <p class="quiet">No field is shown for this object.</p>
+            {% endif %}
+          </article>
+        </li>
+        {% endfor %}
+      </ol>
+      {% if pager %}{{ pager_bar(pager, summary) }}{% endif %}
+    </div>
+  </section>
+</div>
+<p class="hint">Secret values are never stored. A fingerprint is keyed, so it cannot be turned back into the value; it equals the one a change of the same value shows.</p>
+{% endif %}
+{% endif %}
+{% endblock %}
