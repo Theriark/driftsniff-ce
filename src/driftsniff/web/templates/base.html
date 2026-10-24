@@ -1,13 +1,23 @@
-{# The app shell (P10-T2, docs/design-direction.md). Every page extends this file and fills
-   the content block; the shell object (driftsniff.web.templating.Shell) says who is signed in,
-   which navigation entry is current and what the user prefers. No inline script and no style
-   attribute anywhere: the content security policy of the application blocks both. #}
+{# The app shell (P10-T2, UI revision WP1 THE-1101, docs/design-direction.md). Every page extends
+   this file and fills the content block; the shell object (driftsniff.web.templating.Shell) says
+   who is signed in, which navigation entry is current and what the user prefers.
+
+   Signed in, the page is a sidebar and a column: the sidebar (the one banner landmark) holds the
+   logo, the grouped navigation and the user menu; the top bar of the column holds where the page
+   sits, the change search, the environment badge and at most one action, drawn as a secondary
+   button so the page's own primary button stays the only one on the screen. Below 1024 px
+   the sidebar folds into a bar whose navigation opens with a details toggle, so it works without
+   any script. Signed out (sign-in, setup, an error page), only the logo and the badge show.
+
+   No inline script and no style attribute anywhere: the content security policy blocks both. #}
 <!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="htmx-config" content='{"allowEval": false, "selfRequestsOnly": true, "includeIndicatorStyles": false, "historyCacheSize": 0, "refreshOnHistoryMiss": true}'>
+{# attributesToSettle leaves out style (htmx 2 settles it by default): the policy would refuse
+   every style attribute htmx copies across a swap and log a violation on each one #}
+<meta name="htmx-config" content='{"allowEval": false, "selfRequestsOnly": true, "includeIndicatorStyles": false, "historyCacheSize": 0, "refreshOnHistoryMiss": true, "attributesToSettle": ["class", "width", "height"]}'>
 <title>{% block title %}{{ shell.title }}{% endblock %}, driftsniff</title>
 <link rel="icon" href="/static/brand/favicon-32x32.png" sizes="32x32" type="image/png">
 <link rel="apple-touch-icon" href="/static/brand/favicon-180x180.png">
@@ -15,9 +25,71 @@
 <script src="/static/htmx.min.js" defer></script>
 {% block head %}{% endblock %}
 </head>
-<body{% if shell.csrf_token %} hx-headers='{{ {"X-CSRF-Token": shell.csrf_token} | tojson }}'{% endif %}>
+<body class="{{ 'app app--signed-in' if shell.user_name else 'app' }}"{% if shell.csrf_token %} hx-headers='{{ {"X-CSRF-Token": shell.csrf_token} | tojson }}'{% endif %}>
 <a class="skip-link" href="#main">Skip to content</a>
 {% include "_icons.html" %}
+{% if shell.user_name %}
+<header class="sidebar">
+  <a class="brand" href="/" aria-label="driftsniff, dashboard">
+    <picture>
+      <source srcset="/static/brand/logo-horizontal-dark-1200x400.png" media="(prefers-color-scheme: dark)">
+      <img class="brand__logo" src="/static/brand/logo-horizontal-1200x400.png" alt="driftsniff" width="144" height="48">
+    </picture>
+  </a>
+  <details class="menu-toggle">
+    <summary aria-label="Navigation"><svg width="20" height="20" aria-hidden="true" focusable="false"><use href="#i-menu"/></svg></summary>
+  </details>
+  <nav class="nav" aria-label="Main">
+    {% for group in nav_groups(shell) %}
+    <div class="nav__group">
+      <p class="nav__heading" id="nav-{{ group.key }}">{{ group.label }}</p>
+      <ul aria-labelledby="nav-{{ group.key }}">
+        {% for link in group.links %}
+        <li><a href="{{ link.href }}"{% if link.current %} aria-current="page"{% endif %}><svg width="20" height="20" aria-hidden="true" focusable="false"><use href="#{{ link.icon }}"/></svg><span>{{ link.label }}</span></a></li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endfor %}
+  </nav>
+  <details class="user-menu">
+    <summary><span class="avatar" aria-hidden="true">{{ initials(shell.user_name) }}</span><span class="user-id"><span class="user-name">{{ shell.user_name }}</span><span class="user-role"><span class="visually-hidden">, </span>{{ shell.user_role }}</span></span><span class="visually-hidden">, account menu</span></summary>
+    <div class="user-menu__list">
+      <p class="user-menu__who">Signed in as {{ shell.user_name }}, {{ shell.user_role }}</p>
+      <form method="post" action="/logout">
+        <input type="hidden" name="csrf_token" value="{{ shell.csrf_token }}">
+        <button type="submit">Sign out</button>
+      </form>
+    </div>
+  </details>
+</header>
+{% set location = nav_location(shell) %}
+{% set action = topbar_action(shell) %}
+<div class="topbar">
+  {% if location %}
+  <nav class="crumbs" aria-label="Location">
+    <span class="crumbs__group">{{ location.group }}</span>
+    <svg class="crumbs__sep" width="12" height="12" aria-hidden="true" focusable="false"><use href="#i-chevron"/></svg>
+    {% if location.at_section %}<span aria-current="page">{{ location.label }}</span>{% else %}<a href="{{ location.href }}">{{ location.label }}</a>{% endif %}
+  </nav>
+  {% endif %}
+  {# a page with its own change search (the change list) empties this block #}
+  {% block topbar_search %}
+  <search class="topbar__search">
+    <form method="get" action="/changes">
+      <svg aria-hidden="true" focusable="false"><use href="#i-search"/></svg>
+      <label class="visually-hidden" for="shell-q">Search changes</label>
+      <input class="input" id="shell-q" name="q" type="search" placeholder="Search changes" autocomplete="off">
+    </form>
+  </search>
+  {% endblock %}
+  {% if shell.environment_label %}
+  <span class="env-badge">{{ shell.environment_label }}</span>
+  {% endif %}
+  {% if action %}
+  <a class="btn topbar__action" href="{{ action[1] }}"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#i-plus"/></svg>{{ action[0] }}</a>
+  {% endif %}
+</div>
+{% else %}
 <header class="app-header">
   <div class="app-header__inner">
     <a class="brand" href="/" aria-label="driftsniff, dashboard">
@@ -26,37 +98,14 @@
         <img class="brand__logo" src="/static/brand/logo-horizontal-1200x400.png" alt="driftsniff" width="144" height="48">
       </picture>
     </a>
-    {% if shell.user_name %}
-    <details class="menu-toggle">
-      <summary aria-label="Open navigation"><svg width="20" height="20" aria-hidden="true" focusable="false"><use href="#i-menu"/></svg></summary>
-    </details>
-    <nav class="nav" aria-label="Main">
-      {% for key, label, href in nav_items %}
-      <a href="{{ href }}"{% if key == shell.nav_current %} aria-current="page"{% endif %}>{{ label }}</a>
-      {% endfor %}
-    </nav>
-    {% endif %}
-    {% if shell.user_name or shell.environment_label %}
+    {% if shell.environment_label %}
     <div class="header-tools">
-      {% if shell.environment_label %}
       <span class="env-badge">{{ shell.environment_label }}</span>
-      {% endif %}
-      {% if shell.user_name %}
-      <details class="user-menu">
-        <summary><span class="avatar" aria-hidden="true">{{ initials(shell.user_name) }}</span><span class="user-name">{{ shell.user_name }}</span><span class="visually-hidden">, account menu</span></summary>
-        <div class="user-menu__list">
-          <p class="user-menu__who">Signed in as {{ shell.user_name }}, {{ shell.user_role }}</p>
-          <form method="post" action="/logout">
-            <input type="hidden" name="csrf_token" value="{{ shell.csrf_token }}">
-            <button type="submit">Sign out</button>
-          </form>
-        </div>
-      </details>
-      {% endif %}
     </div>
     {% endif %}
   </div>
 </header>
+{% endif %}
 <main id="main" class="page">
 {% block banners %}{% endblock %}
 {% block content required %}{% endblock %}

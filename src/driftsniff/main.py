@@ -22,6 +22,7 @@ from driftsniff.web import (
     routes_history,
     routes_notifications,
     routes_push,
+    routes_replay,
     routes_sources,
     routes_static,
 )
@@ -31,6 +32,7 @@ from driftsniff.web.change_pages import ChangePages
 from driftsniff.web.csrf import BrowserHardeningMiddleware
 from driftsniff.web.dashboard import DashboardService
 from driftsniff.web.pages import handle_http_exception
+from driftsniff.web.replay import ReplayService
 from driftsniff.web.routes_ui import router as ui_router
 from driftsniff.web.source_pages import SourcePages
 
@@ -71,6 +73,7 @@ def create_app(
     sources: SourcePages | None = None,
     change_pages: ChangePages | None = None,
     history: HistoryService | None = None,
+    replay: ReplayService | None = None,
 ) -> FastAPI:
     """Build the application; settings default to the DRIFTSNIFF_ environment.
 
@@ -102,6 +105,9 @@ def create_app(
     The ``history`` service (``/history`` and ``/configuration`` and below: the snapshot history
     of a source and its current configuration, read only) reads through it; without one they
     answer 503.
+    The ``replay`` service (``GET /sources/{id}/replay``: the change items of a source counted per
+    day, resource type and severity, read only) reads through it; without one the route answers
+    503.
     Every response gets the security headers and every browser write the origin and CSRF checks
     of ``driftsniff.web.csrf``. The stylesheet, the vendored htmx and the brand copies are served
     under ``/static/`` by ``driftsniff.web.routes_static``. A browser that meets a 401, 403 or
@@ -131,6 +137,7 @@ def create_app(
     app.state.sources = sources
     app.state.change_pages = change_pages
     app.state.history = history
+    app.state.replay = replay
     app.state.openapi_cache = None
     app.add_middleware(BrowserHardeningMiddleware)
     app.add_exception_handler(StarletteHTTPException, handle_http_exception)
@@ -138,6 +145,7 @@ def create_app(
     app.include_router(routes_sources.router)
     app.include_router(routes_changes.router)
     app.include_router(routes_history.router)
+    app.include_router(routes_replay.router)
     app.include_router(routes_static.router)
     app.include_router(routes_push.router)
     app.include_router(routes_api.router)

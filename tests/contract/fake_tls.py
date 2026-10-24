@@ -22,6 +22,7 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import NameOID
 
 _ONE_DAY = datetime.timedelta(days=1)
+_MAX_BODY = 1 << 20  # the server never waits for more than this many body bytes
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,6 +94,18 @@ def make_pki(folder: Path, name: str = "test-ca") -> Pki:
     return Pki(ca_path, cert_path, key_path, cert.public_bytes(serialization.Encoding.DER))
 
 
+def _content_length(head: bytes) -> int:
+    """The Content-Length of a request head, 0 when it has none or it is not a number."""
+    for line in head.split(b"\r\n")[1:]:
+        name, _, value = line.partition(b":")
+        if name.strip().lower() == b"content-length":
+            try:
+                return max(0, min(int(value.strip()), _MAX_BODY))
+            except ValueError:
+                return 0
+    return 0
+
+
 class FakeTlsServer:
     """Answers one small JSON document per connection and records what it received."""
 
@@ -158,6 +171,17 @@ class FakeTlsServer:
                     if not chunk:
                         break
                     data += chunk
+                if b"\r\n\r\n" in data:
+                    # The client writes the head and the body separately. Reply only after the
+                    # body is read: closing with unread bytes can reset the connection before
+                    # the client has read the response.
+                    head_end = data.index(b"\r\n\r\n") + 4
+                    wanted = head_end + _content_length(data[:head_end])
+                    while len(data) < wanted:
+                        chunk = secured.recv(4096)
+                        if not chunk:
+                            break
+                        data += chunk
                 with self._lock:
                     self._received.extend(data)
                 if b"\r\n\r\n" in data:

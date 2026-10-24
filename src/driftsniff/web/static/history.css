@@ -1,0 +1,405 @@
+/* The History and Configuration pages (P10-T7, slice B). Loaded after app.css by the three
+   templates of templates/history/ only, through the head block of base.html; it uses the tokens
+   of app.css and adds no colour. No style attribute and no inline style element is used: the
+   content security policy blocks both. */
+
+/* the actions of a source head wrap under the name on a narrow screen instead of overflowing */
+.summary-head--wrap .page-header__actions {
+  flex-wrap: wrap;
+}
+
+/* app.css hides the actions of a summary head from 1024 px up, because the change detail
+   repeats them in its side column. These pages have no side column: the link to the other
+   page, the source page, Edit source and Run now stay in the head at every width. */
+@media (min-width: 1024px) {
+  .summary-head--wrap .page-header__actions {
+    display: flex;
+  }
+}
+
+/* The reading ledger (the signature of the history): a rail down the first column joins the
+   readings. A square is a baseline, a ring the current reading, a dot any other; the word
+   always stands beside the mark. The rail stops at the first and the last mark. */
+.mark {
+  display: inline-block;
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--slate);
+  box-shadow: 0 0 0 3px var(--surface);
+}
+
+.mark--reading {
+  width: 8px;
+  height: 8px;
+  margin: 2px;
+}
+
+.mark--current {
+  background: var(--surface);
+  border: 3px solid var(--ink);
+}
+
+.mark--baseline {
+  border-radius: 2px;
+  background: var(--ink);
+}
+
+.mark--baseline.mark--current {
+  background: var(--ink);
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+/* the key may drop under the heading, so the heading never wraps word by word */
+.section-head--ledger {
+  flex-wrap: wrap;
+}
+
+.ledger-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-4);
+  font-size: var(--fs-14);
+  color: var(--text-2);
+}
+
+.ledger-key li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.ledger .ledger__mark {
+  position: relative;
+  padding-left: calc(var(--sp-4) + 24px);
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.ledger .ledger__mark::before {
+  content: "";
+  position: absolute;
+  left: calc(var(--sp-4) + 5px);
+  top: 0;
+  bottom: -1px;
+  width: 2px;
+  background: var(--border);
+}
+
+.ledger tbody tr:first-child .ledger__mark::before {
+  top: 50%;
+}
+
+.ledger tbody tr:last-child .ledger__mark::before {
+  bottom: 50%;
+}
+
+.ledger tbody tr:only-child .ledger__mark::before {
+  display: none;
+}
+
+.ledger .ledger__mark .mark {
+  position: absolute;
+  z-index: 1;
+  left: var(--sp-4);
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.ledger .ledger__mark .mark--reading {
+  left: calc(var(--sp-4) + 2px);
+  margin: 0;
+}
+
+.ledger__word {
+  font-weight: 700;
+}
+
+.ledger .ledger__mark .sub {
+  white-space: normal;
+}
+
+.ledger tbody .ledger__row--baseline {
+  background: var(--paper);
+}
+
+.ledger-note {
+  margin-top: var(--sp-3);
+  font-size: var(--fs-14);
+  color: var(--text-2);
+}
+
+/* The configuration browser: the resource rail on the left, the object sheets on the right. */
+.config-browser {
+  display: grid;
+  grid-template-columns: minmax(200px, 3fr) 9fr;
+  gap: var(--sp-6);
+  align-items: start;
+}
+
+.resource-rail {
+  position: sticky;
+  top: var(--sp-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  padding: var(--sp-3);
+}
+
+.resource-rail__title {
+  font-size: var(--fs-14);
+  color: var(--text-2);
+  font-weight: 700;
+  padding: var(--sp-1) var(--sp-2) var(--sp-2);
+}
+
+.resource-rail ul {
+  display: grid;
+  gap: var(--sp-1);
+}
+
+.resource-rail a {
+  display: grid;
+  gap: 2px;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-s);
+  text-decoration: none;
+  color: var(--text);
+  transition: background var(--t-fast) var(--ease-out);
+}
+
+.resource-rail a:hover {
+  background: var(--surface-2);
+}
+
+.resource-rail a[aria-current="page"] {
+  background: var(--surface-2);
+  box-shadow: inset 3px 0 0 var(--ink);
+}
+
+.resource-rail__name {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.resource-rail__meta {
+  font-size: var(--fs-14);
+  color: var(--text-2);
+}
+
+.objects {
+  display: grid;
+  gap: var(--sp-4);
+  min-width: 0;
+}
+
+.objects__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: var(--sp-3) var(--sp-6);
+}
+
+.objects__head h2 {
+  font-size: var(--fs-20);
+  line-height: var(--lh-tight);
+}
+
+.objects__head .hint {
+  font-size: var(--fs-14);
+  color: var(--text-2);
+  margin-top: var(--sp-1);
+}
+
+.objects__search {
+  display: flex;
+  gap: var(--sp-2);
+  align-items: center;
+  flex: 1 1 320px;
+  max-width: 480px;
+}
+
+.objects__search .search {
+  flex: 1 1 auto;
+}
+
+.objects__search .input {
+  width: 100%;
+}
+
+.objects__found {
+  font-size: var(--fs-14);
+  color: var(--text-2);
+}
+
+.objects .htmx-hide-while-loading {
+  display: grid;
+  gap: var(--sp-4);
+}
+
+/* An object sheet. In an ordered resource its place stands in the gutter at 32 px, the one
+   large number of the page, because there the order is the configuration. */
+.sheets {
+  display: grid;
+  gap: var(--sp-3);
+}
+
+.sheet {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.sheets--ordered .sheet {
+  grid-template-columns: 56px minmax(0, 1fr);
+  gap: var(--sp-3);
+}
+
+.sheet__pos {
+  font-size: var(--fs-32);
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: var(--track-display);
+  text-align: right;
+  padding-top: var(--sp-4);
+  color: var(--ink);
+}
+
+.sheet__body {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  box-shadow: var(--elev-1);
+  min-width: 0;
+}
+
+.sheet__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sp-1) var(--sp-3);
+  padding: var(--sp-4) var(--sp-4) var(--sp-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.sheet__head h3 {
+  font-size: var(--fs-16);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.sheet__key {
+  font-size: var(--fs-14);
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+
+.sheet__body > .quiet {
+  padding: var(--sp-3) var(--sp-4);
+}
+
+.fields {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-14);
+}
+
+.fields th,
+.fields td {
+  text-align: left;
+  vertical-align: top;
+  padding: var(--sp-2) var(--sp-4);
+  border-bottom: 1px solid var(--surface-2);
+  overflow-wrap: anywhere;
+}
+
+.fields tr:last-child th,
+.fields tr:last-child td {
+  border-bottom: 0;
+}
+
+.fields th {
+  width: 40%;
+  font-weight: 400;
+  color: var(--text-2);
+}
+
+.field-value {
+  white-space: pre-wrap;
+}
+
+/* the note under the sheets keeps its distance from the last sheet */
+.config-browser + .hint {
+  margin-top: var(--sp-4);
+}
+
+/* a small word on a field: hidden by XO */
+.chip {
+  display: inline-block;
+  font-size: var(--fs-14);
+  padding: 0 var(--sp-2);
+  border: 1px solid var(--slate);
+  border-radius: 999px;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+@media (max-width: 1023px) {
+  .config-browser {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .resource-rail {
+    position: static;
+  }
+
+  .resource-rail ul {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  }
+}
+
+@media (max-width: 767px) {
+  .section-head--ledger .ledger-key {
+    flex-basis: 100%;
+  }
+}
+
+@media (max-width: 479px) {
+  /* the reading time on one line; the row has room because two columns are hidden here */
+  .ledger time {
+    white-space: nowrap;
+  }
+
+  .sheets--ordered .sheet {
+    grid-template-columns: 36px minmax(0, 1fr);
+    gap: var(--sp-2);
+  }
+
+  .sheet__pos {
+    font-size: var(--fs-24);
+  }
+
+  .fields tr {
+    display: block;
+    padding: var(--sp-2) 0;
+    border-bottom: 1px solid var(--surface-2);
+  }
+
+  .fields tr:last-child {
+    border-bottom: 0;
+  }
+
+  .fields th,
+  .fields td {
+    display: block;
+    width: auto;
+    padding: 0 var(--sp-3);
+    border-bottom: 0;
+  }
+
+  .objects__search {
+    max-width: none;
+  }
+}

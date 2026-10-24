@@ -49,3 +49,29 @@ def test_every_page_action_of_the_plan_has_a_route() -> None:
     }
     assert wanted <= set(PLANNED_ROUTES)
     assert wanted <= set(ROUTE_TABLE)
+
+
+# The pages of P10-T7. Slice A listed them in ROUTE_TABLE straight away, so nothing was planned
+# for them in PLANNED_ROUTES; slice B (the pages) keeps them there with the plan's role rule.
+HISTORY_PAGES = (
+    ("GET", "/history"),
+    ("GET", "/history/{source_id}"),
+    ("GET", "/configuration"),
+    ("GET", "/configuration/{source_id}"),
+)
+
+
+def test_the_history_and_configuration_pages_are_routes_a_viewer_reads(kit: Kit) -> None:
+    real = real_routes(kit.app)
+    for key in HISTORY_PAGES:
+        assert key in real, f"{key} is not a route"
+        assert ROUTE_TABLE.get(key) is ROLE_FOR_READING, f"{key} is listed with another access"
+
+
+def test_nothing_under_history_or_configuration_writes(kit: Kit) -> None:
+    writes = sorted(
+        (method, path)
+        for method, path in real_routes(kit.app)
+        if method != "GET" and path.startswith(("/history", "/configuration"))
+    )
+    assert writes == []

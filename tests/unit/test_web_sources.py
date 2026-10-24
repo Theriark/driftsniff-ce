@@ -53,6 +53,8 @@ BROWSER = {"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;
 UNIFI_CANARY = "CANARY-7e57c0de7e57c0de7e57c0de"
 XO_CANARY = "CANARY-a11ce0a11ce0a11ce0a11ce0"
 TYPED_CONFIRMATION = "CANARY-not the sentence"
+# The forms of the shell on every signed-in page: sign out, and the top bar change search.
+SHELL_FORMS = {"/logout", "/changes"}
 OBJECTS: Sequence[Mapping[str, JsonValue]] = ({"id": "a"}, {"id": "b"})
 
 
@@ -501,13 +503,13 @@ def test_only_an_admin_opens_the_forms_and_changes_a_source(world: World) -> Non
         assert world.post("/sources/new", unifi_form(name="x"), role).status_code == 403
         assert world.post(f"/sources/{source_id}/disable", {}, role).status_code == 403
     viewer = assert_page(world.get(f"/sources/{source_id}", role="viewer"))
-    actions = {attrs.get("action") for attrs in viewer.find("form")} - {"/logout"}
+    actions = {attrs.get("action") for attrs in viewer.find("form")} - SHELL_FORMS
     assert actions == set()
     operator = assert_page(world.get(f"/sources/{source_id}", role="operator"))
-    actions = {attrs.get("action") for attrs in operator.find("form")} - {"/logout"}
+    actions = {attrs.get("action") for attrs in operator.find("form")} - SHELL_FORMS
     assert actions == {f"/sources/{source_id}/run"}
     admin = assert_page(world.get(f"/sources/{source_id}"))
-    actions = {attrs.get("action") for attrs in admin.find("form")} - {"/logout"}
+    actions = {attrs.get("action") for attrs in admin.find("form")} - SHELL_FORMS
     assert actions == {
         f"/sources/{source_id}/run",
         f"/sources/{source_id}/disable",
@@ -520,8 +522,17 @@ def test_the_navigation_shows_only_pages_that_exist(world: World) -> None:
     parsed = assert_page(world.get("/sources"))
     nav = {a.get("href") for a in parsed.find("a")}
     assert "/sources" in nav and "/changes" in nav  # Changes came back with P10-T6
-    for missing in ("/history", "/configuration", "/settings"):
-        assert missing not in nav
+    assert "/history" in nav and "/configuration" in nav  # and these two with P10-T7
+    assert "/settings" not in nav
+
+
+def test_the_source_page_links_to_its_history_and_its_configuration(world: World) -> None:
+    source_id = add_unifi(world)
+    for role in ("viewer", "operator", "admin"):
+        parsed = assert_page(world.get(f"/sources/{source_id}", role=role))
+        hrefs = {a.get("href") for a in parsed.find("a")}
+        assert f"/history/{source_id}" in hrefs, role
+        assert f"/configuration/{source_id}" in hrefs, role
 
 
 # ---- the forms ------------------------------------------------------------------------------

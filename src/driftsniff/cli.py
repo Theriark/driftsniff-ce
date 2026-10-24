@@ -255,6 +255,7 @@ def _serve(settings: Settings) -> int:
     from driftsniff.web.bearer import TokenService
     from driftsniff.web.change_pages import ChangePages
     from driftsniff.web.dashboard import DashboardService
+    from driftsniff.web.replay import ReplayService
     from driftsniff.web.routes_push import PushGateway
     from driftsniff.web.source_pages import SourcePages
 
@@ -313,6 +314,7 @@ def _serve(settings: Settings) -> int:
                 ),
                 change_pages=ChangePages(database),
                 history=HistoryService(database, Fingerprinter.from_master(master_key)),
+                replay=ReplayService(database),
             ),
             host=host,
             port=settings.port,

@@ -1,0 +1,77 @@
+{# The history of one source (P10-T7): the reading ledger. view is a
+   driftsniff.history.views.SnapshotPageView, 50 readings a page, newest first. A rail down the
+   first column joins the readings; a square marks a baseline (the comparison starts there and
+   nothing is reported across it), a ring the current reading (the one the configuration page
+   shows), a dot any other. The word always stands next to the mark. #}
+{% extends "base.html" %}
+{% from "history/_head.html" import source_head with context %}
+{% from "components/states.html" import empty_state %}
+{% from "components/table.html" import pager as pager_bar %}
+{% from "components/details.html" import time_tag %}
+{% block head %}<link rel="stylesheet" href="/static/history.css">{% endblock %}
+{% block content %}
+{% call source_head("History", "/history", view.source, configuration_href, "Current configuration") %}
+<span>{{ type_label }}{% if not view.source.enabled %}, disabled{% endif %}</span>
+<span><span class="num">{{ number(view.total) }}</span> {{ "reading" if view.total == 1 else "readings" }}</span>
+<span><span class="num">{{ number(view.baseline_count) }}</span> {{ "baseline" if view.baseline_count == 1 else "baselines" }}</span>
+{% endcall %}
+
+{% if not view.rows %}
+<div class="section card">
+  {% if polled and view.source.enabled and scheduled %}
+  {{ empty_state("No reading yet", "driftsniff stores a reading each time a check of this source finds its configuration changed, and the first check always stores one. It runs within one interval of saving.", "/sources/" ~ view.source.id, "Open the source") }}
+  {% elif polled and view.source.enabled %}
+  {{ empty_state("No reading yet", "Checks are not scheduled on this installation yet, so driftsniff does not read this source until they are.", "/sources/" ~ view.source.id, "Open the source") }}
+  {% elif polled %}
+  {{ empty_state("No reading yet", "This source is disabled, so it is not read. Enable it on the source page to start its history.", "/sources/" ~ view.source.id, "Open the source") }}
+  {% else %}
+  {{ empty_state("No reading yet", "This is a push source: its history starts with the first push of its sender.", "/sources/" ~ view.source.id, "Open the source") }}
+  {% endif %}
+</div>
+{% else %}
+<section class="section" aria-labelledby="ledger-h">
+  <div class="section-head section-head--ledger">
+    <h2 id="ledger-h">Readings, newest first</h2>
+    <ul class="ledger-key" aria-label="What the marks mean">
+      <li><span class="mark mark--baseline" aria-hidden="true"></span>Baseline: the comparison starts here</li>
+      <li><span class="mark mark--current" aria-hidden="true"></span>Current: shown under Configuration</li>
+      <li><span class="mark mark--reading" aria-hidden="true"></span>Reading</li>
+    </ul>
+  </div>
+  <div class="card card--flush">
+    <div class="table-wrap table-wrap--full">
+      <table class="data-table ledger{% if shell.density == 'compact' %} data-table--compact{% endif %}">
+        <caption class="visually-hidden">Readings of {{ view.source.name }}, newest first</caption>
+        <thead>
+          <tr>
+            <th scope="col">Reading</th>
+            <th scope="col">Read</th>
+            <th scope="col" class="num">Changes found</th>
+            <th scope="col" class="col-hide-s">Controller version</th>
+            <th scope="col" class="num col-hide-m">Stored size</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in view.rows %}
+          {% set mark = ledger_mark(row) %}
+          <tr class="ledger__row{% if row.is_baseline %} ledger__row--baseline{% endif %}">
+            <th scope="row" class="ledger__mark">
+              <span class="mark{% for shape in mark.shapes %} mark--{{ shape }}{% endfor %}" aria-hidden="true"></span>
+              <span class="ledger__word">{{ mark.word }}</span>
+              {% if row.is_baseline %}<span class="sub">Nothing is compared across it</span>{% endif %}
+            </th>
+            <td>{{ time_tag(parse_stamp(row.taken_at), now) }}</td>
+            <td class="num">{% if row.change_count %}<a href="/changes?source={{ view.source.id }}">{{ number(row.change_count) }}</a>{% else %}<span class="sub">None</span>{% endif %}</td>
+            <td class="col-hide-s">{% if row.controller_version %}<span class="mono">{{ row.controller_version }}</span>{% else %}<span class="sub">Not reported</span>{% endif %}</td>
+            <td class="num col-hide-m">{{ size_text(row.manifest_bytes) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if pager %}{{ pager_bar(pager, summary) }}{% else %}<div class="table-foot"><span>{{ summary }}</span></div>{% endif %}
+  </div>
+  <p class="hint ledger-note">A reading is stored only when the configuration differs from the one before; a check that finds nothing new adds no row.</p>
+</section>
+{% endif %}
+{% endblock %}

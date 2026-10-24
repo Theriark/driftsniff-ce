@@ -1,10 +1,10 @@
 """The Jinja environment of the web interface and the helpers its templates use (P10-T2).
 
-Every page extends ``base.html`` (the app shell: header, navigation, user menu, skip link, main
-landmark, footer) and builds its content from the macros in ``templates/components/``. The
-environment escapes everything (autoescape on, never switched off by a template: the security
-suite scans for it) and refuses an undefined name, so a template mistake fails a test instead of
-rendering an empty string.
+Every page extends ``base.html`` (the app shell: the sidebar with the grouped navigation and the
+user menu, the top bar, skip link, main landmark, footer) and builds its content from the macros
+in ``templates/components/``. The environment escapes everything (autoescape on, never switched
+off by a template: the security suite scans for it) and refuses an undefined name, so a template
+mistake fails a test instead of rendering an empty string.
 
 The helpers here are pure: geometry for the drift line and the sparkline, the relative time
 text, the user initials. They take values and return values, so the template tests run them
@@ -46,13 +46,39 @@ DENSITIES: Final = ("comfortable", "compact")
 
 # The navigation of the shell: key, label, path. The key marks the current page. Only pages that
 # exist are listed (Delivery decision on P10-T5): each P10 task adds its own entry back, in this
-# order, when its page lands: Changes (/changes, P10-T6) is in; History (/history) and
-# Configuration (/configuration, P10-T7) and Settings (/settings, P10-T8) follow after Sources.
+# order, when its page lands: Changes (/changes, P10-T6), History (/history) and Configuration
+# (/configuration, P10-T7) are in; Settings (/settings, P10-T8) follows after Configuration.
 NAV_ITEMS: Final = (
     ("dashboard", "Dashboard", "/"),
     ("changes", "Changes", "/changes"),
     ("sources", "Sources", "/sources"),
+    ("history", "History", "/history"),
+    ("configuration", "Configuration", "/configuration"),
 )
+
+# The sidebar groups of the entries above (UI revision WP1, THE-1101): what happened (Monitor)
+# and what is watched (Inventory). An Admin group with Settings joins when /settings exists; a
+# group never shows a link to a page that answers 404.
+NAV_GROUPS: Final = (
+    ("monitor", "Monitor", ("dashboard", "changes")),
+    ("inventory", "Inventory", ("sources", "history", "configuration")),
+)
+
+# The icon of each entry, a symbol of _icons.html.
+NAV_ICONS: Final = {
+    "dashboard": "i-dashboard",
+    "changes": "i-changes",
+    "sources": "i-sources",
+    "history": "i-history",
+    "configuration": "i-configuration",
+}
+
+# The top bar's one action: adding a source, for admins, on every page outside the dashboard and
+# the sources section, whose own headers already lead with it. It is drawn as a secondary button,
+# so the primary button of a page (Acknowledge, Run now, an empty state's next step) stays the
+# only primary one on the screen.
+TOPBAR_ACTION_HIDDEN: Final = ("/", "/sources")
+TOPBAR_ACTION: Final = ("Add source", "/sources/new")
 
 # Drift line geometry (docs/design-direction.md section 2): a 32 unit tall strip, one position
 # every 20 units, the first at 8, so 31 checks give the 616 wide strip of the mock-ups.
@@ -80,6 +106,36 @@ class Shell:
     density: str = "comfortable"
     environment_label: str = ""
     path: str = "/"
+
+
+@dataclass(frozen=True, slots=True)
+class NavLink:
+    """One entry of a sidebar group: its label, path, icon and whether it is the current one."""
+
+    key: str
+    label: str
+    href: str
+    icon: str
+    current: bool
+
+
+@dataclass(frozen=True, slots=True)
+class NavGroup:
+    """A labelled group of the sidebar navigation."""
+
+    key: str
+    label: str
+    links: tuple[NavLink, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class Location:
+    """The trail of the top bar: the group, the section and whether the page is the section."""
+
+    group: str
+    label: str
+    href: str
+    at_section: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -219,6 +275,57 @@ def drift_width(count: int) -> int:
     return max(DRIFT_MIN_WIDTH, 2 * DRIFT_PAD + DRIFT_STEP * (count - 1))
 
 
+def nav_groups(shell: Shell) -> tuple[NavGroup, ...]:
+    """The sidebar groups with their entries, the shell's current entry marked."""
+    items = {key: (label, href) for key, label, href in NAV_ITEMS}
+    return tuple(
+        NavGroup(
+            key,
+            label,
+            tuple(
+                NavLink(
+                    item,
+                    items[item][0],
+                    items[item][1],
+                    NAV_ICONS[item],
+                    item == shell.nav_current,
+                )
+                for item in members
+            ),
+        )
+        for key, label, members in NAV_GROUPS
+    )
+
+
+def _bare_path(path: str) -> str:
+    """The path without its query string or fragment."""
+    return path.split("?", 1)[0].split("#", 1)[0]
+
+
+def nav_location(shell: Shell) -> Location | None:
+    """Where the page sits in the navigation, or None for a page outside it (an error page).
+
+    ``at_section`` is true on the section's own page (``/changes``) and false below it
+    (``/changes/12``), where the section name becomes a link back up.
+    """
+    for _group_key, group_label, members in NAV_GROUPS:
+        if shell.nav_current not in members:
+            continue
+        label, href = next((lb, hr) for k, lb, hr in NAV_ITEMS if k == shell.nav_current)
+        return Location(group_label, label, href, _bare_path(shell.path) == href)
+    return None
+
+
+def topbar_action(shell: Shell) -> tuple[str, str] | None:
+    """The action of the top bar, or None for a non-admin and where the page already offers it."""
+    if shell.user_role != "admin":
+        return None
+    path = _bare_path(shell.path)
+    if path in TOPBAR_ACTION_HIDDEN or path.startswith("/sources/"):
+        return None
+    return TOPBAR_ACTION
+
+
 def make_environment() -> Environment:
     """The configured Jinja environment: escaping on, strict names, the helpers as globals."""
     environment = Environment(
@@ -231,6 +338,9 @@ def make_environment() -> Environment:
     environment.globals.update(
         app_version=__version__,
         nav_items=NAV_ITEMS,
+        nav_groups=nav_groups,
+        nav_location=nav_location,
+        topbar_action=topbar_action,
         severities=SEVERITIES,
         severity_labels=SEVERITY_LABELS,
         status_icons=STATUS_ICONS,

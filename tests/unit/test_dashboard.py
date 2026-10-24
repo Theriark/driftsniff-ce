@@ -36,16 +36,22 @@ from driftsniff.db.tables import (
 from driftsniff.main import create_app
 from driftsniff.web.auth import SESSION_COOKIE, AuthService, make_password_hasher
 from driftsniff.web.dashboard import (
+    ACTIVITY_ROWS,
     DRIFT_MAX_CHECKS,
+    MUTES_HREF,
     RING_CIRCUMFERENCE,
     STORAGE_WARNING_BYTES,
     Dashboard,
     DashboardService,
+    SourceHealth,
     TrendDay,
+    attention_empty_text,
+    audit_target,
     chart_top,
     day_label,
     delta_text,
     delta_tone,
+    empty_ticks,
     parse_stamp,
     resource_label,
     ring_segments,
@@ -238,10 +244,19 @@ def add_event(
     return event_id
 
 
-def add_audit(store: Database, when: str, actor: str, action: str, target: str | None) -> None:
+def add_audit(
+    store: Database,
+    when: str,
+    actor: str,
+    action: str,
+    target: str | None,
+    detail: dict[str, object] | None = None,
+) -> None:
     with store.write() as connection:
         connection.execute(
-            sa.insert(audit_events).values(at=when, actor=actor, action=action, target=target)
+            sa.insert(audit_events).values(
+                at=when, actor=actor, action=action, target=target, detail=detail
+            )
         )
 
 
@@ -458,6 +473,115 @@ def test_storage_stat_and_bytes(tmp_path: Path) -> None:
     assert storage_bytes(path) == 15
 
 
+def _health(name: str, kind: str, *, enabled: bool = True) -> SourceHealth:
+    return SourceHealth(1, name, "xo", enabled, kind, "", False, None, "/sources/1")
+
+
+def test_the_empty_attention_sentence_matches_the_sources() -> None:
+    healthy = _health("a", "ok")
+    off = _health("b", "open", enabled=False)
+    every = attention_empty_text([healthy])
+    assert every.endswith("and every source is healthy.")
+    with_off = attention_empty_text([healthy, off])
+    assert "every source is healthy" not in with_off
+    assert with_off.endswith("every enabled source is healthy. 1 disabled source is not checked.")
+    two_off = attention_empty_text([healthy, off, _health("c", "open", enabled=False)])
+    assert two_off.endswith("2 disabled sources are not checked.")
+    all_off = attention_empty_text([off])
+    assert all_off.startswith("Nothing is being checked: every source is disabled.")
+    assert "healthy" not in all_off
+
+
+def test_audit_targets_read_as_names_and_never_as_raw_ids() -> None:
+    names = {3: "office-xo"}
+    assert audit_target("source:3", names) == ("office-xo", "/sources/3")
+    assert audit_target("source:9", names) == ("source 9", "/sources/9")
+    assert audit_target("event:2", names) == ("change 2", "/changes/2")
+    detail = {"resource": "unifi-firewall-policies", "path_pattern": "name"}
+    assert audit_target("mute:7", names, detail) == ("Firewall policies", MUTES_HREF)
+    assert audit_target("mute:7", names) == ("a resource type", MUTES_HREF)
+    # a plain target (a user name, a token prefix, a channel type) is already readable
+    assert audit_target("bob", names) == ("bob", "")
+    assert audit_target("", names) == ("", "")
+
+
+def test_the_empty_trend_has_one_tick_per_day_across_the_strip() -> None:
+    ticks = empty_ticks(30)
+    assert len(ticks) == 30
+    assert (ticks[0], ticks[1], ticks[-1]) == ("9.0", "29.0", "589.0")
+    assert empty_ticks(0) == ()
+
+
+def _css_rules() -> dict[str, list[str]]:
+    """The rule bodies of app.css by selector, comments removed, in source order; a selector
+    list gives its body to every selector it names."""
+    stylesheet = Path(__file__).resolve().parents[2] / "src" / "driftsniff" / "web" / "static"
+    css = (stylesheet / "app.css").read_text(encoding="utf-8")
+    css = re.sub(r"/\*.*?\*/", "", css, flags=re.DOTALL)
+    rules: dict[str, list[str]] = {}
+    for selector, body in re.findall(r"([^{}]+)\{([^{}]*)\}", css):
+        for name in (part.strip() for part in selector.split(",")):
+            rules.setdefault(name, []).append(body)
+    return rules
+
+
+def _column_tracks(rules: dict[str, list[str]], selector: str) -> list[str]:
+    """The grid-template-columns values declared for the selector, widest viewport first."""
+    tracks: list[str] = []
+    for body in rules[selector]:
+        found = re.search(r"grid-template-columns:\s*([^;]+);", body)
+        if found is not None:
+            tracks.append(found.group(1).strip())
+    return tracks
+
+
+def test_the_dashboard_grids_cannot_widen_the_page() -> None:
+    """G1: every track of the dashboard grids is minmax(0, ...), at every width, so a wide child
+    (the trend chart, a long stat value) scrolls or wraps inside its card instead of making the
+    page scroll sideways."""
+    rules = _css_rules()
+    assert _column_tracks(rules, ".grid-2") == [
+        "minmax(0, 1fr) minmax(0, 1fr)",
+        "minmax(0, 1fr)",
+    ]
+    assert _column_tracks(rules, ".grid-5-7") == [
+        "minmax(0, 5fr) minmax(0, 7fr)",
+        "minmax(0, 1fr)",
+    ]
+    assert _column_tracks(rules, ".stat-grid") == [
+        "repeat(4, minmax(0, 1fr))",
+        "repeat(2, minmax(0, 1fr))",
+        "minmax(0, 1fr)",
+    ]
+
+
+def test_the_trend_chart_fits_a_desktop_card_and_opens_on_today() -> None:
+    """At 1440 px the half-width card leaves 546 px for the chart, so a 600 px minimum hid the
+    bar of today behind a scroll. The chart may shrink to 520 px, where its 14 unit labels are
+    still 12 px, and the wrapper scrolls from the right so the newest day is in view first."""
+    rules = _css_rules()
+    chart = "".join(rules[".chart"])
+    wrap = "".join(rules[".chart-wrap"])
+    minimum = re.search(r"min-width:\s*(\d+)px", chart)
+    assert minimum is not None
+    assert 600 * 12 / 14 <= int(minimum.group(1)) <= 546
+    assert re.search(r"overflow-x:\s*auto", wrap)
+    assert re.search(r"direction:\s*rtl", wrap)
+    assert re.search(r"direction:\s*ltr", chart)
+    assert re.search(r"display:\s*block", chart)
+
+
+def test_the_breakdown_bars_have_a_visible_fill() -> None:
+    """The track and fill of "Where the open items are" are spans; inline, the fill ignored its
+    width class and height, so every bar showed as an empty track on Development."""
+    rules = _css_rules()
+    for selector in (".bars .track", ".bars .fill"):
+        body = "".join(rules[selector])
+        assert re.search(r"display:\s*block", body), selector
+    assert re.search(r"height:\s*100%", "".join(rules[".bars .fill"]))
+    assert re.search(r"width:\s*70%", "".join(rules[".bars .w-70"]))
+
+
 # ---- the queries ----------------------------------------------------------------------------
 
 
@@ -487,7 +611,8 @@ def test_the_stat_cards_count_open_changes_new_changes_and_sources(
     assert urgent.delta == "1 critical, 0 high" and urgent.delta_tone == "alert"
     assert urgent.spark == (0, 0, 0, 1, 0, 0, 1)
     assert (healthy.label, healthy.value, healthy.unit) == ("Sources healthy", "1", "of 4")
-    assert healthy.delta == "1 failing, 1 no check yet" and healthy.delta_tone == "up"
+    # the disabled source is named too, so the card's parts add up to its total of four
+    assert healthy.delta == "1 disabled, 1 failing, 1 no check yet" and healthy.delta_tone == "up"
     assert storage.label == "Storage used" and storage.unit == "MB"
 
 
@@ -551,7 +676,14 @@ def test_the_attention_list_puts_critical_events_first_then_the_sources(
 ) -> None:
     attention = service.load().attention
     kinds = [(row.badge, row.badge_value) for row in attention]
-    assert kinds == [("severity", "critical"), ("status", "failing"), ("status", "insecure")]
+    # sources in name order: the never-checked hostile one, then lab-controller, then office-xo;
+    # the disabled branch-gw has no row
+    assert kinds == [
+        ("severity", "critical"),
+        ("status", "open"),
+        ("status", "failing"),
+        ("status", "insecure"),
+    ]
     event = attention[0]
     assert event.critical and event.href == f"/changes/{seeded['critical']}"
     assert event.title == "3 changes in 2 resource types, highest severity critical"
@@ -560,10 +692,15 @@ def test_the_attention_list_puts_critical_events_first_then_the_sources(
         "Review",
         f"/changes/{seeded['critical']}#acknowledge",
     )
-    failing = attention[1]
+    never = attention[1]
+    assert never.title == f"{HOSTILE_NAME}: no check yet"
+    assert never.badge_text == "No check yet" and never.href == f"/sources/{seeded['hostile']}"
+    assert never.where == "Waiting for its first check; changes appear after it"
+    assert (never.action_label, never.action_href) == ("Open source", never.href)
+    failing = attention[2]
     assert failing.title == "lab-controller: push failed: no answer within 30 seconds"
     assert failing.where == "Push source" and failing.action_label == "Open source"
-    insecure = attention[2]
+    insecure = attention[3]
     assert insecure.title == "office-xo runs with certificate checks off"
     assert insecure.action_href == f"/sources/{seeded['xo']}#tls"
 
@@ -690,11 +827,12 @@ def test_the_activity_timeline_is_newest_first_without_bodies_or_noise(
         (entry.when for entry in activity), reverse=True
     )
     texts = [entry.text + entry.link_label + entry.tail for entry in activity]
-    assert texts[0] == "ada added a note on change " + str(seeded["critical"])
+    # an acknowledgement or a note names the source of its change
+    assert texts[0] == f"ada added a note to change {seeded['critical']} on lab-controller"
     assert texts[1] == "Check of lab-controller failed: no answer within 30 seconds"
     critical_text = "Critical change on lab-controller: 3 changes in 2 resource types, "
     assert critical_text + "highest severity critical" in texts
-    assert f"ada acknowledged change {seeded['high']}" in texts
+    assert f"ada acknowledged change {seeded['high']} on office-xo" in texts
     assert "ada added source office-xo" in texts
     assert "system ran the retention job" not in texts  # older than the 20 newest entries
     assert not any("token.rejected" in text or "rejected" in text for text in texts)
@@ -708,6 +846,104 @@ def test_the_activity_timeline_is_newest_first_without_bodies_or_noise(
     assert run.dot == "run" and run.href == "/sources/1"
     added = next(entry for entry in activity if entry.text == "ada added source ")
     assert added.href == f"/sources/{seeded['xo']}"
+
+
+def test_the_activity_names_every_target_and_lists_an_acknowledgement_once(
+    store: Database, service: DashboardService, seeded: dict[str, int]
+) -> None:
+    """G3: the audit rows of an acknowledgement and a note repeat their own entries and are left
+    out; a mute names its resource type; no entry shows a raw ``kind:id`` target."""
+    high, critical = seeded["high"], seeded["critical"]
+    add_audit(store, at(days=-2), "ada", "change.acknowledged", f"event:{high}")
+    add_audit(store, at(minutes=-20), "ada", "change.note_added", f"event:{critical}")
+    mute = {"resource": "unifi-firewall-policies", "path_pattern": "name", "item_id": 1}
+    add_audit(store, at(minutes=-15), "ada", "mute.added", "mute:7", mute)
+    add_audit(store, at(minutes=-14), "ada", "mute.removed", "mute:7", mute)
+    activity = service.load().activity
+    texts = [entry.text + entry.link_label + entry.tail for entry in activity]
+    assert not any(re.search(r"\b(event|mute|source):\d", text) for text in texts), texts
+    assert sum("acknowledged" in text for text in texts) == 1
+    assert texts.count(f"ada acknowledged change {high} on office-xo") == 1
+    assert sum("note" in text for text in texts) == 1
+    assert texts.count(f"ada added a note to change {critical} on lab-controller") == 1
+    assert "ada muted a path of Firewall policies" in texts
+    assert "ada removed a mute of Firewall policies" in texts
+    muted = next(entry for entry in activity if entry.text == "ada muted a path of ")
+    assert muted.href == MUTES_HREF
+    assert "name" not in muted.tail and muted.tail == ""
+
+
+def test_the_activity_shows_eight_rows_and_keeps_the_rest_for_the_disclosure(
+    service: DashboardService, seeded: dict[str, int]
+) -> None:
+    data = service.load()
+    assert len(data.activity) == 20
+    assert ACTIVITY_ROWS == 8
+    assert data.activity_rows == data.activity[:8]
+    assert data.activity_earlier == data.activity[8:] and len(data.activity_earlier) == 12
+
+
+def test_a_never_checked_push_source_asks_for_its_first_push(
+    store: Database, service: DashboardService
+) -> None:
+    attention = service.load().attention
+    assert [(row.badge_value, row.title) for row in attention] == [
+        ("open", "lab-controller: nothing pushed yet")
+    ]
+    assert attention[0].where == "Waiting for its sender's first push; changes appear after it"
+
+
+def test_an_empty_attention_list_says_why_without_contradicting_the_card(
+    store: Database, service: DashboardService
+) -> None:
+    """G2: one healthy source and one disabled one: nothing waits, but the card counts the
+    disabled source, so the list never says that every source is healthy."""
+    with store.write() as connection:
+        connection.execute(
+            sa.update(sources).where(sources.c.id == 1).values(last_checked_at=at(minutes=-5))
+        )
+    add_run(store, 1, at(minutes=-5))
+    add_source(store, "branch-gw", "unifi", enabled=False, last_checked_at=at(days=-9))
+    data = service.load()
+    assert data.attention == ()
+    healthy = data.stats[2]
+    assert (healthy.value, healthy.unit, healthy.delta) == ("1", "of 2", "1 disabled")
+    assert healthy.delta_tone == ""
+    assert "every source is healthy" not in data.attention_empty
+    assert data.attention_empty.endswith("1 disabled source is not checked.")
+
+
+def test_every_source_healthy_is_said_only_when_the_card_agrees(
+    store: Database, service: DashboardService
+) -> None:
+    with store.write() as connection:
+        connection.execute(
+            sa.update(sources).where(sources.c.id == 1).values(last_checked_at=at(minutes=-5))
+        )
+    add_run(store, 1, at(minutes=-5))
+    data = service.load()
+    assert data.attention == () and data.stats[2].delta == "every source is healthy"
+    assert data.attention_empty.endswith("and every source is healthy.")
+
+
+def test_more_open_urgent_changes_than_the_list_shows_are_counted(
+    store: Database, service: DashboardService
+) -> None:
+    for minutes in range(10):
+        add_event(store, 1, at(minutes=-minutes - 1), "high", [("vms", "high")])
+    add_event(store, 1, at(minutes=-30), "medium", [("vms", "medium")])
+    data = service.load()
+    assert sum(1 for row in data.attention if row.badge == "severity") == 8
+    assert data.attention_more == 2
+
+
+def test_no_change_item_in_thirty_days_gives_the_empty_trend(
+    store: Database, service: DashboardService
+) -> None:
+    trend = service.load().trend
+    assert trend is not None
+    assert trend.total == 0 and trend.bars == ()
+    assert len(trend.ticks) == 30 and trend.description == "No change items in the last 30 days."
 
 
 # ---- the page -------------------------------------------------------------------------------
@@ -770,6 +1006,70 @@ def test_the_dashboard_page_renders_every_section_with_text_alternatives(
     for canary in CANARIES:
         assert canary not in page, canary
     assert "CANARY" not in page
+
+
+def test_the_dashboard_page_shows_eight_activity_rows_and_a_disclosure_of_the_rest(
+    client: TestClient, auth: AuthService, seeded: dict[str, int]
+) -> None:
+    response = client.get("/", headers=sign_in(client, auth))
+    parsed = assert_page(response)
+    page = response.text
+    text = "".join(parsed.text)
+    timelines = re.findall(r'<ol class="timeline">(.*?)</ol>', page, flags=re.DOTALL)
+    assert [timeline.count("<li>") for timeline in timelines] == [8, 12]
+    assert {"class": "disclosure activity-earlier"} in parsed.find("details")
+    assert "Show 12 earlier entries" in text
+    assert "of the last 20 entries" not in text
+    # the readable labels link to their pages, and no raw target is printed
+    assert f'<a href="/changes/{seeded["critical"]}">change {seeded["critical"]}</a>' in page
+    assert not re.search(r"\b(event|mute|source):\d", text)
+    # G2: the never-checked source has its row and the card counts the disabled one
+    assert f"{HOSTILE_NAME}: no check yet" in text
+    assert "1 disabled, 1 failing, 1 no check yet" in text
+
+
+def test_the_page_links_the_urgent_changes_the_list_has_no_room_for(
+    store: Database, client: TestClient, auth: AuthService
+) -> None:
+    for minutes in range(9):
+        add_event(store, 1, at(minutes=-minutes - 1), "critical", [("vms", "critical")])
+    response = client.get("/", headers=sign_in(client, auth))
+    parsed = assert_page(response)
+    more = '<a href="/changes?status=open&amp;severity=critical&amp;severity=high">'
+    assert more + "1 more open critical and high change</a>" in response.text
+    assert len([li for li in parsed.find("li") if li.get("class") == "is-critical"]) == 8
+
+
+def test_the_page_says_why_the_attention_list_is_empty(
+    store: Database, client: TestClient, auth: AuthService
+) -> None:
+    with store.write() as connection:
+        connection.execute(
+            sa.update(sources).where(sources.c.id == 1).values(last_checked_at=at(minutes=-5))
+        )
+    add_run(store, 1, at(minutes=-5))
+    add_source(store, "branch-gw", "unifi", enabled=False, last_checked_at=at(days=-9))
+    response = client.get("/", headers=sign_in(client, auth))
+    text = "".join(assert_page(response).text)
+    assert "1 disabled source is not checked." in text
+    assert "every source is healthy" not in text
+
+
+def test_the_empty_trend_is_a_designed_state_not_a_bare_grid(
+    store: Database, client: TestClient, auth: AuthService
+) -> None:
+    response = client.get("/", headers=sign_in(client, auth))
+    parsed = assert_page(response)
+    page = response.text
+    text = "".join(parsed.text)
+    assert '<svg class="chart"' not in page and "Show the numbers as a table" not in text
+    assert {"class": "trend-empty"} in parsed.find("div")
+    ticks = [rect for rect in parsed.find("rect") if rect.get("class") == "trend-empty__tick"]
+    assert len(ticks) == 30
+    labels = [(svg.get("aria-labelledby"), svg.get("role")) for svg in parsed.find("svg")]
+    assert ("trend-t trend-d", "img") in labels
+    assert "No change items in the last 30 days" in text
+    assert "this chart shows one bar per day, stacked by severity" in text
 
 
 def test_the_dashboard_page_as_a_plain_client_is_still_the_page(

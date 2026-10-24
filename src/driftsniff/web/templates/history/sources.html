@@ -1,0 +1,48 @@
+{# The picker of the History and the Configuration pages (P10-T7). rows are
+   driftsniff.history.views.SourceHistoryRow: every source by name with its readings, its
+   baselines and the time of the newest reading. mode is history or configuration; the name of
+   a source opens that page, and the other page is one link away. Nothing here writes. #}
+{% extends "base.html" %}
+{% from "page_header.html" import page_header %}
+{% from "components/states.html" import empty_state %}
+{% from "components/table.html" import data_table %}
+{% from "components/details.html" import time_tag %}
+{% block head %}<link rel="stylesheet" href="/static/history.css">{% endblock %}
+{% block content %}
+{{ page_header(title, purpose) }}
+{% if not rows %}
+<div class="card">
+  {% if can_admin %}
+  {{ empty_state("No sources yet", "Add a controller or a push sender first. Its readings appear here after the first check or push.", "/sources/new", "Add a source") }}
+  {% else %}
+  {{ empty_state("No sources yet", "An admin adds the controllers driftsniff reads. Their readings appear here after the first check or push.", "/sources", "See the sources") }}
+  {% endif %}
+</div>
+{% else %}
+<section class="card card--flush" aria-labelledby="picker-cap">
+  {% call data_table("Sources", [
+      {"label": "Source", "class": "primary-cell"},
+      {"label": "Readings", "class": "num"},
+      {"label": "Baselines", "class": "num col-hide-s"},
+      {"label": "Newest reading", "class": "col-hide-s"},
+      {"label": "See also", "class": "col-hide-s"}
+    ], density=shell.density, caption_id="picker-cap") %}
+  {% for row in rows %}
+  <tr>
+    <th scope="row" class="primary-cell">
+      <a href="/{{ mode }}/{{ row.id }}">{{ row.name }}</a>
+      <span class="sub">{{ type_label(row.type) }}{% if not row.enabled %}, disabled{% endif %}</span>
+    </th>
+    <td class="num">{{ number(row.snapshot_count) }}</td>
+    <td class="num col-hide-s">{{ number(row.baseline_count) }}</td>
+    <td class="col-hide-s">{% if row.latest_taken_at %}{{ time_tag(parse_stamp(row.latest_taken_at), now) }}{% else %}<span class="sub">No reading yet</span>{% endif %}</td>
+    <td class="col-hide-s">
+      {% if mode == "history" %}<a href="/configuration/{{ row.id }}">Current configuration</a>{% else %}<a href="/history/{{ row.id }}">Reading history</a>{% endif %}
+    </td>
+  </tr>
+  {% endfor %}
+  {% endcall %}
+  <div class="table-foot"><span>{{ count_words(rows | length, "source") }}</span></div>
+</section>
+{% endif %}
+{% endblock %}
