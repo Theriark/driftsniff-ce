@@ -1316,7 +1316,10 @@ textarea.input {
   font-size: var(--fs-14);
 }
 
+/* Both are spans: without display: block the inline fill ignores its width and height, so
+   every bar rendered as an empty track. */
 .bars .track {
+  display: block;
   height: 10px;
   background: var(--surface-2);
   border-radius: 999px;
@@ -1324,6 +1327,7 @@ textarea.input {
 }
 
 .bars .fill {
+  display: block;
   height: 100%;
   background: var(--slate);
   border-radius: 999px;
