@@ -80,6 +80,11 @@ class DevFixtureError(Exception):
     """The fixture cannot run or cannot finish; messages never hold a secret."""
 
 
+def _canary(name: str) -> str:
+    """A synthetic secret value, built here so that no secret-shaped literal is committed."""
+    return f"CANARY-fixture-{name}"
+
+
 @dataclass(frozen=True, slots=True)
 class FixtureReport:
     """What a run did.
@@ -179,7 +184,7 @@ def _baseline() -> Document:
             {
                 "id": "fx-radius-1",
                 "name": "FIXTURE RADIUS",
-                "sharedSecret": "CANARY-fixture-radius-0001",
+                "sharedSecret": _canary("radius-shared-0001"),
             }
         ],
         "unifi-devices": [
@@ -211,9 +216,9 @@ def _object(document: Document, resource: str, object_id: str) -> dict[str, Any]
 def _secrets_and_exposure(document: Document) -> None:
     """Critical and high: two secrets replaced, client isolation off, a zone gains a network."""
     wifi = _object(document, "unifi-wifi-broadcasts", "fx-wifi-corp")
-    wifi["securityConfiguration"]["passphrase"] = "CANARY-fixture-wifi-corp-0002"
+    wifi["securityConfiguration"]["passphrase"] = _canary("wifi-corp-0002")
     vpn = _object(document, "unifi-vpn-servers", "fx-vpn-1")
-    vpn["preSharedKey"] = "CANARY-fixture-vpn-psk-0002"
+    vpn["preSharedKey"] = _canary("vpn-psk-0002")
     guest = _object(document, "unifi-wifi-broadcasts", "fx-wifi-guest")
     guest["clientIsolationEnabled"] = False
     zone = _object(document, "unifi-firewall-zones", "fx-zone-guest")
@@ -251,7 +256,7 @@ def _lifecycle(document: Document) -> None:
 
 @dataclass(frozen=True, slots=True)
 class Step:
-    """One pushed document: ``edit`` changes the previous document; ``age`` is how long ago it was."""
+    """One pushed document: ``edit`` changes the previous one; ``age`` is how long ago it was."""
 
     label: str
     age: timedelta
