@@ -17,9 +17,10 @@ Every value below is an example or a public name. No real credential belongs in 
 | `DRIFTSNIFF_PORT` | `8080` | Fixed by the image. |
 | `DRIFTSNIFF_DATA_DIR` | `/data` | Fixed by the image. |
 | `DRIFTSNIFF_KEY_FILE` | `/keys/master.key` | Created on the key volume at first start. |
+| `DRIFTSNIFF_ENVIRONMENT_LABEL` | `Development` | Text of the environment badge in the page header, so a Development page is never mistaken for another installation. 1 to 24 ASCII letters, digits, spaces or hyphens; the application refuses to start on any other value. Unset shows no badge. Set only on Development. |
 | Memory limit | 512 MB | Matches `mem_limit: 512m` in `compose.yaml` and the container smoke test. |
 
-The six `DRIFTSNIFF_` names above are exactly the first six in `deploy/dokploy.json`; that file is the source and this table must follow it. None of these is a secret: the master key is generated on the key volume and source credentials are entered in the web page. The manifest adds three generated test-account passwords (`DRIFTSNIFF_DEV_ADMIN_PASSWORD`, `DRIFTSNIFF_DEV_OPERATOR_PASSWORD`, `DRIFTSNIFF_DEV_VIEWER_PASSWORD`, kind `token24`, no value in the repository) and the `browserAccounts` list that names the three accounts; see [dev-test-accounts.md](dev-test-accounts.md). They are used only when the base URL is a `ce-dev-` address.
+The seven `DRIFTSNIFF_` names above are exactly the first seven in `deploy/dokploy.json`; that file is the source and this table must follow it. None of these is a secret: the master key is generated on the key volume and source credentials are entered in the web page. The manifest adds three generated test-account passwords (`DRIFTSNIFF_DEV_ADMIN_PASSWORD`, `DRIFTSNIFF_DEV_OPERATOR_PASSWORD`, `DRIFTSNIFF_DEV_VIEWER_PASSWORD`, kind `token24`, no value in the repository) and the `browserAccounts` list that names the three accounts; see [dev-test-accounts.md](dev-test-accounts.md). They are used only when the base URL is a `ce-dev-` address.
 
 The container runs as a non-root user with a read-only root file system; only `/tmp` (memory), `/data` and `/keys` are writable.
 
@@ -34,6 +35,7 @@ The Development runtime was prepared once with the repository's existing `dokplo
 | Item | State |
 |---|---|
 | Prepared settings | `DRIFTSNIFF_BASE_URL`, `DRIFTSNIFF_DATA_DIR`, `DRIFTSNIFF_KEY_FILE`, `DRIFTSNIFF_LOG_LEVEL`, `DRIFTSNIFF_PORT`, `DRIFTSNIFF_TRUSTED_PROXY` |
+| Not yet applied | `DRIFTSNIFF_ENVIRONMENT_LABEL`. It was added to the manifest afterwards, so the existing Development application does not have it until `dokploy_prepare` runs again (it only adds the missing name) and the application is redeployed. Until then the header shows no badge. |
 | Database resource | None. The product declares no database; state lives on the data volume. |
 | Switch | The repository variable `DEPLOY_DEVELOPMENT_ENABLED` is set to `true`. While it is unset or not `true`, the `deploy-development` job is skipped. |
 | First image | None is published yet. A push to `development` made while the switch was unset skipped the job, so the first image and the first deployment happen on the next merge into `development`. |
