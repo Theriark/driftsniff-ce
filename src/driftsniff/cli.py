@@ -242,11 +242,13 @@ def _serve(settings: Settings) -> int:
     import uvicorn
 
     from driftsniff.enrich.api import ChangeService
+    from driftsniff.history.service import HistoryService
     from driftsniff.main import create_app
     from driftsniff.notify.deliveries import NotificationService
     from driftsniff.plugins.defaults import make_defaults
     from driftsniff.plugins.registry import PluginError, load_plugins
     from driftsniff.rules.loader import RuleLoadError
+    from driftsniff.secrets.fingerprint import Fingerprinter
     from driftsniff.secrets.scanner import OverrideFileError
     from driftsniff.sources.wiring import build_collection
     from driftsniff.web.auth import AuthService
@@ -310,6 +312,7 @@ def _serve(settings: Settings) -> int:
                     database, collection.service, probe_factory=collection.factory.for_target
                 ),
                 change_pages=ChangePages(database),
+                history=HistoryService(database, Fingerprinter.from_master(master_key)),
             ),
             host=host,
             port=settings.port,

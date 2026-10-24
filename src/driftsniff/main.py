@@ -10,6 +10,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from driftsniff import __version__
 from driftsniff.config import Settings
 from driftsniff.enrich import api as enrich_api
+from driftsniff.history.service import HistoryService
 from driftsniff.notify.deliveries import NotificationService
 from driftsniff.plugins.registry import PluginRegistry
 from driftsniff.secrets.keys import MasterKey
@@ -18,6 +19,7 @@ from driftsniff.sources.scheduler import Scheduler
 from driftsniff.web import (
     routes_api,
     routes_changes,
+    routes_history,
     routes_notifications,
     routes_push,
     routes_sources,
@@ -68,6 +70,7 @@ def create_app(
     dashboard: DashboardService | None = None,
     sources: SourcePages | None = None,
     change_pages: ChangePages | None = None,
+    history: HistoryService | None = None,
 ) -> FastAPI:
     """Build the application; settings default to the DRIFTSNIFF_ environment.
 
@@ -95,6 +98,9 @@ def create_app(
     one; test connection uses the probe factory of ``sources`` the same way.
     The ``change_pages`` service (``/changes`` and below, and ``/mutes``: the change list, the
     change detail, acknowledge, notes and mutes) reads and acts through it; without one they
+    answer 503.
+    The ``history`` service (``/history`` and ``/configuration`` and below: the snapshot history
+    of a source and its current configuration, read only) reads through it; without one they
     answer 503.
     Every response gets the security headers and every browser write the origin and CSRF checks
     of ``driftsniff.web.csrf``. The stylesheet, the vendored htmx and the brand copies are served
@@ -124,12 +130,14 @@ def create_app(
     app.state.dashboard = dashboard
     app.state.sources = sources
     app.state.change_pages = change_pages
+    app.state.history = history
     app.state.openapi_cache = None
     app.add_middleware(BrowserHardeningMiddleware)
     app.add_exception_handler(StarletteHTTPException, handle_http_exception)
     app.include_router(ui_router)
     app.include_router(routes_sources.router)
     app.include_router(routes_changes.router)
+    app.include_router(routes_history.router)
     app.include_router(routes_static.router)
     app.include_router(routes_push.router)
     app.include_router(routes_api.router)
