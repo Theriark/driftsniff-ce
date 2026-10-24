@@ -539,15 +539,17 @@ code,
   color: var(--text-2);
 }
 
+/* minmax(0, ...) lets a track shrink below its content's minimum width: a wide child (the
+   600 px trend chart) then scrolls inside its own wrapper instead of widening the page */
 .grid-2 {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: var(--sp-6);
 }
 
 .grid-5-7 {
   display: grid;
-  grid-template-columns: 5fr 7fr;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
   gap: var(--sp-6);
   align-items: start;
 }
@@ -555,7 +557,7 @@ code,
 @media (max-width: 1023px) {
   .grid-2,
   .grid-5-7 {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -1349,7 +1351,7 @@ textarea.input {
 
 .timeline li {
   display: grid;
-  grid-template-columns: 20px 1fr auto;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
   gap: var(--sp-3);
   padding: var(--sp-2) 0;
   font-size: var(--fs-14);
@@ -2178,6 +2180,66 @@ textarea.input {
   color: var(--text-2);
   font-size: var(--fs-14);
   max-width: 44ch;
+}
+
+/* the open critical and high changes the attention list has no room for */
+.attention-more {
+  margin-top: var(--sp-3);
+  font-size: var(--fs-14);
+}
+
+.attention-more a {
+  font-weight: 700;
+}
+
+/* a long summary or name in a timeline entry wraps instead of widening the card */
+.timeline .what {
+  overflow-wrap: anywhere;
+}
+
+/* the older timeline entries sit behind one disclosure under the newest rows */
+.activity-earlier {
+  margin-top: var(--sp-2);
+  border-top: 1px solid var(--border);
+  padding-top: var(--sp-2);
+}
+
+.activity-earlier > .timeline {
+  margin-top: var(--sp-2);
+}
+
+/* the trend card before any change: one faint tick per day of the window, the two ends named,
+   then what the chart will show; it is fluid, so it never needs to scroll */
+.trend-empty svg {
+  display: block;
+  width: 100%;
+  height: 24px;
+}
+
+.trend-empty__base {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.trend-empty__tick {
+  fill: var(--border);
+}
+
+.trend-empty__axis {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--fs-14);
+  color: var(--text-2);
+  margin-top: var(--sp-1);
+}
+
+.trend-empty__title {
+  font-weight: 700;
+  margin-top: var(--sp-6);
+}
+
+.trend-empty .quiet {
+  margin-top: var(--sp-1);
 }
 
 /* the legend under the drift lines uses the severity badges as its swatches */
