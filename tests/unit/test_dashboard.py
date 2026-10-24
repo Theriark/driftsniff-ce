@@ -723,7 +723,7 @@ def test_the_empty_dashboard_shows_the_designed_empty_state(
     text = "".join(parsed.text)
     assert "Nothing to watch yet" in text
     assert {"class": "btn btn--primary", "href": "/sources/new"} in parsed.find("a")
-    assert "metric-grid" not in client.get("/", headers=headers).text
+    assert "stat-grid" not in client.get("/", headers=headers).text
 
 
 def test_the_dashboard_page_renders_every_section_with_text_alternatives(

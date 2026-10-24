@@ -27,7 +27,7 @@
 {% if shell.user_role == "admin" %}<a class="btn btn--primary" href="/sources/new">Add source</a>{% endif %}
 {% endcall %}
 
-<div class="metric-grid">
+<div class="stat-grid">
   {% for stat in dashboard.stats %}
   {{ metric_card(stat.label, stat.value, stat.href, unit=stat.unit, delta=stat.delta, tone=stat.delta_tone, trend=stat.trend, spark=stat.spark) }}
   {% endfor %}
