@@ -4,7 +4,7 @@ The queries and the actions are ``driftsniff.changes`` (slice A). This module ad
 pages need on top of them and what the plan says is our own code (nothing ported): the readable
 field labels, the one-line summary of an item, the words of an order move, the two parts of a
 before and after pair with the differing part marked, the filter options, the links of the
-filter bar and the pager, and the sentence that names the filters in force.
+filter bar and the pager, and the removable chips of the filters in force (UI revision WP2).
 
 Everything here is pure except :class:`ChangePages`, which holds the two services and reads the
 filter options (the sources and the resource types that have changes) on one read connection.
@@ -15,6 +15,7 @@ import json
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from functools import partial
 from typing import Any, Final
 from urllib.parse import urlencode
 
@@ -342,33 +343,79 @@ def page_summary(page: ChangePageView) -> str:
     return f"Showing {first:,} to {last:,} of {page.total:,}"
 
 
-def filters_text(filters: ChangeFilters, source_names: Mapping[int, str]) -> str:
-    """The filters in force as one sentence, so a dashboard link is readable at a glance."""
-    parts: list[str] = []
-    if filters.status:
-        parts.append(STATUS_LABELS[filters.status].lower())
-    if filters.severities:
-        choice = severity_choice(filters)
-        if choice in SEVERITY_FLOOR_LABELS:
-            parts.append(SEVERITY_FLOOR_LABELS[choice].lower())
-        else:
-            ordered = [name for name in reversed(SEVERITIES) if name in filters.severities]
-            parts.append(" or ".join(SEVERITY_LABELS[name].lower() for name in ordered))
-    if filters.source_id is not None:
-        parts.append(f"source {source_names.get(filters.source_id, filters.source_id)}")
-    if filters.resource:
-        parts.append(resource_label(filters.resource).lower())
+@dataclass(frozen=True, slots=True)
+class FilterChip:
+    """One filter in force under the filter bar: its name, its value and the link without it.
+
+    ``name`` is empty for a chip whose value says it all (muted included).
+    """
+
+    name: str
+    value: str
+    remove_href: str
+
+
+def severity_words(filters: ChangeFilters) -> str:
+    """The severity filter as the select names it, or the set it keeps (``High or low``)."""
+    choice = severity_choice(filters)
+    if choice in SEVERITY_FLOOR_LABELS:
+        return SEVERITY_FLOOR_LABELS[choice]
+    ordered = [name for name in reversed(SEVERITIES) if name in filters.severities]
+    if len(ordered) == 1:
+        return f"{SEVERITY_LABELS[ordered[0]]} only"
+    words = " or ".join(SEVERITY_LABELS[name].lower() for name in ordered)
+    return words[:1].upper() + words[1:]
+
+
+def date_words(filters: ChangeFilters) -> str:
+    """The detected range in UTC days, both ends included: ``2026-10-01 to 2026-10-02``."""
     if filters.created_from and filters.created_to:
-        parts.append(f"from {filters.created_from} to {filters.created_to}")
-    elif filters.created_from:
-        parts.append(f"since {filters.created_from}")
-    elif filters.created_to:
-        parts.append(f"up to {filters.created_to}")
+        return f"{filters.created_from} to {filters.created_to}, UTC"
+    if filters.created_from:
+        return f"since {filters.created_from}, UTC"
+    if filters.created_to:
+        return f"up to {filters.created_to}, UTC"
+    return ""
+
+
+def filter_chips(filters: ChangeFilters, source_names: Mapping[int, str]) -> tuple[FilterChip, ...]:
+    """The filters in force, each with the link that drops it and goes back to page 1.
+
+    The order follows the filter bar: search, source, severity, status, resource, dates; the
+    two ends of the date range are one chip. The sort is not a filter and is kept by every link.
+    """
+    without = partial(filter_query, filters, page=None)
+    chips: list[FilterChip] = []
     if filters.search:
-        parts.append(f"matching {filters.search!r}")
+        chips.append(FilterChip("Search", filters.search, without(q=None)))
+    if filters.source_id is not None:
+        name = source_names.get(filters.source_id, str(filters.source_id))
+        chips.append(FilterChip("Source", name, without(source=None)))
+    if filters.severities:
+        chips.append(FilterChip("Severity", severity_words(filters), without(severity=None)))
+    if filters.status:
+        chips.append(FilterChip("Status", STATUS_LABELS[filters.status], without(status=None)))
+    if filters.resource:
+        label = resource_label(filters.resource)
+        chips.append(FilterChip("Resource", label, without(resource=None)))
+    if filters.created_from or filters.created_to:
+        dropped = without(**{"from": None, "to": None})
+        chips.append(FilterChip("Detected", date_words(filters), dropped))
     if filters.include_muted:
-        parts.append("muted included")
-    return ", ".join(parts)
+        chips.append(FilterChip("", "Muted included", without(muted=None)))
+    return tuple(chips)
+
+
+def panel_filter_count(filters: ChangeFilters) -> int:
+    """How many filters of the Filters panel are in force (the search has its own box)."""
+    in_force = (
+        filters.source_id is not None,
+        bool(filters.severities),
+        bool(filters.status),
+        bool(filters.resource),
+        bool(filters.created_from or filters.created_to),
+    )
+    return sum(in_force)
 
 
 # ---- the services behind the pages --------------------------------------------------------

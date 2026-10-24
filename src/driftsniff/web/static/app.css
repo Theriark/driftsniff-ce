@@ -2920,41 +2920,293 @@ textarea.input {
   gap: var(--sp-1);
 }
 
-/* the filter bar of the change list as an aligned grid: labels above, fields in columns */
-.filter-bar--grid {
+/* ---- data views (UI revision WP2, THE-1128) ------------------------------------------- */
+
+/* The change list's filter bar: the search, the Filters disclosure and Apply share one row.
+   The form is a size container. Narrow, the Filters toggle opens the fields as a panel under
+   the row. Where the bar has room for every field (1080 px), the panel is always shown inside
+   the row and the toggle is hidden; the search takes the row above, and shares the row when
+   there is room for it too (1270 px). Without ::details-content the toggle stays, so the
+   fields are always one click away. */
+.filter-bar--changes {
+  container: filters / inline-size;
+  position: relative;
+  align-items: flex-end;
+}
+
+.filter-bar--changes .search {
+  flex: 1 1 120px;
+  min-width: 0;
+}
+
+.filter-bar--changes .search svg {
+  top: 10px;
+}
+
+.filter-more {
+  flex: none;
+}
+
+.filter-more__toggle {
+  list-style: none;
+  height: 36px;
+  font-weight: 700;
+}
+
+.filter-more__toggle::-webkit-details-marker {
+  display: none;
+}
+
+.filter-more__chevron {
+  flex: none;
+  transform: rotate(90deg);
+  transition: transform var(--t-fast) var(--ease-out);
+}
+
+.filter-more[open] > .filter-more__toggle {
+  background: var(--surface-2);
+}
+
+.filter-more[open] .filter-more__chevron {
+  transform: rotate(-90deg);
+}
+
+.filter-more__count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: var(--fs-14);
+  line-height: 1;
+}
+
+.filter-more__body {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + var(--sp-2));
+  left: 0;
+  right: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
-  gap: var(--sp-3);
-  align-items: end;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: var(--sp-3) var(--sp-4);
+  padding: var(--sp-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  box-shadow: var(--elev-2);
 }
 
-.filter-bar--grid .search {
-  grid-column: span 2;
-}
-
-.filter-bar--grid .field {
+.filter-more__body .field {
   flex-direction: column;
   align-items: stretch;
   gap: var(--sp-1);
 }
 
-.filter-bar--grid .field .input {
+.filter-more__body .field .input {
   width: 100%;
 }
 
-.filter-bar__actions {
-  display: flex;
-  gap: var(--sp-2);
+.filter-more__body .date-range {
+  grid-column: 1 / -1;
 }
 
-@media (max-width: 479px) {
-  .filter-bar--grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+/* a from and to pair under one legend; the legend says the days are UTC */
+.date-range {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.date-range legend {
+  padding: 0;
+  margin-bottom: var(--sp-1);
+  font-size: var(--fs-14);
+  font-weight: 700;
+}
+
+.date-range__help {
+  font-weight: 400;
+  color: var(--text-2);
+}
+
+.date-range__inputs {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  max-width: 360px;
+}
+
+.date-range__inputs .input {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.date-range__to {
+  font-size: var(--fs-14);
+  color: var(--text-2);
+}
+
+@supports selector(::details-content) {
+  @container filters (min-width: 1080px) {
+    .filter-bar--changes .search {
+      flex-basis: 100%;
+    }
+
+    .filter-more {
+      flex: 0 1 auto;
+    }
+
+    .filter-more__toggle {
+      display: none;
+    }
+
+    .filter-more::details-content {
+      display: block;
+      content-visibility: visible;
+    }
+
+    .filter-more__body {
+      position: static;
+      display: flex;
+      align-items: flex-end;
+      gap: var(--sp-2);
+      padding: 0;
+      background: none;
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+    }
+
+    .filter-more__body .field .input {
+      width: auto;
+      max-width: 168px;
+    }
+
+    .date-range__inputs .input {
+      flex: none;
+      width: 136px;
+    }
   }
 
-  .filter-bar--grid .search {
-    grid-column: 1 / -1;
+  @container filters (min-width: 1270px) {
+    .filter-bar--changes .search {
+      flex-basis: 200px;
+    }
   }
+}
+
+/* the filters in force under the bar, each chip the link that drops its filter. The label and
+   Clear all keep one line each; the list takes the room between them and wraps inside it, so
+   a long set of chips never pushes the label onto a row of its own */
+.chips {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2) var(--sp-3);
+  margin: calc(-1 * var(--sp-1)) 0 var(--sp-4);
+}
+
+.chips__label,
+.chips__clear {
+  flex: none;
+  font-size: var(--fs-14);
+  line-height: 32px;
+  color: var(--text-2);
+}
+
+.chips__list {
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  min-width: 0;
+  margin: 0;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  min-height: 32px;
+  padding: 0 10px 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--fs-14);
+  text-decoration: none;
+  transition: border-color var(--t-fast) var(--ease-out), background var(--t-fast) var(--ease-out);
+}
+
+.chip:hover {
+  border-color: var(--ink);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.chip__name {
+  color: var(--text-2);
+}
+
+.chip__value {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.chip svg {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  color: var(--text-2);
+}
+
+.chip:hover svg {
+  color: var(--text);
+}
+
+.chips__clear:hover {
+  color: var(--text);
+}
+
+/* on a phone the label and Clear all share the first line and the chips use the full width */
+@media (max-width: 479px) {
+  .chips {
+    flex-wrap: wrap;
+  }
+
+  .chips__clear {
+    margin-left: auto;
+  }
+
+  .chips__list {
+    order: 1;
+    flex-basis: 100%;
+  }
+}
+
+/* a name in a table reads as a link before it is hovered (G6): a quiet slate underline that
+   takes the text colour on hover; the rule of the primary cell above drew none */
+.data-table tbody a:not(.btn) {
+  text-decoration-line: underline;
+  text-decoration-color: var(--slate);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.25em;
+}
+
+.data-table tbody a:not(.btn):hover {
+  text-decoration-color: currentColor;
+}
+
+/* a page with its own search leaves the top bar without one: the badge or the action then
+   keeps to the right, where the search would have pushed it */
+.crumbs + .env-badge,
+.crumbs + .topbar__action {
+  margin-left: auto;
 }
 
 /* on a phone the change list drops its Status column and shows the status under the summary,

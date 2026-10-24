@@ -26,6 +26,39 @@
 </div>
 {%- endmacro %}
 
+{# Two dates of one range in a group (UI revision WP2). The legend names the range and says how
+   the days are read; each date has its own label for a screen reader and is described by the
+   same help, so the time zone is heard on either field. The values are ISO dates or empty. #}
+{% macro date_range(id, legend, help, from_name, from_value, to_name, to_value) %}
+<fieldset class="date-range">
+  <legend>{{ legend }} <span class="date-range__help" id="{{ id }}-help">{{ help }}</span></legend>
+  <div class="date-range__inputs">
+    <label class="visually-hidden" for="{{ id }}-from">{{ legend }} from</label>
+    <input class="input" id="{{ id }}-from" name="{{ from_name }}" type="date" value="{{ from_value }}" aria-describedby="{{ id }}-help">
+    <span class="date-range__to" aria-hidden="true">to</span>
+    <label class="visually-hidden" for="{{ id }}-to">{{ legend }} to</label>
+    <input class="input" id="{{ id }}-to" name="{{ to_name }}" type="date" value="{{ to_value }}" aria-describedby="{{ id }}-help">
+  </div>
+</fieldset>
+{%- endmacro %}
+
+{# The filters in force under a filter bar: chips is a list of {name, value, remove_href}; each
+   chip is the link that drops its filter, and Clear all drops every one. Nothing is printed
+   when no filter is in force. #}
+{% macro filter_chips(chips, clear_href, label="Filtered by") %}
+{% if chips %}
+<div class="chips">
+  <span class="chips__label" id="chips-label">{{ label }}</span>
+  <ul class="chips__list" aria-labelledby="chips-label">
+    {% for chip in chips %}
+    <li><a class="chip" href="{{ chip.remove_href }}">{% if chip.name %}<span class="chip__name">{{ chip.name }}</span> {% endif %}<span class="chip__value">{{ chip.value }}</span><svg width="12" height="12" aria-hidden="true" focusable="false"><use href="#i-cross"/></svg><span class="visually-hidden">, remove this filter</span></a></li>
+    {% endfor %}
+  </ul>
+  {% if chips | length > 1 %}<a class="chips__clear" href="{{ clear_href }}">Clear all</a>{% endif %}
+</div>
+{% endif %}
+{%- endmacro %}
+
 {# A text-like field with help and an optional error (section 7): the field is marked invalid
    and the message sits next to it while the help text stays. required, autofocus and
    autocapitalize are passed through when set; mono sets the value face (codes, keys). #}
