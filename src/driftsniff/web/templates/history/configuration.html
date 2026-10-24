@@ -13,15 +13,15 @@
 {% from "components/table.html" import pager as pager_bar %}
 {% from "components/forms.html" import search_box %}
 {% from "components/details.html" import time_tag %}
-{% block head %}<link rel="stylesheet" href="/static/history.css">{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/history.css"><link rel="stylesheet" href="/static/summary-head.css">{% endblock %}
 {% block content %}
 {% if unreadable %}
-{% call source_head("Configuration", "/configuration", source, history_href, "Reading history") %}
+{% call source_head("Configuration", "/configuration", source, "configuration") %}
 <span>{{ type_label }}</span>
 {% endcall %}
 <div class="section">{{ error_state(unreadable[0], unreadable[1], retry_href) }}</div>
 {% else %}
-{% call source_head("Configuration", "/configuration", view.source, history_href, "Reading history") %}
+{% call source_head("Configuration", "/configuration", view.source, "configuration") %}
 <span>{{ type_label }}{% if not view.source.enabled %}, disabled{% endif %}</span>
 {% if view.snapshot %}
 <span>Newest reading {{ time_tag(parse_stamp(view.snapshot.taken_at), now) }}{% if view.snapshot.kind == "baseline" %}, a baseline{% endif %}</span>

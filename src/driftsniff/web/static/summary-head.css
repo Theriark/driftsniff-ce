@@ -1,8 +1,9 @@
-/* The head of the source page (THE-1096). Loaded after app.css through the head block of
-   base.html by templates/sources/detail.html; it uses the tokens of app.css and adds no colour.
-   No style attribute and no inline style element is used: the content security policy blocks
-   both. history.css carries the same two rules for the History and Configuration pages; both
-   go once app.css hides the head actions on the change detail only. */
+/* The head of a detail page and what sits under it (THE-1096; UI revision WP3, THE-1161).
+   Loaded after app.css through the head block of base.html by the source page, the change
+   detail and the History and Configuration pages of a source; it uses the tokens of app.css
+   and adds no colour. No style attribute and no inline style element is used: the content
+   security policy blocks both. history.css carries the same two head rules for the History and
+   Configuration pages; both go once app.css hides the head actions on the change detail only. */
 
 /* the actions of a source head wrap under the name on a narrow screen instead of overflowing */
 .summary-head--wrap .page-header__actions {
@@ -16,4 +17,125 @@
   .summary-head--wrap .page-header__actions {
     display: flex;
   }
+}
+
+/* ---- detail pages (UI revision WP3, THE-1161) ------------------------------------------ */
+
+/* The tab strip under a summary head (components/details.html tab_strip): the parts of one
+   thing as links on a rule. The current page is underlined in ink; a count sits beside its
+   label. On a phone the strip wraps; it never widens the page. position: relative makes the
+   strip the containing block of the visually hidden words of its counts, which otherwise
+   escaped it and widened a 390 px page. */
+.tabs {
+  position: relative;
+  margin-top: var(--sp-6);
+  overflow-x: auto;
+  scrollbar-width: thin;
+  box-shadow: inset 0 -1px 0 var(--border);
+}
+
+.tabs ul {
+  display: flex;
+  gap: var(--sp-6);
+  margin: 0;
+  padding: 0 2px;
+  list-style: none;
+}
+
+.tabs a {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-3) 0;
+  font-size: var(--fs-14);
+  font-weight: 700;
+  color: var(--text-2);
+  text-decoration: none;
+  white-space: nowrap;
+  box-shadow: inset 0 -2px 0 transparent;
+  transition: color var(--t-fast) var(--ease-out), box-shadow var(--t-fast) var(--ease-out);
+}
+
+.tabs a:hover {
+  color: var(--text);
+  box-shadow: inset 0 -2px 0 var(--slate);
+}
+
+.tabs a[aria-current="page"] {
+  color: var(--text);
+  box-shadow: inset 0 -2px 0 var(--ink);
+}
+
+/* the strip clips what overflows it, so the ring is drawn inside the link */
+.tabs a:focus-visible {
+  outline-offset: -2px;
+}
+
+.tabs__count {
+  min-width: 24px;
+  padding: 0 var(--sp-2);
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-weight: 400;
+  text-align: center;
+  color: var(--text-2);
+}
+
+/* on a phone the strip wraps instead of hiding a tab past its edge */
+@media (max-width: 767px) {
+  .tabs ul {
+    flex-wrap: wrap;
+    gap: 0 var(--sp-4);
+  }
+}
+
+/* A tab or a jump link lands its part below the sticky top bar, not under it. */
+.jump-target {
+  scroll-margin-top: calc(var(--header-h) + var(--sp-4));
+}
+
+/* The source page: the parts of the source in the main column beside the side panel. Two
+   columns from 1280 px, where the main column still holds the five columns of the coverage
+   table; below, the side panel follows the main column at full width. */
+.detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-8) var(--sp-6);
+  align-items: start;
+}
+
+/* both columns are grids of their own: minmax(0, 1fr) lets a wide child (the drift line)
+   shrink to the column instead of widening the page */
+.detail-main {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-8);
+}
+
+.detail-side {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* beside the side panel the coverage table is narrower: the resource name keeps one line and
+   the note column takes the wrapping */
+@media (min-width: 1280px) {
+  .detail-grid {
+    grid-template-columns: minmax(0, 1fr) 360px;
+  }
+
+  .detail-main .coverage-table tbody th {
+    min-width: 9rem;
+  }
+}
+
+/* the sentence under an empty drift line: the strip alone would read as a bare rule */
+.driftline-empty {
+  margin-top: var(--sp-3);
+}
+
+/* the item count of an object group of the change detail, quiet beside its name */
+.object-group__count {
+  font-size: var(--fs-14);
+  font-weight: 400;
+  color: var(--text-2);
 }
