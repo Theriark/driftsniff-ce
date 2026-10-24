@@ -4,62 +4,63 @@
    severity and every worse one), and a dashboard link whose set is not a floor keeps its
    severities in hidden inputs. The table prints the rows; every number and name is a link.
    Mutes are applied here and only here, so the muted paths are listed under the table, with
-   Unmute for an operator. A viewer sees no operator control anywhere on this page. #}
+   Unmute for an operator. A viewer sees no operator control anywhere on this page.
+   UI revision WP2: the search, a Filters disclosure and Apply share one row; where the bar is
+   wide enough the disclosure is always shown in that row and its toggle is hidden (app.css).
+   The filters in force are removable chips under the bar. #}
 {% extends "base.html" %}
 {% from "page_header.html" import page_header %}
 {% from "components/states.html" import empty_state, banner, success_banner %}
 {% from "components/badges.html" import severity_badge, status_badge %}
 {% from "components/table.html" import data_table, density_switch %}
-{% from "components/forms.html" import search_box, select_field %}
+{% from "components/forms.html" import search_box, select_field, date_range, filter_chips %}
 {% from "components/details.html" import time_tag %}
+{# the page has its own search in the filter bar, so the top bar does not repeat it #}
+{% block topbar_search %}{% endblock %}
 {% block banners %}
 {% if notice %}<div class="page-banner">{{ success_banner(notice[0], notice[1]) }}</div>{% endif %}
 {% endblock %}
 {% block content %}
 {{ page_header("Changes", "Every detected change with its severity, rule and status. A muted path is hidden here but still stored.") }}
 
-<form class="filter-bar filter-bar--grid" method="get" action="/changes" role="search" aria-label="Filter changes">
-  {{ search_box("q", "q", "Search the summary and object names", value=filters.search, placeholder="Search summary or object name") }}
-  {{ select_field("f-source", "source", "Source", source_options, selected=(filters.source_id | string if filters.source_id else "")) }}
-  <div class="field">
-    <label for="f-min">Severity</label>
-    <select class="input" id="f-min" name="min">
-      <option value=""{% if not severity_choice %} selected{% endif %}>Any</option>
-      {% for value, label in severity_floors %}
-      <option value="{{ value }}"{% if value == severity_choice %} selected{% endif %}>{{ label }}</option>
-      {% endfor %}
-      {% if exact_severities %}<option value="exact" selected>{{ exact_label }} only</option>{% endif %}
-    </select>
-  </div>
+<form class="filter-bar filter-bar--changes" method="get" action="/changes" role="search" aria-label="Filter changes">
+  {{ search_box("q", "q", "Search the summary and object names", value=filters.search, placeholder="Search changes") }}
+  <details class="filter-more">
+    <summary class="btn btn--quiet filter-more__toggle"><svg class="filter-more__chevron" width="12" height="12" aria-hidden="true" focusable="false"><use href="#i-chevron"/></svg>Filters{% if panel_count %} <span class="filter-more__count">{{ panel_count }}<span class="visually-hidden"> in use</span></span>{% endif %}</summary>
+    <div class="filter-more__body">
+      {{ select_field("f-source", "source", "Source", source_options, selected=(filters.source_id | string if filters.source_id else "")) }}
+      <div class="field">
+        <label for="f-min">Severity</label>
+        <select class="input" id="f-min" name="min">
+          <option value=""{% if not severity_choice %} selected{% endif %}>Any</option>
+          {% for value, label in severity_floors %}
+          <option value="{{ value }}"{% if value == severity_choice %} selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+          {% if exact_severities %}<option value="exact" selected>{{ exact_label }} only</option>{% endif %}
+        </select>
+      </div>
+      {{ select_field("f-status", "status", "Status", status_options, selected=filters.status or "") }}
+      {% if resource_options | length > 1 %}
+      {{ select_field("f-resource", "resource", "Resource", resource_options, selected=filters.resource or "") }}
+      {% endif %}
+      {{ date_range("f-detected", "Detected", "UTC days, both included", "from", filters.created_from.isoformat() if filters.created_from else "", "to", filters.created_to.isoformat() if filters.created_to else "") }}
+    </div>
+  </details>
   {% for name in exact_severities %}<input type="hidden" name="severity" value="{{ name }}">{% endfor %}
-  {{ select_field("f-status", "status", "Status", status_options, selected=filters.status or "") }}
-  {% if resource_options | length > 1 %}
-  {{ select_field("f-resource", "resource", "Resource", resource_options, selected=filters.resource or "") }}
-  {% endif %}
-  <div class="field">
-    <label for="f-from">From</label>
-    <input class="input" id="f-from" name="from" type="date" value="{{ filters.created_from.isoformat() if filters.created_from else '' }}">
-  </div>
-  <div class="field">
-    <label for="f-to">To</label>
-    <input class="input" id="f-to" name="to" type="date" value="{{ filters.created_to.isoformat() if filters.created_to else '' }}">
-  </div>
   {% if filters.sort != "newest" %}<input type="hidden" name="sort" value="{{ filters.sort }}">{% endif %}
   {% if filters.include_muted %}<input type="hidden" name="muted" value="1">{% endif %}
-  <div class="filter-bar__actions">
-    <button class="btn" type="submit">Apply</button>
-    {% if active_filters %}<a class="btn btn--quiet" href="{{ clear_href }}">Clear</a>{% endif %}
-  </div>
+  <button class="btn filter-bar__apply" type="submit">Apply</button>
 </form>
+{{ filter_chips(chips, clear_href) }}
 
-{% if not listing.rows and not active_filters and not listing.muted_hidden %}
+{% if not listing.rows and not chips and not listing.muted_hidden %}
 <div class="card">
   {{ empty_state("No changes yet", "driftsniff records a change the first time a check finds a difference between two readings of a source. Until then there is nothing to review here.", "/sources", "See the sources") }}
 </div>
 {% else %}
 <div class="toolbar">
   <p class="hint">
-    {% if active_filters %}{{ summary }}: {{ active_filters }}.{% else %}{{ summary }}.{% endif %}
+    {{ summary }}.
     {% if listing.muted_hidden %} <a href="{{ show_muted_href }}">{{ count_words(listing.muted_hidden, "change") }} hidden by mutes</a>.{% endif %}
     {% if filters.include_muted %} Muted changes are included. <a href="{{ hide_muted_href }}">Hide them</a>.{% endif %}
     {% if listing.mute_scan_truncated %} Mutes were applied to the newest 5,000 matching changes only; narrow the filters to be sure.{% endif %}
@@ -92,7 +93,7 @@
   {% endcall %}
   {% else %}
   <div class="card-pad card-pad--top">
-    {% if active_filters %}
+    {% if chips %}
     <p class="quiet">No change matches these filters. <a href="{{ clear_href }}">Clear the filters</a> to see every change.</p>
     {% else %}
     <p class="quiet">Every change is hidden by a mute. Nothing was deleted: <a href="{{ show_muted_href }}">show the muted changes</a>.</p>

@@ -72,6 +72,8 @@
     {% if location.at_section %}<span aria-current="page">{{ location.label }}</span>{% else %}<a href="{{ location.href }}">{{ location.label }}</a>{% endif %}
   </nav>
   {% endif %}
+  {# a page with its own change search (the change list) empties this block #}
+  {% block topbar_search %}
   <search class="topbar__search">
     <form method="get" action="/changes">
       <svg aria-hidden="true" focusable="false"><use href="#i-search"/></svg>
@@ -79,6 +81,7 @@
       <input class="input" id="shell-q" name="q" type="search" placeholder="Search changes" autocomplete="off">
     </form>
   </search>
+  {% endblock %}
   {% if shell.environment_label %}
   <span class="env-badge">{{ shell.environment_label }}</span>
   {% endif %}
