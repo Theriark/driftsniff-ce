@@ -8,6 +8,15 @@
   flex-wrap: wrap;
 }
 
+/* app.css hides the actions of a summary head from 1024 px up, because the change detail
+   repeats them in its side column. These pages have no side column: the link to the other
+   page, the source page, Edit source and Run now stay in the head at every width. */
+@media (min-width: 1024px) {
+  .summary-head--wrap .page-header__actions {
+    display: flex;
+  }
+}
+
 /* The reading ledger (the signature of the history): a rail down the first column joins the
    readings. A square is a baseline, a ring the current reading, a dot any other; the word
    always stands beside the mark. The rail stops at the first and the last mark. */
@@ -41,6 +50,11 @@
   background: var(--ink);
   outline: 2px solid var(--ink);
   outline-offset: 2px;
+}
+
+/* the key may drop under the heading, so the heading never wraps word by word */
+.section-head--ledger {
+  flex-wrap: wrap;
 }
 
 .ledger-key {
@@ -316,6 +330,11 @@
   white-space: pre-wrap;
 }
 
+/* the note under the sheets keeps its distance from the last sheet */
+.config-browser + .hint {
+  margin-top: var(--sp-4);
+}
+
 /* a small word on a field: hidden by XO */
 .chip {
   display: inline-block;
@@ -341,7 +360,18 @@
   }
 }
 
+@media (max-width: 767px) {
+  .section-head--ledger .ledger-key {
+    flex-basis: 100%;
+  }
+}
+
 @media (max-width: 479px) {
+  /* the reading time on one line; the row has room because two columns are hidden here */
+  .ledger time {
+    white-space: nowrap;
+  }
+
   .sheets--ordered .sheet {
     grid-template-columns: 36px minmax(0, 1fr);
     gap: var(--sp-2);

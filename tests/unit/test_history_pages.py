@@ -462,6 +462,19 @@ def test_the_history_pages_load_their_own_stylesheet() -> None:
         assert links == ["/static/app.css", "/static/history.css"]
 
 
+def test_the_source_head_actions_stay_visible_on_a_wide_screen() -> None:
+    # app.css hides .summary-head .page-header__actions from 1024 px up (the change detail has
+    # a side column); the history sheet must put them back, or the desktop loses Edit source,
+    # Run now and the link to the other page (found in the browser on Development, THE-1043)
+    sheet = Path(TEMPLATES_DIR).parent / "static" / "history.css"
+    text = sheet.read_text(encoding="utf-8")
+    wide = text.split("@media (min-width: 1024px)", 1)
+    assert len(wide) == 2, "no wide-screen block"
+    block = wide[1].split("}", 2)[0]
+    assert ".summary-head--wrap .page-header__actions" in block
+    assert "display: flex" in block
+
+
 def test_a_damaged_store_is_the_designed_error_with_a_retry() -> None:
     text = render(
         "history/configuration.html",
