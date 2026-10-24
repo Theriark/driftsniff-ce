@@ -571,6 +571,17 @@ def test_the_trend_chart_fits_a_desktop_card_and_opens_on_today() -> None:
     assert re.search(r"display:\s*block", chart)
 
 
+def test_the_breakdown_bars_have_a_visible_fill() -> None:
+    """The track and fill of "Where the open items are" are spans; inline, the fill ignored its
+    width class and height, so every bar showed as an empty track on Development."""
+    rules = _css_rules()
+    for selector in (".bars .track", ".bars .fill"):
+        body = "".join(rules[selector])
+        assert re.search(r"display:\s*block", body), selector
+    assert re.search(r"height:\s*100%", "".join(rules[".bars .fill"]))
+    assert re.search(r"width:\s*70%", "".join(rules[".bars .w-70"]))
+
+
 # ---- the queries ----------------------------------------------------------------------------
 
 
