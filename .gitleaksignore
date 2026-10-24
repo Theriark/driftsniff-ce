@@ -6,3 +6,7 @@
 # It is a made-up value, not a credential; the next commit of the PR renamed the variable.
 # One exact fingerprint only.
 d0f1bdcd9d27dc5785e4906fdcdae6ddc39d162e:tests/contract/test_tls.py:generic-api-key:30
+# Synthetic CANARY fixture secret (radius sharedSecret) in commit fcaa6b4a of PR 96 (THE-1130).
+# It is a made-up value, not a credential; a later commit of the PR builds it with _canary().
+# One exact fingerprint only.
+fcaa6b4a647244a9568c6dc4e90602639dcd0990:src/driftsniff/devfixture.py:generic-api-key:182
