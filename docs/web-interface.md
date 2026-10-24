@@ -57,7 +57,7 @@ tests render each state and assert the markup.
 |---|---|---|
 | `severity_badge(severity)` (badges) | low, medium, high, critical | colour, the shape symbol and the word, always together |
 | `status_badge(kind, text, icon)` (badges) | ok, failing, partial, stale, unsupported, insecure, warn, open | icon and word; `insecure` is the only filled status badge |
-| `stat_card(label, value, href, unit, delta, delta_tone, spark)` (cards) | with or without unit, delta and sparkline | the card is the link to the filtered view; the series is listed for screen readers |
+| `metric_card(label, value, href, unit, delta, tone, trend, spark)` (cards) | with or without unit, line and sparkline; tone `down`, `up` or `alert`; trend `up`, `down` or `flat`; a series of zeros draws no sparkline | the card is the link to the filtered view; a screen reader hears one sentence (label, number, line, series) and the visible parts are `aria-hidden`; the line carries a glyph (trend arrow or dash, else the high or critical shape) with the colour and the words, never the colour alone |
 | `data_table(caption, columns, density, foot_text)` with `call` (table) | comfortable or compact; sortable columns with `aria-sort`; columns hidden on narrow screens | sticky header; rows are the caller's markup |
 | `density_switch(density, path, csrf_token)` (table) | comfortable or compact pressed | a form post to `/preferences/density` |
 | `pager(links, summary)` (table) | current page as text, the others as links | |

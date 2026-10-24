@@ -3,7 +3,7 @@
 These are the pure helpers of ``driftsniff.web.change_pages``: the readable field labels, the
 one-line item summary, the words of an order move, the marked difference of a before and after
 pair, the severity floor of the filter bar, the links that carry the filters, the pager and the
-sentence that names the filters in force. The pages themselves are tested through the
+removable chips of the filters in force. The pages themselves are tested through the
 application in ``test_web_changes.py``.
 """
 
@@ -16,19 +16,23 @@ from driftsniff.changes.filters import parse_filters
 from driftsniff.changes.views import ChangeFilters, ChangePageView, ItemView, MoveView
 from driftsniff.web.change_pages import (
     EXACT_SEVERITIES,
+    FilterChip,
     count_words,
+    date_words,
     display_value,
     field_label,
+    filter_chips,
     filter_query,
-    filters_text,
     fingerprint_words,
     item_summary,
     kind_label,
     move_text,
     page_summary,
     pager_links,
+    panel_filter_count,
     severity_choice,
     severity_params,
+    severity_words,
     split_difference,
 )
 
@@ -209,21 +213,55 @@ def test_the_page_summary_counts_what_is_shown() -> None:
     assert page_summary(ChangePageView((), 1, 1, 1, 50)) == "1 change"
 
 
-def test_the_filters_in_force_read_as_one_sentence() -> None:
+def test_every_filter_in_force_is_a_chip_whose_link_drops_only_that_filter() -> None:
     filters = ChangeFilters(
-        status="open",
-        severities=("medium",),
+        search="guest",
         source_id=1,
+        severities=("critical", "high"),
+        status="open",
         resource="networks",
         created_from=date(2026, 10, 1),
-        search="guest",
+        created_to=date(2026, 10, 2),
+        sort="oldest",
+        page=3,
+        include_muted=True,
     )
-    assert filters_text(filters, {1: "lab"}) == (
-        "open, medium, source lab, networks, since 2026-10-01, matching 'guest'"
-    )
-    assert filters_text(ChangeFilters(severities=("low", "high")), {}) == "high or low"
-    assert filters_text(ChangeFilters(severities=("critical", "high")), {}) == "high and above"
-    assert filters_text(ChangeFilters(source_id=9, include_muted=True), {}) == (
-        "source 9, muted included"
-    )
-    assert filters_text(ChangeFilters(), {}) == ""
+    chips = filter_chips(filters, {1: "lab"})
+    assert [(chip.name, chip.value) for chip in chips] == [
+        ("Search", "guest"),
+        ("Source", "lab"),
+        ("Severity", "High and above"),
+        ("Status", "Open"),
+        ("Resource", "Networks"),
+        ("Detected", "2026-10-01 to 2026-10-02, UTC"),
+        ("", "Muted included"),
+    ]
+    rest = "sort=oldest&muted=1"
+    everything = "q=guest&source=1&severity=critical&severity=high&status=open&resource=networks"
+    assert chips[0].remove_href.startswith("/changes?source=1&")
+    dates = "from=2026-10-01&to=2026-10-02"
+    no_status = "q=guest&source=1&severity=critical&severity=high&resource=networks"
+    assert chips[3].remove_href == f"/changes?{no_status}&{dates}&{rest}"
+    # the two ends of the range go together, the sort stays, and every link is back on page 1
+    assert chips[5].remove_href == f"/changes?{everything}&{rest}"
+    assert chips[6].remove_href == f"/changes?{everything}&{dates}&sort=oldest"
+    assert all("page=" not in chip.remove_href for chip in chips)
+    assert filter_chips(ChangeFilters(source_id=9), {}) == (FilterChip("Source", "9", "/changes"),)
+    assert filter_chips(ChangeFilters(), {}) == ()
+
+
+def test_the_severity_and_date_chips_read_as_the_bar_names_them() -> None:
+    assert severity_words(ChangeFilters(severities=("critical",))) == "Critical"
+    assert severity_words(ChangeFilters(severities=("low",))) == "Low only"
+    assert severity_words(ChangeFilters(severities=("low", "high"))) == "High or low"
+    assert date_words(ChangeFilters(created_from=date(2026, 10, 1))) == "since 2026-10-01, UTC"
+    assert date_words(ChangeFilters(created_to=date(2026, 10, 2))) == "up to 2026-10-02, UTC"
+    assert date_words(ChangeFilters()) == ""
+
+
+def test_the_filters_toggle_counts_the_fields_of_its_panel_only() -> None:
+    assert panel_filter_count(ChangeFilters(search="guest", include_muted=True)) == 0
+    dated = ChangeFilters(created_from=date(2026, 10, 1), created_to=date(2026, 10, 2))
+    assert panel_filter_count(dated) == 1
+    every = ChangeFilters(source_id=1, severities=("low",), status="open", resource="networks")
+    assert panel_filter_count(every) == 4

@@ -186,7 +186,12 @@ URGENT_HREF: Final = "/changes?status=open&severity=critical&severity=high"
 
 @dataclass(frozen=True, slots=True)
 class Stat:
-    """One stat card: the arguments of the ``stat_card`` macro."""
+    """One stat card: the arguments of the ``metric_card`` macro.
+
+    ``delta_tone`` says how the line reads (down good, up worth a look, alert); ``trend`` is the
+    direction of a count against the previous period (up, down or flat), empty when the line is
+    not a comparison.
+    """
 
     label: str
     value: str
@@ -194,6 +199,7 @@ class Stat:
     unit: str = ""
     delta: str = ""
     delta_tone: str = ""
+    trend: str = ""
     spark: tuple[int, ...] = ()
 
 
@@ -898,6 +904,7 @@ def _stats(
             "/changes?status=open",
             delta=f"{number(new_count)} new this week, {delta_text(new_count, before)}",
             delta_tone=delta_tone(new_count, before),
+            trend=delta_tone(new_count, before) or "flat",
             spark=tuple(this_week),
         ),
         Stat(

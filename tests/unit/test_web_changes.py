@@ -524,15 +524,56 @@ def test_the_list_filters_sorts_and_pages(world: World) -> None:
     assert change_links(world.get("/changes?resource=unifi-wifi-broadcasts").text)[:1] == [high]
     assert change_links(world.get("/changes?q=guest").text)[:1] == [low]
     assert change_links(world.get("/changes?from=2026-10-21&to=2026-10-21").text)[:1] == [high]
-    # the hint names the filters in force; the selects list the sources and the resources seen
+    # each filter in force is a chip that drops it; the selects list the sources and resources
     _html, hint = page(world, f"/changes?status=open&source={other}&resource=networks")
-    assert "No changes match: open, source office-xo, networks." in hint.joined()
+    assert "No changes match." in hint.joined()
+    assert [attrs.get("href") for attrs in hint.find("a") if attrs.get("class") == "chip"] == [
+        "/changes?status=open&resource=networks",
+        f"/changes?source={other}&resource=networks",
+        f"/changes?source={other}&status=open",
+    ]
     assert "Firewall policies" in hint.joined() and "office-xo" in hint.joined()
     # the column heads carry the sort links and the state
     heads = {attrs.get("aria-sort") for attrs in page(world, "/changes")[1].find("th")}
     assert "descending" in heads
     ascending = page(world, "/changes?sort=oldest")[1].find("th")
     assert any(attrs.get("aria-sort") == "ascending" for attrs in ascending)
+
+
+def test_the_filter_bar_has_one_search_a_filters_panel_utc_dates_and_chips(world: World) -> None:
+    event_id = add_event(world.store, items=({"path": "name"},), created_at="2026-10-21T08:00:00Z")
+    _html, parsed = page(world, "/changes?min=high&from=2026-10-20&to=2026-10-21&q=guest")
+    # the page's own search replaces the top bar's, so the list has one search box (THE-1101)
+    searches = [attrs.get("id") for attrs in parsed.find("input") if attrs.get("type") == "search"]
+    assert searches == ["q"]
+    assert not parsed.find("search")
+    # the fields sit in the Filters disclosure, whose toggle counts the ones in force
+    assert parsed.find("details").count({"class": "filter-more"}) == 1
+    assert "Filters 2 in use" in parsed.joined()
+    # the dates are UTC days: the legend says so and describes both fields
+    dates = [attrs for attrs in parsed.find("input") if attrs.get("type") == "date"]
+    assert [(a.get("id"), a.get("value"), a.get("aria-describedby")) for a in dates] == [
+        ("f-detected-from", "2026-10-20", "f-detected-help"),
+        ("f-detected-to", "2026-10-21", "f-detected-help"),
+    ]
+    assert {"class": "date-range__help", "id": "f-detected-help"} in parsed.find("span")
+    assert "Detected UTC days, both included" in parsed.joined()
+    # one chip per filter in force, each the link without it, and Clear all
+    chips = [attrs.get("href") for attrs in parsed.find("a") if attrs.get("class") == "chip"]
+    assert chips == [
+        "/changes?severity=critical&severity=high&from=2026-10-20&to=2026-10-21",
+        "/changes?q=guest&from=2026-10-20&to=2026-10-21",
+        "/changes?q=guest&severity=critical&severity=high",
+    ]
+    assert {"class": "chips__clear", "href": "/changes"} in parsed.find("a")
+    assert "Detected 2026-10-20 to 2026-10-21, UTC , remove this filter" in parsed.joined()
+    # without a filter there is no chip and no count
+    _html, plain = page(world, "/changes")
+    assert not [attrs for attrs in plain.find("a") if attrs.get("class") == "chip"]
+    assert not [attrs for attrs in plain.find("span") if attrs.get("class") == "filter-more__count"]
+    # the change detail has no search of its own, so it keeps the top bar's
+    _html, detail = page(world, f"/changes/{event_id}")
+    assert {"class": "topbar__search"} in detail.find("search")
 
 
 def test_the_list_pages_by_fifty_with_a_pager_that_keeps_the_filters(world: World) -> None:
