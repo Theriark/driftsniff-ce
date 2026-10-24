@@ -3077,6 +3077,14 @@ textarea.input {
   color: var(--text-2);
 }
 
+/* On a phone the search takes a row of its own above Filters and Apply: beside them it was
+   clipped to "Search chang" at 390 px (THE-1138 acceptance of WP2, fixed in THE-1161). */
+@container filters (max-width: 440px) {
+  .filter-bar--changes .search {
+    flex-basis: 100%;
+  }
+}
+
 @supports selector(::details-content) {
   @container filters (min-width: 1080px) {
     .filter-bar--changes .search {
