@@ -268,9 +268,7 @@ def test_the_manifest_declares_the_development_environment_badge_once() -> None:
 def test_the_generated_passwords_are_declared_without_a_value() -> None:
     env = manifest()["env"]
     assert isinstance(env, list)
-    declared = [
-        item for item in env if item not in PREVIOUS_ENV and item != ENVIRONMENT_LABEL_ENV
-    ]
+    declared = [item for item in env if item not in PREVIOUS_ENV and item != ENVIRONMENT_LABEL_ENV]
     assert declared == [
         {"name": password_variable_for(role), "kind": "token24"} for role in SEED_ROLES
     ]
