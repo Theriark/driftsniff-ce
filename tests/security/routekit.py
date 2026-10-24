@@ -68,6 +68,11 @@ ROUTE_TABLE: dict[tuple[str, str], Access] = {
     ("POST", "/changes/{event_id}/notes"): Access.OPERATOR,
     ("POST", "/changes/items/{item_id}/mute"): Access.OPERATOR,
     ("POST", "/mutes/{mute_id}/remove"): Access.OPERATOR,
+    # The history and configuration pages (P10-T7): read only, so a viewer is enough for all four.
+    ("GET", "/history"): Access.VIEWER,
+    ("GET", "/history/{source_id}"): Access.VIEWER,
+    ("GET", "/configuration"): Access.VIEWER,
+    ("GET", "/configuration/{source_id}"): Access.VIEWER,
     ("GET", "/tokens"): Access.ADMIN,
     ("POST", "/tokens"): Access.ADMIN,
     ("POST", "/tokens/{token_id}/revoke"): Access.ADMIN,
