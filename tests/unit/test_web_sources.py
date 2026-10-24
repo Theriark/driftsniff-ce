@@ -520,8 +520,17 @@ def test_the_navigation_shows_only_pages_that_exist(world: World) -> None:
     parsed = assert_page(world.get("/sources"))
     nav = {a.get("href") for a in parsed.find("a")}
     assert "/sources" in nav and "/changes" in nav  # Changes came back with P10-T6
-    for missing in ("/history", "/configuration", "/settings"):
-        assert missing not in nav
+    assert "/history" in nav and "/configuration" in nav  # and these two with P10-T7
+    assert "/settings" not in nav
+
+
+def test_the_source_page_links_to_its_history_and_its_configuration(world: World) -> None:
+    source_id = add_unifi(world)
+    for role in ("viewer", "operator", "admin"):
+        parsed = assert_page(world.get(f"/sources/{source_id}", role=role))
+        hrefs = {a.get("href") for a in parsed.find("a")}
+        assert f"/history/{source_id}" in hrefs, role
+        assert f"/configuration/{source_id}" in hrefs, role
 
 
 # ---- the forms ------------------------------------------------------------------------------
