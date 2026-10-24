@@ -11,11 +11,12 @@
 {% from "components/driftline.html" import drift_line %}
 {% from "components/details.html" import time_tag %}
 {% from "sources/_coverage.html" import coverage_table %}
+{% block head %}<link rel="stylesheet" href="/static/summary-head.css">{% endblock %}
 {% block content %}
 {% set view = detail.view %}
 {% set health = detail.health %}
 <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/sources">Sources</a> / {{ view.name }}</nav>
-<div class="summary-head">
+<div class="summary-head summary-head--wrap">
   <div>
     <div class="badges">{{ status_badge(health.kind, detail.status_text) }}{% for badge in detail.badges %} {{ status_badge(badge.kind, badge.text) }}{% endfor %} {% if view.enabled %}{{ status_badge("ok", "Enabled") }}{% else %}{{ status_badge("open", "Disabled") }}{% endif %}</div>
     <h1>{{ view.name }}</h1>

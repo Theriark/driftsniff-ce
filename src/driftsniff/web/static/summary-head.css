@@ -1,0 +1,19 @@
+/* The head of the source page (THE-1096). Loaded after app.css through the head block of
+   base.html by templates/sources/detail.html; it uses the tokens of app.css and adds no colour.
+   No style attribute and no inline style element is used: the content security policy blocks
+   both. history.css carries the same two rules for the History and Configuration pages; both
+   go once app.css hides the head actions on the change detail only. */
+
+/* the actions of a source head wrap under the name on a narrow screen instead of overflowing */
+.summary-head--wrap .page-header__actions {
+  flex-wrap: wrap;
+}
+
+/* app.css hides the actions of a summary head from 1024 px up, because the change detail
+   repeats them in its side column. The source page has no side column: Run now, Edit and
+   Disable or Enable stay in the head at every width. */
+@media (min-width: 1024px) {
+  .summary-head--wrap .page-header__actions {
+    display: flex;
+  }
+}

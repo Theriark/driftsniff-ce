@@ -7,7 +7,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="htmx-config" content='{"allowEval": false, "selfRequestsOnly": true, "includeIndicatorStyles": false, "historyCacheSize": 0, "refreshOnHistoryMiss": true}'>
+{# attributesToSettle leaves out style (htmx 2 settles it by default): the policy would refuse
+   every style attribute htmx copies across a swap and log a violation on each one #}
+<meta name="htmx-config" content='{"allowEval": false, "selfRequestsOnly": true, "includeIndicatorStyles": false, "historyCacheSize": 0, "refreshOnHistoryMiss": true, "attributesToSettle": ["class", "width", "height"]}'>
 <title>{% block title %}{{ shell.title }}{% endblock %}, driftsniff</title>
 <link rel="icon" href="/static/brand/favicon-32x32.png" sizes="32x32" type="image/png">
 <link rel="apple-touch-icon" href="/static/brand/favicon-180x180.png">
