@@ -3,7 +3,8 @@
    designed empty state with the one action (for an admin; anyone else is told who adds
    sources, because only an admin may); with sources it is, top to bottom, the stat cards,
    the posture ring and the needs-attention list, the drift lines, the trend chart and the
-   breakdowns, and the activity timeline. Every number links to the filtered view behind it. #}
+   breakdowns, and the activity timeline (the newest 8 entries as rows, the rest behind a
+   disclosure). Every number links to the filtered view behind it. #}
 {% extends "base.html" %}
 {% from "page_header.html" import page_header %}
 {% from "components/states.html" import empty_state %}
@@ -13,6 +14,10 @@
 {% from "components/details.html" import time_tag %}
 {% from "components/charts.html" import posture_ring, trend_chart, bar_list %}
 {% block content %}
+{# One timeline entry: text, the named target (a link when it has a page), the tail, the time. #}
+{% macro activity_entry(entry) -%}
+<li><span class="dot{% if entry.dot %} dot--{{ entry.dot }}{% endif %}"></span><span class="what">{{ entry.text }}{% if entry.href %}<a href="{{ entry.href }}">{{ entry.link_label }}</a>{% else %}{{ entry.link_label }}{% endif %}{{ entry.tail }}</span>{{ time_tag(entry.when, dashboard.now) }}</li>
+{%- endmacro %}
 {% if not dashboard.has_sources %}
 {{ page_header("Dashboard", "What changed, how bad it is, and what to do about it.") }}
 <div class="card">
@@ -51,8 +56,11 @@
       </li>
       {% endfor %}
     </ul>
+    {% if dashboard.attention_more %}
+    <p class="attention-more"><a href="/changes?status=open&amp;severity=critical&amp;severity=high">{{ number(dashboard.attention_more) }} more open critical and high {{ "change" if dashboard.attention_more == 1 else "changes" }}</a></p>
+    {% endif %}
     {% else %}
-    <p class="quiet">Nothing waits for a decision: no open critical or high change, and every source is healthy.</p>
+    <p class="quiet">{{ dashboard.attention_empty }}</p>
     {% endif %}
   </section>
 </div>
@@ -81,7 +89,23 @@
 <div class="section grid-2">
   <section class="card" aria-labelledby="trend-h">
     <h2 id="trend-h">Change items per day</h2>
+    {% if dashboard.trend.total %}
     {{ trend_chart(dashboard.trend, "trend") }}
+    {% else %}
+    <div class="trend-empty">
+      <svg viewBox="0 0 600 24" preserveAspectRatio="none" role="img" aria-labelledby="trend-t trend-d">
+        <title id="trend-t">Change items per day, last 30 days</title>
+        <desc id="trend-d">{{ dashboard.trend.description }}</desc>
+        <line class="trend-empty__base" x1="0" y1="23" x2="600" y2="23"/>
+        {% for x in dashboard.trend.ticks %}
+        <rect class="trend-empty__tick" x="{{ x }}" y="14" width="2" height="8"/>
+        {% endfor %}
+      </svg>
+      <div class="trend-empty__axis" aria-hidden="true"><span>30 days ago</span><span>today</span></div>
+      <p class="trend-empty__title">No change items in the last 30 days</p>
+      <p class="quiet">When a check finds a change, this chart shows one bar per day, stacked by severity, with the same numbers as a table.</p>
+    </div>
+    {% endif %}
   </section>
   <section class="card" aria-labelledby="breakdown-h">
     <h2 id="breakdown-h">Where the open items are</h2>
@@ -99,15 +123,21 @@
 <section class="section" aria-labelledby="activity-h">
   <div class="section-head">
     <h2 id="activity-h">Activity</h2>
-    <span class="hint">Newest first, {{ dashboard.activity | length }} of the last 20 entries</span>
+    <span class="hint">Newest first, up to 20 entries</span>
   </div>
   <div class="card">
     {% if dashboard.activity %}
     <ol class="timeline">
-      {% for entry in dashboard.activity %}
-      <li><span class="dot{% if entry.dot %} dot--{{ entry.dot }}{% endif %}"></span><span>{{ entry.text }}{% if entry.href %}<a href="{{ entry.href }}">{{ entry.link_label }}</a>{% else %}{{ entry.link_label }}{% endif %}{{ entry.tail }}</span>{{ time_tag(entry.when, dashboard.now) }}</li>
-      {% endfor %}
+      {% for entry in dashboard.activity_rows %}{{ activity_entry(entry) }}{% endfor %}
     </ol>
+    {% if dashboard.activity_earlier %}
+    <details class="disclosure activity-earlier">
+      <summary>Show {{ dashboard.activity_earlier | length }} earlier {{ "entry" if dashboard.activity_earlier | length == 1 else "entries" }}</summary>
+      <ol class="timeline">
+        {% for entry in dashboard.activity_earlier %}{{ activity_entry(entry) }}{% endfor %}
+      </ol>
+    </details>
+    {% endif %}
     {% else %}
     <p class="quiet">Nothing has happened yet. The first check of a source appears here.</p>
     {% endif %}

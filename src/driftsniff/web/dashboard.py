@@ -9,10 +9,12 @@ it on plain values.
 What the dashboard shows, top to bottom (dev work plan part B, section 18, P10-T4): four stat
 cards; the posture ring of open change items by severity (counts only, never a score); the
 needs-attention list (open critical and high events, then the sources that are failing, partial,
-stale, unsupported, insecure or whose credential is expiring); one drift line per source; the
-30 day trend of change items per day stacked by severity, with its table; the breakdown by
-source and by resource type; and the activity timeline (events, acknowledgements, notes, runs
-and audit events, newest first, 20 entries).
+stale, unsupported, insecure, never checked or whose credential is expiring), with a sentence
+that matches the state of the sources when the list is empty; one drift line per source; the
+30 day trend of change items per day stacked by severity, with its table (or a designed empty
+strip when there were none); the breakdown by source and by resource type; and the activity
+timeline (events, acknowledgements, notes, runs and audit events, newest first, 20 entries: the
+newest 8 as rows, the rest behind a disclosure, every target named and linked, never a raw id).
 
 Nothing here reads a before or after value, a credential, a note body or an acknowledgement
 comment: the dashboard shows summaries, counts, names, class words and times only.
@@ -50,6 +52,8 @@ DRIFT_DAYS: Final = 30
 # One mark per check up to this many checks; a busier source gets one mark per UTC day.
 DRIFT_MAX_CHECKS: Final = 31
 ACTIVITY_LIMIT: Final = 20
+# The newest entries shown as rows; the rest of the 20 sit behind a disclosure.
+ACTIVITY_ROWS: Final = 8
 ATTENTION_EVENTS: Final = 8
 BREAKDOWN_ROWS: Final = 8
 # A skipped run is not a check: only these statuses count as one.
@@ -67,6 +71,9 @@ CHART_RIGHT: Final = 596.0
 CHART_TOP: Final = 30.0
 CHART_BOTTOM: Final = 150.0
 CHART_BAR_WIDTH: Final = 12.0
+# The empty trend strip: one 2 unit tick per day across a 600 unit wide drawing.
+EMPTY_WIDTH: Final = 600.0
+EMPTY_TICK_WIDTH: Final = 2.0
 
 SOURCE_TYPE_LABELS: Final = {"unifi": "UniFi Network", "xo": "Xen Orchestra", "push": "Push source"}
 # Source states a later task may store in sources.state; anything else counts as plain.
@@ -154,9 +161,24 @@ AUDIT_VERBS: Final = {
     "notification.test": "sent a test notification",
     "notification.signing_key_shown": "viewed the webhook signing key",
     "retention.run": "ran the retention job",
+    "user.credentials_reset": "reset the credentials of user",
+    "mute.added": "muted a path of",
+    "mute.removed": "removed a mute of",
 }
-# Audit actions that are noise on a dashboard (every refused token call writes one).
-AUDIT_SKIPPED: Final = frozenset({"token.rejected", "token.forbidden", "enrichment.added"})
+# Audit actions that are noise on a dashboard (every refused token call writes one), and the two
+# that repeat an acknowledgement or a note row the timeline already lists with its source.
+AUDIT_SKIPPED: Final = frozenset(
+    {
+        "token.rejected",
+        "token.forbidden",
+        "enrichment.added",
+        "change.acknowledged",
+        "change.note_added",
+    }
+)
+# Where a mute entry links: the muted paths section of the changes list.
+MUTES_HREF: Final = "/changes#mutes-h"
+URGENT_HREF: Final = "/changes?status=open&severity=critical&severity=high"
 
 
 # ---- what the template prints -------------------------------------------------------------
@@ -264,6 +286,8 @@ class Trend:
     grid: tuple[GridLine, ...]
     total: int
     description: str
+    # The x of one faint tick per day, for the empty strip drawn when ``total`` is zero.
+    ticks: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -321,6 +345,20 @@ class Dashboard:
     by_resource: tuple[BarRow, ...] = ()
     activity: tuple[Activity, ...] = ()
     sources: tuple[SourceHealth, ...] = ()
+    # Open critical and high changes beyond the ones the attention list shows.
+    attention_more: int = 0
+    # The sentence of an empty attention list, true to the state of the sources.
+    attention_empty: str = ""
+
+    @property
+    def activity_rows(self) -> tuple[Activity, ...]:
+        """The newest timeline entries, shown as rows."""
+        return self.activity[:ACTIVITY_ROWS]
+
+    @property
+    def activity_earlier(self) -> tuple[Activity, ...]:
+        """The older timeline entries, behind the disclosure."""
+        return self.activity[ACTIVITY_ROWS:]
 
 
 # ---- small pure helpers ------------------------------------------------------------------
@@ -465,6 +503,39 @@ def trend_geometry(days: Sequence[TrendDay]) -> tuple[tuple[TrendBar, ...], tupl
     return tuple(bars), tuple(grid)
 
 
+def empty_ticks(count: int) -> tuple[str, ...]:
+    """The x of one tick per day, centred in its share of the empty strip; none for no day."""
+    if count <= 0:
+        return ()
+    step = EMPTY_WIDTH / count
+    return tuple(f"{step * index + (step - EMPTY_TICK_WIDTH) / 2:.1f}" for index in range(count))
+
+
+def attention_empty_text(health: Sequence[SourceHealth]) -> str:
+    """What an empty needs-attention list says, true to the sources behind the stat card.
+
+    The list is empty only when no open critical or high change waits and no enabled source is
+    unwell (every unwell enabled source has a row), so what is left to say is about the sources
+    that are switched off.
+    """
+    disabled = sum(1 for source in health if not source.enabled)
+    if health and disabled == len(health):
+        return (
+            "Nothing is being checked: every source is disabled. "
+            "Enable a source on its page and its changes appear here."
+        )
+    if disabled:
+        noun = "source is" if disabled == 1 else "sources are"
+        return (
+            "Nothing waits for a decision: no open critical or high change, and every enabled "
+            f"source is healthy. {number(disabled)} disabled {noun} not checked."
+        )
+    return (
+        "Nothing waits for a decision: no open critical or high change, "
+        "and every source is healthy."
+    )
+
+
 def storage_bytes(path: Path) -> int:
     """The size of the database file and its write-ahead log, zero when they do not exist."""
     total = 0
@@ -554,8 +625,26 @@ def last_attempt(last_checked_at: object, last_run: Any | None) -> datetime | No
 
 
 def _source_attention(health: SourceHealth) -> list[Attention]:
-    """The attention rows of one source: its problem, and its insecure TLS flag."""
+    """The attention rows of one source: its problem or first check, and its insecure TLS flag."""
     rows: list[Attention] = []
+    if health.kind == "open" and health.enabled:
+        push = health.type == PUSH_SOURCE
+        rows.append(
+            Attention(
+                "status",
+                "open",
+                health.status_text,
+                f"{health.name}: {health.status_text.lower()}",
+                health.href,
+                (
+                    "Waiting for its sender's first push; changes appear after it"
+                    if push
+                    else "Waiting for its first check; changes appear after it"
+                ),
+                "Open source",
+                health.href,
+            )
+        )
     if health.kind in PROBLEM_KINDS:
         expiring = health.kind == "warn"
         where = source_type_label(health.type)
@@ -652,6 +741,8 @@ class DashboardService:
                 for row in source_rows
             )
             attention = _attention(connection, names, health, now)
+            shown_events = sum(1 for row in attention if row.badge == "severity")
+            urgent_open = open_events.get("critical", 0) + open_events.get("high", 0)
             trend = _trend(connection, now)
             by_source, by_resource = _breakdowns(connection, names)
             activity = _activity(connection, names)
@@ -667,6 +758,8 @@ class DashboardService:
             by_resource=by_resource,
             activity=activity,
             sources=health,
+            attention_more=max(0, urgent_open - shown_events),
+            attention_empty=attention_empty_text(health),
         )
 
 
@@ -794,7 +887,10 @@ def _stats(
     unwell = Counter(
         source.status_text.lower() for source in health if source.kind != "ok" and source.enabled
     )
-    unwell_text = ", ".join(f"{count} {text}" for text, count in sorted(unwell.items()))
+    # A disabled source is not healthy either: the card names it, so its total adds up.
+    disabled = sum(1 for source in health if not source.enabled)
+    not_healthy = unwell + Counter({"disabled": disabled})
+    unwell_text = ", ".join(f"{count} {text}" for text, count in sorted(not_healthy.items()))
     return (
         Stat(
             "Open changes",
@@ -807,7 +903,7 @@ def _stats(
         Stat(
             "Critical and high, open",
             number(critical + high),
-            "/changes?status=open&severity=critical&severity=high",
+            URGENT_HREF,
             delta=f"{number(critical)} critical, {number(high)} high",
             delta_tone="alert" if critical else ("up" if high else ""),
             spark=tuple(urgent_week) if sum(urgent_week) + urgent_before else (),
@@ -1011,7 +1107,8 @@ def _trend(connection: Connection, now: datetime) -> Trend:
         )
     else:
         description = "No change items in the last 30 days."
-    return Trend(days, bars, grid, total, description)
+    ticks = () if total else empty_ticks(len(days))
+    return Trend(days, bars, grid, total, description, ticks)
 
 
 def _breakdowns(
@@ -1084,21 +1181,28 @@ def _activity(connection: Connection, names: Mapping[int, str]) -> tuple[Activit
                 parse_stamp(str(event_row.created_at)),
             )
         )
-    for table, verb in ((acknowledgements, "acknowledged"), (notes, "added a note on")):
+    for table, verb in ((acknowledgements, "acknowledged"), (notes, "added a note to")):
         user_rows = connection.execute(
-            sa.select(table.c.created_at, table.c.event_id, users.c.username)
-            .select_from(table.join(users, table.c.user_id == users.c.id))
+            sa.select(
+                table.c.created_at, table.c.event_id, users.c.username, change_events.c.source_id
+            )
+            .select_from(
+                table.join(users, table.c.user_id == users.c.id).join(
+                    change_events, table.c.event_id == change_events.c.id
+                )
+            )
             .order_by(table.c.created_at.desc(), table.c.id.desc())
             .limit(ACTIVITY_LIMIT)
         ).all()
         for user_row in user_rows:
+            source = names.get(int(user_row.source_id), "a removed source")
             entries.append(
                 Activity(
                     "",
                     f"{user_row.username} {verb} ",
                     f"change {number(int(user_row.event_id))}",
                     f"/changes/{int(user_row.event_id)}",
-                    "",
+                    f" on {source}",
                     parse_stamp(str(user_row.created_at)),
                 )
             )
@@ -1131,7 +1235,11 @@ def _activity(connection: Connection, names: Mapping[int, str]) -> tuple[Activit
         )
     audit_rows = connection.execute(
         sa.select(
-            audit_events.c.at, audit_events.c.actor, audit_events.c.action, audit_events.c.target
+            audit_events.c.at,
+            audit_events.c.actor,
+            audit_events.c.action,
+            audit_events.c.target,
+            audit_events.c.detail,
         )
         .where(audit_events.c.action.not_in(AUDIT_SKIPPED))
         .order_by(audit_events.c.at.desc(), audit_events.c.id.desc())
@@ -1141,17 +1249,31 @@ def _activity(connection: Connection, names: Mapping[int, str]) -> tuple[Activit
         action = str(audit_row.action)
         verb = AUDIT_VERBS.get(action, action.replace(".", " ").replace("_", " "))
         target = "" if audit_row.target is None else str(audit_row.target)
-        label, href = _audit_target(target, names)
+        detail = audit_row.detail if isinstance(audit_row.detail, Mapping) else {}
+        label, href = audit_target(target, names, detail)
         text = f"{audit_row.actor} {verb}" + (" " if label else "")
         entries.append(Activity("", text, label, href, "", parse_stamp(str(audit_row.at))))
     entries.sort(key=lambda entry: entry.when, reverse=True)
     return tuple(entries[:ACTIVITY_LIMIT])
 
 
-def _audit_target(target: str, names: Mapping[int, str]) -> tuple[str, str]:
-    """The label and the link of an audit target: a source gets its name and page."""
+def audit_target(
+    target: str, names: Mapping[int, str], detail: Mapping[str, Any] | None = None
+) -> tuple[str, str]:
+    """The readable label and the link of an audit target; never a raw ``kind:id`` text.
+
+    A source gets its name and page, a change its number and page, a mute the resource type it
+    applies to and the muted paths list. Any other target (a user name, a token prefix, a channel
+    type) is already readable and stays as it is.
+    """
     kind, _, rest = target.partition(":")
     if kind == "source" and rest.isdigit():
         source_id = int(rest)
         return names.get(source_id, f"source {source_id}"), f"/sources/{source_id}"
+    if kind == "event" and rest.isdigit():
+        return f"change {number(int(rest))}", f"/changes/{int(rest)}"
+    if kind == "mute" and rest.isdigit():
+        resource = (detail or {}).get("resource")
+        label = resource_label(str(resource)) if resource else "a resource type"
+        return label, MUTES_HREF
     return target, ""
