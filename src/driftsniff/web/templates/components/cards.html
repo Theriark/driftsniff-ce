@@ -1,17 +1,31 @@
-{# The stat card (section 3 of the UI standard): a label, one big number with an optional unit,
-   the difference since the previous period and a sparkline of the series. The whole card is
-   the link to the filtered view behind the number. The sparkline is decorative; the series is
-   described in words by the delta text and listed for screen readers. #}
-{% macro stat_card(label, value, href, unit="", delta="", delta_tone="", spark=[]) %}
-<a class="card stat" href="{{ href }}">
-  <span class="stat__label">{{ label }}</span>
-  <span class="stat__value num">{{ value }}{% if unit %}<small> {{ unit }}</small>{% endif %}</span>
-  {% if spark %}
-  <svg class="stat__spark" viewBox="0 0 96 36" aria-hidden="true" focusable="false"><polyline points="{{ sparkline_points(spark) }}"/></svg>
-  <span class="visually-hidden">Last {{ spark | length }} values: {{ spark | join(", ") }}</span>
+{# The metric card (section 3 of the UI standard, THE-359 P1): a label, one big number with an
+   optional unit, a sparkline of the series and one line that says what changed. The whole card
+   is the link to the filtered view behind the number.
+
+   tone colours the line: down (good), up (worth a look), alert (needs a decision); none is
+   neutral. trend is the direction of the count against the previous period: up, down or flat.
+   The colour never works alone: a glyph and the words carry the same meaning. With a trend the
+   glyph is the arrow (or the dash for flat); without one an up tone shows the high shape and an
+   alert tone the critical shape, the same shapes as the severity badges.
+
+   A screen reader hears one sentence, the visually hidden span; the visible parts are hidden
+   from it so the label, the number and the line are not read twice. The sentence starts with
+   the label, so the visible name is part of the spoken name. A series that is all zeros draws
+   no sparkline: a flat line at the bottom says nothing a zero does not. #}
+{% macro metric_card(label, value, href, unit="", delta="", tone="", trend="", spark=[]) %}
+{%- set trend_glyphs = {"up": "i-trend-up", "down": "i-trend-down", "flat": "i-dash"} -%}
+{%- set tone_glyphs = {"up": "sev-high", "alert": "sev-critical"} -%}
+{%- set glyph = trend_glyphs.get(trend) or tone_glyphs.get(tone) -%}
+{%- set drawn = spark and spark | sum > 0 -%}
+<a class="card metric" href="{{ href }}">
+  <span class="visually-hidden">{{ label }}: {{ value }}{% if unit %} {{ unit }}{% endif %}.{% if delta %} {{ sentence(delta) }}{% endif %}{% if drawn %} Last {{ spark | length }} values: {{ spark | join(", ") }}.{% endif %}</span>
+  <span class="metric__label" aria-hidden="true">{{ label }}</span>
+  <span class="metric__value num" aria-hidden="true">{{ value }}{% if unit %}<small> {{ unit }}</small>{% endif %}</span>
+  {% if drawn %}
+  <svg class="metric__spark" viewBox="0 0 96 36" aria-hidden="true" focusable="false"><polyline points="{{ sparkline_points(spark) }}"/></svg>
   {% endif %}
   {% if delta %}
-  <span class="stat__delta{% if delta_tone %} stat__delta--{{ delta_tone }}{% endif %} num">{{ delta }}</span>
+  <span class="metric__delta{% if tone %} metric__delta--{{ tone }}{% endif %}" aria-hidden="true">{% if glyph %}<svg focusable="false"><use href="#{{ glyph }}"/></svg>{% endif %}<span class="num">{{ delta }}</span></span>
   {% endif %}
 </a>
 {%- endmacro %}
