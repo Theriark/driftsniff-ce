@@ -244,6 +244,16 @@ def test_the_navigation_toggle_works_without_script_below_the_sidebar_width() ->
     assert "grid-template-columns: var(--sidebar-w) minmax(0, 1fr);" in css
 
 
+def test_the_top_bar_search_gives_way_before_the_action_wraps() -> None:
+    # Found on Development (8da2b2f): with a fixed 320 px search the admin's Add source wrapped
+    # to a row of its own at 768 px and at 1024 px beside the sidebar.
+    css = (TEMPLATES_DIR.parent / "static" / "app.css").read_text(encoding="utf-8")
+    block = css.split(".topbar__search {\n", 1)[1].split("}", 1)[0]
+    assert "flex: 1 1 200px;" in block and "max-width: 320px;" in block
+    phone = css.split("@media (max-width: 767px) {\n  .user-id {", 1)[1].split("@media", 1)[0]
+    assert "flex: 1 1 100%;\n    max-width: none;" in phone
+
+
 def test_the_location_trail_names_the_group_and_links_back_from_a_page_below() -> None:
     at = nav_location(dataclasses.replace(ADMIN, path="/changes?status=open"))
     assert at is not None and (at.group, at.label, at.at_section) == ("Monitor", "Changes", True)

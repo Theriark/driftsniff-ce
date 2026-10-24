@@ -497,10 +497,13 @@ code,
   font-weight: 600;
 }
 
+/* the search gives way down to 200 px before anything wraps, so the trail, the badge and the
+   admin's Add source share one row beside the sidebar at 1024 px and below it at 768 px */
 .topbar__search {
   display: block;
   position: relative;
-  flex: 0 1 320px;
+  flex: 1 1 200px;
+  max-width: 320px;
   margin-left: auto;
 }
 
@@ -674,6 +677,7 @@ code,
   .topbar__search {
     order: 5;
     flex: 1 1 100%;
+    max-width: none;
     margin-left: 0;
   }
 
