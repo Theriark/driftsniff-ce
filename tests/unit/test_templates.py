@@ -8,17 +8,22 @@ helper functions of ``driftsniff.web.templating`` are checked on their own as we
 
 import dataclasses
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Iterable, Iterator
 from datetime import UTC, datetime, timedelta
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
 
+from fastapi.routing import APIRoute
 from markupsafe import Markup
 
 from driftsniff import __version__
+from driftsniff.config import Settings
+from driftsniff.main import create_app
 from driftsniff.web.templating import (
     DRIFT_MIN_WIDTH,
+    NAV_GROUPS,
+    NAV_ICONS,
     NAV_ITEMS,
     SEVERITIES,
     TEMPLATES_DIR,
@@ -28,9 +33,12 @@ from driftsniff.web.templating import (
     environment,
     initials,
     make_environment,
+    nav_groups,
+    nav_location,
     relative_time,
     render,
     sparkline_points,
+    topbar_action,
 )
 
 NOW = datetime(2026, 10, 22, 8, 0, tzinfo=UTC)
@@ -138,7 +146,7 @@ def test_the_shell_has_the_landmarks_and_the_skip_link() -> None:
 
 
 def test_the_shell_navigation_marks_the_current_page_and_lists_every_entry() -> None:
-    parsed = Parsed(page(dataclasses.replace(ADMIN, nav_current="sources")))
+    parsed = Parsed(page(dataclasses.replace(ADMIN, nav_current="sources", path="/sources")))
     links = {attrs.get("href"): attrs for attrs in parsed.find("a")}
     for _key, label, href in NAV_ITEMS:
         assert href in links, label
@@ -158,6 +166,151 @@ def test_the_navigation_lists_only_pages_that_exist() -> None:
     hrefs = {attrs.get("href") for attrs in Parsed(page(ADMIN)).find("a")}
     assert {"/changes", "/history", "/configuration"} <= hrefs
     assert "/settings" not in hrefs
+
+
+def test_the_sidebar_groups_every_entry_once_under_monitor_and_inventory() -> None:
+    assert [(key, label) for key, label, _members in NAV_GROUPS] == [
+        ("monitor", "Monitor"),
+        ("inventory", "Inventory"),
+    ]
+    grouped = [item for _key, _label, members in NAV_GROUPS for item in members]
+    assert grouped == [key for key, _label, _href in NAV_ITEMS]
+    groups = nav_groups(dataclasses.replace(ADMIN, nav_current="history"))
+    assert [[link.label for link in group.links] for group in groups] == [
+        ["Dashboard", "Changes"],
+        ["Sources", "History", "Configuration"],
+    ]
+    assert [link.key for group in groups for link in group.links if link.current] == ["history"]
+
+
+def test_the_sidebar_markup_labels_each_group_and_draws_an_existing_icon_per_entry() -> None:
+    text = page(ADMIN)
+    parsed = Parsed(text)
+    assert parsed.find("header") == [{"class": "sidebar"}]
+    headings = [attrs for attrs in parsed.find("p") if attrs.get("class") == "nav__heading"]
+    assert [attrs.get("id") for attrs in headings] == ["nav-monitor", "nav-inventory"]
+    assert [attrs.get("aria-labelledby") for attrs in parsed.find("ul")] == [
+        "nav-monitor",
+        "nav-inventory",
+    ]
+    sidebar = text.split('<nav class="nav" aria-label="Main">', 1)[1].split("</nav>", 1)[0]
+    links = [attrs for tag, attrs in Parsed(sidebar).tags if tag == "a"]
+    assert [attrs["href"] for attrs in links] == [href for _key, _label, href in NAV_ITEMS]
+    # no class on the entries: pages and the security suite match them as {href, aria-current}
+    assert {"href": "/changes", "aria-current": "page"} in links
+    symbols = (TEMPLATES_DIR / "_icons.html").read_text(encoding="utf-8")
+    uses = {attrs.get("href") for attrs in parsed.find("use")}
+    for key, icon in NAV_ICONS.items():
+        assert f'<symbol id="{icon}"' in symbols, key
+        assert f"#{icon}" in uses, key
+
+
+def leaf_routes(routes: Iterable[Any], prefix: str = "") -> Iterator[tuple[Any, str]]:
+    """The routes with the prefix of their inclusion; FastAPI wraps an included router."""
+    for route in routes:
+        nested = getattr(getattr(route, "original_router", None), "routes", None)
+        if nested is None:
+            nested = getattr(route, "routes", None)
+        if nested is not None:
+            context = getattr(route, "include_context", None)
+            yield from leaf_routes(nested, prefix + str(getattr(context, "prefix", "") or ""))
+        else:
+            yield route, prefix
+
+
+def test_every_navigation_entry_is_a_page_the_application_serves() -> None:
+    app = create_app(Settings.from_env({"DRIFTSNIFF_BASE_URL": "http://testserver"}))
+    pages = {
+        prefix + route.path
+        for route, prefix in leaf_routes(app.routes)
+        if isinstance(route, APIRoute) and "GET" in (route.methods or set())
+    }
+    for _key, label, href in NAV_ITEMS:
+        assert href in pages, label
+    assert "/sources/new" in pages
+
+
+def test_the_navigation_toggle_works_without_script_below_the_sidebar_width() -> None:
+    parsed = Parsed(page(ADMIN))
+    toggles = [attrs for attrs in parsed.find("details") if attrs.get("class") == "menu-toggle"]
+    assert toggles == [{"class": "menu-toggle"}]
+    tags = [(tag, attrs.get("class")) for tag, attrs in parsed.tags]
+    # the navigation follows the toggle's summary directly, so the sibling rule can hide it
+    after = tags.index(("details", "menu-toggle"))
+    assert ("nav", "nav") in tags[after : after + 6]
+    css = (TEMPLATES_DIR.parent / "static" / "app.css").read_text(encoding="utf-8")
+    narrow = css.split("@media (max-width: 1023px) {\n  .app--signed-in {", 1)[1]
+    assert ".menu-toggle:not([open]) + .nav {\n    display: none;" in narrow.split("@media", 1)[0]
+    assert "grid-template-columns: var(--sidebar-w) minmax(0, 1fr);" in css
+
+
+def test_the_location_trail_names_the_group_and_links_back_from_a_page_below() -> None:
+    at = nav_location(dataclasses.replace(ADMIN, path="/changes?status=open"))
+    assert at is not None and (at.group, at.label, at.at_section) == ("Monitor", "Changes", True)
+    below = nav_location(dataclasses.replace(ADMIN, path="/changes/12"))
+    assert below is not None and not below.at_section and below.href == "/changes"
+    assert nav_location(dataclasses.replace(ADMIN, nav_current="")) is None
+    home = nav_location(dataclasses.replace(ADMIN, nav_current="dashboard", path="/"))
+    assert home is not None and home.at_section
+
+    parsed = Parsed(page(ADMIN))
+    trail = [attrs for attrs in parsed.find("nav") if attrs.get("aria-label") == "Location"]
+    assert trail == [{"class": "crumbs", "aria-label": "Location"}]
+    assert {"aria-current": "page"} in parsed.find("span")
+    detail = Parsed(page(dataclasses.replace(ADMIN, path="/changes/12")))
+    current = [attrs.get("href") for attrs in detail.find("a") if attrs.get("aria-current")]
+    assert current == ["/changes"]  # only the sidebar entry; the trail links back up
+    assert {"href": "/changes"} in detail.find("a")
+    # no page-level breadcrumb landmark is added by the shell: pages own theirs
+    assert not [a for a in detail.find("nav") if a.get("aria-label") == "Breadcrumb"]
+
+
+def test_the_top_bar_searches_the_changes_with_a_labelled_get_form() -> None:
+    parsed = Parsed(page(ADMIN))
+    assert parsed.find("search") == [{"class": "topbar__search"}]
+    assert {"method": "get", "action": "/changes"} in parsed.find("form")
+    field = next(attrs for attrs in parsed.find("input") if attrs.get("id") == "shell-q")
+    assert field["name"] == "q" and field["type"] == "search"
+    assert {"class": "visually-hidden", "for": "shell-q"} in parsed.find("label")
+    assert_fields_are_labelled(page(ADMIN))
+    # the page's own filter forms keep role="search"; the shell form leaves that to <search>
+    assert not [f for f in parsed.find("form") if f.get("role") == "search"]
+
+
+def test_the_top_bar_offers_add_source_to_admins_outside_the_pages_that_lead_with_it() -> None:
+    offered = ("Add source", "/sources/new")
+    for path in ("/changes?page=2", "/changes/4", "/history", "/history/2", "/configuration/2"):
+        assert topbar_action(dataclasses.replace(ADMIN, path=path)) == offered, path
+    for path in ("/", "/sources", "/sources/3", "/sources/new?type=xo", "/sources/3/edit"):
+        assert topbar_action(dataclasses.replace(ADMIN, path=path)) is None, path
+    for role in ("operator", "viewer"):
+        assert topbar_action(dataclasses.replace(ADMIN, user_role=role)) is None, role
+
+    def actions(shell: Shell) -> list[dict[str, str | None]]:
+        anchors = Parsed(page(shell)).find("a")
+        return [a for a in anchors if "btn" in (a.get("class") or "").split()]
+
+    # a secondary button, so the page's own primary button stays the only primary one
+    assert actions(ADMIN) == [{"class": "btn topbar__action", "href": "/sources/new"}]
+    for role in ("operator", "viewer"):
+        assert actions(dataclasses.replace(ADMIN, user_role=role)) == [], role
+
+
+def test_the_signed_out_shell_keeps_the_plain_header_without_sidebar_or_search() -> None:
+    parsed = Parsed(page(Shell(title="Sign in", environment_label="Stage")))
+    assert parsed.find("header") == [{"class": "app-header"}]
+    assert parsed.find("body")[0]["class"] == "app"
+    assert parsed.find("search") == [] and parsed.find("details") == []
+    signed_in = Parsed(page(ADMIN)).find("body")[0]
+    assert signed_in["class"] == "app app--signed-in"
+
+
+def test_the_user_menu_shows_the_name_and_the_role_at_the_foot_of_the_sidebar() -> None:
+    text = page(ADMIN)
+    assert '<span class="user-name">r.marques</span>' in text
+    assert '<span class="user-role"><span class="visually-hidden">, </span>admin</span>' in text
+    sidebar = text.split('<header class="sidebar">', 1)[1].split("</header>", 1)[0]
+    assert sidebar.index('class="nav"') < sidebar.index('class="user-menu"')
 
 
 def test_the_shell_header_uses_the_horizontal_logo_at_48_px_with_a_dark_source() -> None:

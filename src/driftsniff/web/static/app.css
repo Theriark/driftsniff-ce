@@ -76,6 +76,7 @@
   --content-max: 1280px;
   --gutter: 32px;
   --header-h: 64px;
+  --sidebar-w: 248px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -228,25 +229,46 @@ code,
   top: var(--sp-2);
 }
 
-/* ---- app header ------------------------------------------------------------------------ */
+/* ---- app shell (UI revision WP1, THE-1101) --------------------------------------------- */
 
-.app-header {
+/* Signed in, the body is a grid: the sidebar on the left for the full height, and a column of
+   top bar, page and footer. Below 1024 px the sidebar folds into a bar above the column and its
+   navigation opens with the details toggle (no script). Signed out, the plain header below. */
+.app--signed-in {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+  grid-template-rows: auto 1fr auto;
+  grid-template-areas:
+    "side top"
+    "side main"
+    "side foot";
+}
+
+.app--signed-in > .page {
+  grid-area: main;
+}
+
+.app--signed-in > .app-footer {
+  grid-area: foot;
+}
+
+.sidebar {
+  grid-area: side;
   position: sticky;
   top: 0;
   z-index: 50;
-  height: var(--header-h);
+  height: 100vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
+  padding: var(--sp-4) var(--sp-3);
   background: var(--header-bg);
-  border-bottom: 1px solid var(--slate);
+  border-right: 1px solid var(--border);
 }
 
-.app-header__inner {
-  max-width: var(--content-max);
-  height: 100%;
-  margin: 0 auto;
-  padding: 0 var(--gutter);
-  display: flex;
-  align-items: center;
-  gap: var(--sp-6);
+.sidebar .brand {
+  padding: 0 var(--sp-2);
 }
 
 .brand {
@@ -257,8 +279,8 @@ code,
   flex: none;
 }
 
-/* The header lockup is the guide's horizontal logo file: logo-horizontal on the light header,
-   logo-horizontal-dark (the mark on its light rounded tile) on the dark #1E1E24 header; the
+/* The lockup is the guide's horizontal logo file: logo-horizontal on the light sidebar,
+   logo-horizontal-dark (the mark on its light rounded tile) on the dark #1E1E24 sidebar; the
    picture element picks the dark file from prefers-color-scheme. The file is 3 to 1 and carries
    its own clear space; at 48 px tall the ferret mark inside it is about 38 px, above the
    guide's 32 px floor. */
@@ -273,69 +295,120 @@ code,
   }
 }
 
+/* the grouped navigation: a quiet group name, then one row per page with its icon */
 .nav {
   display: flex;
-  gap: var(--sp-1);
-  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--sp-6);
+  flex: 1 0 auto;
 }
 
-.nav a {
-  display: inline-block;
-  padding: var(--sp-2) var(--sp-3);
+.nav__heading {
+  padding: 0 var(--sp-3);
+  margin-bottom: var(--sp-1);
+  font-size: var(--fs-14);
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.nav__group ul {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nav__group a {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: 40px;
+  padding: 0 var(--sp-3);
   border-radius: var(--radius-s);
   text-decoration: none;
-  font-size: var(--fs-14);
+  font-size: var(--fs-16);
+  font-weight: 500;
   color: var(--text-2);
   transition: background var(--t-fast) var(--ease-out), color var(--t-fast) var(--ease-out);
 }
 
-.nav a:hover {
+.nav__group a svg {
+  flex: none;
+  color: var(--slate);
+}
+
+.nav__group a:hover {
   background: var(--surface-2);
   color: var(--text);
 }
 
-.nav a[aria-current="page"] {
+/* the current page: the ink rule on its left edge, bold text, the ink icon */
+.nav__group a[aria-current="page"] {
+  background: var(--surface-2);
   color: var(--text);
   font-weight: 700;
-  box-shadow: inset 0 -2px 0 var(--ink);
-  border-radius: var(--radius-s) var(--radius-s) 0 0;
+  box-shadow: inset 3px 0 0 var(--ink);
 }
 
-.header-tools {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-  margin-left: auto;
-  flex: none;
+.nav__group a[aria-current="page"] svg {
+  color: var(--ink);
 }
 
-.env-badge {
-  font-size: var(--fs-14);
-  font-weight: 700;
-  padding: 2px var(--sp-2);
-  border: 1px solid var(--slate);
-  border-radius: 999px;
-  color: var(--text-2);
+.menu-toggle {
+  display: none;
+}
+
+/* the account sits at the foot of the sidebar; its menu opens upwards */
+.user-menu {
+  position: relative;
+}
+
+.sidebar .user-menu {
+  margin-top: auto;
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--border);
 }
 
 .user-menu > summary {
   list-style: none;
   cursor: pointer;
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: var(--sp-2);
+  gap: var(--sp-3);
   font-size: var(--fs-14);
-  padding: var(--sp-1) var(--sp-2);
+  padding: var(--sp-2);
   border-radius: var(--radius-s);
+}
+
+.user-menu > summary:hover {
+  background: var(--surface-2);
 }
 
 .user-menu > summary::-webkit-details-marker {
   display: none;
 }
 
+.user-id {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.user-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-role {
+  color: var(--text-2);
+}
+
 .avatar {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
+  flex: none;
   border-radius: 50%;
   background: var(--ink);
   color: var(--paper);
@@ -345,14 +418,11 @@ code,
   place-items: center;
 }
 
-.user-menu {
-  position: relative;
-}
-
 .user-menu__list {
   position: absolute;
+  left: 0;
   right: 0;
-  top: calc(100% + var(--sp-2));
+  bottom: calc(100% + var(--sp-2));
   min-width: 200px;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -382,36 +452,161 @@ code,
   background: var(--surface-2);
 }
 
-.menu-toggle {
-  display: none;
+/* The top bar of the column: where the page sits, the change search, the environment badge and
+   at most one action (a secondary button). Its padding follows the page column, so the trail
+   starts where the page title starts at every width. */
+.topbar {
+  grid-area: top;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3) var(--sp-4);
+  min-height: var(--header-h);
+  padding: var(--sp-3) max(var(--gutter), calc((100% - var(--content-max)) / 2 + var(--gutter)));
+  background: var(--paper);
+  border-bottom: 1px solid var(--border);
+}
+
+.crumbs {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+  font-size: var(--fs-14);
+  color: var(--text-2);
+}
+
+.crumbs__sep {
+  flex: none;
+  color: var(--slate);
+}
+
+.crumbs a {
+  text-decoration: none;
+}
+
+.crumbs a:hover {
+  text-decoration: underline;
+}
+
+.crumbs [aria-current="page"] {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.topbar__search {
+  display: block;
+  position: relative;
+  flex: 0 1 320px;
+  margin-left: auto;
+}
+
+.topbar__search .input {
+  width: 100%;
+  height: 36px;
+  padding-left: 36px;
+  background: var(--surface);
+}
+
+.topbar__search svg {
+  position: absolute;
+  left: 12px;
+  top: 10px;
+  width: 16px;
+  height: 16px;
+  stroke: var(--slate);
+  pointer-events: none;
+}
+
+.topbar__action {
+  height: 36px;
+}
+
+.topbar__action svg {
+  flex: none;
+}
+
+.env-badge {
+  flex: none;
+  font-size: var(--fs-14);
+  font-weight: 700;
+  padding: 2px var(--sp-3);
+  border: 1px solid var(--info);
+  border-radius: 999px;
+  color: var(--info);
+}
+
+/* signed out: the logo on the left, the environment badge on the right */
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  height: var(--header-h);
+  background: var(--header-bg);
+  border-bottom: 1px solid var(--slate);
+}
+
+.app-header__inner {
+  max-width: var(--content-max);
+  height: 100%;
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-6);
+}
+
+.header-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-left: auto;
+  flex: none;
 }
 
 @media (max-width: 1023px) {
-  .app-header__inner {
+  .app--signed-in {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto 1fr auto;
+    grid-template-areas:
+      "side"
+      "top"
+      "main"
+      "foot";
+  }
+
+  /* the sidebar becomes the bar at the top: logo, account, the navigation toggle */
+  .sidebar {
+    height: var(--header-h);
+    overflow: visible;
+    flex-direction: row;
+    align-items: center;
     gap: var(--sp-3);
-  }
-
-  .nav {
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: var(--header-h);
-    flex-direction: column;
-    gap: 0;
-    background: var(--surface);
+    padding: 0 var(--gutter);
+    border-right: 0;
     border-bottom: 1px solid var(--slate);
-    padding: var(--sp-2) var(--gutter);
-    box-shadow: var(--elev-2);
   }
 
-  .nav a {
-    padding: var(--sp-3);
-    font-size: var(--fs-16);
+  .sidebar .brand {
+    padding: 0;
   }
 
-  .nav a[aria-current="page"] {
-    box-shadow: inset 3px 0 0 var(--ink);
-    border-radius: 0 var(--radius-s) var(--radius-s) 0;
+  .sidebar .user-menu {
+    order: 2;
+    margin: 0 0 0 auto;
+    padding: 0;
+    border-top: 0;
+  }
+
+  .user-menu__list {
+    left: auto;
+    right: 0;
+    bottom: auto;
+    top: calc(100% + var(--sp-2));
+    min-width: 220px;
   }
 
   .menu-toggle {
@@ -435,15 +630,66 @@ code,
     display: none;
   }
 
+  .menu-toggle[open] > summary {
+    background: var(--surface-2);
+    border-color: var(--slate);
+  }
+
+  /* the open navigation drops below the bar, its groups side by side where they fit */
+  .nav {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: var(--header-h);
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--sp-4) var(--sp-6);
+    padding: var(--sp-4) var(--gutter) var(--sp-6);
+    background: var(--surface);
+    border-bottom: 1px solid var(--slate);
+    box-shadow: var(--elev-2);
+  }
+
   .menu-toggle:not([open]) + .nav {
     display: none;
   }
 
-  .env-badge {
+  /* below the sidebar width the top bar scrolls away; the bar above it stays */
+  .topbar {
+    position: static;
+    min-height: 0;
+  }
+}
+
+@media (max-width: 767px) {
+  .user-id {
     display: none;
   }
 
-  .user-menu summary span.user-name {
+  .crumbs {
+    flex: 1 1 auto;
+  }
+
+  /* the search takes its own full row under the trail, the badge and the action */
+  .topbar__search {
+    order: 5;
+    flex: 1 1 100%;
+    margin-left: 0;
+  }
+
+  .topbar__search .input {
+    height: 40px;
+  }
+
+  .topbar__search svg {
+    top: 12px;
+  }
+}
+
+@media (max-width: 479px) {
+  /* on a phone the trail keeps the page name; the group is in the navigation */
+  .crumbs__group,
+  .crumbs__sep {
     display: none;
   }
 }

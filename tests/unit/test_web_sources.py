@@ -53,6 +53,8 @@ BROWSER = {"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;
 UNIFI_CANARY = "CANARY-7e57c0de7e57c0de7e57c0de"
 XO_CANARY = "CANARY-a11ce0a11ce0a11ce0a11ce0"
 TYPED_CONFIRMATION = "CANARY-not the sentence"
+# The forms of the shell on every signed-in page: sign out, and the top bar change search.
+SHELL_FORMS = {"/logout", "/changes"}
 OBJECTS: Sequence[Mapping[str, JsonValue]] = ({"id": "a"}, {"id": "b"})
 
 
@@ -501,13 +503,13 @@ def test_only_an_admin_opens_the_forms_and_changes_a_source(world: World) -> Non
         assert world.post("/sources/new", unifi_form(name="x"), role).status_code == 403
         assert world.post(f"/sources/{source_id}/disable", {}, role).status_code == 403
     viewer = assert_page(world.get(f"/sources/{source_id}", role="viewer"))
-    actions = {attrs.get("action") for attrs in viewer.find("form")} - {"/logout"}
+    actions = {attrs.get("action") for attrs in viewer.find("form")} - SHELL_FORMS
     assert actions == set()
     operator = assert_page(world.get(f"/sources/{source_id}", role="operator"))
-    actions = {attrs.get("action") for attrs in operator.find("form")} - {"/logout"}
+    actions = {attrs.get("action") for attrs in operator.find("form")} - SHELL_FORMS
     assert actions == {f"/sources/{source_id}/run"}
     admin = assert_page(world.get(f"/sources/{source_id}"))
-    actions = {attrs.get("action") for attrs in admin.find("form")} - {"/logout"}
+    actions = {attrs.get("action") for attrs in admin.find("form")} - SHELL_FORMS
     assert actions == {
         f"/sources/{source_id}/run",
         f"/sources/{source_id}/disable",
