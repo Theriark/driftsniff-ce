@@ -8,9 +8,9 @@
 {% from "components/states.html" import empty_state %}
 {% from "components/table.html" import pager as pager_bar %}
 {% from "components/details.html" import time_tag %}
-{% block head %}<link rel="stylesheet" href="/static/history.css">{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/history.css"><link rel="stylesheet" href="/static/summary-head.css">{% endblock %}
 {% block content %}
-{% call source_head("History", "/history", view.source, configuration_href, "Current configuration") %}
+{% call source_head("History", "/history", view.source, "history") %}
 <span>{{ type_label }}{% if not view.source.enabled %}, disabled{% endif %}</span>
 <span><span class="num">{{ number(view.total) }}</span> {{ "reading" if view.total == 1 else "readings" }}</span>
 <span><span class="num">{{ number(view.baseline_count) }}</span> {{ "baseline" if view.baseline_count == 1 else "baselines" }}</span>

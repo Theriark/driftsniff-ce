@@ -5,12 +5,18 @@
    the left (the items grouped by object, the external analysis) and the decisions on the right
    (acknowledge with a comment, the acknowledgements so far, the notes). A viewer sees the
    evidence and the lists, never a form. No drift line here until the F4 decision on its edge
-   alignment; the source link leads to the strip. #}
+   alignment; the source link leads to the strip.
+
+   UI revision WP3 (THE-1161): a tab strip under the head names the parts of the change with
+   their counts and jumps to each (the evidence, the external analysis, the acknowledgements,
+   the notes), so a long change is one step from its decisions; each object group carries its
+   own item count. Every part keeps its place and its heading. #}
 {% extends "base.html" %}
 {% from "components/states.html" import banner, success_banner %}
 {% from "components/badges.html" import severity_badge, status_badge %}
-{% from "components/details.html" import time_tag %}
+{% from "components/details.html" import time_tag, tab_strip %}
 {% from "changes/_item.html" import change_item with context %}
+{% block head %}<link rel="stylesheet" href="/static/summary-head.css">{% endblock %}
 {% block content %}
 <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/changes">Changes</a> / <a href="/sources/{{ change.source_id }}">{{ change.source_name }}</a> / Change {{ number(change.id) }}</nav>
 <div class="summary-head">
@@ -32,6 +38,12 @@
   </div>
   {% endif %}
 </div>
+{{ tab_strip("Parts of this change", [
+  {"label": "What changed", "href": "#items", "count": change.item_count},
+  {"label": "External analysis", "href": "#external", "count": detail.enrichments | length},
+  {"label": "Acknowledgements", "href": "#acknowledge", "count": detail.acknowledgements | length},
+  {"label": "Notes", "href": "#notes", "count": detail.notes | length},
+]) }}
 
 {% set banners %}
   {% if notice %}{{ success_banner(notice[0], notice[1]) }}{% endif %}
@@ -42,14 +54,14 @@
 
 <div class="section grid-7-5">
   <div class="stack">
-    <section class="card" aria-labelledby="items-h">
+    <section class="card jump-target" id="items" aria-labelledby="items-h">
       <div class="section-head section-head--card">
         <h2 id="items-h">What changed</h2>
         <span class="hint">{{ counts }}. Every item names its rule; open the question under it for the reason.</span>
       </div>
       {% for group in detail.groups %}
       <div class="object-group">
-        <h3>{{ resource_label(group.resource) }}{% if group.object_name %} {{ group.object_name }}{% endif %}{% if group.object_id %} <span class="path mono">object {{ group.object_id }}</span>{% endif %}</h3>
+        <h3>{{ resource_label(group.resource) }}{% if group.object_name %} {{ group.object_name }}{% endif %}{% if group.object_id %} <span class="path mono">object {{ group.object_id }}</span>{% endif %} <span class="object-group__count">{{ count_words(group.items | length, "item") }}</span></h3>
         {% for item in group.items %}
         {{ change_item(item, change.id, can_operate, shell.csrf_token, reason_limit) }}
         {% endfor %}
@@ -59,7 +71,7 @@
       {% endfor %}
     </section>
 
-    <section class="card" aria-labelledby="ext-h">
+    <section class="card jump-target" id="external" aria-labelledby="ext-h">
       <h2 id="ext-h">External analysis, not verified by the product</h2>
       {% if detail.enrichments %}
       <div class="stack">
@@ -83,7 +95,7 @@
   </div>
 
   <div class="side">
-    <section class="card" id="acknowledge" aria-labelledby="ack-h">
+    <section class="card jump-target" id="acknowledge" aria-labelledby="ack-h">
       <h2 id="ack-h">Acknowledge</h2>
       {% if detail.acknowledgements %}
       <ul class="note-list">
@@ -110,7 +122,7 @@
       {% endif %}
     </section>
 
-    <section class="card" id="notes" aria-labelledby="notes-h">
+    <section class="card jump-target" id="notes" aria-labelledby="notes-h">
       <h2 id="notes-h">Notes</h2>
       {% if detail.notes %}
       <ul class="note-list">

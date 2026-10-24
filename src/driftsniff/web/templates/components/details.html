@@ -21,3 +21,32 @@
 {% macro time_tag(when, now) %}
 <time datetime="{{ iso_utc(when) }}" title="{{ utc_label(when) }}">{{ relative_time(when, now) }}</time>
 {%- endmacro %}
+
+{# The tab strip under a summary head (UI revision WP3, THE-1161): the parts of one thing, as
+   plain links, so it works without a script. tabs is a list of {label, href, current, count};
+   current marks the page the strip sits on (aria-current="page"), count is an optional number
+   shown beside the label and read with it. A link with a fragment jumps to a part of the same
+   page; the others open the sibling page. On a phone the strip wraps (summary-head.css), so no
+   tab hides past its edge and the page never widens. #}
+{% macro tab_strip(label, tabs) %}
+<nav class="tabs" aria-label="{{ label }}">
+  <ul>
+    {% for tab in tabs %}
+    <li><a href="{{ tab.href }}"{% if tab.get("current") %} aria-current="page"{% endif %}>{{ tab.label }}{% if tab.get("count") is not none %}<span class="tabs__count num"><span class="visually-hidden">, </span>{{ number(tab.count) }}</span>{% endif %}</a></li>
+    {% endfor %}
+  </ul>
+</nav>
+{%- endmacro %}
+
+{# The tabs of one source: its page (Overview, with Coverage and Runs as parts of it), its
+   reading history and its current configuration. current is overview, history or
+   configuration. The same strip heads all three pages, so they read as one source. #}
+{% macro source_tabs(source_id, current) %}
+{{ tab_strip("Source", [
+  {"label": "Overview", "href": "/sources/" ~ source_id, "current": current == "overview"},
+  {"label": "Coverage", "href": "/sources/" ~ source_id ~ "#coverage"},
+  {"label": "Runs", "href": "/sources/" ~ source_id ~ "#runs"},
+  {"label": "History", "href": "/history/" ~ source_id, "current": current == "history"},
+  {"label": "Configuration", "href": "/configuration/" ~ source_id, "current": current == "configuration"},
+]) }}
+{%- endmacro %}

@@ -453,14 +453,18 @@ def test_the_history_pages_load_their_own_stylesheet() -> None:
     sheet = Path(TEMPLATES_DIR).parent / "static" / "history.css"
     # the tokens of app.css only: no colour value of its own (and no id selector)
     assert sheet.is_file() and "#" not in sheet.read_text(encoding="utf-8")
-    pages = (
-        render_picker("viewer", []),
-        render_history(history_view(())),
-        render_configuration(config_view()),
-    )
-    for text in pages:
-        links = [a.get("href") for a in Parsed(text).find("link") if a.get("rel") == "stylesheet"]
-        assert links == ["/static/app.css", "/static/history.css"]
+
+    def sheets(text: str) -> list[str | None]:
+        return [a.get("href") for a in Parsed(text).find("link") if a.get("rel") == "stylesheet"]
+
+    assert sheets(render_picker("viewer", [])) == ["/static/app.css", "/static/history.css"]
+    # the two pages of one source also load the detail head sheet, for the source tabs (THE-1161)
+    for text in (render_history(history_view(())), render_configuration(config_view())):
+        assert sheets(text) == [
+            "/static/app.css",
+            "/static/history.css",
+            "/static/summary-head.css",
+        ]
 
 
 def test_the_source_head_actions_stay_visible_on_a_wide_screen() -> None:
