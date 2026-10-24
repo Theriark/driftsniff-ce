@@ -8,7 +8,7 @@ helper functions of ``driftsniff.web.templating`` are checked on their own as we
 
 import dataclasses
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Iterable, Iterator
 from datetime import UTC, datetime, timedelta
 from html.parser import HTMLParser
 from pathlib import Path
@@ -205,12 +205,25 @@ def test_the_sidebar_markup_labels_each_group_and_draws_an_existing_icon_per_ent
         assert f"#{icon}" in uses, key
 
 
+def leaf_routes(routes: Iterable[Any], prefix: str = "") -> Iterator[tuple[Any, str]]:
+    """The routes with the prefix of their inclusion; FastAPI wraps an included router."""
+    for route in routes:
+        nested = getattr(getattr(route, "original_router", None), "routes", None)
+        if nested is None:
+            nested = getattr(route, "routes", None)
+        if nested is not None:
+            context = getattr(route, "include_context", None)
+            yield from leaf_routes(nested, prefix + str(getattr(context, "prefix", "") or ""))
+        else:
+            yield route, prefix
+
+
 def test_every_navigation_entry_is_a_page_the_application_serves() -> None:
     app = create_app(Settings.from_env({"DRIFTSNIFF_BASE_URL": "http://testserver"}))
     pages = {
-        route.path
-        for route in app.routes
-        if isinstance(route, APIRoute) and "GET" in route.methods
+        prefix + route.path
+        for route, prefix in leaf_routes(app.routes)
+        if isinstance(route, APIRoute) and "GET" in (route.methods or set())
     }
     for _key, label, href in NAV_ITEMS:
         assert href in pages, label
