@@ -53,7 +53,8 @@ class Tags(HTMLParser):
         return [attrs for tag, attrs in self.tags if tag == name]
 
     def forms(self) -> set[str | None]:
-        return {attrs.get("action") for attrs in self.attrs("form")} - {"/logout"}
+        # the shell's own forms: sign out, and the change search of the top bar (GET /changes)
+        return {attrs.get("action") for attrs in self.attrs("form")} - {"/logout", "/changes"}
 
     def hrefs(self) -> set[str | None]:
         return {attrs.get("href") for attrs in self.attrs("a")}
