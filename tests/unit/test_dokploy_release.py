@@ -691,7 +691,11 @@ def test_post_health_reread_survives_a_401_window_longer_than_the_short_budget(
         monkeypatch,
         module,
         {
-            "application.one": [{"dockerImage": ""}] + [http_error(401)] * 4 + [{"dockerImage": IMAGE}],
+            "application.one": [
+                {"dockerImage": ""},
+                *([http_error(401)] * 4),
+                {"dockerImage": IMAGE},
+            ],
             "application.update": [{}],
             "application.deploy": [{}],
         },
@@ -711,7 +715,11 @@ def test_post_health_reread_recovers_on_the_last_allowed_attempt(
         monkeypatch,
         module,
         {
-            "application.one": [{"dockerImage": ""}] + [http_error(401)] * 6 + [{"dockerImage": IMAGE}],
+            "application.one": [
+                {"dockerImage": ""},
+                *([http_error(401)] * 6),
+                {"dockerImage": IMAGE},
+            ],
             "application.update": [{}],
             "application.deploy": [{}],
         },
@@ -731,7 +739,11 @@ def test_post_health_reread_still_fails_after_the_budget_and_never_redeploys(
         monkeypatch,
         module,
         {
-            "application.one": [{"dockerImage": ""}] + [http_error(401)] * 7 + [{"dockerImage": IMAGE}],
+            "application.one": [
+                {"dockerImage": ""},
+                *([http_error(401)] * 7),
+                {"dockerImage": IMAGE},
+            ],
             "application.update": [{}],
             "application.deploy": [{}],
         },
