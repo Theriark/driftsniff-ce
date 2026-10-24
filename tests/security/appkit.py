@@ -38,6 +38,7 @@ from driftsniff.sources.service import SourceService
 from driftsniff.web.auth import SESSION_COOKIE, AuthService, make_password_hasher
 from driftsniff.web.bearer import TokenService
 from driftsniff.web.change_pages import ChangePages
+from driftsniff.web.replay import ReplayService
 from driftsniff.web.routes_push import PushGateway
 from driftsniff.web.source_pages import SourcePages
 
@@ -144,6 +145,7 @@ def running_kit(folder: Path) -> Iterator[Kit]:
             ),
             change_pages=ChangePages(store),
             history=HistoryService(store, Fingerprinter.from_master(MASTER)),
+            replay=ReplayService(store),
         )
         with TestClient(app, base_url=ORIGIN, follow_redirects=False) as client:
             kit = Kit(app, client, store, auth, tokens, user_ids)

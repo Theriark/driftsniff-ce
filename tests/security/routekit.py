@@ -73,6 +73,8 @@ ROUTE_TABLE: dict[tuple[str, str], Access] = {
     ("GET", "/history/{source_id}"): Access.VIEWER,
     ("GET", "/configuration"): Access.VIEWER,
     ("GET", "/configuration/{source_id}"): Access.VIEWER,
+    # The change replay data (WP4a): counts per day, resource type and severity; read only.
+    ("GET", "/sources/{source_id}/replay"): Access.VIEWER,
     ("GET", "/tokens"): Access.ADMIN,
     ("POST", "/tokens"): Access.ADMIN,
     ("POST", "/tokens/{token_id}/revoke"): Access.ADMIN,
