@@ -19,7 +19,15 @@ from driftsniff.db.tables import snapshots
 
 from .appkit import Kit
 from .canary import WLAN, Leak, assert_no_leaks
-from .test_history_routes import every_path, planted, seed, two_snapshots, use_tables, whole
+from .test_history_routes import (
+    every_path,
+    plain_lab,
+    planted,
+    seed,
+    two_snapshots,
+    use_tables,
+    whole,
+)
 from .test_xss import PAYLOADS
 
 BROWSER = {"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"}
@@ -209,6 +217,16 @@ def test_a_search_without_a_match_says_so_and_offers_to_clear_it(kit: Kit) -> No
     text = html_page(page(kit, "/configuration/1", resource=WLAN, q="nothing like this"))
     assert "No object matches" in text
     assert f"/configuration/1?resource={WLAN}" in Tags(text).hrefs()
+
+
+def test_the_configuration_pager_keeps_the_resource_and_the_search(kit: Kit) -> None:
+    use_tables(kit)
+    seed(kit, {WLAN: [plain_lab(number, 100 + number) for number in range(51)]})
+    first = Tags(html_page(page(kit, "/configuration/1", resource=WLAN, q="lab")))
+    assert f"/configuration/1?resource={WLAN}&q=lab&page=2" in first.hrefs()
+    second = html_page(page(kit, "/configuration/1", resource=WLAN, q="lab", page="2"))
+    assert "Showing 51 to 51 of 51 objects" in second
+    assert f"/configuration/1?resource={WLAN}&q=lab" in Tags(second).hrefs()  # page 1
 
 
 def test_an_htmx_request_of_the_configuration_gets_the_page(kit: Kit) -> None:
