@@ -231,6 +231,12 @@ PREVIOUS_ENV = [
     {"name": "DRIFTSNIFF_DATA_DIR", "kind": "literal", "value": "/data"},
     {"name": "DRIFTSNIFF_KEY_FILE", "kind": "literal", "value": "/keys/master.key"},
 ]
+# The header badge of the Development installation (docs/deploy-development.md).
+ENVIRONMENT_LABEL_ENV = {
+    "name": "DRIFTSNIFF_ENVIRONMENT_LABEL",
+    "kind": "literal",
+    "value": "Development",
+}
 
 
 def manifest() -> dict[str, object]:
@@ -250,10 +256,21 @@ def test_the_manifest_keeps_the_database_the_volumes_and_every_earlier_setting()
     assert env[: len(PREVIOUS_ENV)] == PREVIOUS_ENV
 
 
+def test_the_manifest_declares_the_development_environment_badge_once() -> None:
+    env = manifest()["env"]
+    assert isinstance(env, list)
+    assert env.count(ENVIRONMENT_LABEL_ENV) == 1
+    assert [item for item in env if item["name"] == "DRIFTSNIFF_ENVIRONMENT_LABEL"] == [
+        ENVIRONMENT_LABEL_ENV
+    ]
+
+
 def test_the_generated_passwords_are_declared_without_a_value() -> None:
     env = manifest()["env"]
     assert isinstance(env, list)
-    declared = [item for item in env if item not in PREVIOUS_ENV]
+    declared = [
+        item for item in env if item not in PREVIOUS_ENV and item != ENVIRONMENT_LABEL_ENV
+    ]
     assert declared == [
         {"name": password_variable_for(role), "kind": "token24"} for role in SEED_ROLES
     ]
