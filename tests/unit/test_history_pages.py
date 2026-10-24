@@ -156,7 +156,7 @@ def test_links_carry_only_the_values_given_and_are_encoded() -> None:
     assert history_href(3, 2) == "/history/3?page=2"
     assert configuration_href(3) == "/configuration/3"
     assert (
-        configuration_href(3, resource="a&b", search="x y\"<", page=2)
+        configuration_href(3, resource="a&b", search='x y"<', page=2)
         == "/configuration/3?resource=a%26b&q=x+y%22%3C&page=2"
     )
     assert configuration_href(3, resource="", search="", page=1) == "/configuration/3"
