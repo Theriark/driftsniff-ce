@@ -110,8 +110,9 @@ application's environment.
 
 ## Routes
 
-Until the interface slice adds the HTML answer, every client gets JSON (`wants_html` is not used
-yet; add it the way `routes_changes.py` does). The status codes are final.
+A browser gets the pages of slice B (THE-1043, see "The pages" below); every other client gets
+JSON, with the same status codes. An HTMX request of the configuration gets the page too. A
+damaged store is a designed 500 page for a browser and the fixed JSON text for everyone else.
 
 | Method and path | Access | Answer |
 |---|---|---|
@@ -127,10 +128,76 @@ by `tests/security/test_route_table.py` (no session: 401; no API token ever work
 application was built without the service, 500 a damaged store. `create_app(history=...)` takes
 the service; `driftsniff serve` builds it with the fingerprint key derived from the master key.
 
+## The pages (slice B)
+
+Task THE-1043 (Jira DRS-289), Frontend Developer. Slice B adds the HTML answers of the four
+routes above (`web/routes_history.py`), the words and links of the pages
+(`web/history_pages.py`), the templates (`templates/history/sources.html`, `snapshots.html`,
+`configuration.html` and the shared head `_head.html`), their stylesheet
+(`static/history.css`), the History and Configuration entries of the navigation
+(`NAV_ITEMS` in `web/templating.py`) and two links on the source page (Reading history, Current
+configuration). No route was added and none writes.
+
+| Page | What it shows |
+|---|---|
+| `/history`, `/configuration` | every source with its readings, baselines and newest reading; the name opens that page, the other page is one link away |
+| `/history/{source_id}` | the reading ledger, 50 a page, newest first |
+| `/configuration/{source_id}` | the newest reading, one resource at a time, searchable, 50 objects a page |
+
+**The reading ledger** is the signature of the history, the companion of the drift line
+(docs/design-direction.md section 2): a 2 px `border` rail runs down the first column and joins
+the readings. A filled `ink` square marks a baseline (the comparison starts there; nothing is
+reported across it), a 3 px `ink` ring the current reading (the one Configuration shows), an
+8 px `slate` dot any other. The word (Baseline, Current, Reading) always stands next to the
+mark and a key above the table names the shapes, so shape is never the only signal; a baseline
+row sits on `paper`. Each row has the time read, the changes found at that reading (a link to
+the change list of the source), the controller version and the stored size.
+
+**The configuration browser.** Left the resource rail (readable name, object count, whether
+the order matters, whether XO hides fields), right the object sheets: the name (or the key), the
+key in the value face, and the fields as a two-column table of path and value. In an ordered
+resource (firewall policies) each sheet carries its 1-based place in the gutter at 32 px, the
+one large number of the page, because there the order is the configuration; an unordered
+resource has no numbers. A secret or unclassified field shows `secret` or `unclassified, not
+shown` and its keyed fingerprint in groups of four, never a value. A field hidden by Xen
+Orchestra carries a chip, and the resource a warning banner that lists those fields. A value
+cut at 2,000 characters says so. The rail links and the search form swap `#config-browser`
+through HTMX (`hx-select` on the full page, the address pushed) while the skeleton shows;
+without scripting they are plain links and a plain GET form.
+
+**Roles.** Both source pages offer the other page and the source page to everyone; an operator
+also gets Run now (a CSRF form posting to `/sources/{id}/run`, shown only for an enabled UniFi
+or XO source while a scheduler runs) and an admin Edit source. Both target routes check the role
+again.
+
+**States.** Empty: no source (Add a source for an admin, See the sources for others), no
+reading yet (with the reason: first check, no scheduler, disabled, or a push source's first
+push), a reading without objects, a resource without objects, a search without a match (with
+Clear the search). Loading: the skeleton of the HTMX swap. Error: a damaged store is a designed
+500 page with Try again; an unknown source is the designed 404.
+
+**Decisions where the plan is silent.** (1) Changes found links to the change list of the
+source, not of the reading: the change list has no reading filter. (2) The search keeps the
+chosen resource; changing the resource clears the search. (3) The page styles are a second
+stylesheet, `static/history.css`, loaded after `app.css` by these three templates only through
+the `head` block of `base.html`; it uses the tokens of `app.css` and adds no colour. (4) No
+drift line here; the source page carries it.
+
+**Checks.** `tests/unit/test_history_pages.py`: the words and links, and every template in every
+state with fixture views (the baseline and current marks with their words, the role controls,
+the ordered gutter, secrets and unclassified fields as fingerprints, the XO chip and banner, the
+search states, the HTMX attributes, the error page, no style attribute, every field labelled,
+markup escaped, the stylesheet loaded). `tests/security/test_history_pages.py`: the same routes
+as a browser through the real application (the baseline marker, every shown value of the JSON
+view printed, no canary in any page or HTMX swap, XSS payloads inert, Run now and Edit by role,
+no Run now without a scheduler or for a push source, empty states, the designed 500 and 404, the
+navigation). `tests/security/test_planned_routes.py` pins the four rows to the viewer role and
+checks that nothing under `/history` or `/configuration` writes.
+
 ## Not in this slice
 
-- The templates, the stylesheet, the History and Configuration entries of the navigation and the
-  screenshots at 1440, 768 and 390 pixels (task P10-T7, slice B).
+- The screenshots at 1440, 768 and 390 pixels and the interface critique follow the deployment
+  of slice B to Development.
 - Showing an older snapshot's configuration or comparing two snapshots; the plan asks for the
   latest manifest only.
 - Pagination of a search past 5,000 objects of one resource (reported through `search_truncated`).
