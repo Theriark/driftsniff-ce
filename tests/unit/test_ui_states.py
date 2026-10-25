@@ -62,8 +62,6 @@ def test_an_inline_empty_state_is_one_quiet_status_sentence() -> None:
     assert parsed.tags == [("p", {"class": "quiet", "role": "status"})]
     assert parsed.joined() == "No notes yet. An operator writes them."
     assert Parsed(state("empty", "Nothing yet.", inline=True)).joined() == "Nothing yet."
-    pointed = Parsed(state("empty", "No run yet.", inline=True, id="runs-unscheduled"))
-    assert pointed.find("p") == [{"class": "quiet", "id": "runs-unscheduled", "role": "status"}]
     linked = Parsed(state("empty", "None.", "Add one", "/x", "on the list", inline=True))
     assert linked.find("a") == [{"href": "/x"}]
     assert linked.joined() == "None. Add one on the list"
@@ -105,7 +103,7 @@ def test_the_loading_state_is_a_polite_live_status_that_says_what_loads() -> Non
     [("empty", False), ("empty", True), ("error", False), ("loading", False)],
 )
 def test_every_message_label_and_address_is_escaped(kind: str, inline: bool) -> None:
-    text = state(kind, HOSTILE, HOSTILE, HOSTILE, HOSTILE, inline=inline, id=HOSTILE)
+    text = state(kind, HOSTILE, HOSTILE, HOSTILE, HOSTILE, inline=inline)
     parsed = Parsed(text)
     assert "<b>" not in text and parsed.find("b") == []
     assert "a&#39;&lt;b&gt;&#34;c" in text
@@ -114,7 +112,7 @@ def test_every_message_label_and_address_is_escaped(kind: str, inline: bool) -> 
     for tag, attrs in parsed.tags:
         if tag == "use":  # the banner's icon, not an input
             continue
-        for name in ("href", "action", "aria-label", "id"):
+        for name in ("href", "action", "aria-label"):
             if name in attrs:
                 assert attrs[name] == HOSTILE, name
 

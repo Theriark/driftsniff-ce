@@ -115,7 +115,7 @@
     <h3 class="bars-title">By resource type</h3>
     {{ bar_list(dashboard.by_resource, "Open items by resource type") }}
     {% else %}
-    <p class="quiet">No open change items. When a check finds a change, this card says which source and which resource type it touched.</p>
+    {{ state("empty", "No open change items.", "When a check finds a change, this card says which source and which resource type it touched.", inline=true) }}
     {% endif %}
   </section>
 </div>

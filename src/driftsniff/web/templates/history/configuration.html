@@ -81,7 +81,7 @@
       {% endif %}
 
       {% if not view.objects and not view.search %}
-      <p class="quiet">This resource holds no object in the newest reading.</p>
+      {{ state("empty", "This resource holds no object in the newest reading.", inline=true) }}
       {% endif %}
 
       <ol class="sheets{% if selected.ordered %} sheets--ordered{% endif %}">

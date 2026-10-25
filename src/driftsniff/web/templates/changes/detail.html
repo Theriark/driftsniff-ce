@@ -67,7 +67,7 @@
         {% endfor %}
       </div>
       {% else %}
-      <p class="quiet">This change has no items of its own; the summary above is all that was recorded.</p>
+      {{ state("empty", "This change has no items of its own; the summary above is all that was recorded.", inline=true) }}
       {% endfor %}
     </section>
 
@@ -89,7 +89,7 @@
         {% endfor %}
       </div>
       {% else %}
-      <p class="quiet">No external program has added anything to this change. Text added through the enrichment API appears here as plain text.</p>
+      {{ state("empty", "No external program has added anything to this change.", "Text added through the enrichment API appears here as plain text.", inline=true) }}
       {% endif %}
     </section>
   </div>
@@ -116,7 +116,7 @@
         <div class="form-row"><button class="btn btn--primary" type="submit">{{ "Acknowledge again" if change.status == "acknowledged" else "Acknowledge change" }}</button></div>
       </form>
       {% elif not detail.acknowledgements %}
-      <p class="quiet">Nobody has acknowledged this change yet. An operator or an admin acknowledges it; your role reads only.</p>
+      {{ state("empty", "Nobody has acknowledged this change yet.", "An operator or an admin acknowledges it; your role reads only.", inline=true) }}
       {% else %}
       <p class="quiet">Your role reads only; an operator or an admin acknowledges.</p>
       {% endif %}
