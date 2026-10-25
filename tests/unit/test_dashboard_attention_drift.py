@@ -72,8 +72,7 @@ def _attention_list(rows: list[SimpleNamespace]) -> str:
     found = re.search(r'<ul class="attention">.*?</ul>', page, re.DOTALL)
     assert found is not None
     source = (
-        '{% from "components/badges.html" import severity_badge, status_badge %}'
-        + found.group(0)
+        '{% from "components/badges.html" import severity_badge, status_badge %}' + found.group(0)
     )
     template = make_environment().from_string(source)
     return template.render(dashboard=SimpleNamespace(attention=rows))
