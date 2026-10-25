@@ -1380,14 +1380,21 @@ textarea.input {
 
 /* ---- posture ring and attention list --------------------------------------------------- */
 
+/* The list sits beside the ring while the card is wide enough for both, and wraps under it
+   otherwise: its basis is 0 and its min-width stays auto, so it leaves the ring's row exactly
+   when its widest row (badge, share, count) no longer fits. A 160px 1fr grid could not shrink
+   the list and spilled it 89 px out of the 5fr card at 1024 px, under Needs attention
+   (THE-1223, fixed in THE-1240). */
 .posture {
-  display: grid;
-  grid-template-columns: 160px 1fr;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: var(--sp-6);
   align-items: center;
 }
 
 .posture > svg {
+  flex: none;
   width: 160px;
   height: 160px;
 }
@@ -1435,6 +1442,7 @@ textarea.input {
 }
 
 .posture-list {
+  flex: 1 1 0;
   display: grid;
   gap: var(--sp-2);
 }
@@ -1461,17 +1469,6 @@ textarea.input {
 .posture-list .share {
   font-size: var(--fs-14);
   color: var(--text-2);
-}
-
-@media (max-width: 479px) {
-  .posture {
-    grid-template-columns: 1fr;
-    justify-items: center;
-  }
-
-  .posture-list {
-    width: 100%;
-  }
 }
 
 .attention {

@@ -555,6 +555,25 @@ def test_the_dashboard_grids_cannot_widen_the_page() -> None:
     ]
 
 
+def test_the_severity_list_wraps_under_the_ring_instead_of_leaving_its_card() -> None:
+    """THE-1240: at 1024 px the 5fr card is about 287 px wide, and a 160px 1fr grid pushed the
+    166 px severity list 89 px out of it, under Needs attention. The posture is a wrapping flex
+    row: the ring keeps its 160 px, the list has a zero basis and the default min-width, so it
+    moves under the ring as soon as its widest row no longer fits beside it, at every width."""
+    rules = _css_rules()
+    posture = "".join(rules[".posture"])
+    ring = "".join(rules[".posture > svg"])
+    listing = "".join(rules[".posture-list"])
+    assert re.search(r"display:\s*flex", posture)
+    assert re.search(r"flex-wrap:\s*wrap", posture)
+    assert _column_tracks(rules, ".posture") == []
+    assert re.search(r"flex:\s*none", ring)
+    assert re.search(r"width:\s*160px", ring)
+    assert re.search(r"flex:\s*1 1 0;", listing)
+    # min-width: 0 would let the rows shrink below their content and spill again
+    assert "min-width" not in listing
+
+
 def test_the_trend_chart_fits_a_desktop_card_and_opens_on_today() -> None:
     """At 1440 px the half-width card leaves 546 px for the chart, so a 600 px minimum hid the
     bar of today behind a scroll. The chart may shrink to 520 px, where its 14 unit labels are
