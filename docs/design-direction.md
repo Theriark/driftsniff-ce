@@ -280,3 +280,9 @@ files from `../../brand/`); switch the system colour scheme to see the dark them
   them on Development after deployment and judges them against the UI standard there.
 - The contrast ratios were computed by the script on this branch (68 pairs, all pass); the
   pytest, ruff and mypy runs happen in CI because the sandbox has none of them.
+- P3 (THE-1306) added `state(kind, ...)` to `components/states.html`, the one entry to the
+  empty, error and loading states: `empty` is a `role="status"` (with `inline=true` the one
+  quiet sentence of a card that has nothing to list), `error` a `role="alert"` banner whose
+  action is the retry, `loading` the polite live skeleton, which now also carries its label
+  as hidden text because a live region speaks its content. The dashboard, source detail,
+  change detail and configuration pages use it; no style changed.

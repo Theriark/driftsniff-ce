@@ -10,7 +10,7 @@
    whether one is stored. Under the drift line sits the Change Replay (WP4c, THE-1197,
    sources/_replay.html): replay is a ReplayView, or none without the replay service. #}
 {% extends "base.html" %}
-{% from "components/states.html" import banner, success_banner %}
+{% from "components/states.html" import banner, success_banner, state %}
 {% from "components/badges.html" import status_badge %}
 {% from "components/driftline.html" import drift_line %}
 {% from "components/details.html" import time_tag, source_tabs %}
@@ -117,7 +117,7 @@
         {{ coverage_table(detail.coverage, detail.now, "Coverage by resource", "cov-cap", foot="A 404 means the version has no such resource. A 403 keeps the last good data and marks it stale." if detail.polled else "", full=true) }}
       </div>
       {% else %}
-      <div class="card"><p class="quiet">This push source declares no resources yet. An admin declares them in the edit form.</p></div>
+      <div class="card">{{ state("empty", "This push source declares no resources yet.", "An admin declares them in the edit form.", inline=true) }}</div>
       {% endif %}
     </section>
 
@@ -133,11 +133,11 @@
         </ol>
         {% if detail.polled and not scheduled %}<p class="quiet" id="runs-unscheduled">Checks are not scheduled on this installation yet, so no new run starts.</p>{% endif %}
         {% elif detail.polled and not scheduled %}
-        <p class="quiet" id="runs-unscheduled">No run yet. Checks are not scheduled on this installation yet, so driftsniff does not read this source until they are.</p>
+        <p class="quiet" id="runs-unscheduled" role="status">No run yet. Checks are not scheduled on this installation yet, so driftsniff does not read this source until they are.</p>
         {% elif detail.polled %}
-        <p class="quiet">No run yet. The first check runs within one interval of saving{% if can_operate %}, or now with Run now{% endif %}.</p>
+        {{ state("empty", "No run yet.", "The first check runs within one interval of saving" ~ (", or now with Run now" if can_operate else "") ~ ".", inline=true) }}
         {% else %}
-        <p class="quiet">Nothing pushed yet. Each push the sender makes appears here.</p>
+        {{ state("empty", "Nothing pushed yet.", "Each push the sender makes appears here.", inline=true) }}
         {% endif %}
       </div>
     </section>

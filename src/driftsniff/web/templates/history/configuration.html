@@ -9,7 +9,7 @@
    designed 500 of a damaged store. #}
 {% extends "base.html" %}
 {% from "history/_head.html" import source_head with context %}
-{% from "components/states.html" import empty_state, error_state, banner, skeleton %}
+{% from "components/states.html" import state, banner %}
 {% from "components/table.html" import pager as pager_bar %}
 {% from "components/forms.html" import search_box %}
 {% from "components/details.html" import time_tag %}
@@ -19,7 +19,7 @@
 {% call source_head("Configuration", "/configuration", source, "configuration") %}
 <span>{{ type_label }}</span>
 {% endcall %}
-<div class="section">{{ error_state(unreadable[0], unreadable[1], retry_href) }}</div>
+<div class="section">{{ state("error", unreadable[0], unreadable[1], retry_href) }}</div>
 {% else %}
 {% call source_head("Configuration", "/configuration", view.source, "configuration") %}
 <span>{{ type_label }}{% if not view.source.enabled %}, disabled{% endif %}</span>
@@ -31,11 +31,11 @@
 
 {% if not view.snapshot %}
 <div class="section card">
-  {{ empty_state("No reading yet", "The configuration shows the newest reading of this source. Nothing has been read yet: " ~ ("its first check stores one." if polled else "its sender has not pushed yet."), history_href, "Reading history") }}
+  {{ state("empty", "No reading yet", "The configuration shows the newest reading of this source. Nothing has been read yet: " ~ ("its first check stores one." if polled else "its sender has not pushed yet."), history_href, "Reading history") }}
 </div>
 {% elif not view.resources %}
 <div class="section card">
-  {{ empty_state("This reading holds no objects", "The newest reading of this source has no object in any resource. When the controller reports some, the next reading shows them here.", history_href, "Reading history") }}
+  {{ state("empty", "This reading holds no objects", "The newest reading of this source has no object in any resource. When the controller reports some, the next reading shows them here.", history_href, "Reading history") }}
 </div>
 {% else %}
 <div id="config-browser" class="section config-browser">
@@ -70,7 +70,7 @@
     {{ banner("warn", "Some fields are hidden by XO", "Xen Orchestra never returns these fields in clear, so a change to them cannot be observed: " ~ hidden_text(selected.hidden_by_xo) ~ ".") }}
     {% endif %}
 
-    {{ skeleton("Loading the objects", rows=6, indicator=true) }}
+    {{ state("loading", "Loading the objects", rows=6, indicator=true) }}
 
     <div class="htmx-hide-while-loading">
       {% if view.search %}
@@ -81,7 +81,7 @@
       {% endif %}
 
       {% if not view.objects and not view.search %}
-      <p class="quiet">This resource holds no object in the newest reading.</p>
+      {{ state("empty", "This resource holds no object in the newest reading.", inline=true) }}
       {% endif %}
 
       <ol class="sheets{% if selected.ordered %} sheets--ordered{% endif %}">

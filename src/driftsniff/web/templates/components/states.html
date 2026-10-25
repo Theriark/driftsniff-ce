@@ -1,6 +1,7 @@
-{# The designed states (docs/design-direction.md section 7): empty, loading, error, success. #}
+{# The designed states (docs/design-direction.md section 7): empty, loading, error, success.
+   A page names the state with state() below; the other macros are its parts. #}
 {% macro empty_state(heading, text, action_href="", action_label="") %}
-<div class="empty">
+<div class="empty" role="status">
   <span class="mark-tile"><img src="/static/brand/logo-mark-512x512.png" alt="" width="96" height="96"></span>
   <h2>{{ heading }}</h2>
   <p>{{ text }}</p>
@@ -9,9 +10,11 @@
 {%- endmacro %}
 
 {# The loading skeleton: rows of the shape that will appear. With indicator=true it is an HTMX
-   indicator, shown only while a request of its parent runs. #}
+   indicator, shown only while a request of its parent runs. The label is also its hidden text,
+   because a live region speaks its content, not its name. #}
 {% macro skeleton(label, rows=5, indicator=false) %}
 <div class="skeleton{% if indicator %} htmx-indicator{% endif %}" role="status" aria-live="polite" aria-label="{{ label }}">
+  <p class="visually-hidden">{{ label }}</p>
   {% for index in range(rows) %}
   <span class="{{ 'tall w-40' if index == 0 else ('w-80' if index % 2 else 'w-60') }}"></span>
   {% endfor %}
@@ -39,4 +42,24 @@
 
 {% macro success_banner(title, text="") %}
 {{ banner("success", title, text) }}
+{%- endmacro %}
+
+{# The one entry to the empty, error and loading states (P3, THE-1306): the page says which
+   state it is in and this picks the markup, the role and the live region. kind is empty, error
+   or loading; anything else stops the render (the environment refuses an undefined name).
+   An error's action is its retry; a loading state's title is what is being loaded.
+   inline=true is the empty state of a card that has nothing to list: one quiet sentence, a
+   status, so a card swapped in by HTMX is read out too. #}
+{% macro state(kind, title, text="", action_href="", action_label="", inline=false, rows=5, indicator=false) %}
+{%- if kind == "loading" -%}
+{{ skeleton(title, rows, indicator) }}
+{%- elif kind == "error" -%}
+{{ error_state(title, text, action_href, action_label or "Try again") }}
+{%- elif kind == "empty" and inline -%}
+<p class="quiet" role="status">{{ title }}{% if text %} {{ text }}{% endif %}{% if action_href %} <a href="{{ action_href }}">{{ action_label }}</a>{% endif %}</p>
+{%- elif kind == "empty" -%}
+{{ empty_state(title, text, action_href, action_label) }}
+{%- else -%}
+{{ state_kind_must_be_empty_error_or_loading }}
+{%- endif %}
 {%- endmacro %}
