@@ -133,7 +133,7 @@
         </ol>
         {% if detail.polled and not scheduled %}<p class="quiet" id="runs-unscheduled">Checks are not scheduled on this installation yet, so no new run starts.</p>{% endif %}
         {% elif detail.polled and not scheduled %}
-        <p class="quiet" id="runs-unscheduled">No run yet. Checks are not scheduled on this installation yet, so driftsniff does not read this source until they are.</p>
+        <p class="quiet" id="runs-unscheduled" role="status">No run yet. Checks are not scheduled on this installation yet, so driftsniff does not read this source until they are.</p>
         {% elif detail.polled %}
         {{ state("empty", "No run yet.", "The first check runs within one interval of saving" ~ (", or now with Run now" if can_operate else "") ~ ".", inline=true) }}
         {% else %}
