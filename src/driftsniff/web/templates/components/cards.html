@@ -1,6 +1,6 @@
 {# The metric card (section 3 of the UI standard, THE-359 P1): a label, one big number with an
    optional unit, a sparkline of the series and one line that says what changed. The whole card
-   is the link to the filtered view behind the number.
+   is the link to the filtered view behind the number; without an href it is a plain card.
 
    tone colours the line: down (good), up (worth a look), alert (needs a decision); none is
    neutral. trend is the direction of the count against the previous period: up, down or flat.
@@ -17,7 +17,8 @@
 {%- set tone_glyphs = {"up": "sev-high", "alert": "sev-critical"} -%}
 {%- set glyph = trend_glyphs.get(trend) or tone_glyphs.get(tone) -%}
 {%- set drawn = spark and spark | sum > 0 -%}
-<a class="card metric" href="{{ href }}">
+{%- set tag = "a" if href else "div" -%}
+<{{ tag }} class="card metric"{% if href %} href="{{ href }}"{% endif %}>
   <span class="visually-hidden">{{ label }}: {{ value }}{% if unit %} {{ unit }}{% endif %}.{% if delta %} {{ sentence(delta) }}{% endif %}{% if drawn %} Last {{ spark | length }} values: {{ spark | join(", ") }}.{% endif %}</span>
   <span class="metric__label" aria-hidden="true">{{ label }}</span>
   <span class="metric__value num" aria-hidden="true">{{ value }}{% if unit %}<small> {{ unit }}</small>{% endif %}</span>
@@ -27,5 +28,5 @@
   {% if delta %}
   <span class="metric__delta{% if tone %} metric__delta--{{ tone }}{% endif %}" aria-hidden="true">{% if glyph %}<svg focusable="false"><use href="#{{ glyph }}"/></svg>{% endif %}<span class="num">{{ delta }}</span></span>
   {% endif %}
-</a>
+</{{ tag }}>
 {%- endmacro %}

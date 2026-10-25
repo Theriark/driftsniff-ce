@@ -190,7 +190,7 @@ class Stat:
 
     ``delta_tone`` says how the line reads (down good, up worth a look, alert); ``trend`` is the
     direction of a count against the previous period (up, down or flat), empty when the line is
-    not a comparison.
+    not a comparison. An empty ``href`` draws the card without a link.
     """
 
     label: str
@@ -554,7 +554,10 @@ def storage_bytes(path: Path) -> int:
 
 
 def storage_stat(used: int, warning: int = STORAGE_WARNING_BYTES) -> Stat:
-    """The storage card: megabytes used against the warning size."""
+    """The storage card: megabytes used against the warning size.
+
+    No link yet: the About section it points to lives on /settings, which comes with P10-T8.
+    """
     megabytes = used / (1024 * 1024)
     value = f"{megabytes:.1f}" if megabytes < 10 else number(round(megabytes))
     share = 0 if warning <= 0 else round(100 * used / warning)
@@ -563,7 +566,7 @@ def storage_stat(used: int, warning: int = STORAGE_WARNING_BYTES) -> Stat:
     return Stat(
         "Storage used",
         value,
-        "/settings#about",
+        "",
         unit="MB",
         delta=f"{share}% of the {warning_text} warning size",
         delta_tone=tone,

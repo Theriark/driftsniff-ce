@@ -1057,7 +1057,7 @@ textarea.input {
   transition: box-shadow var(--t-fast) var(--ease-out), border-color var(--t-fast) var(--ease-out);
 }
 
-.metric:hover,
+.metric[href]:hover,
 .metric:focus-visible {
   color: inherit;
   box-shadow: var(--elev-2);
@@ -1118,6 +1118,7 @@ textarea.input {
   font-size: var(--fs-14);
   color: var(--text-2);
   margin-top: var(--sp-3);
+  text-wrap: pretty;
 }
 
 /* the glyph sits on the first line of the text and takes the colour of the line */
