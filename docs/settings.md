@@ -1,7 +1,7 @@
 # Admin settings
 
-P10-T8, slice A (the services and routes). The settings page that shows them is slice B (see
-`docs/web-interface.md`, which gets its section when that page is built). Code:
+P10-T8, slice A (the services and routes). The settings page that shows them is slice B
+(`docs/web-interface.md` section 12): a browser that asks `GET /settings` for a page gets it. Code:
 `driftsniff/web/settings_service.py` (the service), `driftsniff/web/settings_store.py` (the two
 setting rows and their rules), `driftsniff/web/routes_settings.py` (the routes) and the user
 methods of `driftsniff/web/auth.py`.

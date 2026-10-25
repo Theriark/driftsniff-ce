@@ -5,8 +5,8 @@ receives a short message for every change event that is serious enough. The mess
 something changed and where to look. It never carries the changed values: the details stay behind
 the sign-in.
 
-Status: built in P9-T4. The settings page arrives with the interface (P10); until then an admin
-uses the routes below. The collection scheduler is wired to the notifier in a later task
+Status: built in P9-T4. An admin sets the channel on the settings page (`/settings#notifications`,
+P10-T8) or with the routes below. The collection scheduler is wired to the notifier in a later task
 (`RunPipeline(notifier=service.notify_event)`); the routes, the sender and the stored deliveries
 work and are tested now.
 
@@ -119,6 +119,7 @@ still used for the certificate check and the `Host` field.
 | `GET /notifications/channel` | The channel as an admin may see it, or `{"channel": null}` |
 | `PUT /notifications/channel` | Set the one channel (replaces the existing one). Fields: `type` (`webhook` or `smtp`), `min_severity`, `enabled` (the text `true` or `false`) and the fields of the type |
 | `DELETE /notifications/channel` | Remove the channel and its stored deliveries |
+| `POST /notifications/channel`, `POST /notifications/channel/remove` | The same as `PUT` and `DELETE`, for the form of the settings page (a form can only post) |
 | `POST /notifications/test` | Send a sample marked `"test": true`, once; the answer is `{"ok": ..., "error_class": ..., "http_status": ...}`; the outcome is written to the audit log and no delivery is stored |
 | `POST /notifications/signing-key` | The webhook signing key (hex); audited |
 | `GET /notifications/deliveries?event_id=&limit=` | Stored attempts, newest first |

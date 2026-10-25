@@ -75,7 +75,7 @@ ROUTE_TABLE: dict[tuple[str, str], Access] = {
     ("GET", "/configuration/{source_id}"): Access.VIEWER,
     # The change replay data (WP4a): counts per day, resource type and severity; read only.
     ("GET", "/sources/{source_id}/replay"): Access.VIEWER,
-    # The admin settings (P10-T8 slice A): data routes, admin only; the page (slice B) reuses them.
+    # The admin settings (P10-T8): data routes, admin only; a browser gets the page (slice B).
     ("GET", "/settings"): Access.ADMIN,
     ("POST", "/settings/retention"): Access.ADMIN,
     ("POST", "/settings/storage-warning"): Access.ADMIN,
@@ -88,6 +88,9 @@ ROUTE_TABLE: dict[tuple[str, str], Access] = {
     ("GET", "/notifications/channel"): Access.ADMIN,
     ("PUT", "/notifications/channel"): Access.ADMIN,
     ("DELETE", "/notifications/channel"): Access.ADMIN,
+    # the settings page's form twins of PUT and DELETE (P10-T8 slice B): a form can only post
+    ("POST", "/notifications/channel"): Access.ADMIN,
+    ("POST", "/notifications/channel/remove"): Access.ADMIN,
     ("POST", "/notifications/test"): Access.ADMIN,
     ("POST", "/notifications/signing-key"): Access.ADMIN,
     ("GET", "/notifications/deliveries"): Access.ADMIN,
