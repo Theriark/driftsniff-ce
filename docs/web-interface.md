@@ -399,9 +399,11 @@ them (users first), not by the order of the routes. (2) Role change, password re
 delete have no route (slice A), so the page offers none. (3) On a phone the role and the token
 start move under the name instead of widening the table.
 
-**Navigation.** The sidebar entry Admin > Settings and the link of the dashboard's storage card
-to `/settings#about` are held back while pull request 103 (THE-1060) is open: its two test files
-pin the navigation without `/settings`. They are a small follow-up once 103 is merged or closed.
+**Navigation.** The sidebar has a third group, Admin, with Settings (THE-1278), and the
+dashboard's storage card links to `/settings#about`. Both are an admin's only: a viewer or an
+operator sees neither the entry nor the Admin group, and their storage card is a plain card,
+because the page would answer 403 (`NAV_ADMIN_ONLY` in `web/templating.py`, `Stat.admin_only` in
+`web/dashboard.py`).
 
 **Checks.** `tests/security/test_settings_pages.py`: the seven acceptance checks of P10-T8 through
 the real application (who gets the page; a token shown once and only its prefix afterwards; the

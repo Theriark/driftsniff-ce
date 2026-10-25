@@ -45,24 +45,28 @@ STATUS_ICONS: Final = {
 DENSITIES: Final = ("comfortable", "compact")
 
 # The navigation of the shell: key, label, path. The key marks the current page. Only pages that
-# exist are listed (Delivery decision on P10-T5): each P10 task adds its own entry back, in this
-# order, when its page lands: Changes (/changes, P10-T6), History (/history) and Configuration
-# (/configuration, P10-T7) are in; Settings (/settings, P10-T8) follows after Configuration.
+# exist are listed (Delivery decision on P10-T5): each P10 task added its own entry back, in this
+# order, when its page landed: Changes (/changes, P10-T6), History and Configuration (P10-T7),
+# Settings (/settings, P10-T8).
 NAV_ITEMS: Final = (
     ("dashboard", "Dashboard", "/"),
     ("changes", "Changes", "/changes"),
     ("sources", "Sources", "/sources"),
     ("history", "History", "/history"),
     ("configuration", "Configuration", "/configuration"),
+    ("settings", "Settings", "/settings"),
 )
 
-# The sidebar groups of the entries above (UI revision WP1, THE-1101): what happened (Monitor)
-# and what is watched (Inventory). An Admin group with Settings joins when /settings exists; a
-# group never shows a link to a page that answers 404.
+# The sidebar groups of the entries above (UI revision WP1, THE-1101): what happened (Monitor),
+# what is watched (Inventory) and, for admins only, the settings (Admin). A group never shows a
+# link to a page that answers 404, nor one that answers 403 to the reader.
 NAV_GROUPS: Final = (
     ("monitor", "Monitor", ("dashboard", "changes")),
     ("inventory", "Inventory", ("sources", "history", "configuration")),
+    ("admin", "Admin", ("settings",)),
 )
+# The entries only an admin may open; a viewer or an operator does not see them at all.
+NAV_ADMIN_ONLY: Final = frozenset({"settings"})
 
 # The icon of each entry, a symbol of _icons.html.
 NAV_ICONS: Final = {
@@ -71,6 +75,7 @@ NAV_ICONS: Final = {
     "sources": "i-sources",
     "history": "i-history",
     "configuration": "i-configuration",
+    "settings": "i-settings",
 }
 
 # The top bar's one action: adding a source, for admins, on every page outside the dashboard and
@@ -276,9 +281,13 @@ def drift_width(count: int) -> int:
 
 
 def nav_groups(shell: Shell) -> tuple[NavGroup, ...]:
-    """The sidebar groups with their entries, the shell's current entry marked."""
+    """The sidebar groups the reader may open, the shell's current entry marked.
+
+    An admin-only entry is left out for anyone else, and a group left empty is not drawn.
+    """
     items = {key: (label, href) for key, label, href in NAV_ITEMS}
-    return tuple(
+    admin = shell.user_role == "admin"
+    groups = (
         NavGroup(
             key,
             label,
@@ -291,10 +300,12 @@ def nav_groups(shell: Shell) -> tuple[NavGroup, ...]:
                     item == shell.nav_current,
                 )
                 for item in members
+                if admin or item not in NAV_ADMIN_ONLY
             ),
         )
         for key, label, members in NAV_GROUPS
     )
+    return tuple(group for group in groups if group.links)
 
 
 def _bare_path(path: str) -> str:

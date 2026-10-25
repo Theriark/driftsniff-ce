@@ -68,6 +68,7 @@ STALE_INTERVALS: Final = 3
 # The storage card compares the database file with the storage warning size an admin sets on the
 # settings page (``storage_warning_gb``); this is the size when none is set (docs/settings.md).
 STORAGE_WARNING_BYTES: Final = DEFAULT_STORAGE_WARNING_GB * BYTES_PER_GB
+STORAGE_HREF: Final = "/settings#about"
 RING_RADIUS: Final = 60
 RING_CIRCUMFERENCE: Final = 2 * math.pi * RING_RADIUS
 # Trend chart geometry (a 600 by 170 viewBox, drawn no narrower than 600 px).
@@ -197,7 +198,8 @@ class Stat:
 
     ``delta_tone`` says how the line reads (down good, up worth a look, alert); ``trend`` is the
     direction of a count against the previous period (up, down or flat), empty when the line is
-    not a comparison. An empty ``href`` draws the card without a link.
+    not a comparison. An empty ``href`` draws the card without a link; so does an ``admin_only``
+    link for a reader who is not an admin (the page behind it would answer 403).
     """
 
     label: str
@@ -208,6 +210,7 @@ class Stat:
     delta_tone: str = ""
     trend: str = ""
     spark: tuple[int, ...] = ()
+    admin_only: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -563,7 +566,8 @@ def storage_bytes(path: Path) -> int:
 def storage_stat(used: int, warning: int = STORAGE_WARNING_BYTES) -> Stat:
     """The storage card: megabytes used against the warning size.
 
-    No link yet: the About section it points to lives on /settings, which comes with P10-T8.
+    It links to the About section of the settings page, which names the database size; only an
+    admin may open that page, so only an admin gets the link.
     """
     megabytes = used / (1024 * 1024)
     value = f"{megabytes:.1f}" if megabytes < 10 else number(round(megabytes))
@@ -573,10 +577,11 @@ def storage_stat(used: int, warning: int = STORAGE_WARNING_BYTES) -> Stat:
     return Stat(
         "Storage used",
         value,
-        "",
+        STORAGE_HREF,
         unit="MB",
         delta=f"{share}% of the {warning_text} warning size",
         delta_tone=tone,
+        admin_only=True,
     )
 
 
