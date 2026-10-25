@@ -614,6 +614,8 @@ def test_the_stat_cards_count_open_changes_new_changes_and_sources(
     # the disabled source is named too, so the card's parts add up to its total of four
     assert healthy.delta == "1 disabled, 1 failing, 1 no check yet" and healthy.delta_tone == "up"
     assert storage.label == "Storage used" and storage.unit == "MB"
+    # no link until /settings exists (P10-T8): it used to point at a 404
+    assert storage.href == ""
 
 
 def test_the_posture_ring_counts_open_items_by_severity(
@@ -978,7 +980,7 @@ def test_the_dashboard_page_renders_every_section_with_text_alternatives(
         "Activity",
     ):
         assert heading in text, heading
-    # one primary action, the four stat cards, each a link
+    # one primary action, the four stat cards, each a link but storage (/settings is P10-T8)
     primary = [a for a in parsed.find("a") if a.get("class") == "btn btn--primary"]
     assert primary == [{"class": "btn btn--primary", "href": "/sources/new"}]
     stats = [a for a in parsed.find("a") if a.get("class") == "card metric"]
@@ -986,8 +988,9 @@ def test_the_dashboard_page_renders_every_section_with_text_alternatives(
         "/changes?status=open",
         "/changes?status=open&severity=critical&severity=high",
         "/sources",
-        "/settings#about",
     ]
+    assert parsed.find("div").count({"class": "card metric"}) == 1
+    assert not [a for a in parsed.find("a") if str(a.get("href", "")).startswith("/settings")]
     # every chart is an image with a title and a description
     charts = [svg for svg in parsed.find("svg") if svg.get("role") == "img"]
     assert len(charts) == 2 + 4  # the ring, the trend, four drift lines
@@ -1148,5 +1151,5 @@ def test_the_dashboard_with_the_thousand_object_fixture_renders_in_under_half_a_
     assert elapsed < 0.5, f"the dashboard took {elapsed:.3f} s"
     parsed = Parsed(response.text)
     stats = [a for a in parsed.find("a") if a.get("class") == "card metric"]
-    assert len(stats) == 4
+    assert len(stats) == 3
     assert len(parsed.find("li")) >= 20
