@@ -43,7 +43,7 @@ from typing import Any, Final
 
 SESSION_COOKIE_NAME: Final = "ds_session"
 SOURCE_NAME: Final = "LOAD-FIXTURE synthetic"
-NOISY_SOURCE_NAME: Final = "LOAD-NOISY synthetic"
+NOISY_SOURCE_NAME: Final = "LOAD-FIXTURE changing"
 ADMIN_NAME: Final = "load-admin"
 
 TARGET_RSS_MB: Final = (150.0, 250.0)
