@@ -1471,8 +1471,15 @@ textarea.input {
   color: var(--text-2);
 }
 
+/* The list is its own size container: a row keeps badge, text and action side by side only
+   while the list is wide enough for them, then puts badge and action on one line and gives
+   the text the full width under them. At 1024 px the 7fr card leaves 351 px, and a "Nothing
+   pushed yet" badge (167 px) with "Open source" (112 px) squeezed the title to "pilo..." and
+   its line to one word per line (THE-1240 acceptance, fixed in THE-1255). The query follows
+   the list, not the viewport, so the same rule holds on a phone. */
 .attention {
   display: grid;
+  container: attention / inline-size;
 }
 
 .attention li {
@@ -1517,14 +1524,25 @@ textarea.input {
   color: var(--text-2);
 }
 
-@media (max-width: 479px) {
+@container attention (max-width: 539px) {
   .attention li {
-    grid-template-columns: auto 1fr;
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: var(--sp-2);
   }
 
-  .attention li .btn {
-    grid-column: 2;
+  .attention li > .sev,
+  .attention li > .status {
     justify-self: start;
+  }
+
+  .attention .what {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .attention .what a {
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 }
 

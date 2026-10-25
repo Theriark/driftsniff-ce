@@ -574,6 +574,43 @@ def test_the_severity_list_wraps_under_the_ring_instead_of_leaving_its_card() ->
     assert "min-width" not in listing
 
 
+def test_a_narrow_attention_list_gives_the_text_its_own_line() -> None:
+    """THE-1255: at 1024 px the 7fr card leaves the list 351 px, and the three columns of a row
+    (a 167 px "Nothing pushed yet" badge, the text, a 112 px "Open source" button) squeezed the
+    title to "pilo..." and its line to one word per line. The list is a size container; below
+    its breakpoint the badge and the action share the first line and the text spans the row
+    under them, wrapping instead of clipping. The breakpoint is above 351 px and leaves the
+    text at least 200 px beside the widest badge and button, at 1024 px and on a phone alike."""
+    css = (
+        Path(__file__).resolve().parents[2] / "src" / "driftsniff" / "web" / "static" / "app.css"
+    ).read_text(encoding="utf-8")
+    css = re.sub(r"/\*.*?\*/", "", css, flags=re.DOTALL)
+    rules = _css_rules()
+    assert re.search(r"container:\s*attention\s*/\s*inline-size", "".join(rules[".attention"]))
+    query = re.search(r"@container attention \(max-width:\s*(\d+)px\)\s*\{(.*?)\n\}", css, re.S)
+    assert query is not None
+    breakpoint, narrow = int(query.group(1)), query.group(2)
+    assert 351 < breakpoint
+    assert breakpoint - 167 - 112 - 2 * 12 >= 200
+    assert re.search(
+        r"\.attention li\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) auto;", narrow
+    )
+    what = re.search(r"\.attention \.what\s*\{([^}]*)\}", narrow)
+    assert what is not None
+    assert re.search(r"grid-column:\s*1\s*/\s*-1", what.group(1))
+    assert re.search(r"grid-row:\s*2", what.group(1))
+    title = re.search(r"\.attention \.what a\s*\{([^}]*)\}", narrow)
+    assert title is not None
+    assert re.search(r"white-space:\s*normal", title.group(1))
+    # a viewport rule would miss the 1024 px card, so the row layout follows the list only
+    for media in re.finditer(r"@media[^{]*\{", css):
+        depth, end = 1, media.end()
+        while depth:
+            depth += {"{": 1, "}": -1}.get(css[end], 0)
+            end += 1
+        assert ".attention li" not in css[media.end() : end], media.group(0)
+
+
 def test_the_trend_chart_fits_a_desktop_card_and_opens_on_today() -> None:
     """At 1440 px the half-width card leaves 546 px for the chart, so a 600 px minimum hid the
     bar of today behind a scroll. The chart may shrink to 520 px, where its 14 unit labels are
