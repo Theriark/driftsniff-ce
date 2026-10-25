@@ -670,8 +670,8 @@ def test_the_stat_cards_count_open_changes_new_changes_and_sources(
     # the disabled source is named too, so the card's parts add up to its total of four
     assert healthy.delta == "1 disabled, 1 failing, 1 no check yet" and healthy.delta_tone == "up"
     assert storage.label == "Storage used" and storage.unit == "MB"
-    # no link until /settings exists (P10-T8): it used to point at a 404
-    assert storage.href == ""
+    # the About section of the settings page (P10-T8), a link for admins only
+    assert storage.href == "/settings#about" and storage.admin_only
 
 
 def test_the_posture_ring_counts_open_items_by_severity(
@@ -1036,7 +1036,7 @@ def test_the_dashboard_page_renders_every_section_with_text_alternatives(
         "Activity",
     ):
         assert heading in text, heading
-    # one primary action, the four stat cards, each a link but storage (/settings is P10-T8)
+    # one primary action, the four stat cards, each a link (storage: an admin's, /settings)
     primary = [a for a in parsed.find("a") if a.get("class") == "btn btn--primary"]
     assert primary == [{"class": "btn btn--primary", "href": "/sources/new"}]
     stats = [a for a in parsed.find("a") if a.get("class") == "card metric"]
@@ -1044,9 +1044,10 @@ def test_the_dashboard_page_renders_every_section_with_text_alternatives(
         "/changes?status=open",
         "/changes?status=open&severity=critical&severity=high",
         "/sources",
+        "/settings#about",
     ]
-    assert parsed.find("div").count({"class": "card metric"}) == 1
-    assert not [a for a in parsed.find("a") if str(a.get("href", "")).startswith("/settings")]
+    assert parsed.find("div").count({"class": "card metric"}) == 0
+    assert {"href": "/settings"} in parsed.find("a")  # the sidebar's Admin > Settings
     # every chart is an image with a title and a description
     charts = [svg for svg in parsed.find("svg") if svg.get("role") == "img"]
     assert len(charts) == 2 + 4  # the ring, the trend, four drift lines
@@ -1065,6 +1066,26 @@ def test_the_dashboard_page_renders_every_section_with_text_alternatives(
     for canary in CANARIES:
         assert canary not in page, canary
     assert "CANARY" not in page
+
+
+def test_a_viewer_or_an_operator_gets_the_storage_card_without_the_settings_link(
+    client: TestClient, auth: AuthService, seeded: dict[str, int]
+) -> None:
+    # /settings answers 403 to them, so neither the card nor the sidebar points there
+    for role in ("viewer", "operator"):
+        auth.create_user(f"{role}-1", CORRECT, role)
+        response = client.post("/login", data={"username": f"{role}-1", "password": CORRECT})
+        assert response.status_code == 303, response.text
+        match = re.search(rf"{SESSION_COOKIE}=([^;]+)", response.headers["set-cookie"])
+        assert match is not None
+        client.cookies.clear()
+        headers = {**BROWSER, "Cookie": f"{SESSION_COOKIE}={match.group(1)}"}
+        parsed = assert_page(client.get("/", headers=headers))
+        stats = [a["href"] for a in parsed.find("a") if a.get("class") == "card metric"]
+        assert len(stats) == 3 and "/settings#about" not in stats, role
+        assert parsed.find("div").count({"class": "card metric"}) == 1, role
+        assert not [a for a in parsed.find("a") if str(a.get("href")).startswith("/settings")]
+        assert "Storage used" in "".join(parsed.text), role
 
 
 def test_the_dashboard_page_shows_eight_activity_rows_and_a_disclosure_of_the_rest(
