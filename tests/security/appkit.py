@@ -2,9 +2,10 @@
 
 ``running_kit`` builds the real application with every service it has (sign-in, API tokens,
 notifications, the change API, a push gateway with no sources, the sources pages with a test
-connection that refuses every target, the change pages and the history service), a migrated
-database, one user per role and one API token per scope set. The tests of this folder use it to
-ask the same question of every route: who may do this, and what happens to everyone else.
+connection that refuses every target, the change pages, the history service and the admin
+settings), a migrated database, one user per role and one API token per scope set. The tests of
+this folder use it to ask the same question of every route: who may do this, and what happens to
+everyone else.
 
 Everything is synthetic. The user password and every token are made at test time; text that must
 never travel starts with ``CANARY-``.
@@ -40,6 +41,7 @@ from driftsniff.web.bearer import TokenService
 from driftsniff.web.change_pages import ChangePages
 from driftsniff.web.replay import ReplayService
 from driftsniff.web.routes_push import PushGateway
+from driftsniff.web.settings_service import SettingsService
 from driftsniff.web.source_pages import SourcePages
 
 ORIGIN = "http://testserver"
@@ -146,6 +148,7 @@ def running_kit(folder: Path) -> Iterator[Kit]:
             change_pages=ChangePages(store),
             history=HistoryService(store, Fingerprinter.from_master(MASTER)),
             replay=ReplayService(store),
+            admin_settings=SettingsService(store, auth),
         )
         with TestClient(app, base_url=ORIGIN, follow_redirects=False) as client:
             kit = Kit(app, client, store, auth, tokens, user_ids)

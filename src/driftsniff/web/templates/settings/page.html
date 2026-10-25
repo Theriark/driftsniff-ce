@@ -1,0 +1,392 @@
+{# The settings page (P10-T8 slice B, docs/settings.md), admins only: a viewer or an operator gets
+   the designed not-allowed page from the 403. Five parts, each a card a tab of the strip jumps
+   to: Users, API tokens, Notifications, Retention and storage, About. The view is built by
+   driftsniff.web.settings_page; every form is a plain post with the session's CSRF value and
+   comes back here (a 303 with a notice, or the page again with the refused form marked).
+
+   Nothing secret is ever filled back in: the password fields and the webhook address are always
+   empty, a refused channel's login too, the channel shows only its host and port, a token only
+   its prefix. A new token and the signing key are shown once, in a card at the top that says so,
+   and settings-once.js keeps a reload of that answer from posting again. No inline script and no
+   style attribute: the content security policy blocks both; the two bars are SVG with a width. #}
+{% extends "base.html" %}
+{% from "page_header.html" import page_header %}
+{% from "components/forms.html" import text_field %}
+{% from "components/states.html" import banner, success_banner %}
+{% from "components/badges.html" import status_badge %}
+{% from "components/details.html" import time_tag, tab_strip %}
+{% block head %}<link rel="stylesheet" href="/static/summary-head.css">
+<link rel="stylesheet" href="/static/settings.css">
+{# the answer to a post that must not run again on a reload: a token or the key shown once, a
+   test message; the script turns the history entry into GET /settings #}
+{% if created_token or signing_key or test_result %}<script src="/static/settings-once.js" defer></script>{% endif %}{% endblock %}
+
+{% macro meter_bar(id, meter) %}
+<svg class="meter{% if meter.over %} meter--over{% endif %}" viewBox="0 0 100 8" preserveAspectRatio="none" width="100%" height="8" role="img" aria-labelledby="{{ id }}-t">
+  <title id="{{ id }}-t">{{ meter.text }}</title>
+  <rect class="meter__track" x="0" y="0" width="100" height="8"/>
+  <rect class="meter__fill" x="0" y="0" width="{{ meter.width }}" height="8"/>
+</svg>
+{%- endmacro %}
+
+{% block content %}
+{% set user_values = values if failure and failure.form == "user" else {} %}
+{% set user_errors = failure.fields if failure and failure.form == "user" else {} %}
+{% set token_values = values if failure and failure.form == "token" else {} %}
+{% set token_errors = failure.fields if failure and failure.form == "token" else {} %}
+{% set ch_failed = failure and failure.form == "channel" %}
+{% set ch_values = values if ch_failed else {} %}
+{% set ch_errors = failure.fields if failure and failure.form == "channel" else {} %}
+{% set retention_errors = failure.fields if failure and failure.form == "retention" else {} %}
+{% set storage_errors = failure.fields if failure and failure.form == "storage" else {} %}
+{% set active_tokens = tokens | selectattr("status", "equalto", "active") | list if tokens is not none else [] %}
+
+{{ page_header("Settings", "Who can sign in, which programs may read driftsniff, where alerts go and how long history is kept.") }}
+
+{{ tab_strip("Settings", [
+  {"label": "Users", "href": "#users", "count": users | length if users is not none else none},
+  {"label": "API tokens", "href": "#tokens", "count": active_tokens | length if tokens is not none else none},
+  {"label": "Notifications", "href": "#notifications"},
+  {"label": "Retention and storage", "href": "#retention"},
+  {"label": "About", "href": "#about"},
+]) }}
+
+{# What happened, first: a refused form, a notice after a redirect, a test result or a value
+   shown once. A refused form comes back with focus on its banner, so the reason is read first. #}
+<div class="settings-banners">
+{% if failure %}
+<div class="page-banner" tabindex="-1" autofocus>{{ banner("error", failure.title, failure.text) }}</div>
+{% elif notice %}
+<div class="page-banner">{{ success_banner(notice[0], notice[1]) }}</div>
+{% endif %}
+{% if test_result %}
+<div class="page-banner" tabindex="-1" autofocus>{{ banner("success" if test_ok else "error", test_result.title, test_result.text) }}</div>
+{% endif %}
+{% if created_token %}
+<section class="card secret-once page-banner" aria-labelledby="new-token-h" tabindex="-1" autofocus>
+  <h2 id="new-token-h">New token {{ created_token.name }}, shown once</h2>
+  <p>Copy it now. driftsniff keeps only its hash, so it cannot show the token again. Lost it? Revoke it and make a new one.</p>
+  <div class="field">
+    <label for="new-token">Token</label>
+    <input class="input mono" id="new-token" name="new_token" value="{{ created_token.token }}" readonly autocomplete="off" spellcheck="false" aria-describedby="new-token-help">
+    <span class="help" id="new-token-help">A program sends it in the header Authorization: Bearer, followed by the token. Scopes: {{ created_token.scopes | join(" and ") }}.</span>
+  </div>
+</section>
+{% endif %}
+{% if signing_key %}
+<section class="card secret-once page-banner" aria-labelledby="key-h" tabindex="-1" autofocus>
+  <h2 id="key-h">Webhook signing key</h2>
+  <p>The receiver checks the X-Driftsniff-Signature header with this key: HMAC-SHA-256 over the timestamp, a full stop and the request body. Keep it secret; it changes after a rekey. Showing it was written to the audit trail.</p>
+  <div class="field">
+    <label for="signing-key">Signing key (hex)</label>
+    <input class="input mono" id="signing-key" name="signing_key" value="{{ signing_key }}" readonly autocomplete="off" spellcheck="false">
+  </div>
+</section>
+{% endif %}
+</div>
+
+<div class="settings">
+
+{# ---- users ----------------------------------------------------------------------------- #}
+<section class="card settings-card jump-target" id="users" aria-labelledby="users-h">
+  <div class="settings-card__head">
+    <h2 id="users-h">Users</h2>
+    <p class="hint">Disabling a user ends their sessions at once. At least one admin always stays enabled.</p>
+  </div>
+  {% if users is none %}
+  <p class="quiet">User management is not available on this installation.</p>
+  {% else %}
+  <div class="table-wrap table-wrap--full">
+    <table class="data-table">
+      <caption class="visually-hidden">Users who can sign in</caption>
+      <thead>
+        <tr><th scope="col">User</th><th scope="col" class="col-hide-s">Role</th><th scope="col">State</th><th scope="col" class="col-hide-s">Added</th><th scope="col" class="row-action"><span class="visually-hidden">Action</span></th></tr>
+      </thead>
+      <tbody>
+        {% for user in users %}
+        <tr>
+          <th scope="row" class="settings-name"><span>{{ user.username }}</span>{% if user.is_you %} <span class="you-tag">You</span>{% endif %}<span class="settings-sub">{{ user.role | capitalize }}</span></th>
+          <td class="col-hide-s">{{ user.role | capitalize }}</td>
+          <td><span class="badges">{% if user.disabled %}{{ status_badge("open", "Disabled") }}{% else %}{{ status_badge("ok", "Enabled") }}{% endif %}{% if user.locked %} {{ status_badge("stale", "Locked") }}{% endif %}</span></td>
+          <td class="col-hide-s">{% if user.created %}{{ time_tag(user.created, now) }}{% endif %}</td>
+          <td class="row-action">
+            {% if user.is_you %}
+            <span class="quiet">Signed in</span>
+            {% else %}
+            <form method="post" action="/settings/users/{{ user.user_id }}/{{ 'enable' if user.disabled else 'disable' }}">
+              <input type="hidden" name="csrf_token" value="{{ shell.csrf_token }}">
+              <button class="btn btn--small{% if not user.disabled %} btn--quiet{% endif %}" type="submit">{{ "Enable" if user.disabled else "Disable" }}<span class="visually-hidden"> {{ user.username }}</span></button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <form class="settings-form" method="post" action="/settings/users" novalidate aria-labelledby="add-user-h">
+    <input type="hidden" name="csrf_token" value="{{ shell.csrf_token }}">
+    <h3 id="add-user-h">Add a user</h3>
+    <div class="settings-form__fields">
+      {{ text_field("user-username", "username", "User name", value=user_values.get("username", ""), help="3 to 64 characters: letters, digits and . _ @ + -, starting with a letter or a digit.", error=user_errors.get("username", ""), autocomplete="off", autocapitalize="none", required=true) }}
+      {{ text_field("user-password", "password", "Password", type="password", help="At least 12 characters. driftsniff sends no mail to users, so tell them yourself.", error=user_errors.get("password", ""), autocomplete="new-password", required=true) }}
+      <div class="field">
+        <label for="user-role">Role</label>
+        <select class="input" id="user-role" name="role" aria-describedby="user-role-help{% if user_errors.get('role') %} user-role-error{% endif %}"{% if user_errors.get('role') %} aria-invalid="true"{% endif %}>
+          {% for role in ("viewer", "operator", "admin") %}
+          <option value="{{ role }}"{% if role == user_values.get("role", "viewer") %} selected{% endif %}>{{ role | capitalize }}</option>
+          {% endfor %}
+        </select>
+        <span class="help" id="user-role-help">{{ role_words[user_values.get("role", "viewer")] if user_values.get("role", "viewer") in role_words else role_words["viewer"] }}</span>
+        {% if user_errors.get("role") %}<span class="error" id="user-role-error">{{ user_errors["role"] }}</span>{% endif %}
+      </div>
+    </div>
+    <div class="form-actions"><button class="btn" type="submit">Add user</button></div>
+  </form>
+  {% endif %}
+</section>
+
+{# ---- API tokens ------------------------------------------------------------------------ #}
+<section class="card settings-card jump-target" id="tokens" aria-labelledby="tokens-h">
+  <div class="settings-card__head">
+    <h2 id="tokens-h">API tokens</h2>
+    <p class="hint">For scripts and tools that read changes (read) or attach notes and links (enrich) through /api/v1.</p>
+  </div>
+  {% if tokens is none %}
+  <p class="quiet">API tokens are not available on this installation.</p>
+  {% else %}
+  {% if tokens %}
+  <div class="table-wrap table-wrap--full">
+    <table class="data-table">
+      <caption class="visually-hidden">API tokens, only the start of each value</caption>
+      <thead>
+        <tr><th scope="col">Name</th><th scope="col" class="col-hide-s">Starts with</th><th scope="col" class="col-hide-s">Scopes</th><th scope="col">State</th><th scope="col" class="col-hide-m">Last used</th><th scope="col" class="col-hide-m">Expires</th><th scope="col" class="row-action"><span class="visually-hidden">Action</span></th></tr>
+      </thead>
+      <tbody>
+        {% for token in tokens %}
+        <tr>
+          <th scope="row" class="settings-name"><span>{{ token.name }}</span><code class="settings-sub">{{ token.prefix }}</code></th>
+          <td class="col-hide-s"><code>{{ token.prefix }}</code></td>
+          <td class="col-hide-s">{{ token.scopes | map("capitalize") | join(", ") }}</td>
+          <td>{% if token.status == "active" %}{{ status_badge("ok", "Active") }}{% elif token.status == "expired" %}{{ status_badge("stale", "Expired") }}{% else %}{{ status_badge("open", "Revoked") }}{% endif %}</td>
+          <td class="col-hide-m">{% if token.last_used %}{{ time_tag(token.last_used, now) }}{% else %}<span class="quiet">Never</span>{% endif %}</td>
+          <td class="col-hide-m">{% if token.expires %}{{ time_tag(token.expires, now) }}{% else %}<span class="quiet">Never</span>{% endif %}</td>
+          <td class="row-action">
+            {% if token.status != "revoked" %}
+            <form method="post" action="/tokens/{{ token.token_id }}/revoke">
+              <input type="hidden" name="csrf_token" value="{{ shell.csrf_token }}">
+              <button class="btn btn--small btn--danger" type="submit">Revoke<span class="visually-hidden"> {{ token.name }}</span></button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="settings-empty">No API tokens yet. Make one below when a script or tool needs to read changes.</p>
+  {% endif %}
+  <form class="settings-form" method="post" action="/tokens" novalidate aria-labelledby="add-token-h">
+    <input type="hidden" name="csrf_token" value="{{ shell.csrf_token }}">
+    <h3 id="add-token-h">Make a token</h3>
+    {% set chosen = (token_values.get("scopes", "read")).split(",") %}
+    <div class="settings-form__fields">
+      {{ text_field("token-name", "name", "Name", value=token_values.get("name", ""), help="Who uses it, for example backup-report. Up to 80 characters.", error=token_errors.get("name", ""), autocomplete="off", required=true) }}
+      <fieldset class="choices" aria-describedby="token-scopes-help{% if token_errors.get('scopes') %} token-scopes-error{% endif %}">
+        <legend>Scopes</legend>
+        <div class="settings-checks">
+          {% for scope in token_scopes %}
+          <div class="check">
+            <input id="token-scope-{{ scope }}" name="scopes" type="checkbox" value="{{ scope }}"{% if scope in chosen %} checked{% endif %}>
+            <label for="token-scope-{{ scope }}">{{ scope | capitalize }}</label>
+          </div>
+          {% endfor %}
+        </div>
+        <span class="help" id="token-scopes-help">Read lists changes. Enrich attaches notes and links to a change.</span>
+        {% if token_errors.get("scopes") %}<span class="error" id="token-scopes-error">{{ token_errors["scopes"] }}</span>{% endif %}
+      </fieldset>
+      {{ text_field("token-expiry", "expires_in_days", "Expires after (days, optional)", value=token_values.get("expires_in_days", ""), type="number", help="1 to " ~ max_expiry_days ~ ". Leave empty for a token that does not expire.", error=token_errors.get("expires_in_days", ""), autocomplete="off", minimum=1, maximum=max_expiry_days) }}
+    </div>
+    <div class="form-actions"><button class="btn" type="submit">Make token</button></div>
+  </form>
+  {% endif %}
+</section>
+
+{# ---- notifications --------------------------------------------------------------------- #}
+<section class="card settings-card jump-target" id="notifications" aria-labelledby="notifications-h">
+  <div class="settings-card__head">
+    <h2 id="notifications-h">Notifications</h2>
+    <p class="hint">One channel, a webhook or a mailbox, gets a message for each change at or above the severity you choose.</p>
+  </div>
+  {% if not notifications_on %}
+  <p class="quiet">Notifications are not available on this installation.</p>
+  {% else %}
+  {% if channel %}
+  {% set d = channel.details %}
+  <div class="channel">
+    {% if d.get("config_unreadable") %}
+    {{ banner("warn", "The stored channel cannot be read", "The key it was saved with is gone. Enter the channel again below.") }}
+    {% endif %}
+    <dl class="kv">
+      <dt>Channel</dt><dd>{{ "Webhook" if channel.type == "webhook" else "Email over SMTP" }} <span class="badges">{% if channel.enabled %}{{ status_badge("ok", "On") }}{% else %}{{ status_badge("open", "Off") }}{% endif %}</span></dd>
+      {% if channel.type == "webhook" and not d.get("config_unreadable") %}
+      <dt>Sends to</dt><dd><code>{{ d.get("target", "") }}</code> <span class="quiet">(path hidden)</span></dd>
+      {% elif not d.get("config_unreadable") %}
+      <dt>Server</dt><dd><code>{{ d.get("host", "") }}:{{ d.get("port", "") }}</code>, {{ security_words.get(d.get("security", ""), d.get("security", "")) }}</dd>
+      <dt>From</dt><dd>{{ d.get("from_address", "") }}</dd>
+      <dt>To</dt><dd>{{ d.get("to_addresses", []) | join(", ") }}</dd>
+      <dt>Login</dt><dd>{% if d.get("username") %}{{ d.get("username") }}, password stored{% else %}None{% endif %}</dd>
+      {% endif %}
+      <dt>Sends</dt><dd>{{ severity_words.get(channel.min_severity, channel.min_severity) }}</dd>
+    </dl>
+    <div class="form-actions">
+      <form method="post" action="/notifications/test">
+        <input type="hidden" name="csrf_token" value="{{ shell.csrf_token }}">
+        <button class="btn" type="submit">Send a test message</button>
+      </form>
+      {% if channel.type == "webhook" %}
+      <form method="post" action="/notifications/signing-key">
+        <input type="hidden" name="csrf_token" value="{{ shell.csrf_token }}">
+        <button class="btn btn--quiet" type="submit">Show signing key</button>
+      </form>
+      {% endif %}
+      <form method="post" action="/notifications/channel/remove">
+        <input type="hidden" name="csrf_token" value="{{ shell.csrf_token }}">
+        <button class="btn btn--danger" type="submit">Remove channel</button>
+      </form>
+    </div>
+  </div>
+  {% else %}
+  <p class="settings-empty">No channel yet, so no alert leaves driftsniff. Set one below.</p>
+  {% endif %}
+
+  {% set ch_type = ch_values.get("type") or (channel.type if channel else "webhook") %}
+  {% set d = channel.details if channel and channel.type == "smtp" and not channel.details.get("config_unreadable") else {} %}
+  <form class="settings-form" method="post" action="/notifications/channel" novalidate aria-labelledby="channel-h">
+    <input type="hidden" name="csrf_token" value="{{ shell.csrf_token }}">
+    <h3 id="channel-h">{{ "Change the channel" if channel else "Set a channel" }}</h3>
+    <fieldset class="choices channel-types">
+      <legend>Send through</legend>
+      <div class="choice">
+        <input id="ch-type-webhook" name="type" type="radio" value="webhook"{% if ch_type == "webhook" %} checked{% endif %} aria-describedby="ch-type-webhook-help">
+        <label for="ch-type-webhook">Webhook</label>
+        <span class="help" id="ch-type-webhook-help">A signed JSON post to your chat bridge or ticket system.</span>
+        <div class="choice__extra">
+          {{ text_field("ch-url", "url", "Address", type="url", help="The full https:// address. It is stored encrypted; this page shows only its host, so type it again to change it.", error=ch_errors.get("url", ""), autocomplete="off", placeholder="https://hooks.example/driftsniff", mono=true) }}
+        </div>
+      </div>
+      <div class="choice">
+        <input id="ch-type-smtp" name="type" type="radio" value="smtp"{% if ch_type == "smtp" %} checked{% endif %} aria-describedby="ch-type-smtp-help">
+        <label for="ch-type-smtp">Email over SMTP</label>
+        <span class="help" id="ch-type-smtp-help">A plain mail to up to ten addresses through your mail server.</span>
+        <div class="choice__extra settings-form__fields">
+          {{ text_field("ch-host", "host", "Mail server", value=ch_values.get("host", d.get("host", "")), help="Host name or address.", error=ch_errors.get("host", ""), autocomplete="off", mono=true) }}
+          {% set sec = ch_values.get("security", d.get("security", "starttls")) %}
+          <div class="field">
+            <label for="ch-security">Security</label>
+            <select class="input" id="ch-security" name="security"{% if ch_errors.get('security') %} aria-invalid="true" aria-describedby="ch-security-error"{% endif %}>
+              {% for option in securities %}
+              <option value="{{ option }}"{% if option == sec %} selected{% endif %}>{{ security_words[option] }} (port {{ default_ports[option] }})</option>
+              {% endfor %}
+            </select>
+            {% if ch_errors.get("security") %}<span class="error" id="ch-security-error">{{ ch_errors["security"] }}</span>{% endif %}
+          </div>
+          {{ text_field("ch-port", "port", "Port (optional)", value=ch_values.get("port", (d.get("port", "") | string) if d else ""), type="number", help="Empty uses the port of the security.", error=ch_errors.get("port", ""), autocomplete="off", minimum=1, maximum=65535) }}
+          {{ text_field("ch-from", "from_address", "From", value=ch_values.get("from_address", d.get("from_address", "")), type="email", help="The sender address.", error=ch_errors.get("from_address", ""), autocomplete="off") }}
+          {{ text_field("ch-to", "to_addresses", "To", value=ch_values.get("to_addresses", d.get("to_addresses", []) | join(", ")), help="Up to ten addresses, separated by commas.", error=ch_errors.get("to_addresses", ""), autocomplete="off") }}
+          {# a refused channel does not fill the login back in, like the password: retype both #}
+          {{ text_field("ch-username", "username", "Login (optional)", value="" if ch_failed else (d.get("username") or ""), help="Leave empty when the server needs no login.", error=ch_errors.get("username", ""), autocomplete="off", autocapitalize="none") }}
+          {{ text_field("ch-password", "password", "Password", type="password", help="Leave empty to keep the stored password for the same login.", error=ch_errors.get("password", ""), autocomplete="new-password") }}
+        </div>
+      </div>
+    </fieldset>
+    {% if ch_errors.get("type") %}<p class="error">{{ ch_errors["type"] }}</p>{% endif %}
+    <div class="settings-form__fields">
+      {% set floor = ch_values.get("min_severity") or (channel.min_severity if channel else "high") %}
+      <div class="field">
+        <label for="ch-severity">Send changes from</label>
+        <select class="input" id="ch-severity" name="min_severity"{% if ch_errors.get('min_severity') %} aria-invalid="true" aria-describedby="ch-severity-error"{% endif %}>
+          {% for severity in severities_order %}
+          <option value="{{ severity }}"{% if severity == floor %} selected{% endif %}>{{ severity_words[severity] }}</option>
+          {% endfor %}
+        </select>
+        {% if ch_errors.get("min_severity") %}<span class="error" id="ch-severity-error">{{ ch_errors["min_severity"] }}</span>{% endif %}
+      </div>
+      {% set on = (ch_values.get("enabled", "true") == "true") if ch_values else (channel.enabled if channel else true) %}
+      <div class="check settings-check">
+        <input id="ch-enabled" name="enabled" type="checkbox" value="true"{% if on %} checked{% endif %} aria-describedby="ch-enabled-help">
+        <label for="ch-enabled">Send messages</label>
+        <input type="hidden" name="enabled" value="false">
+        <span class="help" id="ch-enabled-help">Untick to keep the channel but send nothing.</span>
+      </div>
+    </div>
+    <div class="form-actions"><button class="btn" type="submit">Save channel</button></div>
+  </form>
+  {% endif %}
+</section>
+
+{# ---- retention and storage ------------------------------------------------------------- #}
+<section class="jump-target settings-pair" id="retention" aria-labelledby="retention-h">
+  <h2 class="visually-hidden" id="retention-h">Retention and storage</h2>
+  {% if overview is none %}
+  <div class="card settings-card"><p class="quiet">Retention and storage settings are not available on this installation.</p></div>
+  {% else %}
+  <div class="card settings-card">
+    <div class="settings-card__head">
+      <h3>Retention</h3>
+      <p class="hint">Changes older than this are removed each night at {{ overview.retention_run_utc }} UTC.</p>
+    </div>
+    <p class="settings-figure"><span class="num">{{ overview.retention_days }}</span> days</p>
+    {{ meter_bar("retention-meter", retention) }}
+    <p class="meter-scale"><span>{{ retention_min }} days</span><span>{{ retention_max }} days</span></p>
+    {% set last = overview.about.last_retention_run %}
+    <p class="quiet">{% if last and stamp_of(last.at) %}Last clean-up {{ time_tag(stamp_of(last.at), now) }}: {{ number(last.events_deleted) }} changes removed, {{ size_text(last.freed_bytes) }} freed.{% else %}No clean-up has run yet.{% endif %}</p>
+    <form class="settings-form settings-form--inline" method="post" action="/settings/retention" novalidate>
+      <input type="hidden" name="csrf_token" value="{{ shell.csrf_token }}">
+      {{ text_field("retention-days", "retention_days", "Keep changes for (days)", value=overview.retention_days | string, type="number", help="A whole number from " ~ retention_min ~ " to " ~ retention_max ~ ". The default is " ~ overview.default_retention_days ~ ".", error=retention_errors.get("retention_days", ""), autocomplete="off", minimum=retention_min, maximum=retention_max) }}
+      <button class="btn" type="submit">Save retention</button>
+    </form>
+  </div>
+  <div class="card settings-card">
+    <div class="settings-card__head">
+      <h3>Storage warning</h3>
+      <p class="hint">The storage card of the dashboard turns to a warning from this size.</p>
+    </div>
+    <p class="settings-figure"><span class="num">{{ size_text(overview.about.database_bytes) }}</span> used</p>
+    {{ meter_bar("storage-meter", storage) }}
+    <p class="meter-scale"><span>0</span><span>{{ overview.storage_warning_gb }} GB</span></p>
+    <p class="quiet">{% if storage.over %}The database is past the warning size. Shorten the retention or give the volume more room.{% else %}{{ storage.text }}.{% endif %}</p>
+    <form class="settings-form settings-form--inline" method="post" action="/settings/storage-warning" novalidate>
+      <input type="hidden" name="csrf_token" value="{{ shell.csrf_token }}">
+      {{ text_field("storage-gb", "storage_warning_gb", "Warn from (GB)", value=overview.storage_warning_gb | string, type="number", help="A whole number from " ~ overview.min_storage_warning_gb ~ " to " ~ overview.max_storage_warning_gb ~ ". The default is " ~ overview.default_storage_warning_gb ~ ".", error=storage_errors.get("storage_warning_gb", ""), autocomplete="off", minimum=overview.min_storage_warning_gb, maximum=overview.max_storage_warning_gb) }}
+      <button class="btn" type="submit">Save warning</button>
+    </form>
+  </div>
+  {% endif %}
+</section>
+
+{# ---- about ----------------------------------------------------------------------------- #}
+<section class="card settings-card jump-target" id="about" aria-labelledby="about-h">
+  <div class="settings-card__head">
+    <h2 id="about-h">About</h2>
+    <p class="hint">What runs here. Quote the version and the build when you report a problem.</p>
+  </div>
+  {% if overview is none %}
+  <p class="quiet">driftsniff CE {{ app_version }}, build <code>{{ commit[:12] }}</code>.</p>
+  {% else %}
+  {% set about = overview.about %}
+  <dl class="kv">
+    <dt>Version</dt><dd>driftsniff CE <span class="num">{{ about.version }}</span></dd>
+    <dt>Build</dt><dd><code title="{{ commit }}">{{ commit[:12] }}</code></dd>
+    <dt>Database schema</dt><dd><code>{{ about.schema_revision or "not migrated" }}</code></dd>
+    <dt>Database size</dt><dd class="num">{{ size_text(about.database_bytes) }}</dd>
+    <dt>Sources</dt><dd class="num">{{ number(about.sources) }}</dd>
+    <dt>Users</dt><dd class="num">{{ number(about.users) }}</dd>
+    <dt>Last clean-up</dt><dd>{% set last = about.last_retention_run %}{% if last and stamp_of(last.at) %}{{ time_tag(stamp_of(last.at), now) }}, kept {{ last.retention_days }} days: {{ number(last.events_deleted) }} changes removed, {{ number(last.snapshots_thinned) }} snapshots thinned, {{ number(last.states_removed) }} states removed, {{ size_text(last.freed_bytes) }} freed{% else %}Not run yet{% endif %}</dd>
+  </dl>
+  {% endif %}
+</section>
+
+</div>
+{% endblock %}

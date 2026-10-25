@@ -555,6 +555,62 @@ def test_the_dashboard_grids_cannot_widen_the_page() -> None:
     ]
 
 
+def test_the_severity_list_wraps_under_the_ring_instead_of_leaving_its_card() -> None:
+    """THE-1240: at 1024 px the 5fr card is about 287 px wide, and a 160px 1fr grid pushed the
+    166 px severity list 89 px out of it, under Needs attention. The posture is a wrapping flex
+    row: the ring keeps its 160 px, the list has a zero basis and the default min-width, so it
+    moves under the ring as soon as its widest row no longer fits beside it, at every width."""
+    rules = _css_rules()
+    posture = "".join(rules[".posture"])
+    ring = "".join(rules[".posture > svg"])
+    listing = "".join(rules[".posture-list"])
+    assert re.search(r"display:\s*flex", posture)
+    assert re.search(r"flex-wrap:\s*wrap", posture)
+    assert _column_tracks(rules, ".posture") == []
+    assert re.search(r"flex:\s*none", ring)
+    assert re.search(r"width:\s*160px", ring)
+    assert re.search(r"flex:\s*1 1 0;", listing)
+    # min-width: 0 would let the rows shrink below their content and spill again
+    assert "min-width" not in listing
+
+
+def test_a_narrow_attention_list_gives_the_text_its_own_line() -> None:
+    """THE-1255: at 1024 px the 7fr card leaves the list 351 px, and the three columns of a row
+    (a 167 px "Nothing pushed yet" badge, the text, a 112 px "Open source" button) squeezed the
+    title to "pilo..." and its line to one word per line. The list is a size container; below
+    its breakpoint the badge and the action share the first line and the text spans the row
+    under them, wrapping instead of clipping. The breakpoint is above 351 px and leaves the
+    text at least 200 px beside the widest badge and button, at 1024 px and on a phone alike."""
+    css = (
+        Path(__file__).resolve().parents[2] / "src" / "driftsniff" / "web" / "static" / "app.css"
+    ).read_text(encoding="utf-8")
+    css = re.sub(r"/\*.*?\*/", "", css, flags=re.DOTALL)
+    rules = _css_rules()
+    assert re.search(r"container:\s*attention\s*/\s*inline-size", "".join(rules[".attention"]))
+    query = re.search(r"@container attention \(max-width:\s*(\d+)px\)\s*\{(.*?)\n\}", css, re.S)
+    assert query is not None
+    breakpoint, narrow = int(query.group(1)), query.group(2)
+    assert 351 < breakpoint
+    assert breakpoint - 167 - 112 - 2 * 12 >= 200
+    assert re.search(
+        r"\.attention li\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) auto;", narrow
+    )
+    what = re.search(r"\.attention \.what\s*\{([^}]*)\}", narrow)
+    assert what is not None
+    assert re.search(r"grid-column:\s*1\s*/\s*-1", what.group(1))
+    assert re.search(r"grid-row:\s*2", what.group(1))
+    title = re.search(r"\.attention \.what a\s*\{([^}]*)\}", narrow)
+    assert title is not None
+    assert re.search(r"white-space:\s*normal", title.group(1))
+    # a viewport rule would miss the 1024 px card, so the row layout follows the list only
+    for media in re.finditer(r"@media[^{]*\{", css):
+        depth, end = 1, media.end()
+        while depth:
+            depth += {"{": 1, "}": -1}.get(css[end], 0)
+            end += 1
+        assert ".attention li" not in css[media.end() : end], media.group(0)
+
+
 def test_the_trend_chart_fits_a_desktop_card_and_opens_on_today() -> None:
     """At 1440 px the half-width card leaves 546 px for the chart, so a 600 px minimum hid the
     bar of today behind a scroll. The chart may shrink to 520 px, where its 14 unit labels are
@@ -614,8 +670,8 @@ def test_the_stat_cards_count_open_changes_new_changes_and_sources(
     # the disabled source is named too, so the card's parts add up to its total of four
     assert healthy.delta == "1 disabled, 1 failing, 1 no check yet" and healthy.delta_tone == "up"
     assert storage.label == "Storage used" and storage.unit == "MB"
-    # no link until /settings exists (P10-T8): it used to point at a 404
-    assert storage.href == ""
+    # the About section of the settings page (P10-T8), a link for admins only
+    assert storage.href == "/settings#about" and storage.admin_only
 
 
 def test_the_posture_ring_counts_open_items_by_severity(
@@ -980,7 +1036,7 @@ def test_the_dashboard_page_renders_every_section_with_text_alternatives(
         "Activity",
     ):
         assert heading in text, heading
-    # one primary action, the four stat cards, each a link but storage (/settings is P10-T8)
+    # one primary action, the four stat cards, each a link (storage: an admin's, /settings)
     primary = [a for a in parsed.find("a") if a.get("class") == "btn btn--primary"]
     assert primary == [{"class": "btn btn--primary", "href": "/sources/new"}]
     stats = [a for a in parsed.find("a") if a.get("class") == "card metric"]
@@ -988,9 +1044,10 @@ def test_the_dashboard_page_renders_every_section_with_text_alternatives(
         "/changes?status=open",
         "/changes?status=open&severity=critical&severity=high",
         "/sources",
+        "/settings#about",
     ]
-    assert parsed.find("div").count({"class": "card metric"}) == 1
-    assert not [a for a in parsed.find("a") if str(a.get("href", "")).startswith("/settings")]
+    assert parsed.find("div").count({"class": "card metric"}) == 0
+    assert {"href": "/settings"} in parsed.find("a")  # the sidebar's Admin > Settings
     # every chart is an image with a title and a description
     charts = [svg for svg in parsed.find("svg") if svg.get("role") == "img"]
     assert len(charts) == 2 + 4  # the ring, the trend, four drift lines
@@ -1009,6 +1066,26 @@ def test_the_dashboard_page_renders_every_section_with_text_alternatives(
     for canary in CANARIES:
         assert canary not in page, canary
     assert "CANARY" not in page
+
+
+def test_a_viewer_or_an_operator_gets_the_storage_card_without_the_settings_link(
+    client: TestClient, auth: AuthService, seeded: dict[str, int]
+) -> None:
+    # /settings answers 403 to them, so neither the card nor the sidebar points there
+    for role in ("viewer", "operator"):
+        auth.create_user(f"{role}-1", CORRECT, role)
+        response = client.post("/login", data={"username": f"{role}-1", "password": CORRECT})
+        assert response.status_code == 303, response.text
+        match = re.search(rf"{SESSION_COOKIE}=([^;]+)", response.headers["set-cookie"])
+        assert match is not None
+        client.cookies.clear()
+        headers = {**BROWSER, "Cookie": f"{SESSION_COOKIE}={match.group(1)}"}
+        parsed = assert_page(client.get("/", headers=headers))
+        stats = [a["href"] for a in parsed.find("a") if a.get("class") == "card metric"]
+        assert len(stats) == 3 and "/settings#about" not in stats, role
+        assert parsed.find("div").count({"class": "card metric"}) == 1, role
+        assert not [a for a in parsed.find("a") if str(a.get("href")).startswith("/settings")]
+        assert "Storage used" in "".join(parsed.text), role
 
 
 def test_the_dashboard_page_shows_eight_activity_rows_and_a_disclosure_of_the_rest(
@@ -1151,5 +1228,5 @@ def test_the_dashboard_with_the_thousand_object_fixture_renders_in_under_half_a_
     assert elapsed < 0.5, f"the dashboard took {elapsed:.3f} s"
     parsed = Parsed(response.text)
     stats = [a for a in parsed.find("a") if a.get("class") == "card metric"]
-    assert len(stats) == 3
+    assert len(stats) == 4  # an admin's storage card links to /settings#about too
     assert len(parsed.find("li")) >= 20

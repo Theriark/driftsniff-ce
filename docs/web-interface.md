@@ -363,3 +363,56 @@ rows and `tests/security/test_planned_routes.py`.
 
 **Not done here.** Screenshots at 1440, 768 and 390 px and the UI critique are taken on
 Development after this pull request is deployed, by a later check of the same task.
+
+## 12. The settings page (P10-T8, slice B)
+
+`GET /settings` asked for by a browser (`Accept: text/html`) is the settings page; every other
+client keeps slice A's JSON. Admins only: an operator or a viewer gets the designed not-allowed
+page (403), a browser without a session is sent to sign in with `next=/settings`. Code:
+`driftsniff/web/settings_page.py` (the view and the states), `templates/settings/page.html`,
+`static/settings.css` (loaded after `app.css` and `summary-head.css`, whose tab strip it uses).
+
+**What is on it.** A tab strip jumps to five cards: **Users** (the table with role, state, added,
+and Disable or Enable for everyone but yourself; the form to add a user), **API tokens** (name,
+the visible start of the value, scopes, state, last use, expiry, Revoke; the form to make one),
+**Notifications** (the channel as an admin may see it: the host and port only, never the path,
+query, login password or webhook address; Send a test message, Show signing key for a webhook,
+Remove channel; the form to set or change it), **Retention and storage** (the two numbers, each
+with a bar: the retention window between 30 and 365 days, the database size against the warning
+size, which turns to the alert colour past it; the words beside each bar say the same) and
+**About** (version, build commit, schema revision, database size, counts, the last clean-up).
+
+**How the forms answer.** Every form is a plain post with the session's CSRF value, so the page
+works without a script. The routes are slice A's and the existing token and notification routes,
+each with a page branch: a saved change answers 303 to `/settings?notice=<word>#<card>` and the
+page shows the notice; a refused change draws the page again under the route's status (422 or
+409) with a banner that has the focus and the field marked (`aria-invalid` and its message). A
+password and the webhook address are never filled back in, nor the SMTP login of a refused
+channel (the plain page offers the stored login); a field the form does not send is refused with
+one generic sentence that does not repeat its name. Each number field carries the `min` and `max`
+the server checks (retention 30 to 365, storage warning 1 to 1000 GB, token expiry 1 to 3650 days,
+port 1 to 65535). A new token is shown once in a card at the top (status 201); the signing key
+the same way, and the page is `no-store` like every page. Those two answers and a test message's
+load `static/settings-once.js`, which turns the history entry into `GET /settings`, so a reload
+shows the plain page instead of posting again (without script the browser asks first). A form can only post, so the channel is saved with `POST /notifications/channel` (the same
+handler as `PUT`) and removed with `POST /notifications/channel/remove` (as `DELETE`); both are
+admin rows of the route table.
+
+**Decisions where the plan is silent.** (1) The cards are ordered by how often an admin needs
+them (users first), not by the order of the routes. (2) Role change, password reset and user
+delete have no route (slice A), so the page offers none. (3) On a phone the role and the token
+start move under the name instead of widening the table.
+
+**Navigation.** The sidebar has a third group, Admin, with Settings (THE-1278), and the
+dashboard's storage card links to `/settings#about`. Both are an admin's only: a viewer or an
+operator sees neither the entry nor the Admin group, and their storage card is a plain card,
+because the page would answer 403 (`NAV_ADMIN_ONLY` in `web/templating.py`, `Stat.admin_only` in
+`web/dashboard.py`).
+
+**Checks.** `tests/security/test_settings_pages.py`: the seven acceptance checks of P10-T8 through
+the real application (who gets the page; a token shown once and only its prefix afterwards; the
+channel without path, query or password and a blocked address marked; retention 29, 366 and text
+refused, 30 and 365 kept; users added, disabled and enabled; CSRF on every form, escaping, no
+inline style or script, every field labelled) plus the last-admin guard through the route and the
+generic unknown-field text. The screenshots at 1440, 1024, 768 and 390 px in both themes are taken
+on Development after deployment.

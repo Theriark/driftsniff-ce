@@ -45,6 +45,11 @@ from driftsniff.db.tables import (
     users,
 )
 from driftsniff.sources.service import interval_of
+from driftsniff.web.settings_store import (
+    BYTES_PER_GB,
+    DEFAULT_STORAGE_WARNING_GB,
+    storage_warning_bytes,
+)
 from driftsniff.web.templating import SEVERITIES, SEVERITY_LABELS, number
 
 TREND_DAYS: Final = 30
@@ -60,9 +65,10 @@ BREAKDOWN_ROWS: Final = 8
 CHECK_STATUSES: Final = ("ok", "partial", "failed")
 # A source is stale when nothing has been checked for this many intervals.
 STALE_INTERVALS: Final = 3
-# The storage card compares the database file with this size (the plan names no setting, so
-# the simplest option is a constant; docs/web-interface.md section 9 records it).
-STORAGE_WARNING_BYTES: Final = 2 * 1024 * 1024 * 1024
+# The storage card compares the database file with the storage warning size an admin sets on the
+# settings page (``storage_warning_gb``); this is the size when none is set (docs/settings.md).
+STORAGE_WARNING_BYTES: Final = DEFAULT_STORAGE_WARNING_GB * BYTES_PER_GB
+STORAGE_HREF: Final = "/settings#about"
 RING_RADIUS: Final = 60
 RING_CIRCUMFERENCE: Final = 2 * math.pi * RING_RADIUS
 # Trend chart geometry (a 600 by 170 viewBox, drawn no narrower than 600 px).
@@ -164,6 +170,8 @@ AUDIT_VERBS: Final = {
     "user.credentials_reset": "reset the credentials of user",
     "mute.added": "muted a path of",
     "mute.removed": "removed a mute of",
+    "settings.retention_days_changed": "changed the retention window",
+    "settings.storage_warning_changed": "changed the storage warning size",
 }
 # Audit actions that are noise on a dashboard (every refused token call writes one), and the two
 # that repeat an acknowledgement or a note row the timeline already lists with its source.
@@ -190,7 +198,8 @@ class Stat:
 
     ``delta_tone`` says how the line reads (down good, up worth a look, alert); ``trend`` is the
     direction of a count against the previous period (up, down or flat), empty when the line is
-    not a comparison. An empty ``href`` draws the card without a link.
+    not a comparison. An empty ``href`` draws the card without a link; so does an ``admin_only``
+    link for a reader who is not an admin (the page behind it would answer 403).
     """
 
     label: str
@@ -201,6 +210,7 @@ class Stat:
     delta_tone: str = ""
     trend: str = ""
     spark: tuple[int, ...] = ()
+    admin_only: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -556,7 +566,8 @@ def storage_bytes(path: Path) -> int:
 def storage_stat(used: int, warning: int = STORAGE_WARNING_BYTES) -> Stat:
     """The storage card: megabytes used against the warning size.
 
-    No link yet: the About section it points to lives on /settings, which comes with P10-T8.
+    It links to the About section of the settings page, which names the database size; only an
+    admin may open that page, so only an admin gets the link.
     """
     megabytes = used / (1024 * 1024)
     value = f"{megabytes:.1f}" if megabytes < 10 else number(round(megabytes))
@@ -566,10 +577,11 @@ def storage_stat(used: int, warning: int = STORAGE_WARNING_BYTES) -> Stat:
     return Stat(
         "Storage used",
         value,
-        "",
+        STORAGE_HREF,
         unit="MB",
         delta=f"{share}% of the {warning_text} warning size",
         delta_tone=tone,
+        admin_only=True,
     )
 
 
@@ -755,10 +767,13 @@ class DashboardService:
             trend = _trend(connection, now)
             by_source, by_resource = _breakdowns(connection, names)
             activity = _activity(connection, names)
+            warning_bytes = storage_warning_bytes(connection)
         return Dashboard(
             now=now,
             has_sources=True,
-            stats=_stats(open_events, recent, health, now, storage_bytes(self._db.path)),
+            stats=_stats(
+                open_events, recent, health, now, storage_bytes(self._db.path), warning_bytes
+            ),
             posture=_posture(open_items),
             attention=attention,
             driftlines=_driftlines(health, runs_30, events_30, now),
@@ -880,6 +895,7 @@ def _stats(
     health: Sequence[SourceHealth],
     now: datetime,
     used_bytes: int,
+    warning_bytes: int = STORAGE_WARNING_BYTES,
 ) -> tuple[Stat, ...]:
     today = now.date()
     last_week = [today - timedelta(days=offset) for offset in range(6, -1, -1)]
@@ -926,7 +942,7 @@ def _stats(
             delta=unwell_text or "every source is healthy",
             delta_tone="up" if unwell else "",
         ),
-        storage_stat(used_bytes),
+        storage_stat(used_bytes, warning_bytes),
     )
 
 
