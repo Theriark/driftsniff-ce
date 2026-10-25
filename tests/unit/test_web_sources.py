@@ -523,7 +523,9 @@ def test_the_navigation_shows_only_pages_that_exist(world: World) -> None:
     nav = {a.get("href") for a in parsed.find("a")}
     assert "/sources" in nav and "/changes" in nav  # Changes came back with P10-T6
     assert "/history" in nav and "/configuration" in nav  # and these two with P10-T7
-    assert "/settings" not in nav
+    assert "/settings" in nav  # and Settings with P10-T8, for an admin only
+    viewer = assert_page(world.get("/sources", role="viewer"))
+    assert "/settings" not in {a.get("href") for a in viewer.find("a")}
 
 
 def test_the_source_page_links_to_its_history_and_its_configuration(world: World) -> None:

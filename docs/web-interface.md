@@ -387,10 +387,14 @@ works without a script. The routes are slice A's and the existing token and noti
 each with a page branch: a saved change answers 303 to `/settings?notice=<word>#<card>` and the
 page shows the notice; a refused change draws the page again under the route's status (422 or
 409) with a banner that has the focus and the field marked (`aria-invalid` and its message). A
-password and the webhook address are never filled back in; a field the form does not send is
-refused with one generic sentence that does not repeat its name. A new token is shown once in a
-card at the top (status 201); the signing key the same way, and the page is `no-store` like every
-page. A form can only post, so the channel is saved with `POST /notifications/channel` (the same
+password and the webhook address are never filled back in, nor the SMTP login of a refused
+channel (the plain page offers the stored login); a field the form does not send is refused with
+one generic sentence that does not repeat its name. Each number field carries the `min` and `max`
+the server checks (retention 30 to 365, storage warning 1 to 1000 GB, token expiry 1 to 3650 days,
+port 1 to 65535). A new token is shown once in a card at the top (status 201); the signing key
+the same way, and the page is `no-store` like every page. Those two answers and a test message's
+load `static/settings-once.js`, which turns the history entry into `GET /settings`, so a reload
+shows the plain page instead of posting again (without script the browser asks first). A form can only post, so the channel is saved with `POST /notifications/channel` (the same
 handler as `PUT`) and removed with `POST /notifications/channel/remove` (as `DELETE`); both are
 admin rows of the route table.
 
@@ -399,9 +403,11 @@ them (users first), not by the order of the routes. (2) Role change, password re
 delete have no route (slice A), so the page offers none. (3) On a phone the role and the token
 start move under the name instead of widening the table.
 
-**Navigation.** The sidebar entry Admin > Settings and the link of the dashboard's storage card
-to `/settings#about` are held back while pull request 103 (THE-1060) is open: its two test files
-pin the navigation without `/settings`. They are a small follow-up once 103 is merged or closed.
+**Navigation.** The sidebar has a third group, Admin, with Settings (THE-1278), and the
+dashboard's storage card links to `/settings#about`. Both are an admin's only: a viewer or an
+operator sees neither the entry nor the Admin group, and their storage card is a plain card,
+because the page would answer 403 (`NAV_ADMIN_ONLY` in `web/templating.py`, `Stat.admin_only` in
+`web/dashboard.py`).
 
 **Checks.** `tests/security/test_settings_pages.py`: the seven acceptance checks of P10-T8 through
 the real application (who gets the page; a token shown once and only its prefix afterwards; the

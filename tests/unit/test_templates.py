@@ -155,23 +155,25 @@ def test_the_shell_navigation_marks_the_current_page_and_lists_every_entry() -> 
 
 
 def test_the_navigation_lists_only_pages_that_exist() -> None:
-    # History and Configuration came back with P10-T7; /settings comes back with P10-T8.
+    # History and Configuration came back with P10-T7; /settings came back with P10-T8.
     assert [href for _key, _label, href in NAV_ITEMS] == [
         "/",
         "/changes",
         "/sources",
         "/history",
         "/configuration",
+        "/settings",
     ]
     hrefs = {attrs.get("href") for attrs in Parsed(page(ADMIN)).find("a")}
     assert {"/changes", "/history", "/configuration"} <= hrefs
-    assert "/settings" not in hrefs
+    assert "/settings" in hrefs
 
 
-def test_the_sidebar_groups_every_entry_once_under_monitor_and_inventory() -> None:
+def test_the_sidebar_groups_every_entry_once_under_monitor_inventory_and_admin() -> None:
     assert [(key, label) for key, label, _members in NAV_GROUPS] == [
         ("monitor", "Monitor"),
         ("inventory", "Inventory"),
+        ("admin", "Admin"),
     ]
     grouped = [item for _key, _label, members in NAV_GROUPS for item in members]
     assert grouped == [key for key, _label, _href in NAV_ITEMS]
@@ -179,6 +181,7 @@ def test_the_sidebar_groups_every_entry_once_under_monitor_and_inventory() -> No
     assert [[link.label for link in group.links] for group in groups] == [
         ["Dashboard", "Changes"],
         ["Sources", "History", "Configuration"],
+        ["Settings"],
     ]
     assert [link.key for group in groups for link in group.links if link.current] == ["history"]
 
@@ -188,10 +191,11 @@ def test_the_sidebar_markup_labels_each_group_and_draws_an_existing_icon_per_ent
     parsed = Parsed(text)
     assert parsed.find("header") == [{"class": "sidebar"}]
     headings = [attrs for attrs in parsed.find("p") if attrs.get("class") == "nav__heading"]
-    assert [attrs.get("id") for attrs in headings] == ["nav-monitor", "nav-inventory"]
+    assert [attrs.get("id") for attrs in headings] == ["nav-monitor", "nav-inventory", "nav-admin"]
     assert [attrs.get("aria-labelledby") for attrs in parsed.find("ul")] == [
         "nav-monitor",
         "nav-inventory",
+        "nav-admin",
     ]
     sidebar = text.split('<nav class="nav" aria-label="Main">', 1)[1].split("</nav>", 1)[0]
     links = [attrs for tag, attrs in Parsed(sidebar).tags if tag == "a"]
@@ -203,6 +207,44 @@ def test_the_sidebar_markup_labels_each_group_and_draws_an_existing_icon_per_ent
     for key, icon in NAV_ICONS.items():
         assert f'<symbol id="{icon}"' in symbols, key
         assert f"#{icon}" in uses, key
+
+
+def sidebar_links(shell: Shell) -> list[dict[str, str | None]]:
+    """The entries of the sidebar navigation of a page rendered for ``shell``."""
+    text = page(shell)
+    sidebar = text.split('<nav class="nav" aria-label="Main">', 1)[1].split("</nav>", 1)[0]
+    return [attrs for tag, attrs in Parsed(sidebar).tags if tag == "a"]
+
+
+def test_an_admin_sees_settings_under_admin_and_it_is_marked_on_its_page() -> None:
+    on_settings = dataclasses.replace(ADMIN, title="Settings", nav_current="settings")
+    links = sidebar_links(dataclasses.replace(on_settings, path="/settings"))
+    assert links[-1] == {"href": "/settings", "aria-current": "page"}
+    text = page(dataclasses.replace(on_settings, path="/settings"))
+    sidebar = Parsed(text.split('<nav class="nav" aria-label="Main">', 1)[1].split("</nav>", 1)[0])
+    assert sidebar.find("use")[-1] == {"href": "#i-settings"}
+    assert sidebar.find("ul")[-1] == {"aria-labelledby": "nav-admin"}
+    assert [word.strip() for word in sidebar.text if word.strip()][-2:] == ["Admin", "Settings"]
+    # the trail of the top bar names the group, and a notice in the query keeps it the section
+    at = nav_location(dataclasses.replace(on_settings, path="/settings?notice=user-added"))
+    assert at is not None and (at.group, at.label, at.href, at.at_section) == (
+        "Admin",
+        "Settings",
+        "/settings",
+        True,
+    )
+    # on any other page the entry is a plain link
+    assert {"href": "/settings"} in sidebar_links(ADMIN)
+
+
+def test_a_viewer_or_an_operator_sees_no_settings_entry_and_no_admin_group() -> None:
+    for role in ("viewer", "operator"):
+        shell = dataclasses.replace(ADMIN, user_role=role)
+        hrefs = [attrs.get("href") for attrs in sidebar_links(shell)]
+        assert hrefs == ["/", "/changes", "/sources", "/history", "/configuration"], role
+        assert "/settings" not in {a.get("href") for a in Parsed(page(shell)).find("a")}, role
+        assert [group.key for group in nav_groups(shell)] == ["monitor", "inventory"], role
+        assert 'id="nav-admin"' not in page(shell), role
 
 
 def leaf_routes(routes: Iterable[Any], prefix: str = "") -> Iterator[tuple[Any, str]]:

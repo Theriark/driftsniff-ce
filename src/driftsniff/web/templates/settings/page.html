@@ -5,9 +5,10 @@
    comes back here (a 303 with a notice, or the page again with the refused form marked).
 
    Nothing secret is ever filled back in: the password fields and the webhook address are always
-   empty, the channel shows only its host and port, a token only its prefix. A new token and the
-   signing key are shown once, in a card at the top that says so. No inline script and no style
-   attribute: the content security policy blocks both; the two bars are SVG with a width. #}
+   empty, a refused channel's login too, the channel shows only its host and port, a token only
+   its prefix. A new token and the signing key are shown once, in a card at the top that says so,
+   and settings-once.js keeps a reload of that answer from posting again. No inline script and no
+   style attribute: the content security policy blocks both; the two bars are SVG with a width. #}
 {% extends "base.html" %}
 {% from "page_header.html" import page_header %}
 {% from "components/forms.html" import text_field %}
@@ -15,7 +16,10 @@
 {% from "components/badges.html" import status_badge %}
 {% from "components/details.html" import time_tag, tab_strip %}
 {% block head %}<link rel="stylesheet" href="/static/summary-head.css">
-<link rel="stylesheet" href="/static/settings.css">{% endblock %}
+<link rel="stylesheet" href="/static/settings.css">
+{# the answer to a post that must not run again on a reload: a token or the key shown once, a
+   test message; the script turns the history entry into GET /settings #}
+{% if created_token or signing_key or test_result %}<script src="/static/settings-once.js" defer></script>{% endif %}{% endblock %}
 
 {% macro meter_bar(id, meter) %}
 <svg class="meter{% if meter.over %} meter--over{% endif %}" viewBox="0 0 100 8" preserveAspectRatio="none" width="100%" height="8" role="img" aria-labelledby="{{ id }}-t">
@@ -30,7 +34,8 @@
 {% set user_errors = failure.fields if failure and failure.form == "user" else {} %}
 {% set token_values = values if failure and failure.form == "token" else {} %}
 {% set token_errors = failure.fields if failure and failure.form == "token" else {} %}
-{% set ch_values = values if failure and failure.form == "channel" else {} %}
+{% set ch_failed = failure and failure.form == "channel" %}
+{% set ch_values = values if ch_failed else {} %}
 {% set ch_errors = failure.fields if failure and failure.form == "channel" else {} %}
 {% set retention_errors = failure.fields if failure and failure.form == "retention" else {} %}
 {% set storage_errors = failure.fields if failure and failure.form == "storage" else {} %}
@@ -201,7 +206,7 @@
         <span class="help" id="token-scopes-help">Read lists changes. Enrich attaches notes and links to a change.</span>
         {% if token_errors.get("scopes") %}<span class="error" id="token-scopes-error">{{ token_errors["scopes"] }}</span>{% endif %}
       </fieldset>
-      {{ text_field("token-expiry", "expires_in_days", "Expires after (days, optional)", value=token_values.get("expires_in_days", ""), type="number", help="1 to " ~ max_expiry_days ~ ". Leave empty for a token that does not expire.", error=token_errors.get("expires_in_days", ""), autocomplete="off") }}
+      {{ text_field("token-expiry", "expires_in_days", "Expires after (days, optional)", value=token_values.get("expires_in_days", ""), type="number", help="1 to " ~ max_expiry_days ~ ". Leave empty for a token that does not expire.", error=token_errors.get("expires_in_days", ""), autocomplete="off", minimum=1, maximum=max_expiry_days) }}
     </div>
     <div class="form-actions"><button class="btn" type="submit">Make token</button></div>
   </form>
@@ -287,10 +292,11 @@
             </select>
             {% if ch_errors.get("security") %}<span class="error" id="ch-security-error">{{ ch_errors["security"] }}</span>{% endif %}
           </div>
-          {{ text_field("ch-port", "port", "Port (optional)", value=ch_values.get("port", (d.get("port", "") | string) if d else ""), type="number", help="Empty uses the port of the security.", error=ch_errors.get("port", ""), autocomplete="off") }}
+          {{ text_field("ch-port", "port", "Port (optional)", value=ch_values.get("port", (d.get("port", "") | string) if d else ""), type="number", help="Empty uses the port of the security.", error=ch_errors.get("port", ""), autocomplete="off", minimum=1, maximum=65535) }}
           {{ text_field("ch-from", "from_address", "From", value=ch_values.get("from_address", d.get("from_address", "")), type="email", help="The sender address.", error=ch_errors.get("from_address", ""), autocomplete="off") }}
           {{ text_field("ch-to", "to_addresses", "To", value=ch_values.get("to_addresses", d.get("to_addresses", []) | join(", ")), help="Up to ten addresses, separated by commas.", error=ch_errors.get("to_addresses", ""), autocomplete="off") }}
-          {{ text_field("ch-username", "username", "Login (optional)", value=ch_values.get("username", d.get("username") or ""), help="Leave empty when the server needs no login.", error=ch_errors.get("username", ""), autocomplete="off", autocapitalize="none") }}
+          {# a refused channel does not fill the login back in, like the password: retype both #}
+          {{ text_field("ch-username", "username", "Login (optional)", value="" if ch_failed else (d.get("username") or ""), help="Leave empty when the server needs no login.", error=ch_errors.get("username", ""), autocomplete="off", autocapitalize="none") }}
           {{ text_field("ch-password", "password", "Password", type="password", help="Leave empty to keep the stored password for the same login.", error=ch_errors.get("password", ""), autocomplete="new-password") }}
         </div>
       </div>
@@ -338,7 +344,7 @@
     <p class="quiet">{% if last and stamp_of(last.at) %}Last clean-up {{ time_tag(stamp_of(last.at), now) }}: {{ number(last.events_deleted) }} changes removed, {{ size_text(last.freed_bytes) }} freed.{% else %}No clean-up has run yet.{% endif %}</p>
     <form class="settings-form settings-form--inline" method="post" action="/settings/retention" novalidate>
       <input type="hidden" name="csrf_token" value="{{ shell.csrf_token }}">
-      {{ text_field("retention-days", "retention_days", "Keep changes for (days)", value=overview.retention_days | string, type="number", help="A whole number from " ~ retention_min ~ " to " ~ retention_max ~ ". The default is " ~ overview.default_retention_days ~ ".", error=retention_errors.get("retention_days", ""), autocomplete="off") }}
+      {{ text_field("retention-days", "retention_days", "Keep changes for (days)", value=overview.retention_days | string, type="number", help="A whole number from " ~ retention_min ~ " to " ~ retention_max ~ ". The default is " ~ overview.default_retention_days ~ ".", error=retention_errors.get("retention_days", ""), autocomplete="off", minimum=retention_min, maximum=retention_max) }}
       <button class="btn" type="submit">Save retention</button>
     </form>
   </div>
@@ -353,7 +359,7 @@
     <p class="quiet">{% if storage.over %}The database is past the warning size. Shorten the retention or give the volume more room.{% else %}{{ storage.text }}.{% endif %}</p>
     <form class="settings-form settings-form--inline" method="post" action="/settings/storage-warning" novalidate>
       <input type="hidden" name="csrf_token" value="{{ shell.csrf_token }}">
-      {{ text_field("storage-gb", "storage_warning_gb", "Warn from (GB)", value=overview.storage_warning_gb | string, type="number", help="A whole number from " ~ overview.min_storage_warning_gb ~ " to " ~ overview.max_storage_warning_gb ~ ". The default is " ~ overview.default_storage_warning_gb ~ ".", error=storage_errors.get("storage_warning_gb", ""), autocomplete="off") }}
+      {{ text_field("storage-gb", "storage_warning_gb", "Warn from (GB)", value=overview.storage_warning_gb | string, type="number", help="A whole number from " ~ overview.min_storage_warning_gb ~ " to " ~ overview.max_storage_warning_gb ~ ". The default is " ~ overview.default_storage_warning_gb ~ ".", error=storage_errors.get("storage_warning_gb", ""), autocomplete="off", minimum=overview.min_storage_warning_gb, maximum=overview.max_storage_warning_gb) }}
       <button class="btn" type="submit">Save warning</button>
     </form>
   </div>
