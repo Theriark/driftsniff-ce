@@ -7,8 +7,11 @@
    column from 768 px up, and narrower only the cells scroll, opening on today, so the names
    stay in view. Nothing moves by itself: the cursor jumps from day to day and never slides. */
 
+/* minmax(0, 1fr): an auto track would grow to the whole map (names and every day), so on a
+   phone the cells would push the page wider instead of scrolling */
 .replay-card {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--sp-4);
 }
 
