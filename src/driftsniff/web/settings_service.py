@@ -233,4 +233,3 @@ class SettingsService:
             )
         except LastAdminError as error:
             raise SettingConflictError(str(error)) from None
-
