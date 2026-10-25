@@ -16,7 +16,7 @@
 {%- set trend_glyphs = {"up": "i-trend-up", "down": "i-trend-down", "flat": "i-dash"} -%}
 {%- set tone_glyphs = {"up": "sev-high", "alert": "sev-critical"} -%}
 {%- set glyph = trend_glyphs.get(trend) or tone_glyphs.get(tone) -%}
-{%- set drawn = spark | select | list | length > 0 -%}
+{%- set drawn = spark and spark | sum > 0 -%}
 <a class="card metric" href="{{ href }}">
   <span class="visually-hidden">{{ label }}: {{ value }}{% if unit %} {{ unit }}{% endif %}.{% if delta %} {{ sentence(delta) }}{% endif %}{% if drawn %} Last {{ spark | length }} values: {{ spark | join(", ") }}.{% endif %}</span>
   <span class="metric__label" aria-hidden="true">{{ label }}</span>
