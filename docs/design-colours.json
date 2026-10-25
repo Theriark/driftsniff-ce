@@ -1,5 +1,5 @@
 {
-  "comment": "Colour values of the driftsniff web interface (P10-T1). Brand colours from the brand guide: ink 1E1E24, slate 6B7280, alert red C8342B, paper F5F5F0; secondary text 4B5563 from the dev work plan. Every other colour is listed here with the pair it must pass; scripts/check_contrast.py checks the pairs and docs/mockups/theme.css copies the values. The border token is a decorative hairline (card edges, chart grid) and carries no meaning, so it has no pair; input borders and drift line ticks use slate, which is checked.",
+  "comment": "Colour values of the driftsniff web interface (P10-T1). Brand colours from the brand guide: ink 1E1E24, slate 6B7280, alert red C8342B, paper F5F5F0; secondary text 4B5563 from the dev work plan. Every other colour is listed here with the pair it must pass; scripts/check_contrast.py checks the pairs and docs/mockups/theme.css copies the values. The border token is a decorative hairline (card edges, chart grid) and carries no meaning, so it has no pair; input borders and drift line ticks use slate, which is checked. The heat-1 to heat-4 steps of the change replay (WP4c) are an ink density ramp: each step passes 3 to 1 on the card, so a cell with items never reads as empty; on-heat-1 and on-heat are the counts printed in the cells.",
   "themes": {
     "light": {
       "paper": "#F5F5F0",
@@ -26,7 +26,13 @@
       "sev-critical-tint": "#F7D9D6",
       "diff-removed": "#F7D9D6",
       "diff-added": "#DDEBDD",
-      "on-critical": "#F5F5F0"
+      "on-critical": "#F5F5F0",
+      "heat-1": "#8D8D95",
+      "heat-2": "#65656E",
+      "heat-3": "#42424A",
+      "heat-4": "#1E1E24",
+      "on-heat-1": "#1E1E24",
+      "on-heat": "#FFFFFF"
     },
     "dark": {
       "paper": "#16161A",
@@ -53,7 +59,13 @@
       "sev-critical-tint": "#3B2120",
       "diff-removed": "#3B2120",
       "diff-added": "#1F3324",
-      "on-critical": "#1E1E24"
+      "on-critical": "#1E1E24",
+      "heat-1": "#6C6C75",
+      "heat-2": "#9A9AA2",
+      "heat-3": "#C7C7C8",
+      "heat-4": "#F5F5F0",
+      "on-heat-1": "#F5F5F0",
+      "on-heat": "#1E1E24"
     }
   },
   "checks": [
@@ -124,6 +136,22 @@
     {"theme": "dark", "foreground": "sev-high", "background": "surface", "minimum": 3.0, "use": "high drift line mark and chart bar"},
     {"theme": "dark", "foreground": "sev-critical", "background": "surface", "minimum": 3.0, "use": "critical drift line mark and chart bar"},
     {"theme": "dark", "foreground": "text", "background": "diff-removed", "minimum": 4.5, "use": "before value in a change"},
-    {"theme": "dark", "foreground": "text", "background": "diff-added", "minimum": 4.5, "use": "after value in a change"}
+    {"theme": "dark", "foreground": "text", "background": "diff-added", "minimum": 4.5, "use": "after value in a change"},
+    {"theme": "light", "foreground": "heat-1", "background": "surface", "minimum": 3.0, "use": "replay heat map cell, step 1 of 4, on a card"},
+    {"theme": "light", "foreground": "heat-2", "background": "surface", "minimum": 3.0, "use": "replay heat map cell, step 2 of 4, on a card"},
+    {"theme": "light", "foreground": "heat-3", "background": "surface", "minimum": 3.0, "use": "replay heat map cell, step 3 of 4, on a card"},
+    {"theme": "light", "foreground": "heat-4", "background": "surface", "minimum": 3.0, "use": "replay heat map cell, step 4 of 4, on a card"},
+    {"theme": "light", "foreground": "on-heat-1", "background": "heat-1", "minimum": 4.5, "use": "count in a replay cell of step 1"},
+    {"theme": "light", "foreground": "on-heat", "background": "heat-2", "minimum": 4.5, "use": "count in a replay cell of step 2"},
+    {"theme": "light", "foreground": "on-heat", "background": "heat-3", "minimum": 4.5, "use": "count in a replay cell of step 3"},
+    {"theme": "light", "foreground": "on-heat", "background": "heat-4", "minimum": 4.5, "use": "count in a replay cell of step 4"},
+    {"theme": "dark", "foreground": "heat-1", "background": "surface", "minimum": 3.0, "use": "replay heat map cell, step 1 of 4, on a card"},
+    {"theme": "dark", "foreground": "heat-2", "background": "surface", "minimum": 3.0, "use": "replay heat map cell, step 2 of 4, on a card"},
+    {"theme": "dark", "foreground": "heat-3", "background": "surface", "minimum": 3.0, "use": "replay heat map cell, step 3 of 4, on a card"},
+    {"theme": "dark", "foreground": "heat-4", "background": "surface", "minimum": 3.0, "use": "replay heat map cell, step 4 of 4, on a card"},
+    {"theme": "dark", "foreground": "on-heat-1", "background": "heat-1", "minimum": 4.5, "use": "count in a replay cell of step 1"},
+    {"theme": "dark", "foreground": "on-heat", "background": "heat-2", "minimum": 4.5, "use": "count in a replay cell of step 2"},
+    {"theme": "dark", "foreground": "on-heat", "background": "heat-3", "minimum": 4.5, "use": "count in a replay cell of step 3"},
+    {"theme": "dark", "foreground": "on-heat", "background": "heat-4", "minimum": 4.5, "use": "count in a replay cell of step 4"}
   ]
 }

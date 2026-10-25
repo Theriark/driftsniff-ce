@@ -1,0 +1,342 @@
+/* The Change Replay of the source page (UI revision WP4c, THE-1197; sources/_replay.html).
+   Only the source page loads this file. The heat map is ink on paper: four ink density steps
+   (--heat-1 to --heat-4 of app.css, checked in docs/design-colours.json) shade a cell by its
+   share of the busiest cell, a critical item rings the cell in the critical red, and the day
+   cursor is a tinted column. The drawing is 680 units wide for 30 and 90 days (476 for 7): it
+   fits the main column from 1024 px up and scrolls inside its own box below about 600 px, the
+   same way the dashboard trend chart does, opening on today. Nothing moves by itself: the
+   cursor jumps from day to day and never slides. */
+
+.replay-card {
+  display: grid;
+  gap: var(--sp-4);
+}
+
+/* replay.js shows its parts by removing hidden; a display rule must not bring them back first */
+.replay [hidden] {
+  display: none;
+}
+
+/* ---- window links ---------------------------------------------------------------------- */
+
+.replay-windows ul {
+  display: inline-flex;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-s);
+  overflow: hidden;
+}
+
+.replay-windows li + li {
+  border-left: 1px solid var(--border);
+}
+
+.replay-windows a {
+  display: inline-flex;
+  align-items: center;
+  height: 34px;
+  padding: 0 var(--sp-3);
+  font-size: var(--fs-14);
+  color: var(--text-2);
+  text-decoration: none;
+  background: var(--surface);
+}
+
+.replay-windows a:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.replay-windows a[aria-current="true"] {
+  background: var(--ink);
+  color: var(--paper);
+  font-weight: 700;
+}
+
+.replay-windows a:focus-visible {
+  outline-offset: -3px;
+}
+
+/* ---- facts ----------------------------------------------------------------------------- */
+
+.replay-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--sp-4) var(--sp-6);
+  margin: 0;
+}
+
+.replay-facts > div {
+  border-left: 2px solid var(--ink);
+  padding-left: var(--sp-3);
+  min-width: 0;
+}
+
+.replay-facts dt {
+  font-size: var(--fs-14);
+  color: var(--text-2);
+}
+
+.replay-facts dd {
+  margin: 0;
+  font-size: var(--fs-14);
+}
+
+.replay-facts__value {
+  font-size: var(--fs-20);
+  font-weight: 700;
+  line-height: var(--lh-tight);
+}
+
+.replay-facts__detail {
+  color: var(--text-2);
+}
+
+/* ---- controls -------------------------------------------------------------------------- */
+
+.replay-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3) var(--sp-6);
+}
+
+.replay-buttons {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.replay-back {
+  transform: rotate(180deg);
+}
+
+/* the play button keeps one width, so Pause does not shift the buttons beside it */
+.replay-play {
+  min-width: 5.5rem;
+  justify-content: center;
+}
+
+.replay-scrub {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+.replay-scrub label {
+  font-size: var(--fs-14);
+  font-weight: 700;
+}
+
+.replay-scrub__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  accent-color: var(--ink);
+}
+
+.replay-scrub__out {
+  min-width: 4.5rem;
+  font-size: var(--fs-14);
+  font-weight: 700;
+}
+
+.replay-reduced {
+  flex-basis: 100%;
+  font-size: var(--fs-14);
+  color: var(--text-2);
+}
+
+/* ---- the heat map ---------------------------------------------------------------------- */
+
+.replay-map {
+  overflow-x: auto;
+  direction: rtl;
+}
+
+.replay-map__svg {
+  display: block;
+  width: 100%;
+  min-width: 600px;
+  height: auto;
+  direction: ltr;
+  overflow: visible;
+}
+
+.replay-map__svg--7 {
+  max-width: 476px;
+  min-width: 420px;
+}
+
+.replay-label,
+.replay-axis {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  fill: var(--text-2);
+}
+
+.replay-track {
+  fill: var(--surface-2);
+}
+
+.replay-week {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.replay-cursor {
+  fill: var(--ink);
+  fill-opacity: 0.1;
+  stroke: var(--ink);
+  stroke-width: 1.5;
+}
+
+.heat--1 { fill: var(--heat-1); }
+.heat--2 { fill: var(--heat-2); }
+.heat--3 { fill: var(--heat-3); }
+.heat--4 { fill: var(--heat-4); }
+
+.heat-ring {
+  fill: none;
+  stroke: var(--sev-critical);
+  stroke-width: 2;
+}
+
+.heat-n {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  fill: var(--on-heat);
+  pointer-events: none;
+}
+
+.heat-n--1 {
+  fill: var(--on-heat-1);
+}
+
+.replay-cell {
+  cursor: pointer;
+}
+
+/* the ring of the page on the cell's box, and an inner line in the count colour, so the focused
+   cell stands out on the lightest and the darkest step alike */
+.replay-cell:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.replay-cell:focus-visible .heat {
+  stroke: var(--on-heat);
+  stroke-width: 2;
+}
+
+.replay-cell:focus-visible .heat--1 {
+  stroke: var(--on-heat-1);
+}
+
+/* the days after the cursor while the replay runs: present, but behind the replayed ones */
+.replay-cell.is-after .heat {
+  fill-opacity: 0.22;
+}
+
+.replay-cell.is-after .heat-n {
+  fill-opacity: 0.35;
+}
+
+.replay-cell.is-after .heat-ring {
+  stroke-opacity: 0.35;
+}
+
+.replay-legend {
+  margin-top: 0;
+}
+
+.replay-legend svg {
+  width: auto;
+  height: auto;
+}
+
+/* ---- the day panel --------------------------------------------------------------------- */
+
+.replay-day {
+  display: grid;
+  gap: var(--sp-2);
+  border-top: 1px solid var(--border);
+  padding-top: var(--sp-4);
+}
+
+.replay-day__title {
+  font-size: var(--fs-16);
+  font-weight: 700;
+}
+
+.replay-day__total {
+  font-size: var(--fs-14);
+  color: var(--text-2);
+}
+
+.replay-day__list {
+  display: grid;
+  gap: var(--sp-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.replay-day__list li {
+  display: grid;
+  grid-template-columns: minmax(8rem, 14rem) minmax(0, 1fr) 3rem;
+  align-items: center;
+  gap: var(--sp-3);
+  font-size: var(--fs-14);
+}
+
+.replay-day__res {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.replay-day__sevs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1) var(--sp-3);
+}
+
+.replay-day__n {
+  text-align: right;
+  font-weight: 700;
+}
+
+.replay-sev {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+
+.replay-day__link {
+  font-size: var(--fs-14);
+  justify-self: start;
+}
+
+.replay-empty__title {
+  font-weight: 700;
+  margin-bottom: var(--sp-1);
+}
+
+@media (max-width: 767px) {
+  .replay-facts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .replay-day__list li {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .replay-day__sevs {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}

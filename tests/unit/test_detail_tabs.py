@@ -141,6 +141,7 @@ def render_source(detail: SourceDetail, role: str = "viewer") -> str:
         problem=None,
         delete_error="",
         push_key="",
+        replay=None,
         scheduled=True,
         **roles(role),
     )
@@ -168,7 +169,8 @@ def test_every_jump_of_the_source_tabs_lands_on_its_part() -> None:
                 assert href.split("#", 1)[1] in ids, href
         sections = parsed.find("section")
         targets = [a.get("id") for a in sections if "jump-target" in str(a.get("class"))]
-        assert targets == ["overview", "coverage", "runs"]
+        # the replay is a jump target too: its window links land on it (WP4c, THE-1197)
+        assert targets == ["overview", "replay", "coverage", "runs"]
 
 
 def test_the_source_page_puts_its_facts_and_the_delete_in_the_side_panel() -> None:
