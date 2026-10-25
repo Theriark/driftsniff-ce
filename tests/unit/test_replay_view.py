@@ -191,8 +191,9 @@ def test_every_cell_sits_in_its_day_column_and_its_row(days: int) -> None:
         assert column.day == cell.day
         assert column.x <= cell.x and cell.x + cell.width <= column.x + view.pitch
         assert cell.y == view.rows[cell.row].y
-    assert view.width == LABEL_WIDTH + days * view.pitch
-    assert view.width <= 680
+    assert view.width == days * view.pitch
+    # names and cells fit the 654 px main column of a 768 px screen (scroller padding 16)
+    assert LABEL_WIDTH + view.width + 16 <= 654
     assert view.columns[-1].axis and view.columns[-1].day == "2026-10-25"
 
 
@@ -202,7 +203,7 @@ def test_every_cell_sits_in_its_day_column_and_its_row(days: int) -> None:
 def test_the_cursor_starts_on_the_last_day_with_items_and_the_panel_tells_it() -> None:
     view = replay_view(replay_of(FIXTURE))
     assert view.columns[view.cursor_index].day == "2026-10-24"
-    assert view.cursor_x == LABEL_WIDTH + view.cursor_index * view.pitch
+    assert view.cursor_x == view.cursor_index * view.pitch
     assert view.summary is not None
     assert view.summary.long_label == "24 Oct 2026"
     assert view.summary.total_text == "4 change items in 1 resource type"
@@ -319,3 +320,26 @@ def test_a_long_resource_type_name_is_cut_beside_the_map_and_whole_in_its_cells(
     assert len(row.short_label) <= 17 and row.short_label.endswith("…")
     assert row.label == replay.resources[0].label and len(row.label) > 17
     assert view.cells[0].resource_label == row.label
+
+
+def test_the_row_names_are_a_drawing_beside_the_scroller_so_they_never_scroll_away() -> None:
+    # found at 390 px on Development (8afde57a): the scroller opened on today and hid the names
+    text = render_section(replay_of(FIXTURE))
+    labels = text.index('class="replay-map__labels"')
+    scroller = text.index('class="replay-map__scroll"')
+    drawing = text.index("data-replay-map")
+    assert labels < scroller < drawing
+    names = text[labels:scroller]
+    assert "Firewall policies" in names and "Networks" in names
+    assert 'aria-hidden="true"' in names[:300]
+    assert "replay-label" not in text[scroller:]
+
+
+def test_the_controls_wrap_and_the_facts_give_way_on_a_narrow_card() -> None:
+    sheet = (STATIC / "replay.css").read_text(encoding="utf-8")
+    buttons = re.search(r"\.replay-buttons \{([^}]*)\}", sheet)
+    assert buttons is not None and "flex-wrap: wrap" in buttons.group(1)
+    facts = re.search(r"\.replay-facts \{([^}]*)\}", sheet)
+    assert facts is not None and "auto-fit" in facts.group(1)
+    drawing = re.search(r"\.replay-map__svg \{([^}]*)\}", sheet)
+    assert drawing is not None and "margin-right: auto" in drawing.group(1)

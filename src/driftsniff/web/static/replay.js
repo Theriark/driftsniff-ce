@@ -47,7 +47,6 @@
     var first = section.getAttribute("data-first-day");
     var days = Number(section.getAttribute("data-days"));
     var pitch = Number(section.getAttribute("data-pitch"));
-    var labelWidth = Number(section.getAttribute("data-label-width"));
     var source = section.getAttribute("data-source");
     var cursor = Number(section.getAttribute("data-cursor"));
     if (!first || !(days > 0) || !(pitch > 0)) {
@@ -152,7 +151,7 @@
       var next = Math.max(0, Math.min(days - 1, index));
       cursor = next;
       var day = dayOf(first, next);
-      marker.setAttribute("x", String(labelWidth + next * pitch));
+      marker.setAttribute("x", String(next * pitch));
       scrub.value = String(next);
       scrub.setAttribute("aria-valuetext", longLabel(day));
       if (out) {

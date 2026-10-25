@@ -2,10 +2,10 @@
    Only the source page loads this file. The heat map is ink on paper: four ink density steps
    (--heat-1 to --heat-4 of app.css, checked in docs/design-colours.json) shade a cell by its
    share of the busiest cell, a critical item rings the cell in the critical red, and the day
-   cursor is a tinted column. The drawing is 680 units wide for 30 and 90 days (476 for 7): it
-   fits the main column from 1024 px up and scrolls inside its own box below about 600 px, the
-   same way the dashboard trend chart does, opening on today. Nothing moves by itself: the
-   cursor jumps from day to day and never slides. */
+   cursor is a tinted column. The names of the rows (128 px) sit beside the cells (510 px for 30
+   days, 450 for 90, 336 for 7), both drawn one unit per pixel: the whole map fits the main
+   column from 768 px up, and narrower only the cells scroll, opening on today, so the names
+   stay in view. Nothing moves by itself: the cursor jumps from day to day and never slides. */
 
 .replay-card {
   display: grid;
@@ -61,9 +61,10 @@
 
 /* ---- facts ----------------------------------------------------------------------------- */
 
+/* three columns where each fact keeps its link on one line, fewer where it would wrap */
 .replay-facts {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
   gap: var(--sp-4) var(--sp-6);
   margin: 0;
 }
@@ -91,6 +92,7 @@
 }
 
 .replay-facts__detail {
+  display: block;
   color: var(--text-2);
 }
 
@@ -103,8 +105,10 @@
   gap: var(--sp-3) var(--sp-6);
 }
 
+/* on a phone the three buttons do not fit one row beside the card edge: Next day wraps */
 .replay-buttons {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--sp-2);
 }
 
@@ -152,22 +156,35 @@
 /* ---- the heat map ---------------------------------------------------------------------- */
 
 .replay-map {
-  overflow-x: auto;
-  direction: rtl;
+  display: flex;
+  align-items: flex-start;
 }
 
-.replay-map__svg {
+/* the top padding of the scroller and this margin keep the rows of both drawings level, and
+   give the focus ring of a top-row cell room inside the scroll box */
+.replay-map__labels {
+  flex: none;
   display: block;
-  width: 100%;
-  min-width: 600px;
-  height: auto;
-  direction: ltr;
+  margin-top: var(--sp-2);
   overflow: visible;
 }
 
-.replay-map__svg--7 {
-  max-width: 476px;
-  min-width: 420px;
+.replay-map__scroll {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  direction: rtl;
+  padding: var(--sp-2) var(--sp-2) var(--sp-1);
+}
+
+/* the auto right margin keeps a drawing narrower than the box against the names, also in the
+   right-to-left scroller that opens on today */
+.replay-map__svg {
+  display: block;
+  direction: ltr;
+  overflow: visible;
+  margin-left: 0;
+  margin-right: auto;
 }
 
 .replay-label,
@@ -327,10 +344,6 @@
 }
 
 @media (max-width: 767px) {
-  .replay-facts {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .replay-day__list li {
     grid-template-columns: minmax(0, 1fr) auto;
   }

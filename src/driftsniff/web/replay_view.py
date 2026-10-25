@@ -7,6 +7,10 @@ table behind its disclosure. It reads no other field than the replay has: the da
 type, its readable name, the severity and the count of each cell, and the window. Nothing is
 inferred or invented: a day without items has no cell, and a window without items has no map.
 
+The drawing is two SVGs at one unit per CSS pixel: the resource type names (``label_width``
+wide) and the cells (``width`` wide, x from 0), so the names stay in view while the cells scroll
+on a narrow screen and every text keeps its size.
+
 The shade of a cell is its share of the busiest cell of the window, in four steps (``heat-1`` to
 ``heat-4`` of docs/design-colours.json, each at least 3 to 1 against the card). A cell that holds
 a critical item also gets a ring, so the meaning never rests on colour alone; the count is
@@ -27,7 +31,7 @@ from driftsniff.web.replay import DEFAULT_DAYS, Replay
 from driftsniff.web.templating import SEVERITIES, number
 
 WINDOWS: Final = (7, 30, 90)
-LABEL_WIDTH: Final = 140
+LABEL_WIDTH: Final = 128
 ROW_HEIGHT: Final = 24
 CELL_HEIGHT: Final = 20
 AXIS_HEIGHT: Final = 24
@@ -35,7 +39,7 @@ LABEL_CHARS: Final = 17
 LEVELS: Final = 4
 # per window: the width of one day column, the gap between two cells, the digits a cell can print
 # and the distance between two day labels on the axis
-_LAYOUT: Final = {7: (48, 4, 3, 1), 30: (18, 2, 2, 7), 90: (6, 1, 0, 14)}
+_LAYOUT: Final = {7: (48, 4, 3, 1), 30: (17, 2, 2, 7), 90: (5, 1, 0, 14)}
 _MONTHS: Final = "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split()
 
 
@@ -281,8 +285,8 @@ def replay_view(replay: Replay) -> ReplayView:
                 day=moment.isoformat(),
                 label=day_label(moment),
                 long_label=long_day_label(moment),
-                x=LABEL_WIDTH + index * pitch,
-                center=LABEL_WIDTH + index * pitch + pitch / 2,
+                x=index * pitch,
+                center=index * pitch + pitch / 2,
                 axis=from_end % step == 0,
                 anchor="end" if from_end == 0 and step > 1 else "middle",
                 total=day_totals.get(moment.isoformat(), 0),
@@ -299,7 +303,7 @@ def replay_view(replay: Replay) -> ReplayView:
         count = sum(counts)
         level = level_of(count, busiest)
         text = str(count) if digits and len(str(count)) <= digits else ""
-        x = LABEL_WIDTH + index * pitch + gap / 2
+        x = index * pitch + gap / 2
         when = long_day_label(date.fromisoformat(day))
         name = label_of[resource]
         flags = severity_text(tuple(counts))
@@ -369,9 +373,7 @@ def replay_view(replay: Replay) -> ReplayView:
             f" {number(critical)} critical {'item' if critical == 1 else 'items'}."
         )
     week_lines = tuple(
-        LABEL_WIDTH + index * pitch
-        for index in range(1, span)
-        if step > 1 and (span - index) % 7 == 0
+        index * pitch for index in range(1, span) if step > 1 and (span - index) % 7 == 0
     )
     table = tuple(
         TableRow(
@@ -396,7 +398,7 @@ def replay_view(replay: Replay) -> ReplayView:
         windows=windows,
         total=replay.total,
         description=description,
-        width=LABEL_WIDTH + span * pitch,
+        width=span * pitch,
         height=grid_height + AXIS_HEIGHT,
         label_width=LABEL_WIDTH,
         grid_height=grid_height,
@@ -408,7 +410,7 @@ def replay_view(replay: Replay) -> ReplayView:
         week_lines=week_lines,
         axis_y=grid_height + 16,
         cursor_index=cursor_index,
-        cursor_x=LABEL_WIDTH + cursor_index * pitch,
+        cursor_x=cursor_index * pitch,
         cursor_height=max(0, grid_height - (ROW_HEIGHT - CELL_HEIGHT)),
         summary=summary,
         facts=tuple(facts),
