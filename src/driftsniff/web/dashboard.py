@@ -45,6 +45,11 @@ from driftsniff.db.tables import (
     users,
 )
 from driftsniff.sources.service import interval_of
+from driftsniff.web.settings_store import (
+    BYTES_PER_GB,
+    DEFAULT_STORAGE_WARNING_GB,
+    storage_warning_bytes,
+)
 from driftsniff.web.templating import SEVERITIES, SEVERITY_LABELS, number
 
 TREND_DAYS: Final = 30
@@ -60,9 +65,9 @@ BREAKDOWN_ROWS: Final = 8
 CHECK_STATUSES: Final = ("ok", "partial", "failed")
 # A source is stale when nothing has been checked for this many intervals.
 STALE_INTERVALS: Final = 3
-# The storage card compares the database file with this size (the plan names no setting, so
-# the simplest option is a constant; docs/web-interface.md section 9 records it).
-STORAGE_WARNING_BYTES: Final = 2 * 1024 * 1024 * 1024
+# The storage card compares the database file with the storage warning size an admin sets on the
+# settings page (``storage_warning_gb``); this is the size when none is set (docs/settings.md).
+STORAGE_WARNING_BYTES: Final = DEFAULT_STORAGE_WARNING_GB * BYTES_PER_GB
 RING_RADIUS: Final = 60
 RING_CIRCUMFERENCE: Final = 2 * math.pi * RING_RADIUS
 # Trend chart geometry (a 600 by 170 viewBox, drawn no narrower than 600 px).
@@ -164,6 +169,8 @@ AUDIT_VERBS: Final = {
     "user.credentials_reset": "reset the credentials of user",
     "mute.added": "muted a path of",
     "mute.removed": "removed a mute of",
+    "settings.retention_days_changed": "changed the retention window",
+    "settings.storage_warning_changed": "changed the storage warning size",
 }
 # Audit actions that are noise on a dashboard (every refused token call writes one), and the two
 # that repeat an acknowledgement or a note row the timeline already lists with its source.
@@ -755,10 +762,13 @@ class DashboardService:
             trend = _trend(connection, now)
             by_source, by_resource = _breakdowns(connection, names)
             activity = _activity(connection, names)
+            warning_bytes = storage_warning_bytes(connection)
         return Dashboard(
             now=now,
             has_sources=True,
-            stats=_stats(open_events, recent, health, now, storage_bytes(self._db.path)),
+            stats=_stats(
+                open_events, recent, health, now, storage_bytes(self._db.path), warning_bytes
+            ),
             posture=_posture(open_items),
             attention=attention,
             driftlines=_driftlines(health, runs_30, events_30, now),
@@ -880,6 +890,7 @@ def _stats(
     health: Sequence[SourceHealth],
     now: datetime,
     used_bytes: int,
+    warning_bytes: int = STORAGE_WARNING_BYTES,
 ) -> tuple[Stat, ...]:
     today = now.date()
     last_week = [today - timedelta(days=offset) for offset in range(6, -1, -1)]
@@ -926,7 +937,7 @@ def _stats(
             delta=unwell_text or "every source is healthy",
             delta_tone="up" if unwell else "",
         ),
-        storage_stat(used_bytes),
+        storage_stat(used_bytes, warning_bytes),
     )
 
 

@@ -133,8 +133,28 @@ class UsernameError(AuthError, ValueError):
     """The user name does not follow the rules, or is already taken."""
 
 
+class UsernameTakenError(UsernameError):
+    """The user name follows the rules but another user already has it."""
+
+
 class PasswordPolicyError(AuthError, ValueError):
     """The password is shorter than 12 or longer than 256 characters."""
+
+
+class LastAdminError(AuthError):
+    """The change would leave no enabled admin."""
+
+
+@dataclass(frozen=True, slots=True)
+class UserSummary:
+    """A user as an admin may list them: never the password hash."""
+
+    user_id: int
+    username: str
+    role: str
+    disabled: bool
+    locked: bool
+    created_at: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -327,6 +347,10 @@ class AuthService:
         except (VerificationError, InvalidHashError):
             return False
 
+    def now(self) -> datetime:
+        """The current time of this service (its injected clock)."""
+        return self._clock()
+
     # -- users ---------------------------------------------------------------------------------
 
     def has_admin(self) -> bool:
@@ -334,8 +358,13 @@ class AuthService:
         with self._db.read() as connection:
             return _admin_exists(connection)
 
-    def create_user(self, username: str, password: str, role: str) -> int:
-        """Add a user and return the id; UsernameError, PasswordPolicyError or ValueError."""
+    def create_user(
+        self, username: str, password: str, role: str, *, actor: str = ACTOR_SYSTEM
+    ) -> int:
+        """Add a user and return the id; UsernameError, PasswordPolicyError or ValueError.
+
+        ``actor`` is the user name the audit event ``user.created`` is written for.
+        """
         if role not in ROLE_RANK:
             raise ValueError(f"the role must be one of: {', '.join(USER_ROLES)}")
         name = normalise_username(username)
@@ -344,21 +373,61 @@ class AuthService:
         now = self._clock()
         with self._db.write() as connection:
             user_id = _insert_user(connection, name, password_hash, role, now)
-            _audit(connection, now, ACTOR_SYSTEM, ACTION_USER_CREATED, name, {"role": role})
+            _audit(connection, now, actor, ACTION_USER_CREATED, name, {"role": role})
         return user_id
 
-    def set_user_disabled(self, user_id: int, *, disabled: bool, actor: str) -> bool:
+    def list_users(self) -> tuple[UserSummary, ...]:
+        """Every user, by name, with the role, the disabled flag and whether a lock is running."""
+        now = self._clock()
+        with self._db.read() as connection:
+            rows = connection.execute(
+                sa.select(
+                    users.c.id,
+                    users.c.username,
+                    users.c.role,
+                    users.c.disabled,
+                    users.c.locked_until,
+                    users.c.created_at,
+                ).order_by(users.c.username)
+            ).all()
+        return tuple(
+            UserSummary(
+                user_id=int(row.id),
+                username=str(row.username),
+                role=str(row.role),
+                disabled=bool(row.disabled),
+                locked=row.locked_until is not None and now < parse_stamp(row.locked_until),
+                created_at=str(row.created_at),
+            )
+            for row in rows
+        )
+
+    def set_user_disabled(
+        self, user_id: int, *, disabled: bool, actor: str, keep_one_admin: bool = False
+    ) -> bool:
         """Disable or enable a user. Disabling ends every session of the user at once.
 
-        Returns False when no such user exists.
+        Returns False when no such user exists. With ``keep_one_admin``, disabling the only
+        enabled admin raises LastAdminError and changes nothing (checked in the same transaction).
         """
         now = self._clock()
         with self._db.write() as connection:
             row = connection.execute(
-                sa.select(users.c.username).where(users.c.id == user_id)
+                sa.select(users.c.username, users.c.role, users.c.disabled).where(
+                    users.c.id == user_id
+                )
             ).first()
             if row is None:
                 return False
+            if keep_one_admin and disabled and row.role == "admin" and not row.disabled:
+                others = connection.execute(
+                    sa.select(users.c.id)
+                    .where(users.c.role == "admin", users.c.disabled.is_(False))
+                    .where(users.c.id != user_id)
+                    .limit(1)
+                ).first()
+                if others is None:
+                    raise LastAdminError("at least one admin must stay enabled")
             connection.execute(
                 sa.update(users).where(users.c.id == user_id).values(disabled=disabled)
             )
@@ -575,7 +644,7 @@ def _insert_user(
             )
         )
     except IntegrityError as error:
-        raise UsernameError("that user name is already taken") from error
+        raise UsernameTakenError("that user name is already taken") from error
     return _inserted_id(result)
 
 

@@ -73,7 +73,8 @@ restart clears them; the lock is stored with the user and survives a restart.
 
 Passwords, cookie values and setup codes are never written to a log. The audit log records
 `setup.completed`, `user.created`, `user.locked`, `user.disabled` and `user.enabled` (actor and
-target are user names; no secret).
+target are user names; no secret). A user added or disabled from the settings routes is audited
+with the admin as the actor; the two admin settings have their own actions (`docs/settings.md`).
 
 ## Not built yet
 
@@ -82,7 +83,7 @@ target are user names; no secret).
 | The setup and login pages, the user menu | built in P10-T2 and P10-T3, see `docs/web-interface.md` sections 2 and 8; a browser (`Accept: text/html`) gets the pages, every other client the JSON answers above |
 | CSRF value check, Origin check, security headers | built in P9-T2, see `docs/csrf-and-headers.md` |
 | API tokens (`/api/v1`, Bearer) | built in P9-T3, see `docs/api-access.md`; a session cookie is not an API credential |
-| Admin screens to add, change and disable users | P10; `AuthService.create_user` and `set_user_disabled` exist |
+| Admin routes to list, add, disable and enable users | built in P10-T8 slice A, see `docs/settings.md`; the screen is slice B. Changing a role and resetting a password are not built |
 | Route table test that every route states its role | P9-T6 |
 
 ## Limits

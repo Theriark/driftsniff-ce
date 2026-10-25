@@ -23,6 +23,7 @@ from driftsniff.web import (
     routes_notifications,
     routes_push,
     routes_replay,
+    routes_settings,
     routes_sources,
     routes_static,
 )
@@ -34,6 +35,7 @@ from driftsniff.web.dashboard import DashboardService
 from driftsniff.web.pages import handle_http_exception
 from driftsniff.web.replay import ReplayService
 from driftsniff.web.routes_ui import router as ui_router
+from driftsniff.web.settings_service import SettingsService
 from driftsniff.web.source_pages import SourcePages
 
 
@@ -74,6 +76,7 @@ def create_app(
     change_pages: ChangePages | None = None,
     history: HistoryService | None = None,
     replay: ReplayService | None = None,
+    admin_settings: SettingsService | None = None,
 ) -> FastAPI:
     """Build the application; settings default to the DRIFTSNIFF_ environment.
 
@@ -108,6 +111,10 @@ def create_app(
     The ``replay`` service (``GET /sources/{id}/replay``: the change items of a source counted per
     day, resource type and severity, read only) reads through it; without one the route answers
     503.
+    The ``admin_settings`` service (``/settings`` and below: the retention window, the storage
+    warning size, the user list with add, disable and enable, and the About data; admin only)
+    reads and acts through it; without one the routes answer 503. ``app.state.settings`` stays
+    the environment configuration.
     Every response gets the security headers and every browser write the origin and CSRF checks
     of ``driftsniff.web.csrf``. The stylesheet, the vendored htmx and the brand copies are served
     under ``/static/`` by ``driftsniff.web.routes_static``. A browser that meets a 401, 403 or
@@ -138,6 +145,7 @@ def create_app(
     app.state.change_pages = change_pages
     app.state.history = history
     app.state.replay = replay
+    app.state.admin_settings = admin_settings
     app.state.openapi_cache = None
     app.add_middleware(BrowserHardeningMiddleware)
     app.add_exception_handler(StarletteHTTPException, handle_http_exception)
@@ -146,6 +154,7 @@ def create_app(
     app.include_router(routes_changes.router)
     app.include_router(routes_history.router)
     app.include_router(routes_replay.router)
+    app.include_router(routes_settings.router)
     app.include_router(routes_static.router)
     app.include_router(routes_push.router)
     app.include_router(routes_api.router)

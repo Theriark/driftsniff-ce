@@ -31,8 +31,9 @@ used, events deleted, manifests thinned, states removed and bytes freed.
 The window is the `retention_days` row of the `settings` table (value: a whole number). A
 missing value gives 365. A value that is not a whole number from 30 to 365 also gives 365, the
 longest window, so a mistake never deletes more than the default would; the run logs a warning
-that names the setting but not its value. There is no screen for this setting yet (the interface
-comes in P10).
+that names the setting but not its value. An admin changes it with `POST /settings/retention`
+(30 to 365, audited as `settings.retention_days_changed`; see `settings.md`); the settings screen
+that calls the route is built after it.
 
 ### Limits
 
