@@ -270,7 +270,7 @@ def test_an_unticked_box_turns_the_channel_off(kit: Kit) -> None:
 
 def test_a_blocked_address_is_refused_with_the_field_marked_and_not_filled_back(kit: Kit) -> None:
     admin = kit.new_session("admin")
-    url = "http://127.0.0.1/CANARY-blocked-path"
+    url = "http://169.254.169.254/CANARY-blocked-path"  # the metadata address
     response = submit(kit, admin, "/notifications/channel", {"type": "webhook", "url": url})
     page = html(response, 422)
     marked(page, "ch-url")
