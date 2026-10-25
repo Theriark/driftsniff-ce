@@ -988,6 +988,11 @@ def test_the_dashboard_page_renders_every_section_with_text_alternatives(
         "/sources",
         "/settings#about",
     ]
+    # the four cards are the only children of the stat grid, whose tracks the CSS test pins
+    grid = re.search(
+        r'<div class="stat-grid">\s*((?:<a class="card metric".*?</a>\s*)+)</div>', page, re.S
+    )
+    assert grid is not None and grid.group(1).count('class="card metric"') == 4
     # every chart is an image with a title and a description
     charts = [svg for svg in parsed.find("svg") if svg.get("role") == "img"]
     assert len(charts) == 2 + 4  # the ring, the trend, four drift lines
