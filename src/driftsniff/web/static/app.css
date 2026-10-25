@@ -1253,13 +1253,14 @@ textarea.input {
   gap: var(--sp-4);
 }
 
+/* the name wraps rather than ending in an ellipsis, so the whole name is always on screen: at
+   390 px the one-line meta left it about 80 px and names read "DEV-FIXT..." (THE-1264) */
 .driftline__name {
   font-size: var(--fs-14);
   font-weight: 700;
   text-decoration: none;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 /* the meta wraps inside its 150 px column: on one line, "Push source, 4 pushes in 30 days"
@@ -1347,6 +1348,30 @@ textarea.input {
   .driftline .driftline__strip {
     grid-column: 1 / -1;
   }
+}
+
+/* below 768 px the dashboard's name, meta and strip each take the card's full width: side by
+   side, the one-line meta (210 px) left the name a tenth of a 390 px screen (THE-1264) */
+@media (max-width: 767px) {
+  .driftlines .driftline {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: var(--sp-1);
+  }
+
+  .driftlines .driftline__strip {
+    margin-top: var(--sp-2);
+  }
+}
+
+/* a dashboard strip narrower than its 480 px drawing scrolls inside its cell (1024 and 390 px).
+   Right to left, the scroller opens at its right end: today and the newest marks are in view,
+   the older days a scroll to the left. The drawing and its labels stay left to right. */
+.driftlines .driftline__strip {
+  direction: rtl;
+}
+
+.driftlines .driftline__strip > * {
+  direction: ltr;
 }
 
 .legend {
