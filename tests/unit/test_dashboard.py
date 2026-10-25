@@ -1228,5 +1228,5 @@ def test_the_dashboard_with_the_thousand_object_fixture_renders_in_under_half_a_
     assert elapsed < 0.5, f"the dashboard took {elapsed:.3f} s"
     parsed = Parsed(response.text)
     stats = [a for a in parsed.find("a") if a.get("class") == "card metric"]
-    assert len(stats) == 3
+    assert len(stats) == 4  # an admin's storage card links to /settings#about too
     assert len(parsed.find("li")) >= 20
