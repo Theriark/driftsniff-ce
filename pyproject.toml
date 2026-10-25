@@ -74,6 +74,11 @@ strict_equality = true
 module = ["yaml"]
 ignore_missing_imports = true
 
+# The accessibility checker of the browser tests (development only) may ship without type hints.
+[[tool.mypy.overrides]]
+module = ["axe_playwright_python", "axe_playwright_python.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src", "scripts"]

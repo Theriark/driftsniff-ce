@@ -2,6 +2,8 @@
 hypothesis
 mypy
 pip-audit
+playwright
 pytest
 pytest-cov
 ruff
+axe-playwright-python
