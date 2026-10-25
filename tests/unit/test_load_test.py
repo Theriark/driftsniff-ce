@@ -307,8 +307,8 @@ def test_a_small_fixture_runs_through_the_real_pipeline() -> None:
     assert noisy["stored_snapshots"] == 1 + 6
     assert noisy["stored_events"] == 6
     assert noisy["stored_change_items"] == 6 * load_test.NOISY_CHANGES_PER_POLL
-    assert noisy["warning_observed"] is False
     assert noisy["warning_signals"] == []
+    assert noisy["warning_observed"] is False
     checks = outcomes(result)
     assert checks["fixture"] == "pass"
     assert checks["first page"] == "pass"
