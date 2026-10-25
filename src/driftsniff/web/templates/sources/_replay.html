@@ -1,0 +1,148 @@
+{# The Change Replay of the source page (UI revision WP4c, THE-1197). view is a
+   driftsniff.web.replay_view.ReplayView, or none when the installation has no replay service.
+   Top to bottom: the window links (7, 30, 90 days), the three facts that answer where the burst
+   is, the replay controls, the heat map (rows are resource types, columns UTC days), its legend,
+   the day panel of the day under the cursor and the numbers as a table. Every cell is a link to
+   the changes it counts, so the page works without script; static/replay.js shows the controls
+   (hidden until it runs), moves the cursor and keeps one tab stop in the map. No style attribute:
+   the drawing is SVG attributes and classes of replay.css. #}
+{% from "components/badges.html" import severity_badge %}
+
+{% macro severity_counts(counts) %}
+{% for index in range(severities | length - 1, -1, -1) if counts[index] %}<span class="replay-sev">{{ severity_badge(severities[index]) }}<span class="num">{{ number(counts[index]) }}</span></span>{% endfor %}
+{%- endmacro %}
+
+{% macro day_panel(summary) %}
+<div class="replay-day" id="replay-day" aria-live="polite" aria-atomic="true">
+  <h3 class="replay-day__title" data-replay-day-title>{{ summary.long_label }}</h3>
+  <p class="replay-day__total" data-replay-day-total>{{ summary.total_text }}</p>
+  <ul class="replay-day__list" data-replay-day-list>
+    {% for line in summary.lines %}
+    <li><span class="replay-day__res">{{ line.label }}</span><span class="replay-day__sevs">{{ severity_counts(line.counts) }}</span><span class="replay-day__n num">{{ number(line.count) }}</span></li>
+    {% endfor %}
+  </ul>
+  <a class="replay-day__link" href="{{ summary.href }}" data-replay-day-link>{{ summary.link_text }}</a>
+</div>
+{%- endmacro %}
+
+{% macro change_replay(view, source_id) %}
+<section class="jump-target replay" id="replay" aria-labelledby="replay-h"{% if view and not view.empty %} data-replay data-first-day="{{ view.first_day }}" data-days="{{ view.columns | length }}" data-cursor="{{ view.cursor_index }}" data-pitch="{{ view.pitch }}" data-label-width="{{ view.label_width }}" data-source="{{ source_id }}"{% endif %}>
+  <div class="section-head"><h2 id="replay-h">Change replay</h2>{% if view %}<span class="hint">{{ view.window_text }}</span>{% endif %}</div>
+  <div class="card replay-card">
+    {% if not view %}
+    <p class="quiet">The change replay is not available on this installation, so the changes of this source show only in the change list.</p>
+    <p><a href="/changes?source={{ source_id }}">Changes of this source</a></p>
+    {% else %}
+    <nav class="replay-windows" aria-label="Replay window">
+      <ul>
+        {% for window in view.windows %}
+        <li><a href="{{ window.href }}"{% if window.current %} aria-current="true"{% endif %}>{{ window.label }}</a></li>
+        {% endfor %}
+      </ul>
+    </nav>
+    {% if view.empty %}
+    <div class="replay-empty">
+      <p class="replay-empty__title">Nothing to replay in the last {{ view.days }} days</p>
+      <p class="quiet">This source has no change items from {{ view.window_text }}. A change appears here, on its day and resource type, after a check finds a difference.{% if view.days < view.windows[-1].days %} Choose a longer window to look further back.{% endif %}</p>
+    </div>
+    {% else %}
+    <dl class="replay-facts">
+      {% for fact in view.facts %}
+      <div>
+        <dt>{{ fact.term }}</dt>
+        <dd><span class="replay-facts__value">{{ fact.value }}</span> <span class="replay-facts__detail">{{ fact.detail }}</span></dd>
+        <dd><a href="{{ fact.href }}">{{ fact.link_text }}</a></dd>
+      </div>
+      {% endfor %}
+    </dl>
+
+    <div class="replay-controls" data-replay-controls hidden>
+      <div class="replay-buttons" role="group" aria-label="Replay">
+        <button class="btn btn--small" type="button" data-replay-step="-1"><svg class="replay-back" width="12" height="12" aria-hidden="true" focusable="false"><use href="#i-chevron"/></svg>Previous day</button>
+        <button class="btn btn--small replay-play" type="button" data-replay-play aria-pressed="false">Play</button>
+        <button class="btn btn--small" type="button" data-replay-step="1">Next day<svg width="12" height="12" aria-hidden="true" focusable="false"><use href="#i-chevron"/></svg></button>
+      </div>
+      <div class="replay-scrub">
+        <label for="replay-scrub">Day</label>
+        <input class="replay-scrub__input" id="replay-scrub" type="range" min="0" max="{{ view.columns | length - 1 }}" step="1" value="{{ view.cursor_index }}" aria-valuetext="{{ view.columns[view.cursor_index].long_label }}" data-replay-scrub>
+        <output class="replay-scrub__out num" for="replay-scrub" data-replay-out>{{ view.columns[view.cursor_index].label }}</output>
+      </div>
+      <p class="replay-reduced" data-replay-reduced hidden>Reduced motion is on, so the replay moves only when you step or drag the slider.</p>
+    </div>
+
+    <div class="replay-map">
+      <svg class="replay-map__svg replay-map__svg--{{ view.days }}" viewBox="0 0 {{ view.width }} {{ view.height }}" width="{{ view.width }}" height="{{ view.height }}" role="group" aria-labelledby="replay-t" aria-describedby="replay-d" data-replay-map>
+        <title id="replay-t">Change items per day and resource type, {{ view.window_text }}</title>
+        <desc id="replay-d">{{ view.description }}</desc>
+        <g aria-hidden="true">
+          {% for row in view.rows %}
+          <text class="replay-label" x="{{ view.label_width - 10 }}" y="{{ row.label_y }}" text-anchor="end">{{ row.short_label }}</text>
+          <rect class="replay-track" x="{{ view.label_width }}" y="{{ row.y }}" width="{{ view.track_width }}" height="20" rx="3"/>
+          {% endfor %}
+          {% for x in view.week_lines %}
+          <line class="replay-week" x1="{{ x }}" y1="0" x2="{{ x }}" y2="{{ view.grid_height - 4 }}"/>
+          {% endfor %}
+          <rect class="replay-cursor" x="{{ view.cursor_x }}" y="-2" width="{{ view.pitch }}" height="{{ view.cursor_height + 4 }}" rx="3" data-replay-cursor/>
+        </g>
+        <g class="replay-cells">
+          {% for cell in view.cells %}
+          <a class="replay-cell{% if cell.critical %} replay-cell--critical{% endif %}" href="{{ cell.href }}" data-day-index="{{ cell.day_index }}" data-row="{{ cell.row }}" data-label="{{ cell.resource_label }}" data-counts="{{ cell.counts_attr }}">
+            <title>{{ cell.title }}</title>
+            {% if cell.critical %}<rect class="heat-ring" x="{{ cell.x - 2 }}" y="{{ cell.y - 2 }}" width="{{ cell.width + 4 }}" height="24" rx="4"/>{% endif %}
+            <rect class="heat heat--{{ cell.level }}" x="{{ cell.x }}" y="{{ cell.y }}" width="{{ cell.width }}" height="20" rx="2"/>
+            {% if cell.text %}<text class="heat-n heat-n--{{ cell.level }}" x="{{ cell.text_x }}" y="{{ cell.text_y }}" text-anchor="middle">{{ cell.text }}</text>{% endif %}
+          </a>
+          {% endfor %}
+        </g>
+        <g aria-hidden="true">
+          {% for column in view.columns if column.axis %}
+          <text class="replay-axis" x="{{ column.center }}" y="{{ view.axis_y }}" text-anchor="{{ column.anchor }}">{{ column.label }}</text>
+          {% endfor %}
+        </g>
+      </svg>
+    </div>
+
+    <ul class="legend replay-legend" aria-label="Legend">
+      <li><span>Fewer</span><svg viewBox="0 0 64 12" width="64" height="12" aria-hidden="true" focusable="false">{% for level in range(1, 5) %}<rect class="heat heat--{{ level }}" x="{{ (level - 1) * 16 }}" y="0" width="14" height="12" rx="2"/>{% endfor %}</svg><span>More items in a cell</span></li>
+      <li><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><rect class="heat-ring" x="1" y="1" width="14" height="14" rx="3"/><rect class="heat heat--2" x="3" y="3" width="10" height="10" rx="2"/></svg><span>Ringed: holds a critical item</span></li>
+      <li><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><rect class="replay-cursor" x="2" y="1" width="12" height="14" rx="3"/></svg><span>The day in the panel below</span></li>
+    </ul>
+
+    {{ day_panel(view.summary) }}
+
+    <template data-replay-badges>{% for severity in severities %}<span class="replay-sev" data-severity="{{ severity }}">{{ severity_badge(severity) }}<span class="num"></span></span>{% endfor %}</template>
+
+    <details class="disclosure replay-keys" data-replay-keys hidden>
+      <summary>Keys of the replay</summary>
+      <div>
+        <dl class="kv">
+          <dt>Tab</dt><dd>Moves from the controls into the map and out again; the map holds one stop.</dd>
+          <dt>Left, Right</dt><dd>On the slider, one day back or forward. In the map, the previous or next cell of the row.</dd>
+          <dt>Up, Down</dt><dd>In the map, the nearest cell of the row above or below.</dd>
+          <dt>Home, End</dt><dd>On the slider, the first or last day. In the map, the first or last cell of the row.</dd>
+          <dt>Enter</dt><dd>In the map, opens the changes the cell counts.</dd>
+        </dl>
+      </div>
+    </details>
+
+    <details class="disclosure">
+      <summary>Show the numbers as a table</summary>
+      <div class="table-wrap table-wrap--full">
+        <table class="data-table data-table--compact replay-table">
+          <caption class="visually-hidden">Change items per day and resource type, newest day first</caption>
+          <thead>
+            <tr><th scope="col">Day</th><th scope="col">Resource type</th><th scope="col" class="num">Critical</th><th scope="col" class="num">High</th><th scope="col" class="num">Medium</th><th scope="col" class="num">Low</th><th scope="col" class="num">Total</th></tr>
+          </thead>
+          <tbody>
+            {% for row in view.table %}
+            <tr><th scope="row"><a href="{{ row.href }}">{{ row.day }}</a></th><td>{{ row.resource_label }}</td><td class="num">{{ row.counts[3] }}</td><td class="num">{{ row.counts[2] }}</td><td class="num">{{ row.counts[1] }}</td><td class="num">{{ row.counts[0] }}</td><td class="num">{{ row.count }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </details>
+    {% endif %}
+    {% endif %}
+  </div>
+</section>
+{%- endmacro %}
