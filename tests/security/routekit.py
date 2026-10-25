@@ -75,6 +75,13 @@ ROUTE_TABLE: dict[tuple[str, str], Access] = {
     ("GET", "/configuration/{source_id}"): Access.VIEWER,
     # The change replay data (WP4a): counts per day, resource type and severity; read only.
     ("GET", "/sources/{source_id}/replay"): Access.VIEWER,
+    # The admin settings (P10-T8 slice A): data routes, admin only; the page (slice B) reuses them.
+    ("GET", "/settings"): Access.ADMIN,
+    ("POST", "/settings/retention"): Access.ADMIN,
+    ("POST", "/settings/storage-warning"): Access.ADMIN,
+    ("POST", "/settings/users"): Access.ADMIN,
+    ("POST", "/settings/users/{user_id}/disable"): Access.ADMIN,
+    ("POST", "/settings/users/{user_id}/enable"): Access.ADMIN,
     ("GET", "/tokens"): Access.ADMIN,
     ("POST", "/tokens"): Access.ADMIN,
     ("POST", "/tokens/{token_id}/revoke"): Access.ADMIN,
@@ -176,7 +183,7 @@ def may_pass(access: Access, path: str, caller: Caller) -> bool:
 
 def concrete(path: str) -> str:
     """The path with every parameter filled by an id that exists nowhere."""
-    for name in ("token_id", "event_id", "source_id", "item_id", "mute_id"):
+    for name in ("token_id", "event_id", "source_id", "item_id", "mute_id", "user_id"):
         path = path.replace("{" + name + "}", "99999")
     return path
 
