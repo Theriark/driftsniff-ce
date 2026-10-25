@@ -1262,10 +1262,13 @@ textarea.input {
   white-space: nowrap;
 }
 
+/* the meta wraps inside its 150 px column: on one line, "Push source, 4 pushes in 30 days"
+   ran 44 px into the strip at 1440 px and its marks covered the words (THE-1264) */
 .driftline__meta {
   font-size: var(--fs-14);
   color: var(--text-2);
-  white-space: nowrap;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .driftline__strip {
@@ -1476,15 +1479,23 @@ textarea.input {
    the text the full width under them. At 1024 px the 7fr card leaves 351 px, and a "Nothing
    pushed yet" badge (167 px) with "Open source" (112 px) squeezed the title to "pilo..." and
    its line to one word per line (THE-1240 acceptance, fixed in THE-1255). The query follows
-   the list, not the viewport, so the same rule holds on a phone. */
+   the list, not the viewport, so the same rule holds on a phone.
+   THE-1264: side by side, a 292 px text column at 1440 px (list 594 px) cut three of four
+   titles to an ellipsis, and a grid per row started the text at a different x with the width
+   of each badge. The text now gets its own line below 720 px of list (1440 and 768 px), and
+   a wider list shares its columns with every row (subgrid), so the text starts at one x; the
+   title wraps in both layouts. */
 .attention {
   display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  column-gap: var(--sp-3);
   container: attention / inline-size;
 }
 
 .attention li {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
   gap: var(--sp-3);
   align-items: center;
   padding: var(--sp-3) 0;
@@ -1506,13 +1517,20 @@ textarea.input {
   min-width: 0;
 }
 
+.attention li > .sev,
+.attention li > .status {
+  justify-self: start;
+}
+
+.attention li > .btn {
+  justify-self: end;
+}
+
 .attention .what a {
   font-weight: 700;
   text-decoration: none;
   display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .attention .what a:hover {
@@ -1524,15 +1542,10 @@ textarea.input {
   color: var(--text-2);
 }
 
-@container attention (max-width: 539px) {
+@container attention (max-width: 719px) {
   .attention li {
     grid-template-columns: minmax(0, 1fr) auto;
     row-gap: var(--sp-2);
-  }
-
-  .attention li > .sev,
-  .attention li > .status {
-    justify-self: start;
   }
 
   .attention .what {
