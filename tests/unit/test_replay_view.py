@@ -343,3 +343,11 @@ def test_the_controls_wrap_and_the_facts_give_way_on_a_narrow_card() -> None:
     assert facts is not None and "auto-fit" in facts.group(1)
     drawing = re.search(r"\.replay-map__svg \{([^}]*)\}", sheet)
     assert drawing is not None and "margin-right: auto" in drawing.group(1)
+
+
+def test_the_card_column_cannot_grow_past_the_card_so_only_the_cells_scroll() -> None:
+    # found at 390 px on Development (c114835a): the auto track took the map's 654 px, the page
+    # became 695 px wide and the scroller never scrolled
+    sheet = (STATIC / "replay.css").read_text(encoding="utf-8")
+    card = re.search(r"\.replay-card \{([^}]*)\}", sheet)
+    assert card is not None and "grid-template-columns: minmax(0, 1fr)" in card.group(1)
