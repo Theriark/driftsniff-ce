@@ -554,6 +554,41 @@ def test_metric_card_draws_no_sparkline_for_a_series_of_zeros() -> None:
     assert spoken(quiet) == "Open changes: 0. None."
 
 
+def test_metric_card_escapes_every_text_it_prints() -> None:
+    card = component("cards.html", "metric_card")
+    text = card(HOSTILE, HOSTILE, '/x?a="b"', unit=HOSTILE, delta=HOSTILE, tone=HOSTILE)
+    assert "<b>" not in text
+    # three in the sentence, the label, the value, the unit, the tone class and the delta
+    assert text.count("a&#39;&lt;b&gt;&#34;c") == 8
+    assert text.count("A&#39;&lt;b&gt;&#34;c.") == 1  # the delta as a sentence
+    parsed = Parsed(text)
+    assert parsed.find("a")[0]["href"] == '/x?a="b"'
+    assert parsed.find("span")[-2]["class"] == f"metric__delta metric__delta--{HOSTILE}"
+    assert spoken(text) == f"{HOSTILE}: {HOSTILE} {HOSTILE}. A{HOSTILE[1:]}."
+    assert_policy_clean(text)
+
+
+def test_metric_card_draws_negative_values_and_a_series_that_sums_to_zero() -> None:
+    card = component("cards.html", "metric_card")
+    text = card("Net change", -3, "/x", delta="3 fewer", trend="down", spark=[-2, 0, 2])
+    assert Parsed(text).find("polyline") == [{"points": "0.0,31.0 48.0,18.0 96.0,5.0"}]
+    assert spoken(text) == "Net change: -3. 3 fewer. Last 3 values: -2, 0, 2."
+    below = card("Net change", -1, "/x", spark=[-1, -4])
+    assert Parsed(below).find("polyline") == [{"points": "0.0,5.0 96.0,31.0"}]
+
+
+def test_metric_card_ignores_an_unknown_trend_or_tone_but_keeps_the_words() -> None:
+    card = component("cards.html", "metric_card")
+
+    def glyph(**kwargs: Any) -> list[dict[str, str | None]]:
+        return Parsed(card("Label", 1, "/x", delta="words", **kwargs)).find("use")
+
+    assert glyph(trend="sideways", tone="up") == [{"href": "#sev-high"}]
+    assert glyph(trend="sideways") == []
+    assert glyph(tone="bogus") == []
+    assert "words" in card("Label", 1, "/x", delta="words", trend="sideways", tone="bogus")
+
+
 def test_data_table_in_both_densities_with_sort_and_hidden_columns() -> None:
     table = component("table.html", "data_table")
     columns = [
