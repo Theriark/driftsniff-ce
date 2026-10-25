@@ -26,7 +26,7 @@
 {%- endmacro %}
 
 {% macro change_replay(view, source_id) %}
-<section class="jump-target replay" id="replay" aria-labelledby="replay-h"{% if view and not view.empty %} data-replay data-first-day="{{ view.first_day }}" data-days="{{ view.columns | length }}" data-cursor="{{ view.cursor_index }}" data-pitch="{{ view.pitch }}" data-label-width="{{ view.label_width }}" data-source="{{ source_id }}"{% endif %}>
+<section class="jump-target replay" id="replay" aria-labelledby="replay-h"{% if view and not view.empty %} data-replay data-first-day="{{ view.first_day }}" data-days="{{ view.columns | length }}" data-cursor="{{ view.cursor_index }}" data-pitch="{{ view.pitch }}" data-source="{{ source_id }}"{% endif %}>
   <div class="section-head"><h2 id="replay-h">Change replay</h2>{% if view %}<span class="hint">{{ view.window_text }}</span>{% endif %}</div>
   <div class="card replay-card">
     {% if not view %}
@@ -70,14 +70,21 @@
       <p class="replay-reduced" data-replay-reduced hidden>Reduced motion is on, so the replay moves only when you step or drag the slider.</p>
     </div>
 
+    {# The names of the rows are a drawing of their own beside the scrolling cells, so a narrow
+       screen scrolls the days and never the names; both draw one unit per CSS pixel. #}
     <div class="replay-map">
-      <svg class="replay-map__svg replay-map__svg--{{ view.days }}" viewBox="0 0 {{ view.width }} {{ view.height }}" width="{{ view.width }}" height="{{ view.height }}" role="group" aria-labelledby="replay-t" aria-describedby="replay-d" data-replay-map>
+      <svg class="replay-map__labels" viewBox="0 0 {{ view.label_width }} {{ view.height }}" width="{{ view.label_width }}" height="{{ view.height }}" aria-hidden="true" focusable="false">
+        {% for row in view.rows %}
+        <text class="replay-label" x="{{ view.label_width - 10 }}" y="{{ row.label_y }}" text-anchor="end">{{ row.short_label }}</text>
+        {% endfor %}
+      </svg>
+      <div class="replay-map__scroll">
+      <svg class="replay-map__svg" viewBox="0 0 {{ view.width }} {{ view.height }}" width="{{ view.width }}" height="{{ view.height }}" role="group" aria-labelledby="replay-t" aria-describedby="replay-d" data-replay-map>
         <title id="replay-t">Change items per day and resource type, {{ view.window_text }}</title>
         <desc id="replay-d">{{ view.description }}</desc>
         <g aria-hidden="true">
           {% for row in view.rows %}
-          <text class="replay-label" x="{{ view.label_width - 10 }}" y="{{ row.label_y }}" text-anchor="end">{{ row.short_label }}</text>
-          <rect class="replay-track" x="{{ view.label_width }}" y="{{ row.y }}" width="{{ view.track_width }}" height="20" rx="3"/>
+          <rect class="replay-track" x="0" y="{{ row.y }}" width="{{ view.track_width }}" height="20" rx="3"/>
           {% endfor %}
           {% for x in view.week_lines %}
           <line class="replay-week" x1="{{ x }}" y1="0" x2="{{ x }}" y2="{{ view.grid_height - 4 }}"/>
@@ -100,6 +107,7 @@
           {% endfor %}
         </g>
       </svg>
+      </div>
     </div>
 
     <ul class="legend replay-legend" aria-label="Legend">
