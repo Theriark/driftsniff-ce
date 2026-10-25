@@ -51,7 +51,7 @@
       {% for row in dashboard.attention %}
       <li{% if row.critical %} class="is-critical"{% endif %}>
         {% if row.badge == "severity" %}{{ severity_badge(row.badge_value) }}{% else %}{{ status_badge(row.badge_value, row.badge_text) }}{% endif %}
-        <div class="what"><a href="{{ row.href }}">{{ row.title }}</a><span class="where">{{ row.where }}</span></div>
+        <div class="what"><a href="{{ row.href }}" title="{{ row.title }}">{{ row.title }}</a><span class="where">{{ row.where }}</span></div>
         <a class="btn btn--small" href="{{ row.action_href }}">{{ row.action_label }}</a>
       </li>
       {% endfor %}
