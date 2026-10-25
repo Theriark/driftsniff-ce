@@ -2,9 +2,10 @@
 
 ``running_kit`` builds the real application with every service it has (sign-in, API tokens,
 notifications, the change API, a push gateway with no sources, the sources pages with a test
-connection that refuses every target, the change pages, the history service and the admin settings), a migrated
-database, one user per role and one API token per scope set. The tests of this folder use it to
-ask the same question of every route: who may do this, and what happens to everyone else.
+connection that refuses every target, the change pages, the history service and the admin
+settings), a migrated database, one user per role and one API token per scope set. The tests of
+this folder use it to ask the same question of every route: who may do this, and what happens to
+everyone else.
 
 Everything is synthetic. The user password and every token are made at test time; text that must
 never travel starts with ``CANARY-``.

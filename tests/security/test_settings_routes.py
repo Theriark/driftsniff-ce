@@ -253,7 +253,8 @@ def test_an_admin_adds_a_user_who_can_then_sign_in(kit: Kit) -> None:
 
 def test_a_taken_name_is_409_and_a_bad_field_is_422_with_its_name(kit: Kit) -> None:
     admin = kit.new_session("admin")
-    taken = post(kit, admin, "/settings/users", {"username": "VIEWER", "password": CORRECT})
+    body = {"username": "VIEWER", "password": CORRECT, "role": "viewer"}
+    taken = post(kit, admin, "/settings/users", body)
     assert taken.status_code == 409
     assert "already taken" in taken.json()["detail"]
     cases = {
