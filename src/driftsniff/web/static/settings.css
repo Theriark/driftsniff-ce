@@ -1,0 +1,259 @@
+/* The settings page (P10-T8 slice B, templates/settings/page.html). Loaded after app.css and
+   summary-head.css (the tab strip) through the head block; it uses the tokens of app.css and
+   adds no colour. No style attribute and no inline style element is used: the content security
+   policy blocks both, so the two bars are SVG rectangles whose width the server sets. */
+
+/* what happened sits between the tab strip and the cards; nothing to say, no gap */
+.settings-banners {
+  display: grid;
+  gap: var(--sp-4);
+  margin-top: var(--sp-6);
+}
+
+.settings-banners:not(:has(*)) {
+  display: none;
+}
+
+.settings-banners .page-banner {
+  margin-bottom: 0;
+}
+
+.settings {
+  display: grid;
+  gap: var(--sp-6);
+  margin-top: var(--sp-6);
+}
+
+/* one card per part: its head, what is there now, then the form that changes it */
+.settings-card {
+  display: grid;
+  gap: var(--sp-4);
+  align-content: start;
+  min-width: 0;
+}
+
+.settings-card__head {
+  display: grid;
+  gap: var(--sp-1);
+}
+
+.settings-card__head h2 {
+  font-size: var(--fs-20);
+  line-height: var(--lh-tight);
+  font-weight: 700;
+}
+
+.settings-card__head h3 {
+  font-size: var(--fs-20);
+  line-height: var(--lh-tight);
+  font-weight: 700;
+}
+
+.settings-card__head .hint {
+  font-size: var(--fs-14);
+  color: var(--text-2);
+  max-width: 72ch;
+}
+
+/* a table runs to the edges of its card, between two rules */
+.settings-card > .table-wrap {
+  margin: 0 calc(-1 * var(--sp-6));
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-card .data-table th[scope="row"] {
+  font-weight: 700;
+}
+
+/* the first and last cells line up with the card's own text */
+.settings-card .data-table th:first-child,
+.settings-card .data-table td:first-child {
+  padding-left: var(--sp-6);
+}
+
+.settings-card .data-table th:last-child,
+.settings-card .data-table td:last-child {
+  padding-right: var(--sp-6);
+}
+
+/* under a table the table's own rule sets the form apart */
+.settings-card > .table-wrap + .settings-form {
+  padding-top: var(--sp-2);
+  border-top: 0;
+}
+
+/* a value shown once reads in the value face */
+.secret-once .input.mono {
+  font-family: var(--font-mono);
+}
+
+.settings-name span:first-child {
+  overflow-wrap: anywhere;
+}
+
+/* the second line of a row on a phone: the column it stands for is hidden there */
+.settings-sub {
+  display: none;
+  font-weight: 400;
+  color: var(--text-2);
+}
+
+@media (max-width: 479px) {
+  .settings-sub {
+    display: block;
+  }
+}
+
+.you-tag {
+  display: inline-block;
+  margin-left: var(--sp-1);
+  padding: 0 var(--sp-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: var(--fs-14);
+  font-weight: 400;
+  color: var(--text-2);
+}
+
+.settings-empty {
+  padding: var(--sp-4);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-s);
+  color: var(--text-2);
+  font-size: var(--fs-14);
+}
+
+/* the form under what is there now, set apart by a rule */
+.settings-form {
+  display: grid;
+  gap: var(--sp-4);
+  padding-top: var(--sp-6);
+  border-top: 1px solid var(--border);
+  min-width: 0;
+}
+
+.settings-form h3 {
+  font-size: var(--fs-16);
+  font-weight: 700;
+}
+
+.settings-form__fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: var(--sp-4);
+  align-items: start;
+  min-width: 0;
+}
+
+.settings-form .field .input {
+  width: 100%;
+}
+
+.settings-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1) var(--sp-6);
+}
+
+.settings-form .choices .help,
+.settings-form .choices .error {
+  font-size: var(--fs-14);
+}
+
+.settings-form .choices > .help {
+  color: var(--text-2);
+}
+
+.settings-form .choices > .error,
+.settings-form > .error {
+  color: var(--alert);
+  font-weight: 700;
+}
+
+.settings-check {
+  align-self: end;
+}
+
+/* one number per card: the field and its button stacked, no rule above */
+.settings-form--inline {
+  padding-top: 0;
+  border-top: 0;
+  justify-items: start;
+}
+
+.settings-form--inline .field {
+  width: 100%;
+  max-width: 320px;
+}
+
+/* the current channel: what it sends to, then its three actions */
+.channel {
+  display: grid;
+  gap: var(--sp-4);
+}
+
+.channel .form-actions form {
+  margin: 0;
+}
+
+/* retention and storage side by side from the desktop width */
+.settings-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-6);
+  align-items: start;
+}
+
+@media (max-width: 1023px) {
+  .settings-pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.settings-figure {
+  color: var(--text-2);
+}
+
+.settings-figure .num {
+  margin-right: var(--sp-1);
+  font-size: var(--fs-32);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--track-display);
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* the bar of a share: ink on the quiet track, the alert colour past the warning size; the words
+   beside it say the same, so the colour is never the only sign */
+.meter {
+  display: block;
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.meter__track {
+  fill: var(--surface-2);
+}
+
+.meter__fill {
+  fill: var(--ink);
+}
+
+.meter--over .meter__fill {
+  fill: var(--alert);
+}
+
+.meter-scale {
+  display: flex;
+  justify-content: space-between;
+  margin-top: calc(-1 * var(--sp-3));
+  font-size: var(--fs-14);
+  color: var(--text-2);
+}
+
+.settings .quiet {
+  max-width: none;
+}

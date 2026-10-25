@@ -83,7 +83,7 @@ with the admin as the actor; the two admin settings have their own actions (`doc
 | The setup and login pages, the user menu | built in P10-T2 and P10-T3, see `docs/web-interface.md` sections 2 and 8; a browser (`Accept: text/html`) gets the pages, every other client the JSON answers above |
 | CSRF value check, Origin check, security headers | built in P9-T2, see `docs/csrf-and-headers.md` |
 | API tokens (`/api/v1`, Bearer) | built in P9-T3, see `docs/api-access.md`; a session cookie is not an API credential |
-| Admin routes to list, add, disable and enable users | built in P10-T8 slice A, see `docs/settings.md`; the screen is slice B. Changing a role and resetting a password are not built |
+| Admin routes to list, add, disable and enable users | built in P10-T8 slice A, see `docs/settings.md`; the screen is the Users card of `/settings` (slice B). Changing a role and resetting a password are not built |
 | Route table test that every route states its role | P9-T6 |
 
 ## Limits

@@ -1,8 +1,10 @@
 """Admin routes for API tokens: list, create, revoke (docs/api-access.md).
 
 These are routes of the interface, not of ``/api/v1``: an admin uses them with a session, so they
-need the session CSRF value on writes, and the API refuses a session cookie anyway. The pages that
-show them are built in P10; the routes take a form post or a JSON object and answer with JSON.
+need the session CSRF value on writes, and the API refuses a session cookie anyway. The routes take
+a form post or a JSON object and answer with JSON; a browser that asks for ``text/html`` gets the
+settings page instead (P10-T8, ``driftsniff.web.settings_page``): the new token once, in a card at
+the top, or the page again with the refused field marked; a revoke goes back there with a notice.
 
 The full token value is in the answer of ``POST /tokens`` only, once. The list shows the visible
 prefix, never the value and never the stored hash. A token is revoked, never deleted, so the
@@ -15,12 +17,19 @@ from typing import Annotated, Any, Final
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Request
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse, Response
 
 from driftsniff.web.auth import Principal
 from driftsniff.web.bearer import MAX_EXPIRY_DAYS, TokenInfo, TokenInputError, TokenService
 from driftsniff.web.deps import get_token_service, require_admin
+from driftsniff.web.pages import wants_html
 from driftsniff.web.routes_ui import read_fields
+from driftsniff.web.settings_page import (
+    redirect_target,
+    render_settings,
+    token_failure,
+    unknown_field_failure,
+)
 
 router = APIRouter()
 
@@ -69,13 +78,19 @@ async def create_token(
     request: Request,
     admin: Annotated[Principal, Depends(require_admin)],
     service: Annotated[TokenService, Depends(get_token_service)],
-) -> JSONResponse:
+) -> Response:
     """Make a token. Fields: ``name``, ``scopes`` (``read``, ``enrich`` or both) and an optional
-    ``expires_in_days``. The answer holds the token value; it is not shown again.
+    ``expires_in_days``. The answer holds the token value; it is not shown again. The form of the
+    settings page sends one ``scopes`` field per ticked box.
     """
-    fields = await read_fields(request, structured=True)
+    html = wants_html(request)
+    fields = await read_fields(request, structured=True, multi=frozenset({"scopes"}))
+    kept = {key: fields.get(key, "") for key in ("name", "scopes", "expires_in_days")}
     unknown = sorted(set(fields) - _ALLOWED_FIELDS)
     if unknown:
+        if html:
+            failure = unknown_field_failure("token", "The token was not made")
+            return await render_settings(request, admin, status=422, failure=failure, values=kept)
         # A misspelt expiry must not quietly make a token that never expires.
         return JSONResponse({"detail": f"unknown field: {unknown[0][:40]}"}, status_code=422)
     try:
@@ -88,7 +103,18 @@ async def create_token(
             expires_in_days=_expiry_days(fields.get("expires_in_days")),
         )
     except TokenInputError as error:
+        if html:
+            return await render_settings(
+                request, admin, status=422, failure=token_failure(str(error)), values=kept
+            )
         return JSONResponse({"detail": str(error)}, status_code=422)
+    if html:
+        shown = {
+            "name": created.info.name,
+            "token": created.value,
+            "scopes": list(created.info.scopes),
+        }
+        return await render_settings(request, admin, status=201, created_token=shown)
     body = _describe(created.info, service.now())
     body["token"] = created.value
     body["note"] = "this is the only time the token is shown; store it now"
@@ -97,12 +123,15 @@ async def create_token(
 
 @router.post("/tokens/{token_id}/revoke")
 async def revoke_token(
+    request: Request,
     token_id: Annotated[int, Path(ge=1, le=_MAX_TOKEN_ID)],
     admin: Annotated[Principal, Depends(require_admin)],
     service: Annotated[TokenService, Depends(get_token_service)],
-) -> JSONResponse:
+) -> Response:
     """Revoke a token for good; revoking it again changes nothing."""
     found = await run_in_threadpool(service.revoke, token_id, actor=admin.username)
     if not found:
         raise HTTPException(status_code=404, detail="no such token")
+    if wants_html(request):
+        return RedirectResponse(redirect_target("token-revoked"), status_code=303)
     return JSONResponse({"id": token_id, "status": "revoked"})
