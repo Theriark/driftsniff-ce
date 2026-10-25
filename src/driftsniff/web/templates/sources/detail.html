@@ -7,14 +7,18 @@
    column (the drift line, the coverage and the recent runs, each a target of its tab) beside
    the side panel (the facts of the source and, for an admin, the typed-name delete). Under
    1280 px the side panel follows the main column. The credential is never printed: only
-   whether one is stored. #}
+   whether one is stored. Under the drift line sits the Change Replay (WP4c, THE-1197,
+   sources/_replay.html): replay is a ReplayView, or none without the replay service. #}
 {% extends "base.html" %}
 {% from "components/states.html" import banner, success_banner %}
 {% from "components/badges.html" import status_badge %}
 {% from "components/driftline.html" import drift_line %}
 {% from "components/details.html" import time_tag, source_tabs %}
 {% from "sources/_coverage.html" import coverage_table %}
-{% block head %}<link rel="stylesheet" href="/static/summary-head.css">{% endblock %}
+{% from "sources/_replay.html" import change_replay %}
+{% block head %}<link rel="stylesheet" href="/static/summary-head.css">
+<link rel="stylesheet" href="/static/replay.css">
+<script src="/static/replay.js" defer></script>{% endblock %}
 {% block content %}
 {% set view = detail.view %}
 {% set health = detail.health %}
@@ -101,6 +105,8 @@
         {% if not detail.driftline.checks %}<p class="quiet driftline-empty">{{ "No check in the last 30 days, so the line has no mark yet." if detail.polled else "Nothing pushed in the last 30 days, so the line has no mark yet." }}</p>{% endif %}
       </div>
     </section>
+
+    {{ change_replay(replay, view.id) }}
 
     {# The coverage table grows with the page (full=true): a source has at most a few dozen
        resources, and the note column gives way first on a narrow screen. #}

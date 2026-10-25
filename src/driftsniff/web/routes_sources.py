@@ -5,6 +5,10 @@ run now; an admin adds, edits, tests, enables, disables and deletes sources and 
 key of a push source. The role check is a dependency of each route, so it runs before anything
 else, and the security suite lists every route here in its route table.
 
+The source page also draws the Change Replay of the source (``driftsniff.web.replay_view``, the
+value of ``GET /sources/{id}/replay``) over the window ``replay_days`` names: 7, 30 (the default)
+or 90 days; every role that reads the page reads it.
+
 Every page works without JavaScript: the forms are plain posts and every answer is a page or a
 redirect (post, redirect, get). The test connection button also carries ``hx-post``: with
 JavaScript only its result panel is replaced, so the typed credential stays in the form.
@@ -66,6 +70,8 @@ from driftsniff.web.auth import ROLE_RANK, Principal
 from driftsniff.web.dashboard import resource_label, source_type_label
 from driftsniff.web.deps import require_admin, require_operator, require_viewer
 from driftsniff.web.pages import page, shell_for, wants_html
+from driftsniff.web.replay import DEFAULT_DAYS, ReplayService
+from driftsniff.web.replay_view import ReplayView, replay_view, window_of
 from driftsniff.web.routes_ui import read_fields
 from driftsniff.web.source_pages import (
     CREDENTIAL_LABELS,
@@ -707,7 +713,13 @@ async def source_page(
     detail = await _detail(pages, source_id)
     if not wants_html(request):
         return JSONResponse({"source": _view_json(detail.view)})
-    return _detail_page(request, user, detail, notice=_notice(request, polled=detail.polled))
+    return await _detail_page(
+        request,
+        user,
+        detail,
+        notice=_notice(request, polled=detail.polled),
+        replay_days=window_of(request.query_params.get("replay_days", "")),
+    )
 
 
 async def _detail(pages: SourcePages, source_id: int) -> SourceDetail:
@@ -717,7 +729,16 @@ async def _detail(pages: SourcePages, source_id: int) -> SourceDetail:
         raise HTTPException(status_code=404, detail="there is no such source") from error
 
 
-def _detail_page(
+async def _replay(request: Request, source_id: int, days: int) -> ReplayView | None:
+    """The Change Replay of the source page; None when the installation has no replay service."""
+    service: ReplayService | None = request.app.state.replay
+    if service is None:
+        return None
+    replay = await run_in_threadpool(service.load, source_id, days)
+    return None if replay is None else replay_view(replay)
+
+
+async def _detail_page(
     request: Request,
     user: Principal,
     detail: SourceDetail,
@@ -728,7 +749,9 @@ def _detail_page(
     push_key: str = "",
     status: int = 200,
     headers: dict[str, str] | None = None,
+    replay_days: int = DEFAULT_DAYS,
 ) -> Response:
+    replay = await _replay(request, detail.view.id, replay_days)
     shell = shell_for(request, user, detail.view.name, "sources")
     return page(
         "sources/detail.html",
@@ -740,6 +763,7 @@ def _detail_page(
         problem=problem,
         delete_error=delete_error,
         push_key=push_key,
+        replay=replay,
         scheduled=_scheduled(request),
         **_roles(user),
     )
@@ -876,7 +900,7 @@ async def run_source_now(
             problem = _RUN_REFUSALS[result.status]
     status, title, text = problem
     if html:
-        return _detail_page(
+        return await _detail_page(
             request, user, detail, problem=(title, text), status=status, headers=headers
         )
     return JSONResponse({"detail": f"{title}. {text}"}, status_code=status, headers=headers)
@@ -935,7 +959,7 @@ async def delete_source(
         message = "Type the name of the source exactly as it is shown to delete it."
         if wants_html(request):
             detail = await _detail(pages, source_id)
-            return _detail_page(request, user, detail, delete_error=message, status=422)
+            return await _detail_page(request, user, detail, delete_error=message, status=422)
         return JSONResponse({"detail": message}, status_code=422)
     try:
         result = await run_in_threadpool(pages.service.delete, source_id, actor=user.username)
@@ -962,4 +986,4 @@ async def make_push_key(
     if not wants_html(request):
         return JSONResponse({"push_key": key})
     detail = await _detail(pages, source_id)
-    return _detail_page(request, user, detail, push_key=key)
+    return await _detail_page(request, user, detail, push_key=key)
