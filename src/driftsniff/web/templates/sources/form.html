@@ -9,7 +9,7 @@
 {% extends "base.html" %}
 {% from "page_header.html" import page_header %}
 {% from "components/forms.html" import text_field %}
-{% from "components/states.html" import banner, skeleton %}
+{% from "components/states.html" import banner, state %}
 {% block content %}
 {% set polled = values.source_type in ("unifi", "xo") %}
 {% set back = "/sources/" ~ source.id if editing else "/sources" %}
@@ -116,7 +116,7 @@
   <section class="card form-card" aria-labelledby="sec-test">
     <h2 id="sec-test">Test connection</h2>
     <p class="quiet">Reads the version and every resource once with the values above, read only, and shows what answered. Nothing is stored.</p>
-    <div id="probe-loading" class="htmx-indicator">{{ skeleton("Testing the connection", rows=4) }}</div>
+    <div id="probe-loading" class="htmx-indicator">{{ state("loading", "Testing the connection", rows=4) }}</div>
     <div id="probe-result" class="probe-result" aria-live="polite">{% include "sources/_probe.html" %}</div>
   </section>
   {% endif %}

@@ -12,7 +12,7 @@
    the notes), so a long change is one step from its decisions; each object group carries its
    own item count. Every part keeps its place and its heading. #}
 {% extends "base.html" %}
-{% from "components/states.html" import banner, success_banner %}
+{% from "components/states.html" import banner, success_banner, state %}
 {% from "components/badges.html" import severity_badge, status_badge %}
 {% from "components/details.html" import time_tag, tab_strip %}
 {% from "changes/_item.html" import change_item with context %}
@@ -131,7 +131,7 @@
         {% endfor %}
       </ul>
       {% elif not can_operate %}
-      <p class="quiet">No notes yet. An operator or an admin writes them.</p>
+      {{ state("empty", "No notes yet.", "An operator or an admin writes them.", inline=true) }}
       {% endif %}
       {% if can_operate %}
       <form method="post" action="/changes/{{ change.id }}/notes" class="stack" novalidate>

@@ -795,7 +795,7 @@ def test_without_a_scheduler_the_pages_promise_no_check(store: Database) -> None
         run = next(b for b in buttons if b.get("aria-describedby") == "runs-unscheduled")
         assert "btn--unavailable" in (run.get("class") or "")
         assert "disabled" in run
-        assert {"id": "runs-unscheduled", "class": "quiet"} in page.find("p")
+        assert {"class": "quiet", "id": "runs-unscheduled", "role": "status"} in page.find("p")
 
 
 def add_push(world: World) -> int:

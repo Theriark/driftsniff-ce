@@ -7,7 +7,7 @@
    disclosure). Every number links to the filtered view behind it. #}
 {% extends "base.html" %}
 {% from "page_header.html" import page_header %}
-{% from "components/states.html" import empty_state %}
+{% from "components/states.html" import empty_state, state %}
 {% from "components/cards.html" import metric_card %}
 {% from "components/badges.html" import severity_badge, status_badge %}
 {% from "components/driftline.html" import drift_line %}
@@ -60,7 +60,7 @@
     <p class="attention-more"><a href="/changes?status=open&amp;severity=critical&amp;severity=high">{{ number(dashboard.attention_more) }} more open critical and high {{ "change" if dashboard.attention_more == 1 else "changes" }}</a></p>
     {% endif %}
     {% else %}
-    <p class="quiet">{{ dashboard.attention_empty }}</p>
+    {{ state("empty", dashboard.attention_empty, inline=true) }}
     {% endif %}
   </section>
 </div>
@@ -139,7 +139,7 @@
     </details>
     {% endif %}
     {% else %}
-    <p class="quiet">Nothing has happened yet. The first check of a source appears here.</p>
+    {{ state("empty", "Nothing has happened yet.", "The first check of a source appears here.", inline=true) }}
     {% endif %}
   </div>
 </section>
