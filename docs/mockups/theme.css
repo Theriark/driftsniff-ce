@@ -26,6 +26,13 @@
   --sev-high: #A8441B;
   --sev-critical: #C8342B;
   --on-critical: #F5F5F0;
+  /* the ink density steps of the change replay heat map and the counts printed on them */
+  --heat-1: #8D8D95;
+  --heat-2: #65656E;
+  --heat-3: #42424A;
+  --heat-4: #1E1E24;
+  --on-heat-1: #1E1E24;
+  --on-heat: #FFFFFF;
   --sev-low-tint: #E4E9F1;
   --sev-medium-tint: #F3E8CC;
   --sev-high-tint: #F6DFD3;
@@ -97,6 +104,12 @@
     --sev-high: #EB9068;
     --sev-critical: #E8665D;
     --on-critical: #1E1E24;
+    --heat-1: #6C6C75;
+    --heat-2: #9A9AA2;
+    --heat-3: #C7C7C8;
+    --heat-4: #F5F5F0;
+    --on-heat-1: #F5F5F0;
+    --on-heat: #1E1E24;
     --sev-low-tint: #262C38;
     --sev-medium-tint: #332B14;
     --sev-high-tint: #3A251C;
