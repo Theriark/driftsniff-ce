@@ -34,7 +34,9 @@ Carry-overs of the PR 107 verdicts (THE-1269, THE-1270): the last-admin guard th
 route (``test_the_last_enabled_admin_cannot_be_disabled_through_the_route`` and
 ``test_an_admin_cannot_disable_their_own_account_from_the_page``; there is no route that changes
 a role, see ``test_no_route_changes_a_role``) and the generic text for an unknown field
-(``test_an_unknown_field_is_refused_without_repeating_its_name``).
+(``test_an_unknown_field_is_refused_without_repeating_its_name``). Carry-overs of the PR 108
+review (THE-1269 notes, THE-1278): number fields carry the server's bounds, a refused channel
+does not fill the SMTP login back in, and a show-once answer turns a reload into the plain page.
 Everything is synthetic; text that must never be shown starts with CANARY-.
 """
 
@@ -47,8 +49,10 @@ import sqlalchemy as sa
 from httpx import Response
 
 from driftsniff.db.tables import audit_events, settings, users
-from driftsniff.web.bearer import hash_token
+from driftsniff.sources.retention import MAX_RETENTION_DAYS, MIN_RETENTION_DAYS
+from driftsniff.web.bearer import MAX_EXPIRY_DAYS, hash_token
 from driftsniff.web.settings_page import UNKNOWN_FIELD_TEXT
+from driftsniff.web.settings_store import MAX_STORAGE_WARNING_GB, MIN_STORAGE_WARNING_GB
 
 from .appkit import CORRECT, Kit, Session
 from .routekit import real_routes
@@ -573,3 +577,73 @@ def test_a_user_who_signs_in_after_a_disable_is_refused(kit: Kit) -> None:
     login = kit.client.post("/login", data={"username": "viewer", "password": CORRECT})
     assert login.status_code == 401
     kit.client.cookies.clear()
+
+
+# ---- carry-overs of the PR 108 notes (THE-1269 review, THE-1278) -----------------------------
+
+ONCE_SCRIPT = '<script src="/static/settings-once.js" defer></script>'
+
+
+def test_every_number_field_carries_the_bounds_the_server_checks(kit: Kit) -> None:
+    page = html(show(kit, kit.new_session("admin")))
+    inputs = page.attrs("input")
+    numbers = {str(attrs.get("id")) for attrs in inputs if attrs.get("type") == "number"}
+    assert numbers == {"retention-days", "storage-gb", "token-expiry", "ch-port"}
+    for field_id, low, high in (
+        ("retention-days", MIN_RETENTION_DAYS, MAX_RETENTION_DAYS),
+        ("storage-gb", MIN_STORAGE_WARNING_GB, MAX_STORAGE_WARNING_GB),
+        ("token-expiry", 1, MAX_EXPIRY_DAYS),
+        ("ch-port", 1, 65535),
+    ):
+        attrs = page.by_id(field_id)
+        assert (attrs.get("min"), attrs.get("max")) == (str(low), str(high)), field_id
+    assert (MIN_RETENTION_DAYS, MAX_RETENTION_DAYS) == (30, 365)
+    assert (MIN_STORAGE_WARNING_GB, MAX_STORAGE_WARNING_GB) == (1, 1000)
+
+
+def test_a_refused_channel_does_not_fill_the_smtp_login_back_in(kit: Kit) -> None:
+    admin = kit.new_session("admin")
+    fields = {
+        "type": "smtp",
+        "host": "mail.example",
+        "security": "starttls",
+        "from_address": "driftsniff@example.org",
+        "to_addresses": "ops@example.org",
+        "username": "bot",
+        "password": SMTP_PASSWORD,
+    }
+    saved(submit(kit, admin, "/notifications/channel", fields), "channel-saved", "notifications")
+    # the plain page offers the stored login, so a password can be kept for the same login
+    assert html(show(kit, admin)).by_id("ch-username").get("value") == "bot"
+    typed = "CANARY-typed-login"
+    changed = {**fields, "username": typed, "to_addresses": "not-an-address"}
+    refused = submit(kit, admin, "/notifications/channel", changed)
+    page = html(refused, 422)
+    marked(page, "ch-to")
+    # neither what was typed nor the stored login: the field is empty, like the password
+    assert page.by_id("ch-username").get("value") is None
+    assert typed not in refused.text
+    assert page.by_id("ch-host").get("value") == "mail.example"  # other fields still come back
+
+
+def test_a_show_once_answer_turns_a_reload_into_the_plain_page(kit: Kit) -> None:
+    admin = kit.new_session("admin")
+    made = submit(kit, admin, "/tokens", {"name": "backup-report", "scopes": "read"})
+    assert made.status_code == 201 and ONCE_SCRIPT in made.text
+    webhook = {"type": "webhook", "url": "https://hooks.example/a"}
+    saved(submit(kit, admin, "/notifications/channel", webhook), "channel-saved", "notifications")
+    for path in ("/notifications/signing-key", "/notifications/test"):
+        answer = submit(kit, admin, path, {})
+        assert answer.status_code == 200 and ONCE_SCRIPT in answer.text, path
+    # the plain page, a redirect target and a refused form post nothing on a reload
+    assert ONCE_SCRIPT not in show(kit, admin).text
+    noticed = kit.client.get("/settings?notice=token-revoked", headers=browser(admin))
+    assert ONCE_SCRIPT not in noticed.text
+    refused = submit(kit, admin, "/settings/retention", {"retention_days": "29"})
+    assert refused.status_code == 422 and ONCE_SCRIPT not in refused.text
+    script = kit.client.get("/static/settings-once.js")
+    assert script.status_code == 200
+    assert "javascript" in script.headers["content-type"]
+    assert 'window.history.replaceState(null, "", "/settings");' in script.text
+    for banned in ("fetch(", "XMLHttpRequest", "innerHTML", "eval(", "location.reload"):
+        assert banned not in script.text, banned

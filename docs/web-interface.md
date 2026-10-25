@@ -387,10 +387,14 @@ works without a script. The routes are slice A's and the existing token and noti
 each with a page branch: a saved change answers 303 to `/settings?notice=<word>#<card>` and the
 page shows the notice; a refused change draws the page again under the route's status (422 or
 409) with a banner that has the focus and the field marked (`aria-invalid` and its message). A
-password and the webhook address are never filled back in; a field the form does not send is
-refused with one generic sentence that does not repeat its name. A new token is shown once in a
-card at the top (status 201); the signing key the same way, and the page is `no-store` like every
-page. A form can only post, so the channel is saved with `POST /notifications/channel` (the same
+password and the webhook address are never filled back in, nor the SMTP login of a refused
+channel (the plain page offers the stored login); a field the form does not send is refused with
+one generic sentence that does not repeat its name. Each number field carries the `min` and `max`
+the server checks (retention 30 to 365, storage warning 1 to 1000 GB, token expiry 1 to 3650 days,
+port 1 to 65535). A new token is shown once in a card at the top (status 201); the signing key
+the same way, and the page is `no-store` like every page. Those two answers and a test message's
+load `static/settings-once.js`, which turns the history entry into `GET /settings`, so a reload
+shows the plain page instead of posting again (without script the browser asks first). A form can only post, so the channel is saved with `POST /notifications/channel` (the same
 handler as `PUT`) and removed with `POST /notifications/channel/remove` (as `DELETE`); both are
 admin rows of the route table.
 
