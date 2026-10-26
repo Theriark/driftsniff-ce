@@ -2,13 +2,17 @@
 
 The fixture tests are exact. The end-to-end test runs a small fixture through the real pipeline
 (a migrated database, the shipped rules). The container steps run against a fake docker command, so
-the order of the commands, the hardening flags and the clean-up are checked without a container; the
-real run needs the image and is the job of ``python3 scripts/load_test.py container``.
+the order of the commands, the hardening flags, the clean-up and what happens when a container is
+killed for memory are checked without a container; the real run needs the image and is the job of
+``python3 scripts/load_test.py container``. A server that drops the connection is tested for real
+with a local socket.
 """
 
 import copy
 import json
+import socket
 import subprocess
+import threading
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
@@ -144,6 +148,32 @@ def test_the_last_json_line_is_the_result() -> None:
         load_test._last_json("nothing here")
 
 
+# ---- a server that does not answer ------------------------------------------------------------
+
+
+def test_a_refused_connection_is_status_zero_not_a_crash() -> None:
+    status, size, seconds = load_test._fetch("1", "/", "x")
+    assert (status, size) == (0, 0)
+    assert seconds >= 0
+
+
+def test_a_server_that_drops_the_connection_is_status_zero_not_a_crash() -> None:
+    with socket.socket() as listener:
+        listener.bind(("127.0.0.1", 0))
+        listener.listen(1)
+        port = listener.getsockname()[1]
+
+        def drop() -> None:
+            connection, _address = listener.accept()
+            connection.close()
+
+        thread = threading.Thread(target=drop)
+        thread.start()
+        status, size, _seconds = load_test._fetch(str(port), "/", "x")
+        thread.join(timeout=10)
+    assert (status, size) == (0, 0)
+
+
 # ---- the verdicts -----------------------------------------------------------------------------
 
 
@@ -189,6 +219,9 @@ def noisy_part(**changes: Any) -> dict[str, Any]:
     }
     part.update(changes)
     return part
+
+
+KILLED_SEED = {"phase": "seed", "partial": True, "oom_killed": True, "exit_code": 137}
 
 
 def report(
@@ -251,12 +284,15 @@ def test_a_warning_that_is_found_passes() -> None:
         ({"rss_peak_mb": 251.0}, {}, "ram", "miss"),
         ({"rss_peak_mb": 100.0}, {"peak_rss_mb": 120.0}, "ram", "below"),
         ({"rss_peak_mb": 100.0}, {"peak_rss_mb": 260.0}, "ram", "miss"),
-        ({"rss_peak_mb": None}, {"peak_rss_mb": None}, "ram", "miss"),
+        ({"rss_peak_mb": None}, {"peak_rss_mb": None}, "ram", "gap"),
         ({}, {"pages": {"/": {"status": 200, "cold_seconds": 1.0}}}, "first page", "miss"),
         ({}, {"pages": {"/": {"status": 303, "cold_seconds": 0.1}}}, "first page", "miss"),
+        ({}, {"pages": {"/": {"status": 0, "cold_seconds": 0.1}}}, "first page", "miss"),
+        ({}, {"pages": {}}, "first page", "gap"),
         ({"oom_killed": True}, {}, "512 MB limit", "miss"),
         ({"exit_code": 137}, {}, "512 MB limit", "miss"),
         ({}, {"running": False}, "512 MB limit", "miss"),
+        ({}, {"oom_killed": True}, "ram", "miss"),
         ({}, {"cgroup_peak_mb": 512.0}, "512 MB limit", "note"),
         ({"stored_change_items": 1999}, {}, "fixture", "miss"),
         ({"last_object_count": 999}, {}, "fixture", "miss"),
@@ -268,6 +304,30 @@ def test_a_miss_is_reported_as_a_miss(
     seed_changes: dict[str, Any], server_changes: dict[str, Any], check: str, expected: str
 ) -> None:
     assert outcomes(report(seed_changes, server_changes))[check] == expected
+
+
+def test_a_noisy_container_that_was_killed_is_a_gap() -> None:
+    data = report(noisy_changes={"partial": True, "oom_killed": True, "exit_code": 137})
+    assert outcomes(data)["volatility warning"] == "gap"
+    assert outcomes(data)["512 MB limit"] == "miss"
+
+
+def test_a_killed_seed_gives_a_miss_and_gaps_and_no_pass() -> None:
+    data = report()
+    data["seed"] = dict(KILLED_SEED)
+    data["server"] = {"skipped": "the seed container was killed for memory"}
+    result = outcomes(data)
+    assert result == {
+        "fixture": "gap",
+        "ram": "miss",
+        "first page": "gap",
+        "512 MB limit": "miss",
+        "volatility warning": "miss",
+    }
+    text = load_test.render_markdown(data, load_test.evaluate(data))
+    assert "The run is incomplete" in text
+    assert "| 512 MB limit | miss |" in text
+    assert "| fixture | gap |" in text
 
 
 def test_the_markdown_shows_every_check_and_measurement() -> None:
@@ -282,6 +342,12 @@ def test_the_markdown_shows_every_check_and_measurement() -> None:
         "Container memory peak",
     ):
         assert expected in text
+
+
+def test_a_page_that_was_not_measured_is_n_a_not_zero() -> None:
+    data = report(server_changes={"pages": {}, "running": False, "oom_killed": True})
+    text = load_test.render_markdown(data, load_test.evaluate(data))
+    assert "First page `/` (cold) | n/a" in text
 
 
 # ---- the real pipeline, small ------------------------------------------------------------------
@@ -309,41 +375,61 @@ def test_a_small_fixture_runs_through_the_real_pipeline() -> None:
     assert noisy["stored_change_items"] == 6 * load_test.NOISY_CHANGES_PER_POLL
     assert noisy["warning_signals"] == []
     assert noisy["warning_observed"] is False
-    checks = outcomes(result)
-    assert checks["fixture"] == "pass"
-    assert checks["first page"] == "pass"
-    assert checks["volatility warning"] == "miss"
+    assert outcomes(result) == {
+        "fixture": "pass",
+        "ram": "gap",
+        "first page": "gap",
+        "512 MB limit": "gap",
+        "volatility warning": "miss",
+    }
 
 
 # ---- the container steps, against a fake docker -----------------------------------------------
 
 
 class FakeDocker:
-    """Answers the docker commands of a container run and remembers them."""
+    """Answers the docker commands of a container run and remembers them.
 
-    def __init__(self, *, oom: bool = False) -> None:
+    ``oom`` is the set of containers (``seed``, ``server``, ``noisy``) that docker reports as
+    killed for memory. The server counts as dead once a page was requested and ``kill_server``.
+    """
+
+    def __init__(self, *, oom: Sequence[str] = (), kill_server: bool = False) -> None:
         self.calls: list[tuple[str, ...]] = []
-        self.oom = oom
+        self.oom = set(oom)
+        self.kill_server = kill_server
+        self.dead = False
 
     def __call__(self, *args: str, timeout: float = 0.0) -> subprocess.CompletedProcess[str]:
         self.calls.append(args)
+        if args[0] == "exec" and self.dead:
+            return subprocess.CompletedProcess(args, 1, "", "the container is not running")
+        if args[0] == "run" and "--detach" not in args and args[2].rsplit("-", 1)[1] in self.oom:
+            return subprocess.CompletedProcess(args, 137, "", "")
         return subprocess.CompletedProcess(args, 0, self.answer(args), "")
+
+    def fetch(self, _port: str, _path: str, _cookie: str) -> tuple[int, int, float]:
+        if self.kill_server:
+            self.dead = True
+            return 0, 0, 0.01
+        return 200, 4000, 0.25
 
     def answer(self, args: Sequence[str]) -> str:
         if args[0] == "run" and "--detach" not in args:
             part = seed_part() if "seed" in args else {**noisy_part(), "polls": 49}
             return "a log line\n" + json.dumps({**part, "session": "x"})
         if args[0] == "inspect":
-            template = args[2]
+            template, name = args[2], args[3]
+            kind = name.rsplit("-", 1)[1]
             if "OOMKilled" in template:
-                return "true" if self.oom else "false"
+                return "true" if kind in self.oom else "false"
             if "ExitCode" in template:
-                return "0"
+                return "137" if kind in self.oom else "0"
             if "Health.Status" in template:
                 return "healthy"
             if "HostPort" in template:
                 return "49153"
-            return "true"
+            return "false" if self.dead and kind == "server" else "true"
         if args[0] == "exec":
             if args[-1] == "/proc/1/status":
                 return "Name:\tpython\nVmHWM:\t 200000 kB\nVmRSS:\t 150000 kB\n"
@@ -356,13 +442,16 @@ class FakeDocker:
         return [call for call in self.calls if call[0] == word]
 
 
-@pytest.fixture
-def fake_docker(monkeypatch: pytest.MonkeyPatch) -> FakeDocker:
-    fake = FakeDocker()
+def install(monkeypatch: pytest.MonkeyPatch, fake: FakeDocker) -> FakeDocker:
     monkeypatch.setattr(load_test, "_docker_status", fake)
     monkeypatch.setattr(load_test.time, "sleep", lambda _seconds: None)
-    monkeypatch.setattr(load_test, "_fetch", lambda _port, _path, _cookie: (200, 4000, 0.25))
+    monkeypatch.setattr(load_test, "_fetch", fake.fetch)
     return fake
+
+
+@pytest.fixture
+def fake_docker(monkeypatch: pytest.MonkeyPatch) -> FakeDocker:
+    return install(monkeypatch, FakeDocker())
 
 
 def test_the_container_run_uses_the_hardening_flags_and_removes_everything(
@@ -391,14 +480,55 @@ def test_the_container_run_uses_the_hardening_flags_and_removes_everything(
     assert outcomes(result)["first page"] == "pass"
 
 
-def test_a_container_killed_for_memory_is_a_miss_and_is_still_cleaned_up(
-    fake_docker: FakeDocker,
+def test_a_seed_killed_for_memory_gives_a_report_and_is_cleaned_up(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    fake_docker.oom = True
-    with pytest.raises(load_test.LimitMissError):
-        load_test.run_container("driftsniff:ci", load_test.FixtureSpec())
-    assert len(fake_docker.commands("rm")) == 3
+    fake = install(monkeypatch, FakeDocker(oom=["seed"]))
+    result = load_test.run_container("driftsniff:ci", load_test.FixtureSpec())
+    assert result["seed"]["partial"] is True
+    assert result["seed"]["oom_killed"] is True
+    assert "skipped" in result["server"]
+    assert len(fake.commands("run")) == 2
+    assert len(fake.commands("rm")) == 3
     assert load_test.main(["container", "--image", "driftsniff:ci"]) == 1
+    printed = capsys.readouterr().out
+    assert "| 512 MB limit | miss |" in printed
+    assert "::notice title=load-test 512 MB limit::miss" in printed
+
+
+def test_a_server_killed_while_answering_gives_a_report_and_not_a_traceback(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    fake = install(monkeypatch, FakeDocker(oom=["server"], kill_server=True))
+    result = load_test.run_container("driftsniff:ci", load_test.FixtureSpec())
+    server = result["server"]
+    assert server["oom_killed"] is True
+    assert server["running"] is False
+    assert server["peak_rss_mb"] is None
+    assert server["pages"]["/"]["status"] == 0
+    assert len(fake.commands("rm")) == 3
+    checks = outcomes(result)
+    assert checks["first page"] == "miss"
+    assert checks["512 MB limit"] == "miss"
+    assert checks["ram"] == "miss"
+    fake.dead = False
+    assert load_test.main(["container", "--image", "driftsniff:ci"]) == 1
+    printed = capsys.readouterr().out
+    assert "| first page | miss | the server did not answer the request |" in printed
+    assert "killed for memory at the limit: server" in printed
+
+
+def test_a_server_that_stops_before_it_is_healthy_gives_a_report(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake = FakeDocker(oom=["server"])
+    install(monkeypatch, fake)
+    fake.dead = True
+    result = load_test.run_container("driftsniff:ci", load_test.FixtureSpec())
+    assert result["server"]["stopped_before_healthy"] is True
+    assert result["server"]["pages"] == {}
+    assert outcomes(result)["512 MB limit"] == "miss"
+    assert outcomes(result)["first page"] == "gap"
 
 
 def test_the_command_line_defaults_are_the_plan() -> None:
