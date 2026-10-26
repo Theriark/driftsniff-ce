@@ -6,7 +6,9 @@ name: CI
 # never hides another; deploy-development waits for all of them. The image is built once by the
 # build job; scan, smoke and sbom test that same image and deploy-development pushes exactly it.
 # The nightly-properties job runs only on the daily schedule or a manual mode=nightly dispatch. It
-# is report only: no pull_request trigger, not a required check, and no other job needs it.
+# is report only: no pull_request trigger, not a required check, and no other job needs it. The
+# measure job runs scripts/load_test.py against the built image, is report only and is not a
+# dependency of deploy-development.
 
 on:
   pull_request:
@@ -522,6 +524,67 @@ jobs:
           path: ${{ runner.temp }}/sbom/sbom.cdx.json
           retention-days: 30
           if-no-files-found: error
+
+  # Report only: measures the built image under the 512 MB limit and publishes the numbers. No other
+  # job needs it, so a miss never blocks deploy-development. A miss or a harness failure is a
+  # warning annotation and a line in the job summary; the numbers are the artifact below.
+  measure:
+    name: Container measurement
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Download image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: driftsniff-ci-image
+          path: ${{ runner.temp }}/image
+
+      - name: Load image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker load --input "${RUNNER_TEMP}/image/driftsniff-ci-image.tar.gz"
+
+      # Exit code of load_test.py: 0 no miss, 1 at least one miss (the report is written), 2 harness
+      # failure. The script appends its Markdown tables to the job summary itself.
+      - name: Measure the built image (report only)
+        shell: bash
+        env:
+          IMAGE: driftsniff:ci
+        run: |
+          set -uo pipefail
+          out="${RUNNER_TEMP}/measurements"
+          mkdir -p "${out}"
+          code=0
+          python3 scripts/load_test.py container --image "${IMAGE}" \
+            --report-json "${out}/load-test-report.json" \
+            --markdown "${out}/load-test-results.md" || code=$?
+          {
+            echo
+            echo "Source commit: ${GITHUB_SHA}. Exit code ${code} (0 no miss, 1 at least one miss, 2 harness failure). Report only: this job never gates deployment."
+          } >> "${GITHUB_STEP_SUMMARY}"
+          if [[ "${code}" -eq 0 ]]; then
+            echo "::notice title=Container measurement::no check missed its target"
+          elif [[ "${code}" -eq 1 && -f "${out}/load-test-report.json" ]]; then
+            echo "::warning title=Container measurement::at least one check missed its target; see the job summary and the artifact load-test-measurements"
+          else
+            echo "::warning title=Container measurement::no complete measurement (exit code ${code}); see the job log"
+          fi
+          exit 0
+
+      - name: Upload measurements
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: load-test-measurements
+          path: ${{ runner.temp }}/measurements
+          retention-days: 30
+          if-no-files-found: warn
 
   deploy-development:
     name: Publish and deploy Development

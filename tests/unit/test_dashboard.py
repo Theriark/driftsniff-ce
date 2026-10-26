@@ -612,19 +612,48 @@ def test_a_narrow_attention_list_gives_the_text_its_own_line() -> None:
 
 
 def test_the_trend_chart_fits_a_desktop_card_and_opens_on_today() -> None:
-    """At 1440 px the half-width card leaves 546 px for the chart, so a 600 px minimum hid the
-    bar of today behind a scroll. The chart may shrink to 520 px, where its 14 unit labels are
-    still 12 px, and the wrapper scrolls from the right so the newest day is in view first."""
+    """THE-1371: at 1440 px the half-width card leaves 502 px for the chart, and a 520 px
+    minimum hid the y-axis labels behind the scroll that opens on today. The chart is a 30 unit
+    y-axis beside a 570 unit plot at one scale; it may shrink to 480 px, where its labels are
+    still 12 px. Narrower, only the plot scrolls (from the right, so today is in view first)
+    and the y-axis stays beside it."""
     rules = _css_rules()
     chart = "".join(rules[".chart"])
     wrap = "".join(rules[".chart-wrap"])
-    minimum = re.search(r"min-width:\s*(\d+)px", chart)
-    assert minimum is not None
-    assert 600 * 12 / 14 <= int(minimum.group(1)) <= 546
+    frame = re.search(
+        r"grid-template-columns:\s*max\(5%,\s*(\d+)px\)\s+minmax\(0,\s*1fr\);",
+        "".join(rules[".chart-frame"]),
+    )
+    plot = re.search(r"min-width:\s*(\d+)px", chart)
+    label = re.search(r"font-size:\s*(\d+)px", "".join(rules[".chart-axis .axis-label"]))
+    assert frame is not None and plot is not None and label is not None
+    axis, plot_min, font = int(frame.group(1)), int(plot.group(1)), int(label.group(1))
+    # 5 % of the frame is 30 of 600 units: both drawings share one scale at every width
+    assert axis * 570 == plot_min * 30
+    assert font * axis / 30 >= 12
+    assert axis + plot_min <= 502
     assert re.search(r"overflow-x:\s*auto", wrap)
     assert re.search(r"direction:\s*rtl", wrap)
     assert re.search(r"direction:\s*ltr", chart)
     assert re.search(r"display:\s*block", chart)
+    assert re.search(r"overflow:\s*visible", "".join(rules[".chart-axis"]))
+
+
+def test_the_trend_row_stacks_before_its_cards_are_too_narrow_for_the_chart() -> None:
+    """THE-1371: the half-width card at 1024 px leaves 294 px, so the trend row keeps two
+    columns only while a card holds the whole chart (its minimum plus 50 px of padding and
+    border): two columns at 1440 px, stacked at 1024 px, and never wider than the row."""
+    rules = _css_rules()
+    plot = re.search(r"min-width:\s*(\d+)px", "".join(rules[".chart"]))
+    frame = re.search(r"max\(5%,\s*(\d+)px\)", "".join(rules[".chart-frame"]))
+    (tracks,) = _column_tracks(rules, ".grid-2--chart")
+    card = re.fullmatch(r"repeat\(auto-fit,\s*minmax\(min\(100%,\s*(\d+)px\),\s*1fr\)\)", tracks)
+    assert plot is not None and frame is not None and card is not None
+    card_min = int(card.group(1))
+    assert card_min == int(frame.group(1)) + int(plot.group(1)) + 50
+    sidebar, padding, gap = 248, 2 * 32, 24
+    assert 2 * card_min + gap <= 1440 - sidebar - padding
+    assert 2 * card_min + gap > 1024 - sidebar - padding
 
 
 def test_the_breakdown_bars_have_a_visible_fill() -> None:
@@ -1048,9 +1077,11 @@ def test_the_dashboard_page_renders_every_section_with_text_alternatives(
     ]
     assert parsed.find("div").count({"class": "card metric"}) == 0
     assert {"href": "/settings"} in parsed.find("a")  # the sidebar's Admin > Settings
-    # every chart is an image with a title and a description
-    charts = [svg for svg in parsed.find("svg") if svg.get("role") == "img"]
+    # every chart is an image with a title and a description; a drift line with change links
+    # is a group instead, so its links are not hidden inside an image (THE-1351)
+    charts = [svg for svg in parsed.find("svg") if svg.get("role") in ("img", "group")]
     assert len(charts) == 2 + 4  # the ring, the trend, four drift lines
+    assert [svg for svg in charts if svg.get("role") == "group"]
     for chart in charts:
         labelled = str(chart["aria-labelledby"]).split()
         assert len(labelled) == 2 and labelled[0].endswith("-t") and labelled[1].endswith("-d")

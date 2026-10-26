@@ -27,9 +27,9 @@ from driftsniff.collectors.base import (
     CollectorError,
     ResourceSpec,
 )
+from driftsniff.collectors.resolve import ERROR_BLOCKED_ADDRESS, system_resolver
 from driftsniff.collectors.unifi.client import (
     ERROR_BAD_PAYLOAD,
-    ERROR_BLOCKED_ADDRESS,
     ERROR_FORBIDDEN,
     ERROR_NO_API,
     ERROR_NOT_AVAILABLE,
@@ -41,7 +41,6 @@ from driftsniff.collectors.unifi.client import (
     PAGE_LIMIT,
     UnifiClient,
     UnsupportedVersionError,
-    _system_resolver,
     parse_version,
 )
 from driftsniff.collectors.unifi.models import InfoAnswer, ObjectRef, PageEnvelope
@@ -547,9 +546,9 @@ def test_a_name_that_resolves_to_an_allowed_address_is_used() -> None:
 
 
 def test_the_system_resolver_gives_literal_addresses_back_and_fails_plainly() -> None:
-    assert "127.0.0.1" in _system_resolver("127.0.0.1")
+    assert "127.0.0.1" in system_resolver("127.0.0.1")
     with pytest.raises(CollectorError) as caught:
-        _system_resolver("\udcff")
+        system_resolver("\udcff")
     assert caught.value.error_class == ERROR_CONNECTION
 
 

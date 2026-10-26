@@ -28,24 +28,35 @@
 
 {# trend is a driftsniff.web.dashboard.Trend: 30 days oldest first, the bars and grid lines of
    a 600 by 170 drawing, and the description. The table behind the disclosure is the text
-   alternative; it lists the days that had items. #}
+   alternative; it lists the days that had items. The wrapper scrolls when the card is
+   narrower than the drawing and nothing in it can take the focus, so the wrapper itself is a
+   focusable group named by the chart title: a keyboard reaches the scroll (THE-1351). The
+   y-axis labels are a drawing of their own beside the wrapper, at the same scale, so they stay
+   in view while the plot scrolls (THE-1371); they repeat the table, so they are hidden from
+   assistive technology. #}
 {% macro trend_chart(trend, id_prefix) %}
-<div class="chart-wrap">
-  <svg class="chart" viewBox="0 0 600 170" role="img" aria-labelledby="{{ id_prefix }}-t {{ id_prefix }}-d">
-    <title id="{{ id_prefix }}-t">Change items per day, last 30 days, stacked by severity</title>
-    <desc id="{{ id_prefix }}-d">{{ trend.description }}</desc>
+<div class="chart-frame">
+  <svg class="chart-axis" viewBox="0 0 30 170" aria-hidden="true" focusable="false">
     {% for line in trend.grid %}
-    <line class="grid-line" x1="30" y1="{{ line.y }}" x2="600" y2="{{ line.y }}"/>
     <text class="axis-label" x="0" y="{{ line.label_y }}">{{ line.label }}</text>
     {% endfor %}
     <text class="axis-label" x="0" y="153">0</text>
-    {% for bar in trend.bars %}
-    <rect class="bar bar--{{ bar.severity }}" x="{{ bar.x }}" y="{{ bar.y }}" width="{{ bar.width }}" height="{{ bar.height }}"/>
-    {% endfor %}
-    <line class="grid-line" x1="30" y1="150" x2="600" y2="150"/>
-    <text class="axis-label" x="32" y="166">30 days ago</text>
-    <text class="axis-label" x="598" y="166" text-anchor="end">today</text>
   </svg>
+  <div class="chart-wrap" tabindex="0" role="group" aria-labelledby="{{ id_prefix }}-t">
+    <svg class="chart" viewBox="30 0 570 170" role="img" aria-labelledby="{{ id_prefix }}-t {{ id_prefix }}-d">
+      <title id="{{ id_prefix }}-t">Change items per day, last 30 days, stacked by severity</title>
+      <desc id="{{ id_prefix }}-d">{{ trend.description }}</desc>
+      {% for line in trend.grid %}
+      <line class="grid-line" x1="30" y1="{{ line.y }}" x2="600" y2="{{ line.y }}"/>
+      {% endfor %}
+      {% for bar in trend.bars %}
+      <rect class="bar bar--{{ bar.severity }}" x="{{ bar.x }}" y="{{ bar.y }}" width="{{ bar.width }}" height="{{ bar.height }}"/>
+      {% endfor %}
+      <line class="grid-line" x1="30" y1="150" x2="600" y2="150"/>
+      <text class="axis-label" x="32" y="166">30 days ago</text>
+      <text class="axis-label" x="598" y="166" text-anchor="end">today</text>
+    </svg>
+  </div>
 </div>
 <details class="disclosure">
   <summary>Show the numbers as a table</summary>

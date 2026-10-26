@@ -341,7 +341,6 @@ code,
   font-size: var(--fs-16);
   font-weight: 500;
   color: var(--text-2);
-  transition: background var(--t-fast) var(--ease-out), color var(--t-fast) var(--ease-out);
 }
 
 .nav__group a svg {
@@ -352,6 +351,7 @@ code,
 .nav__group a:hover {
   background: var(--surface-2);
   color: var(--text);
+  transition: background var(--t-fast) var(--ease-out), color var(--t-fast) var(--ease-out);
 }
 
 /* the current page: the ink rule on its left edge, bold text, the ink icon */
@@ -824,8 +824,19 @@ code,
   }
 }
 
+/* the trend row keeps two columns only while each card can hold the whole trend chart: 480 px
+   (see .chart-frame) plus 50 px of card padding and border, from about 1396 px. Narrower, the
+   two cards stack, so the chart is whole at 1024 px too; a track never exceeds the row */
+.grid-2--chart {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 530px), 1fr));
+}
+
 /* ---- buttons and forms ----------------------------------------------------------------- */
 
+/* A colour transition lives on the hover rule, never on the resting rule (THE-1351): when the
+   colour scheme changes, a resting transition faded the background for 120 ms while the text
+   colour switched at once, so light text sat on a still-light button and axe measured a
+   contrast failure. Now the pointer's hover fades in and every theme change is instant. */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -842,12 +853,12 @@ code,
   text-decoration: none;
   cursor: pointer;
   white-space: nowrap;
-  transition: background var(--t-fast) var(--ease-out), box-shadow var(--t-fast) var(--ease-out);
 }
 
 .btn:hover {
   background: var(--surface-2);
   color: var(--text);
+  transition: background var(--t-fast) var(--ease-out), box-shadow var(--t-fast) var(--ease-out);
 }
 
 .btn--primary {
@@ -1586,11 +1597,25 @@ textarea.input {
 
 /* ---- trend chart, breakdowns, timeline ------------------------------------------------- */
 
-/* the chart draws 600 units wide and shrinks with its card down to 520 px, where its 14 unit
-   labels are still 12 px: the half-width card of a 1440 px screen (546 px) shows all 30 days
-   without scrolling. Narrower than that it scrolls inside its wrapper, like the drift line. The
-   wrapper is right-to-left so the scroll opens on today, the end that matters; the drawing
-   itself stays left-to-right */
+/* the chart draws 600 units wide: a 30 unit y-axis and a 570 unit plot, one scale for both.
+   It shrinks with its card down to 480 px (24 + 456), where its 15 unit labels are still 12 px,
+   so the half-width card of a 1440 px screen (502 px) shows all 30 days without scrolling.
+   Narrower than that only the plot scrolls inside its wrapper, like the drift line, and the
+   y-axis stays in view beside it. The wrapper is right-to-left so the scroll opens on today,
+   the end that matters; the drawing itself stays left-to-right */
+.chart-frame {
+  display: grid;
+  grid-template-columns: max(5%, 24px) minmax(0, 1fr);
+  align-items: start;
+}
+
+.chart-axis {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
 .chart-wrap {
   overflow-x: auto;
   direction: rtl;
@@ -1599,7 +1624,7 @@ textarea.input {
 .chart {
   display: block;
   width: 100%;
-  min-width: 520px;
+  min-width: 456px;
   height: auto;
   direction: ltr;
 }
@@ -1625,8 +1650,9 @@ textarea.input {
   stroke-width: 1;
 }
 
-.chart .axis-label {
-  font-size: 14px;
+.chart .axis-label,
+.chart-axis .axis-label {
+  font-size: 15px;
   fill: var(--text-2);
   font-family: var(--font-sans);
 }
@@ -3241,13 +3267,13 @@ textarea.input {
   color: var(--text);
   font-size: var(--fs-14);
   text-decoration: none;
-  transition: border-color var(--t-fast) var(--ease-out), background var(--t-fast) var(--ease-out);
 }
 
 .chip:hover {
   border-color: var(--ink);
   background: var(--surface-2);
   color: var(--text);
+  transition: border-color var(--t-fast) var(--ease-out), background var(--t-fast) var(--ease-out);
 }
 
 .chip__name {
