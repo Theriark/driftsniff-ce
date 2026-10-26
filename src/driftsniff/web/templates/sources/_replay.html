@@ -21,7 +21,9 @@
     <li><span class="replay-day__res">{{ line.label }}</span><span class="replay-day__sevs">{{ severity_counts(line.counts) }}</span><span class="replay-day__n num">{{ number(line.count) }}</span></li>
     {% endfor %}
   </ul>
-  <a class="replay-day__link" href="{{ summary.href }}" data-replay-day-link>{{ summary.link_text }}</a>
+  {# a day without items has nothing to open, so its link is hidden; replay.js keeps it in step
+     when the cursor moves (THE-1402 F11) #}
+  <a class="replay-day__link" href="{{ summary.href }}" data-replay-day-link{% if not summary.total %} hidden{% endif %}>{{ summary.link_text }}</a>
 </div>
 {%- endmacro %}
 
@@ -75,7 +77,7 @@
     <div class="replay-map">
       <svg class="replay-map__labels" viewBox="0 0 {{ view.label_width }} {{ view.height }}" width="{{ view.label_width }}" height="{{ view.height }}" aria-hidden="true" focusable="false">
         {% for row in view.rows %}
-        <text class="replay-label" x="{{ view.label_width - 10 }}" y="{{ row.label_y }}" text-anchor="end">{{ row.short_label }}</text>
+        <text class="replay-label" x="{{ view.label_x }}" y="{{ row.label_y }}" text-anchor="end">{{ row.short_label }}</text>
         {% endfor %}
       </svg>
       <div class="replay-map__scroll">

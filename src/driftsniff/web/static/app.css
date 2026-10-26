@@ -938,6 +938,12 @@ textarea.input {
   resize: vertical;
 }
 
+/* a field whose content is code (declared resources, paths) keeps the mono face: the input rule
+   above resets the font after .mono (THE-1402 F10) */
+.input.mono {
+  font-family: var(--font-mono);
+}
+
 .input::placeholder {
   color: var(--slate);
 }

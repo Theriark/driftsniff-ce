@@ -145,6 +145,8 @@
       var query = new URLSearchParams({ source: source, sort: "oldest", from: iso, to: iso, muted: "1" });
       link.setAttribute("href", "/changes?" + query.toString());
       link.textContent = "Open the changes of " + shortLabel(day);
+      // a day without items opens an empty list, so it offers no link (THE-1402 F11)
+      link.hidden = !sum;
     }
 
     function setCursor(index) {

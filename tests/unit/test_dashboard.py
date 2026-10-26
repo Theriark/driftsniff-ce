@@ -903,11 +903,11 @@ def test_the_checks_of_the_last_hours_are_drawn_at_the_today_end_of_the_strip(
     "30 days ago"; they belong beside "today", one hour being 20 / 24 of a unit."""
     lines = {row.name: row for row in service.load().driftlines}
     lab = {mark.kind: mark.x for mark in drift_marks(lines["lab-controller"].checks)}
-    assert lab == {"ok": 606.3, "change": 607.2, "failed": 607.6}
+    assert lab == {"ok": 608.3, "change": 609.2, "failed": 609.6}
     office = drift_marks(lines["office-xo"].checks)
-    assert [mark.x for mark in office if mark.kind != "change"][-1] == 588.0
+    assert [mark.x for mark in office if mark.kind != "change"][-1] == 590.0
     (high,) = [mark for mark in office if mark.kind == "change"]
-    assert high.x == 548.0 and high.severity == "high"
+    assert high.x == 550.0 and high.severity == "high"
 
 
 def test_the_trend_counts_items_per_day_by_severity(

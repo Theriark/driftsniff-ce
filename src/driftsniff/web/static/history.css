@@ -404,3 +404,9 @@
     max-width: none;
   }
 }
+
+/* the footnote under the configuration keeps a readable line, under 80 characters (THE-1402
+   F10: it ran about 150 characters wide at 1440) */
+.config-note {
+  max-width: 72ch;
+}

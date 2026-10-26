@@ -32,7 +32,9 @@ One horizontal strip per source covering the last 30 days, drawn as inline SVG o
 | Labels | HTML text under the strip, 14 px `text-2` at both ends: "30 days ago" and "today" (not SVG text, so they never scale below 14 px) | orientation without a full axis |
 
 Rules: one mark per check, placed at the time of the check on the 30 day axis, one day every
-20 units with today at the right end (THE-1402 F2: spaced evenly by check, the newest check of a
+20 units with 30 days ago at 10 and today at 610 of a 620 unit viewBox, so the widest mark and its
+focus stroke stay inside the strip at both ends (THE-1416; the mock-ups' 616 unit strip cut the
+critical mark at today by 1 unit) (THE-1402 F2: spaced evenly by check, the newest check of a
 quiet source sat beside "30 days ago"; a strip in per-day mode is still one evenly spaced mark per
 day, and checks close in time share a spot with the change marks drawn over the ticks); hover or focus on a mark shows the event summary in the SVG
 `title` and the link opens the event; a focused mark gets a 2 px `ink` stroke; the strip
@@ -282,6 +284,13 @@ files from `../../brand/`); switch the system colour scheme to see the dark them
   them on Development after deployment and judges them against the UI standard there.
 - The contrast ratios were computed by the script on this branch (68 pairs, all pass); the
   pytest, ruff and mypy runs happen in CI because the sandbox has none of them.
+- THE-1405 (PR 123) changed the section 2 rule from "spaced evenly by check" to "placed at the
+  time of the check", without the owner's sign-off. Frontend, the owner of this brief,
+  acknowledges and keeps it (THE-1416): with even spacing the newest check of a quiet source sat
+  beside "30 days ago" (THE-1402 F2). The squeeze the old rule guarded against is handled by
+  checks close in time sharing a spot, changes drawn over ticks, and the per-day strip beyond 31
+  checks (P10-T4). The mock-ups in `docs/mockups/` keep the old evenly spaced 616 unit drawing
+  as a record of P10-T1 and are no longer the reference for the drift line geometry.
 - P3 (THE-1306) added `state(kind, ...)` to `components/states.html`, the one entry to the
   empty, error and loading states: `empty` is a `role="status"` (with `inline=true` the one
   quiet sentence of a card that has nothing to list), `error` a `role="alert"` banner whose

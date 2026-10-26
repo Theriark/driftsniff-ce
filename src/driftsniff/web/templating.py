@@ -86,11 +86,13 @@ TOPBAR_ACTION_HIDDEN: Final = ("/", "/sources")
 TOPBAR_ACTION: Final = ("Add source", "/sources/new")
 
 # Drift line geometry (docs/design-direction.md section 2): a 32 unit tall strip under the axis
-# "30 days ago ... today", one day every 20 units with 30 days ago at 8 and today at 608, so the
-# strip is the 616 wide one of the mock-ups. A mark sits at the time of its check, never at its
-# place in the list (THE-1402 F2: packed from the left, a change of today read as 30 days old).
+# "30 days ago ... today", one day every 20 units with 30 days ago at 10 and today at 610, so the
+# strip is 620 wide. A mark sits at the time of its check, never at its place in the list
+# (THE-1402 F2: packed from the left, a change of today read as 30 days old). The pad holds the
+# widest mark (9 units each side of its centre) and the 2 unit focus stroke around it: the 8 unit
+# pad of the mock-ups cut the critical mark at today by 1 unit, 2 when focused (THE-1416).
 DRIFT_STEP: Final = 20
-DRIFT_PAD: Final = 8
+DRIFT_PAD: Final = 10
 DRIFT_HEIGHT: Final = 32
 DRIFT_SPAN_DAYS: Final = 30
 DRIFT_WIDTH: Final = 2 * DRIFT_PAD + DRIFT_STEP * DRIFT_SPAN_DAYS
