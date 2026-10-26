@@ -1,12 +1,13 @@
 """The browser journeys of P10-T9 (THE-1315): a person using the real application.
 
-The tests run in file order and share one signed-in tab, as one person's session does; a failure
-early on makes the later journeys fail too, so read the first red one. The data is the Development
-fixture (three synthetic changes of several severities) plus what the journeys make themselves.
-Nothing leaves 127.0.0.1 and no real source or credential is involved.
+The tests run in file order and share one signed-in tab, as one person's session does; a
+failure early on makes the later journeys fail too, so read the first red one. The data is
+the Development fixture (three synthetic changes of several severities) plus what the
+journeys make themselves. Nothing leaves 127.0.0.1 and no real source or credential is
+involved.
 
-Every page and every refused state is audited with axe at 1440, 768 and 390 pixels in the light
-and dark scheme (tests/e2e/support.py); the screenshots land in E2E_ARTIFACT_DIR.
+Every page and every refused state is audited with axe at 1440, 768 and 390 pixels in the
+light and dark scheme (support.py); the screenshots land in E2E_ARTIFACT_DIR.
 """
 
 import re
@@ -14,9 +15,8 @@ import re
 import pytest
 from playwright.sync_api import Browser, Page, expect
 
-from tests.e2e.conftest import Accounts
-from tests.e2e.server import LiveApp
-from tests.e2e.support import Audit, Watch
+from .server import LiveApp
+from .support import Accounts, Audit, Watch
 
 FIXTURE_SOURCE = "DEV-FIXTURE synthetic (removable)"
 FAKE_SOURCE = "E2E fake source"
@@ -91,7 +91,6 @@ def test_02_sign_out_and_sign_in(
     audit.current(page, "login-failed")
     watch.allow_refusals = False
     sign_in(page, app, accounts.admin, accounts.admin_password)
-    # a page that needs a session sends a signed-out visitor to the sign-in page
     expect(page.locator(".user-name")).to_have_text(accounts.admin)
 
 
@@ -110,9 +109,7 @@ def test_03_dashboard_and_the_change_list(page: Page, app: LiveApp, audit: Audit
     audit.current(page, "changes-list-no-match")
 
 
-def test_04_add_a_fake_push_source(
-    page: Page, app: LiveApp, audit: Audit, watch: Watch
-) -> None:
+def test_04_add_a_fake_push_source(page: Page, app: LiveApp, audit: Audit, watch: Watch) -> None:
     open_page(page, app, "/sources")
     expect(page.get_by_text(FIXTURE_SOURCE).first).to_be_visible()
     audit.current(page, "sources-list")
@@ -217,12 +214,7 @@ def test_08_create_and_revoke_an_api_token(page: Page, app: LiveApp, audit: Audi
 
 
 def test_09_a_viewer_reads_and_never_changes(
-    page: Page,
-    browser: Browser,
-    app: LiveApp,
-    accounts: Accounts,
-    audit: Audit,
-    watch: Watch,
+    page: Page, browser: Browser, app: LiveApp, accounts: Accounts, audit: Audit
 ) -> None:
     open_page(page, app, "/settings")
     page.fill("#user-username", accounts.viewer)
@@ -244,9 +236,9 @@ def test_09_a_viewer_reads_and_never_changes(
         audit.current(viewer, "change-detail-viewer")
         response = viewer.goto(f"{app.base_url}/settings")
         assert response is not None and response.status == 403
-        viewer_watch.allow_refusals = True
         audit.current(viewer, "settings-not-allowed")
-        assert not [e for e in viewer_watch.drain() if "status of 403" not in e]
+        unexpected = [e for e in viewer_watch.drain() if "status of 403" not in e]
+        assert not unexpected, "\n".join(unexpected)
     finally:
         context.close()
 
@@ -254,9 +246,7 @@ def test_09_a_viewer_reads_and_never_changes(
 def test_10_the_pages_work_without_javascript(
     browser: Browser, app: LiveApp, accounts: Accounts
 ) -> None:
-    context = browser.new_context(
-        viewport={"width": 390, "height": 844}, java_script_enabled=False
-    )
+    context = browser.new_context(viewport={"width": 390, "height": 844}, java_script_enabled=False)
     try:
         plain = context.new_page()
         sign_in(plain, app, accounts.admin, accounts.admin_password)

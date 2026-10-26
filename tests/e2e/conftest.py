@@ -1,28 +1,17 @@
-"""Shared fixtures of the browser tests: one Chromium for the session, the artifact folder, the
-live application and the accounts the journeys create."""
+"""Shared fixtures of the browser tests: one Chromium for the session, the artifact folder,
+the live application and the accounts the journeys create."""
 
 import os
 import secrets
 import tempfile
 from collections.abc import Iterator
-from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
 from playwright.sync_api import Browser, BrowserContext, Page, sync_playwright
 
-from tests.e2e.server import LiveApp, start_app
-from tests.e2e.support import VIEWPORTS, Audit, Watch
-
-
-@dataclass(frozen=True)
-class Accounts:
-    """The admin the setup journey creates and the viewer the role journey adds."""
-
-    admin: str
-    admin_password: str
-    viewer: str
-    viewer_password: str
+from .server import LiveApp, start_app
+from .support import VIEWPORTS, Accounts, Audit, Watch
 
 
 @pytest.fixture(scope="session")
@@ -44,13 +33,13 @@ def browser() -> Iterator[Browser]:
 
 
 @pytest.fixture(scope="session")
-def live_app(tmp_path_factory: pytest.TempPathFactory) -> Iterator[LiveApp]:
+def app(tmp_path_factory: pytest.TempPathFactory) -> Iterator[LiveApp]:
     """The real application with the Development fixture, started once for all journeys."""
-    app = start_app(tmp_path_factory.mktemp("driftsniff-e2e"))
+    running = start_app(tmp_path_factory.mktemp("driftsniff-e2e"))
     try:
-        yield app
+        yield running
     finally:
-        app.stop()
+        running.stop()
 
 
 @pytest.fixture(scope="session")

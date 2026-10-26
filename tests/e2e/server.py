@@ -1,12 +1,12 @@
 """A real driftsniff process for the browser journeys (P10-T9, THE-1315).
 
-The journeys talk to the application the way a person does: ``driftsniff serve`` runs as a child
-process on a free loopback port with a temporary data directory and a temporary key file. Before
-it starts, the Development fixture (docs/dev-fixture.md) is written into that directory with
-``seed_fixture`` and a pipeline without a notifier, so the screens have changes of every severity
-while the address guard of the fixture, which only allows a Development host, stays untouched.
-The one-time setup code is read from the log of the child, as an operator reads it from the
-container log. Nothing here uses the network beyond 127.0.0.1.
+The journeys talk to the application the way a person does: ``driftsniff serve`` runs as a
+child process on a free loopback port with a temporary data directory and a temporary key
+file. Before it starts, the Development fixture (docs/dev-fixture.md) is written into that
+directory with ``seed_fixture`` and a pipeline without a notifier, so the screens have changes
+of every severity while the address guard of the fixture, which only allows a Development
+host, stays untouched. The one-time setup code is read from the log of the child, as an
+operator reads it from the container log. Nothing here uses the network beyond 127.0.0.1.
 """
 
 import http.client
@@ -129,7 +129,7 @@ def start_app(work_dir: Path) -> LiveApp:
         "DRIFTSNIFF_KEY_FILE": str(key_file),
         "DRIFTSNIFF_ENVIRONMENT_LABEL": "Journeys",
     }
-    process = subprocess.Popen(  # noqa: S603
+    process = subprocess.Popen(
         [sys.executable, "-c", SERVE],
         cwd=ROOT,
         env=env,
