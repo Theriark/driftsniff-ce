@@ -1641,11 +1641,13 @@ textarea.input {
 }
 
 .diff mark {
-  background: none;
+  background: var(--surface);
   color: inherit;
-  text-decoration: underline;
-  text-decoration-thickness: 2px;
-  text-underline-offset: 2px;
+  padding: 0 2px;
+  border: 1px solid var(--slate);
+  border-radius: 3px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
 }
 
 @media (max-width: 479px) {

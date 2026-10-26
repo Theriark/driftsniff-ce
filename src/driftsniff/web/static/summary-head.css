@@ -83,11 +83,13 @@
   color: var(--text-2);
 }
 
-/* on a phone the strip wraps instead of hiding a tab past its edge */
+/* On a phone the strip wraps instead of hiding a tab past its edge. The 12 px gap keeps the five
+   source tabs (about 301 px of labels) on one row of a 390 px screen's 354 px; at 16 px
+   Configuration wrapped alone onto a second row (THE-1416, F6). Narrower phones still wrap. */
 @media (max-width: 767px) {
   .tabs ul {
     flex-wrap: wrap;
-    gap: 0 var(--sp-4);
+    gap: 0 var(--sp-3);
   }
 }
 

@@ -39,8 +39,8 @@
   --sev-medium-tint: #F3E8CC;
   --sev-high-tint: #F6DFD3;
   --sev-critical-tint: #F7D9D6;
-  --diff-removed: #F7D9D6;
-  --diff-added: #DDEBDD;
+  --diff-removed: #EBEBE3;
+  --diff-added: #E3E3D9;
   --header-bg: #F5F5F0;
 
   /* type: the brand guide's pairing, Inter (or the system sans) for the interface and
@@ -117,8 +117,8 @@
     --sev-medium-tint: #332B14;
     --sev-high-tint: #3A251C;
     --sev-critical-tint: #3B2120;
-    --diff-removed: #3B2120;
-    --diff-added: #1F3324;
+    --diff-removed: #27272E;
+    --diff-added: #2F2F37;
     --header-bg: #1E1E24;
     --elev-1: 0 1px 2px rgba(0, 0, 0, 0.4);
     --elev-2: 0 6px 18px rgba(0, 0, 0, 0.5);
@@ -709,6 +709,27 @@ code,
   .crumbs__sep {
     display: none;
   }
+
+  /* The action keeps its plus icon in a 40 px square and its label for screen readers only:
+     with the words, a long trail pushed it onto a third row of chrome before the content
+     (THE-1416, F5). position: relative keeps the hidden label inside the button. */
+  .topbar__action {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .topbar__action-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
 }
 
 /* ---- page frame ------------------------------------------------------------------------ */
@@ -783,11 +804,15 @@ code,
   margin-top: var(--sp-8);
 }
 
+/* the hint drops under the heading when the two do not fit on one line, so neither is squeezed
+   into a narrow column: at 390 px "Drift line, last 30 days" took 4 lines beside its hint
+   (THE-1416, F6) */
 .section-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: var(--sp-4);
+  gap: var(--sp-1) var(--sp-4);
   margin-bottom: var(--sp-3);
 }
 
@@ -1384,14 +1409,16 @@ textarea.input {
   }
 }
 
-/* a dashboard strip narrower than its 480 px drawing scrolls inside its cell (1024 and 390 px).
-   Right to left, the scroller opens at its right end: today and the newest marks are in view,
-   the older days a scroll to the left. The drawing and its labels stay left to right. */
-.driftlines .driftline__strip {
+/* a strip narrower than its 480 px drawing scrolls inside its box: on the dashboard at 1024 and
+   390 px, on the source page at 390 px and in the source list at 1440 px. Right to left, the
+   scroller opens at its right end: today and the newest marks are in view, the older days a
+   scroll to the left. The source page and list strips opened at "30 days ago" with the marks
+   off screen until THE-1416 (F7). The drawing and its labels stay left to right. */
+.driftline__strip {
   direction: rtl;
 }
 
-.driftlines .driftline__strip > * {
+.driftline__strip > * {
   direction: ltr;
 }
 
@@ -2171,6 +2198,9 @@ textarea.input {
   overflow-wrap: anywhere;
 }
 
+/* Before and after sit on two neutral tints (THE-1416, F4): a change is not good or bad by its
+   direction, the severity badge carries the risk, and red stays for critical items and
+   failures. The word above each value says which side it is. */
 .diff .before {
   background: var(--diff-removed);
 }
@@ -2187,12 +2217,16 @@ textarea.input {
   margin-bottom: 2px;
 }
 
+/* the changed part is boxed with a slate hairline on the card colour, not underlined, so it
+   does not read as a link; clone keeps the box whole on each line of a wrapped value */
 .diff mark {
-  background: none;
+  background: var(--surface);
   color: inherit;
-  text-decoration: underline;
-  text-decoration-thickness: 2px;
-  text-underline-offset: 2px;
+  padding: 0 2px;
+  border: 1px solid var(--slate);
+  border-radius: 3px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
 }
 
 @media (max-width: 479px) {
@@ -2414,9 +2448,13 @@ textarea.input {
 
 /* ---- footer ---------------------------------------------------------------------------- */
 
+/* The gutter sits inside the 1280 px column, as in .page and .app-header__inner, so the footer
+   text starts where the logo and the page content start. With the gutter outside the column,
+   the signed-out footer at 1440 px began 32 px left of the logo (x 80 against 112; THE-1416,
+   F9); signed in, the column is narrower than 1280 px and both ways give the same edge. */
 .app-footer {
   border-top: 1px solid var(--border);
-  padding: var(--sp-4) var(--gutter);
+  padding: var(--sp-4) 0;
   font-size: var(--fs-14);
   color: var(--text-2);
 }
@@ -2424,6 +2462,7 @@ textarea.input {
 .app-footer__inner {
   max-width: var(--content-max);
   margin: 0 auto;
+  padding: 0 var(--gutter);
   display: flex;
   justify-content: space-between;
   flex-wrap: wrap;
@@ -2717,13 +2756,11 @@ textarea.input {
   margin-top: var(--sp-4);
 }
 
-/* the strip of the source list sits in a table cell at its natural height */
+/* The strip of the source list sits in a table cell. It keeps its "30 days ago" and "today"
+   labels: at 1440 px the 480 px drawing scrolls in about 330 px, and without the labels the
+   scrolled strip had no ends to read it by (THE-1416, F7). */
 .drift-cell {
   min-width: 240px;
-}
-
-.drift-cell .driftline__axis {
-  display: none;
 }
 
 /* the hidden-by-XO note under a resource name */

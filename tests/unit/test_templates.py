@@ -346,6 +346,8 @@ def test_the_top_bar_offers_add_source_to_admins_outside_the_pages_that_lead_wit
 
     # a secondary button, so the page's own primary button stays the only primary one
     assert actions(ADMIN) == [{"class": "btn topbar__action", "href": "/sources/new"}]
+    # the label is its own span, so a phone can hide the words and keep the icon (THE-1416, F5)
+    assert '<span class="topbar__action-label">Add source</span></a>' in page(ADMIN)
     for role in ("operator", "viewer"):
         assert actions(dataclasses.replace(ADMIN, user_role=role)) == [], role
 

@@ -339,7 +339,7 @@ at all) sends to the sources; a filter that matches nothing says so with a clear
 detection window written as between two UTC times (never who changed it), the counts and the
 rule pack. Items are grouped by object; each item is an evidence block: severity shape, the
 readable field label and what happened (`FIELD_LABELS` and `KIND_LABELS`, our own tables), the
-rule id, then the before and after pair with the differing part underlined
+rule id, then the before and after pair on neutral tints with the differing part boxed
 (`split_difference`), or the two fingerprints of a secret (values never travel, see slice A),
 or an order move in words (`move_text`: X moved from after A to before B), then the rationale
 behind "Why is this rated ...?". An operator gets "Mute this path" under an item that may be
