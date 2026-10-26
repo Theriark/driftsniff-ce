@@ -8,7 +8,10 @@ name: CI
 # The nightly-properties job runs only on the daily schedule or a manual mode=nightly dispatch. It
 # is report only: no pull_request trigger, not a required check, and no other job needs it. The
 # measure job runs scripts/load_test.py against the built image, is report only and is not a
-# dependency of deploy-development.
+# dependency of deploy-development. The classify job runs on a push to development only: when every
+# path that differs between the commit the Development runtime reports and the pushed commit is
+# documentation (scripts/classify_changes.py, fail closed), deploy-development is skipped so the
+# running candidate is not replaced. Every check above still runs for such a push.
 
 on:
   pull_request:
@@ -586,6 +589,46 @@ jobs:
           retention-days: 30
           if-no-files-found: warn
 
+  # Decides whether a push changes only documentation. Fail closed: anything unproven is treated as
+  # an application change and the normal publish and deploy run. It only reads the repository and
+  # the public /healthz answer and holds no secret.
+  classify:
+    name: Classify push
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/development' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    outputs:
+      docs_only: ${{ steps.classify.outputs.docs_only }}
+
+    env:
+      DEVELOPMENT_HOST: ce-dev-driftsniff.theriark.dev
+
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Compare the pushed commit with the commit Development runs
+        id: classify
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/classify_changes.py \
+            --head "${GITHUB_SHA}" \
+            --health-url "https://${DEVELOPMENT_HOST}/healthz" | tee "${RUNNER_TEMP}/classify.txt" || {
+            # No docs_only output means not documentation-only: the full deployment runs.
+            echo "::warning::the classifier did not run; the full deployment proceeds"
+            echo "classifier did not run" > "${RUNNER_TEMP}/classify.txt"
+          }
+          {
+            echo "## Push classification"
+            echo
+            echo "- Pushed commit: \`${GITHUB_SHA}\`"
+            echo "- Result: $(cat "${RUNNER_TEMP}/classify.txt")"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
   deploy-development:
     name: Publish and deploy Development
     needs:
@@ -602,8 +645,10 @@ jobs:
       - scan
       - smoke
       - sbom
-    # Never on a pull request: only a push to development, and only while the switch is true.
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/development' && vars.DEPLOY_DEVELOPMENT_ENABLED == 'true' }}
+      - classify
+    # Never on a pull request: only a push to development, only while the switch is true, and never
+    # for a push the classify job proved to change documentation only.
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/development' && vars.DEPLOY_DEVELOPMENT_ENABLED == 'true' && needs.classify.outputs.docs_only != 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     environment: development
