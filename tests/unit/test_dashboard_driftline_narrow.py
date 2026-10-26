@@ -68,12 +68,19 @@ def test_the_desktop_columns_of_the_drift_line_are_unchanged() -> None:
     assert tracks == ["160px 150px 1fr"]
 
 
-def test_a_scrolling_dashboard_strip_opens_at_today() -> None:
+def test_a_scrolling_strip_opens_at_today() -> None:
     """Right to left, the scroller starts at its right end (today); its content stays left to
-    right, so the drawing and the "30 days ago" and "today" labels keep their order."""
-    assert re.search(r"direction:\s*rtl;", _rules(".driftlines .driftline__strip"))
-    assert re.search(r"direction:\s*ltr;", _rules(".driftlines .driftline__strip > *"))
+    right, so the drawing and the "30 days ago" and "today" labels keep their order.
+
+    THE-1416 (F7) widened this from the dashboard to every strip: the source page strip at
+    390 px and the source list strip at 1440 px opened at "30 days ago" with their marks off
+    screen. The rule now sits on .driftline__strip itself, so no page can opt out by scope."""
     strip = _rules(".driftline__strip")
     assert re.search(r"overflow-x:\s*auto;", strip)
-    # the strips of the source list and the source page keep their direction
-    assert "direction" not in strip
+    assert re.search(r"direction:\s*rtl;", strip)
+    assert re.search(r"direction:\s*ltr;", _rules(".driftline__strip > *"))
+    # no scoped rule turns a page's strip back to left to right
+    css = _css()
+    for head, body in _blocks(css):
+        if ".driftline__strip" in head and not head.rstrip().endswith("> *"):
+            assert "direction: ltr" not in body, head

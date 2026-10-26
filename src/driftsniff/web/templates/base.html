@@ -86,7 +86,9 @@
   <span class="env-badge">{{ shell.environment_label }}</span>
   {% endif %}
   {% if action %}
-  <a class="btn topbar__action" href="{{ action[1] }}"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#i-plus"/></svg>{{ action[0] }}</a>
+  {# under 480 px the label is visually hidden and the button keeps only its icon, so the trail,
+     the badge and the action share one row (THE-1416, F5); the label still names the link #}
+  <a class="btn topbar__action" href="{{ action[1] }}"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#i-plus"/></svg><span class="topbar__action-label">{{ action[0] }}</span></a>
   {% endif %}
 </div>
 {% else %}

@@ -27,7 +27,9 @@
 {% if can_admin %}<a class="btn btn--primary" href="/sources/new">Add source</a>{% endif %}
 {% endcall %}
 <div class="toolbar">
-  <p class="hint">{{ number(listing.rows | length) }} {{ "source" if listing.rows | length == 1 else "sources" }}. Status follows the last check; the strip shows the last 30 days.</p>
+  {# the drift line column names its own 30 days and is hidden below 1024 px, so this line does
+     not promise a strip the screen may not show (THE-1416, F7) #}
+  <p class="hint">{{ number(listing.rows | length) }} {{ "source" if listing.rows | length == 1 else "sources" }}. Status follows the last check.</p>
   {{ density_switch(shell.density, shell.path, shell.csrf_token) }}
 </div>
 <section class="card card--flush" aria-labelledby="sources-cap">

@@ -142,7 +142,7 @@ primary button on hover. Radius: 8 px controls and badges, 10 px cards, 12 px la
 
 Every colour beyond the four brand colours is listed in `docs/design-colours.json` with the pair
 it must pass, and `scripts/check_contrast.py` computes the WCAG 2 ratio of every pair (4.5 to 1
-for text, 3 to 1 for graphics and focus rings). The committed file has 68 pairs across both
+for text, 3 to 1 for graphics and focus rings). The committed file has 88 pairs across both
 themes and every pair passes; the lowest are the medium severity badge (4.63 to 1), the high
 severity badge (4.68 to 1) and alert red on paper (4.82 to 1). The script prints the full table
 and appends it to the GitHub job summary when `GITHUB_STEP_SUMMARY` is set.
@@ -164,6 +164,13 @@ Source and run status use a second, square-cornered badge with an icon and a wor
 (check), failing (cross, alert), partial (half circle, medium), stale and unsupported (clock or
 dash, dashed slate border), insecure TLS (open lock, filled red, the only filled status badge),
 credential expiring (key, medium).
+
+Before and after values of a change sit on two neutral tints, `diff-removed` (#EBEBE3 /
+#27272E) and `diff-added` (#E3E3D9 / #2F2F37), under the words Before and After. A change is not
+good or bad by its direction: the severity badge carries the risk, so red stays for critical
+items and failures and a risky change never shows a reassuring green After (THE-1416, F4). The
+changed part is boxed with a slate hairline on the card colour rather than underlined, so it
+does not read as a link.
 
 ## 6. Spacing, layout and motion
 
