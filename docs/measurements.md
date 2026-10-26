@@ -12,7 +12,7 @@ verdict rules are fixed in `scripts/load_test.py`; the unit tests are `tests/uni
 | First page (the dashboard `/`), cold | under 1 second |
 | Memory limit of the container | 512 MB holds: no container is killed for memory |
 | Database growth | in line with section 14 of rnd-report-1 (not compared here, see Limits) |
-| Noisy source | run once to show the volatility warning (see Noisy fixture) |
+| Noisy source | run once: a source that differs only in ignore class fields adds nothing (see Noisy fixture) |
 
 A result outside a target is reported as a miss, with its number. It is never hidden or rounded
 into a pass. A miss needs a revision note and a decision by the R&D Lead. What was not measured is
@@ -58,8 +58,9 @@ is hard).
    the image entry point), waits for its health check, and the host requests `/` and `/changes`
    with the session of the seed (one cold request, then 20 warm ones). Idle memory, peak memory
    (`VmHWM`) and CPU of the server process are read from inside with `docker exec`.
-3. **Noisy.** A third container, on its own volumes, runs a source whose configuration differs at
-   every poll (3 changes every 15 minutes, 48 polls) and looks for any volatility warning.
+3. **Noisy.** A third container, on its own volumes, runs a source whose polls differ at every
+   poll only in ignore class fields (`uptimeSec` and `lastHeartbeatAt` of every device, 48 polls
+   every 15 minutes, no configuration change) and counts what the polls after the baseline added.
 
 Containers and volumes are always removed.
 
@@ -76,6 +77,9 @@ The script always ends with a report and never with a traceback:
 - The verdicts then show `miss` for the 512 MB limit (and for RAM: a kill at 512 MB means the
   peak was above 250 MB) and for the first page, and `gap` for what could not be measured. The
   Markdown says the run is incomplete. Exit code 1.
+- A server that dies right after its health check (a failed `docker exec` read from a container
+  that is no longer running) gives the same partial result, with `stopped_after_healthy`. If the
+  container still runs and the read fails, that is a harness fault (exit code 2).
 
 Only a fault of the harness itself (docker missing, the image missing, a container that exits with
 an error and was not killed for memory, a server that never becomes healthy) ends with exit code 2
@@ -86,7 +90,8 @@ and no report; the message says what failed.
 The same fixture runs in one process with `scripts/load_test.py local` (no docker, no limit). It
 proves the fixture and the pipeline and is what the unit tests run, but it measures nothing against
 the targets: its RAM, first page and 512 MB checks are reported as `gap` ("not measured: local mode
-has no container"), with the process figures only as a remark for development.
+has no container"), with the process figures only as a remark for development. The suppression
+check does not need a container, so it is a real result in this mode too.
 
 ### What counts as what
 
@@ -96,6 +101,7 @@ has no container"), with the process figures only as a remark for development.
 | 512 MB limit holds | neither container was killed (`OOMKilled`), the seed exited 0, the server is still running. The cgroup peak is reported too; it includes file cache that the kernel can drop, so a peak at the limit without a kill is a note, not a miss |
 | First page | wall time of the first request to `/` on the loopback after the container is healthy (cold: first template render, cold database pages), then the median and p95 of 20 warm requests |
 | Database growth | the compressed bytes the run records say each run added (`new_state_bytes` plus `manifest_bytes`): the baseline, and the sum for the rest divided by the days; and the file size of the database |
+| Volatile-field suppression | after the baseline, the counters-only polls added no change item, event, manifest, state or stored byte. The database file size after the baseline and after the last poll is reported next to it |
 | CPU | CPU seconds of the process over the whole seed, divided by its wall time; the burst is the best one-second window |
 
 | Outcome | Meaning |
@@ -108,31 +114,34 @@ has no container"), with the process figures only as a remark for development.
 
 Exit code of the script: 0 no check is a miss, 1 at least one miss (the report is complete or
 partial as above), 2 the harness failed. Every check is also written as a `::notice` line and, in
-a CI job, to the job summary. Until the product has a volatility warning, the exit code of a
-container run is 1 because of that check; a CI job has to accept that or run report-only.
+a CI job, to the job summary. A run in which every target is met exits 0.
 
-## Noisy fixture and the volatility warning
+## Noisy fixture and volatile-field suppression
 
-Section P11-T1 asks for a noisy fixture "to prove the volatility warning". At development commit
-`0ff6a65` the product has **no volatility warning**: no run record, log line, dashboard row or rule
-in `src/` warns that a source changes at every poll. The only volatility handling is the ignore
-class of the type tables, which keeps counters and timestamps out of the comparison, and the
-Xen Orchestra backup-run test (docs/xo-volatility.md). The noisy run therefore shows the effect
-(one manifest and one event for every poll, and the database growth per poll) and the search for a
-warning finds nothing, so check 2 is reported as a **miss**.
+The noisy fixture checks that fields in the ignore class of the type tables (counters and
+timestamps that differ at every poll) cost nothing. It pushes 48 polls of 200 objects whose only
+differences are `uptimeSec` and `lastHeartbeatAt` of the devices. After the baseline the run must
+add **no change item, no event, no manifest, no state and no stored byte**, and no poll may store a
+snapshot. The check passes or is a miss on that basis alone; the script reports the database file
+size after the baseline and after the last poll next to it. The file size is information, not the
+criterion: every poll still writes a small run record, so the file can grow by those rows without
+any manifest or state being stored.
 
-**Revision note for the R&D Lead.** Decide one of: (a) a small task builds the warning (for
-example a source whose last N polls each stored a manifest gets a "changes at every check" row in
-needs-attention, with the changed paths most often involved), after which this check passes
-without a change to the script; or (b) the acceptance check is reworded to "the noisy run shows
-the growth per poll", which it already does. The quiet polls of the main fixture show the
-opposite case: counters that are ignore class cost no manifest at all.
+**Revision note (R&D Lead ruling, THE-1377 report rev 1).** The first version of this check looked
+for a volatility warning and reported a miss, because the product has none. The ruling is that a
+volatility warning is not in the approved Community Edition scope and that "prove the volatility
+warning" in P11-T1 was an analysis error. The check is therefore the one above. No warning is built
+and no miss is reported by design. The main fixture already shows the same property for its 180
+counters-only polls (`quiet_polls_stored_snapshot` is 0).
 
 ## Results
 
-**No container result exists yet.** The numbers for peak RAM, CPU, database size, first page and
-the 512 MB limit are a **gap**: nothing has been measured against the targets, and no target is
-met or missed. The pull request that adds the script has only the unit tests and the small
+**No container result is recorded here yet.** The numbers for peak RAM, CPU, database size, first
+page and the 512 MB limit are a **gap** in this document: nothing is copied until it is read from
+the job summary or the report artifact of a container run of the merged script (CI runs
+40266867617 and 40263139852 are named for that, and need someone with access to the Actions
+artifacts). A figure that was not read from there is not entered, and no target is claimed met
+or missed. The pull request that adds the script has only the unit tests and the small
 end-to-end run in its checks (`tests/unit/test_load_test.py`), which prove the fixture, the
 verdicts and the partial-report paths but measure nothing about the image. The first container
 run replaces this paragraph with its table (copy the Markdown the script prints) and the commit
@@ -159,7 +168,9 @@ and runs `python3 scripts/load_test.py container --image driftsniff:ci`. It need
   collector hands the pipeline the same raw objects. Their own memory bounds are tested in
   `tests/contract` (docs/xo-client.md).
 - The container steps are tested against a fake docker command and, for a server that drops the
-  connection, a local socket; they have not run against the image yet.
+  connection, a local socket; their numbers are not in this document yet (see Results).
+- The suppression check counts what the product stored for the source. It does not compare the
+  database file size as a pass criterion, because the run records of the polls add rows.
 - The database growth target refers to section 14 of rnd-report-1, which this task could not read.
   The growth per day and per baseline are reported so the R&D Lead can compare.
 - The retention job (03:30 UTC daily) is not part of the run; the oldest manifest is dated just
