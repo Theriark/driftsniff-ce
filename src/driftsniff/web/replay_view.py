@@ -35,12 +35,13 @@ LABEL_WIDTH: Final = 128
 ROW_HEIGHT: Final = 24
 CELL_HEIGHT: Final = 20
 AXIS_HEIGHT: Final = 24
-# 15 characters of 14 px text fit the 118 units left of the 10 unit gap before the cells
-LABEL_CHARS: Final = 15
+# 17 characters of 14 px text: the widest known name cut to 17 measured 119 px against the
+# 118 unit anchor (Dev, THE-1405), so it stays inside the card; Firewall policies stays whole
+LABEL_CHARS: Final = 17
 LEVELS: Final = 4
 # per window: the width of one day column, the gap between two cells, the digits a cell can print
 # and the distance between two day labels on the axis. A count is 14 px bold (the floor of the
-# brief), about 9 px a digit, so a 15 px cell of the 30 day window holds one digit
+# brief), 7.8 px a digit on Dev, so a 15 px cell of the 30 day window holds one digit
 _LAYOUT: Final = {7: (48, 4, 3, 1), 30: (17, 2, 1, 7), 90: (5, 1, 0, 14)}
 _MONTHS: Final = "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split()
 

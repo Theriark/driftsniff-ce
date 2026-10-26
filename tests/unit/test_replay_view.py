@@ -173,7 +173,7 @@ def test_a_cell_prints_its_count_only_where_it_fits() -> None:
 def test_the_map_text_meets_the_14_px_floor_and_fits_its_cells() -> None:
     """THE-1402 F3: the row and day labels were 13 px and the cell counts 11 px. Both drawings
     are one unit per CSS pixel, so 14 units are 14 px; a 15 px cell of the 30 day window then
-    holds one bold digit, and a row name is cut to 15 characters to stay in its column."""
+    holds one bold digit."""
     sheet = (STATIC / "replay.css").read_text(encoding="utf-8")
     sizes = [int(size) for size in re.findall(r"font-size:\s*(\d+)px", sheet)]
     assert sizes and min(sizes) >= 14
@@ -185,8 +185,6 @@ def test_the_map_text_meets_the_14_px_floor_and_fits_its_cells() -> None:
     assert month == {"2026-10-24": "", "2026-10-23": "9"}
     week = {c.day: c.text for c in replay_view(replay_of(two, days=7)).cells}
     assert week == {"2026-10-24": "12", "2026-10-23": "9"}
-    long = replay_view(replay_of([("2026-10-24", "unifi-port-forwarding-rules", "low", 1)]))
-    assert len(long.rows[0].short_label) == 15 and long.rows[0].short_label.endswith("…")
     assert LABEL_WIDTH == 128
 
 
@@ -337,8 +335,8 @@ def test_a_long_resource_type_name_is_cut_beside_the_map_and_whole_in_its_cells(
     replay = replay_of([("2026-10-24", "unifi-port-forwarding-rules-extra", "low", 1)])
     view = replay_view(replay)
     (row,) = view.rows
-    assert len(row.short_label) <= 15 and row.short_label.endswith("…")
-    assert row.label == replay.resources[0].label and len(row.label) > 15
+    assert len(row.short_label) <= 17 and row.short_label.endswith("…")
+    assert row.label == replay.resources[0].label and len(row.label) > 17
     assert view.cells[0].resource_label == row.label
 
 
