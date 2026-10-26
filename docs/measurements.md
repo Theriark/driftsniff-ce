@@ -15,7 +15,8 @@ verdict rules are fixed in `scripts/load_test.py`; the unit tests are `tests/uni
 | Noisy source | run once to show the volatility warning (see Noisy fixture) |
 
 A result outside a target is reported as a miss, with its number. It is never hidden or rounded
-into a pass. A miss needs a revision note and a decision by the R&D Lead.
+into a pass. A miss needs a revision note and a decision by the R&D Lead. What was not measured is
+a **gap**, never a pass.
 
 ## The fixture
 
@@ -60,9 +61,32 @@ is hard).
 3. **Noisy.** A third container, on its own volumes, runs a source whose configuration differs at
    every poll (3 changes every 15 minutes, 48 polls) and looks for any volatility warning.
 
-Containers and volumes are always removed. The same fixture runs in one process with
-`scripts/load_test.py local` (no docker, no limit). Its numbers are for development and the unit
-tests and are not the acceptance numbers.
+Containers and volumes are always removed.
+
+### When a container is killed or the server stops answering
+
+This is the likeliest way for the 512 MB limit to fail, so it is a result and not a harness error.
+The script always ends with a report and never with a traceback:
+
+- A seed or noisy container that docker reports as killed for memory gives a partial result. The
+  server step is skipped when the seed was killed (there is nothing to serve).
+- A server that is killed, stops, refuses or drops a connection, or times out gives page status
+  0 ("the server did not answer"); its memory is read only if it still runs, and shows `n/a`
+  otherwise. A server that stops before its health check is reported the same way.
+- The verdicts then show `miss` for the 512 MB limit (and for RAM: a kill at 512 MB means the
+  peak was above 250 MB) and for the first page, and `gap` for what could not be measured. The
+  Markdown says the run is incomplete. Exit code 1.
+
+Only a fault of the harness itself (docker missing, the image missing, a container that exits with
+an error and was not killed for memory, a server that never becomes healthy) ends with exit code 2
+and no report; the message says what failed.
+
+### The `local` mode
+
+The same fixture runs in one process with `scripts/load_test.py local` (no docker, no limit). It
+proves the fixture and the pipeline and is what the unit tests run, but it measures nothing against
+the targets: its RAM, first page and 512 MB checks are reported as `gap` ("not measured: local mode
+has no container"), with the process figures only as a remark for development.
 
 ### What counts as what
 
@@ -74,9 +98,18 @@ tests and are not the acceptance numbers.
 | Database growth | the compressed bytes the run records say each run added (`new_state_bytes` plus `manifest_bytes`): the baseline, and the sum for the rest divided by the days; and the file size of the database |
 | CPU | CPU seconds of the process over the whole seed, divided by its wall time; the burst is the best one-second window |
 
-Exit code of the script: 0 all targets met, 1 at least one miss (the report is complete), 2 the
-harness failed. Every check is also written as a `::notice` line and, in a CI job, to the job
-summary.
+| Outcome | Meaning |
+|---|---|
+| `pass` | measured and the target is met |
+| `below` | measured, lower than the planned range (RAM only); not a miss |
+| `note` | measured, met, with a remark |
+| `miss` | measured (or the container was killed) and the target is not met |
+| `gap` | not measured; neither met nor missed |
+
+Exit code of the script: 0 no check is a miss, 1 at least one miss (the report is complete or
+partial as above), 2 the harness failed. Every check is also written as a `::notice` line and, in
+a CI job, to the job summary. Until the product has a volatility warning, the exit code of a
+container run is 1 because of that check; a CI job has to accept that or run report-only.
 
 ## Noisy fixture and the volatility warning
 
@@ -97,11 +130,13 @@ opposite case: counters that are ignore class cost no manifest at all.
 
 ## Results
 
-No result is recorded yet. The container run needs the built image and a docker host; the pull
-request that adds the script has only the unit tests and the small end-to-end run in its checks
-(`tests/unit/test_load_test.py`), which prove the fixture and the verdicts but measure nothing
-about the image. The first container run replaces this paragraph with its table (copy the
-Markdown the script prints) and the commit and image digest it measured. To run it by hand:
+**No container result exists yet.** The numbers for peak RAM, CPU, database size, first page and
+the 512 MB limit are a **gap**: nothing has been measured against the targets, and no target is
+met or missed. The pull request that adds the script has only the unit tests and the small
+end-to-end run in its checks (`tests/unit/test_load_test.py`), which prove the fixture, the
+verdicts and the partial-report paths but measure nothing about the image. The first container
+run replaces this paragraph with its table (copy the Markdown the script prints) and the commit
+and image digest it measured. To run it by hand:
 
 ```
 docker build --build-arg SOURCE_SHA=load-test --tag driftsniff:load .
@@ -123,6 +158,8 @@ and runs `python3 scripts/load_test.py container --image driftsniff:ci`. It need
 - The UniFi and Xen Orchestra collectors (HTTP, paging, streaming) are not exercised; the push
   collector hands the pipeline the same raw objects. Their own memory bounds are tested in
   `tests/contract` (docs/xo-client.md).
+- The container steps are tested against a fake docker command and, for a server that drops the
+  connection, a local socket; they have not run against the image yet.
 - The database growth target refers to section 14 of rnd-report-1, which this task could not read.
   The growth per day and per baseline are reported so the R&D Lead can compare.
 - The retention job (03:30 UTC daily) is not part of the run; the oldest manifest is dated just
