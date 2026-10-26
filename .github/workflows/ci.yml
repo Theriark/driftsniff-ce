@@ -164,11 +164,12 @@ jobs:
           .venv/bin/python -m pip install --require-hashes --no-deps -r requirements-dev.txt
           .venv/bin/python -m pip check
 
+      # tests/e2e needs a browser and runs in the Browser e2e job.
       - name: Run automated tests with coverage
         shell: bash
         run: |
           set -euo pipefail
-          .venv/bin/python -m pytest -q --cov --cov-report=term-missing --cov-report=json:coverage.json
+          .venv/bin/python -m pytest -q --ignore=tests/e2e --cov --cov-report=term-missing --cov-report=json:coverage.json
 
       # Fails when driftsniff.core, driftsniff.secrets or driftsniff.rules is below 90 percent and
       # writes the total, the per-package and the per-module lines to the job summary.
@@ -178,6 +179,50 @@ jobs:
         run: |
           set -euo pipefail
           .venv/bin/python scripts/check_coverage.py coverage.json
+
+  e2e:
+    name: Browser e2e
+    needs: gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install locked dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv .venv
+          .venv/bin/python -m pip install --require-hashes --no-deps -r requirements-dev.txt
+          .venv/bin/python -m pip check
+
+      # The browser build is the one the locked playwright version pins.
+      - name: Install Chromium for Playwright
+        shell: bash
+        run: |
+          set -euo pipefail
+          .venv/bin/python -m playwright install --with-deps chromium
+
+      - name: Run browser journeys
+        shell: bash
+        env:
+          E2E_ARTIFACT_DIR: ${{ runner.temp }}/e2e-artifacts
+        run: |
+          set -euo pipefail
+          mkdir -p "${E2E_ARTIFACT_DIR}"
+          .venv/bin/python -m pytest -q -o addopts="" -p no:cacheprovider tests/e2e
+
+      # Screenshots are a CI artifact only; nothing is committed.
+      - name: Upload screenshots
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: e2e-screenshots
+          path: ${{ runner.temp }}/e2e-artifacts
+          retention-days: 7
+          if-no-files-found: warn
 
   migration:
     name: Migrations
@@ -484,6 +529,7 @@ jobs:
       - lint
       - types
       - test
+      - e2e
       - migration
       - canary
       - audit
