@@ -175,8 +175,7 @@ def test_the_trend_chart_y_axis_stays_outside_the_scroller() -> None:
     """THE-1371: the y-axis labels are their own drawing beside the scroller, so a scroll that
     opens on today cannot hide them; the scroller keeps its focus and name (THE-1351)."""
     html = render_macro(
-        '{% from "components/charts.html" import trend_chart %}'
-        '{{ trend_chart(trend, "trend") }}',
+        '{% from "components/charts.html" import trend_chart %}{{ trend_chart(trend, "trend") }}',
         trend=trend(),
     )
     frame = html.index('<div class="chart-frame">')
