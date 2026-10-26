@@ -130,9 +130,9 @@ any manifest or state being stored.
 **Revision note (R&D Lead ruling, THE-1377 report rev 1).** The first version of this check looked
 for a volatility warning and reported a miss, because the product has none. The ruling is that a
 volatility warning is not in the approved Community Edition scope and that "prove the volatility
-warning" in P11-T1 was an analysis error. The check is therefore the one above. No warning is built
-and no miss is reported by design. The main fixture already shows the same property for its 180
-counters-only polls (`quiet_polls_stored_snapshot` is 0).
+warning" in P11-T1 was an analysis error. The check is therefore the one above. No warning is
+built; the check passes or misses only on what the polls stored. The main fixture already shows
+the same property for its 180 counters-only polls (`quiet_polls_stored_snapshot` is 0).
 
 ## Results
 
