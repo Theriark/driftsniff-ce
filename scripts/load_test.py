@@ -20,16 +20,17 @@ A miss against a target is reported as a miss and makes the exit code 1. A check
 measured is a gap, never a pass. A container that is killed for memory, or a server that stops
 answering, gives a partial report with those misses and gaps, not a traceback. The report is
 always written; exit code 2 means only that the harness itself failed.
+
+The noisy fixture checks volatile-field suppression: a source whose polls differ only in ignore
+class fields must add no change item, manifest, state or stored byte after the baseline.
 """
 
 import argparse
 import http.client
 import json
-import logging
 import math
 import os
 import random
-import re
 import secrets
 import subprocess
 import sys
@@ -38,7 +39,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -46,7 +47,7 @@ from typing import Any, Final
 
 SESSION_COOKIE_NAME: Final = "ds_session"
 SOURCE_NAME: Final = "LOAD-FIXTURE synthetic"
-NOISY_SOURCE_NAME: Final = "LOAD-FIXTURE changing"
+NOISY_SOURCE_NAME: Final = "LOAD-FIXTURE counters"
 ADMIN_NAME: Final = "load-admin"
 
 TARGET_RSS_MB: Final = (150.0, 250.0)
@@ -106,13 +107,7 @@ PUSH_FIELDS: Final[dict[str, list[str]]] = {
     ],
 }
 
-# Text that would show a volatility warning to a user (a run record, a log line or a dashboard row).
-VOLATILITY_PATTERN: Final = re.compile(r"volatil|noisy|every (check|poll|push)", re.IGNORECASE)
-
 Document = dict[str, list[dict[str, Any]]]
-
-
-NOISY_CHANGES_PER_POLL: Final = 3
 
 
 class LoadTestError(Exception):
@@ -402,20 +397,23 @@ def polls(spec: FixtureSpec, now: datetime) -> Iterator[Poll]:
 
 
 def noisy_polls(spec: FixtureSpec, now: datetime) -> Iterator[Poll]:
-    """A source whose configuration differs at every poll: three changes, every 15 minutes."""
-    counts = resource_counts(spec.noisy_objects)
-    document = base_document(counts)
-    flat = _flat_positions(counts)
-    rng = random.Random(spec.seed + 1)  # noqa: S311 (a reproducible fixture, not a secret)
-    revision = 0
+    """A source that differs at every poll only in ignore class fields, every 15 minutes.
+
+    The configuration never changes, so no poll after the baseline plans a change.
+    """
+    document = base_document(resource_counts(spec.noisy_objects))
     for poll in range(spec.noisy_polls + 1):
-        planned = 0
-        if poll > 0:
-            planned = NOISY_CHANGES_PER_POLL
-            revision = _apply_changes(document, flat, rng, planned, revision)
         touch_volatile(document, poll)
         at = now - timedelta(minutes=15 * (spec.noisy_polls - poll))
-        yield Poll(poll, at, document, planned)
+        yield Poll(poll, at, document, 0)
+
+
+def _after_baseline(feed: Iterator[Poll], on_baseline: Callable[[], None]) -> Iterator[Poll]:
+    """Yield ``feed`` and call ``on_baseline`` once the baseline poll has been consumed."""
+    for poll in feed:
+        if poll.index == 1:
+            on_baseline()
+        yield poll
 
 
 # ---- what the process uses ---------------------------------------------------------------------
@@ -536,17 +534,6 @@ class PollClock:
         moment = self._start + timedelta(seconds=self._calls)
         self._calls += 1
         return moment.strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-class _Capture(logging.Handler):
-    """Collects the text of every warning or error the product logs while the test runs."""
-
-    def __init__(self) -> None:
-        super().__init__(level=logging.WARNING)
-        self.messages: list[str] = []
-
-    def emit(self, record: logging.LogRecord) -> None:
-        self.messages.append(record.getMessage())
 
 
 def _push_source(data_dir: Path, key_file: Path, name: str) -> tuple[Any, Any, Any, Any, int]:
@@ -733,48 +720,38 @@ def seed(spec: FixtureSpec, data_dir: Path, key_file: Path) -> dict[str, Any]:
 
 
 def noisy(spec: FixtureSpec, data_dir: Path, key_file: Path) -> dict[str, Any]:
-    """Run a source that differs at every poll, and look for a warning about it."""
-    import sqlalchemy as sa
+    """Run a source that differs at every poll only in ignore class fields; report what it added.
 
-    from driftsniff.db import tables
-    from driftsniff.web.dashboard import DashboardService
-
+    What the baseline stored is read once the baseline poll is done; ``added_*`` is the difference
+    after the last poll. ``added_bytes`` is what the run records say the polls after the baseline
+    stored (new state plus manifest); the database file size before and after is reported too.
+    """
     spec.validate()
-    capture = _Capture()
-    logging.getLogger("driftsniff").addHandler(capture)
-    try:
-        database, pipeline, clock, _master, source_id = _push_source(
-            data_dir, key_file, NOISY_SOURCE_NAME
-        )
-        outcome = _run_polls(pipeline, clock, source_id, noisy_polls(spec, datetime.now(UTC)))
-        stored = _stored_counts(database, source_id)
-        with database.read() as connection:
-            run_text = [
-                f"{row.error_class or ''} {row.error_summary or ''}"
-                for row in connection.execute(
-                    sa.select(tables.runs.c.error_class, tables.runs.c.error_summary)
-                ).all()
-            ]
-        attention = DashboardService(database).load().attention
-        database.close()
-    finally:
-        logging.getLogger("driftsniff").removeHandler(capture)
-    signals = [
-        *(f"run record: {text.strip()}" for text in run_text if VOLATILITY_PATTERN.search(text)),
-        *(f"log: {text}" for text in capture.messages if VOLATILITY_PATTERN.search(text)),
-        *(f"dashboard: {row!r}"[:200] for row in attention if VOLATILITY_PATTERN.search(repr(row))),
-    ]
-    polls_after_baseline = max(1, outcome["polls"] - 1)
+    database, pipeline, clock, _master, source_id = _push_source(
+        data_dir, key_file, NOISY_SOURCE_NAME
+    )
+    database_file = data_dir / "driftsniff.db"
+    baseline: dict[str, Any] = {}
+
+    def read_baseline() -> None:
+        baseline.update(_stored_counts(database, source_id))
+        baseline["database_bytes"] = database_bytes(database_file)
+
+    feed = _after_baseline(noisy_polls(spec, datetime.now(UTC)), read_baseline)
+    outcome = _run_polls(pipeline, clock, source_id, feed)
+    stored = _stored_counts(database, source_id)
+    database.close()
     return {
         "phase": "noisy",
         **outcome,
         **{f"stored_{name}": value for name, value in stored.items()},
-        "log_warnings": len(capture.messages),
-        "attention_rows": len(attention),
-        "warning_signals": signals,
-        "warning_observed": bool(signals),
-        "growth_bytes_per_poll": stored["growth_bytes"] / polls_after_baseline,
-        "database_bytes": database_bytes(data_dir / "driftsniff.db"),
+        "added_snapshots": stored["snapshots"] - baseline["snapshots"],
+        "added_events": stored["events"] - baseline["events"],
+        "added_change_items": stored["change_items"] - baseline["change_items"],
+        "added_states": stored["states"] - baseline["states"],
+        "added_bytes": stored["growth_bytes"],
+        "database_bytes_baseline": baseline["database_bytes"],
+        "database_bytes": database_bytes(database_file),
     }
 
 
@@ -1005,11 +982,35 @@ def _server_readings(name: str) -> dict[str, Any]:
     return readings
 
 
+def _stopped_server(name: str, **reason: bool) -> dict[str, Any]:
+    """The partial result of a server container with nothing measured; docker says why it ended."""
+    running, killed = _server_state(name)
+    return {
+        "idle_rss_mb": None,
+        "peak_rss_mb": None,
+        "cgroup_peak_mb": None,
+        "pages": {},
+        "running": running,
+        "oom_killed": killed,
+        **reason,
+    }
+
+
+def _cpu_or_none(name: str) -> float | None:
+    """CPU seconds of the server process, or None when it cannot be read (it may have stopped)."""
+    try:
+        return _process_cpu(name)
+    except LoadTestError:
+        return None
+
+
 def _serve_and_time(image: str, name: str, cookie: str, volumes: tuple[str, str]) -> dict[str, Any]:
     """Start the server on the seeded volumes, time the pages and read its memory and CPU.
 
     A server that stops, is killed for memory or stops answering gives a partial result
-    (``running`` false or a page with status 0, ``oom_killed`` as docker reports it).
+    (``running`` false or a page with status 0, ``oom_killed`` as docker reports it). This holds
+    for a server that dies right after its health check too: a failed read from a container that
+    is no longer running is that partial result, not a harness failure.
     """
     data, keys = volumes
     _docker(
@@ -1030,17 +1031,8 @@ def _serve_and_time(image: str, name: str, cookie: str, volumes: tuple[str, str]
     )
     health = ""
     for _ in range(HEALTH_WAIT_SECONDS):
-        running, killed = _server_state(name)
-        if not running:
-            return {
-                "idle_rss_mb": None,
-                "peak_rss_mb": None,
-                "cgroup_peak_mb": None,
-                "pages": {},
-                "running": False,
-                "oom_killed": killed,
-                "stopped_before_healthy": True,
-            }
+        if not _server_state(name)[0]:
+            return _stopped_server(name, stopped_before_healthy=True)
         health = _inspect(name, "{{if .State.Health}}{{.State.Health.Status}}{{end}}")
         if health == "healthy":
             break
@@ -1049,8 +1041,14 @@ def _serve_and_time(image: str, name: str, cookie: str, volumes: tuple[str, str]
         raise LoadTestError(f"the server container is not healthy after {HEALTH_WAIT_SECONDS} s")
     port = _inspect(name, '{{(index (index .NetworkSettings.Ports "8080/tcp") 0).HostPort}}')
     time.sleep(2)
-    result: dict[str, Any] = {"idle_rss_mb": _process_mb(name, "VmRSS"), "pages": {}}
-    cpu_before = _process_cpu(name)
+    try:
+        result: dict[str, Any] = {"idle_rss_mb": _process_mb(name, "VmRSS"), "pages": {}}
+        cpu_before = _process_cpu(name)
+    except LoadTestError:
+        stopped = _stopped_server(name, stopped_after_healthy=True)
+        if stopped["running"]:
+            raise
+        return stopped
     for path in ("/", "/changes"):
         timings: list[float] = []
         status = size = 0
@@ -1062,8 +1060,9 @@ def _serve_and_time(image: str, name: str, cookie: str, volumes: tuple[str, str]
         result["pages"][path] = {"status": status, "bytes": size, **_page_summary(timings)}
         if status == 0:
             break
-        if path == "/":
-            result["cpu_seconds_first_page_and_warm"] = _process_cpu(name) - cpu_before
+        cpu_after = _cpu_or_none(name) if path == "/" else None
+        if cpu_after is not None:
+            result["cpu_seconds_first_page_and_warm"] = cpu_after - cpu_before
     result.update(_server_readings(name))
     result["running"], result["oom_killed"] = _server_state(name)
     return result
@@ -1262,21 +1261,32 @@ def _limit_verdict(
     return Verdict("512 MB limit", "pass", f"{seen}no container was killed or stopped")
 
 
-def _warning_verdict(noisy_part: Mapping[str, Any]) -> Verdict:
+def _suppression_verdict(noisy_part: Mapping[str, Any]) -> Verdict:
+    """Polls that differ only in ignore class fields must add nothing after the baseline."""
+    check = "volatile-field suppression"
     if noisy_part.get("partial"):
-        return Verdict(
-            "volatility warning", "gap", "the noisy container was killed, so nothing was checked"
-        )
-    if noisy_part["warning_observed"]:
-        return Verdict(
-            "volatility warning", "pass", f"{len(noisy_part['warning_signals'])} signal(s)"
-        )
+        return Verdict(check, "gap", "the noisy container was killed, so nothing was checked")
+    added = (
+        ("change items", noisy_part["added_change_items"]),
+        ("events", noisy_part["added_events"]),
+        ("manifests", noisy_part["added_snapshots"]),
+        ("states", noisy_part["added_states"]),
+        ("stored bytes", noisy_part["added_bytes"]),
+        ("polls that stored a snapshot", noisy_part["quiet_polls_stored_snapshot"]),
+    )
+    problems = [f"{value} {what}" for what, value in added if value]
+    file_size = (
+        f"database file {noisy_part['database_bytes_baseline'] / 1024:.0f} KB after the "
+        f"baseline, {noisy_part['database_bytes'] / 1024:.0f} KB after the last poll"
+    )
+    polls = noisy_part["polls"] - 1
+    if problems:
+        return Verdict(check, "miss", f"{polls} polls added {', '.join(problems)}; {file_size}")
     return Verdict(
-        "volatility warning",
-        "miss",
-        f"{noisy_part['stored_snapshots']} manifests stored for "
-        f"{noisy_part['polls'] - 1} polls (a snapshot at every poll) and no run record, "
-        "log line or dashboard row warns about it",
+        check,
+        "pass",
+        f"{polls} polls that differ only in ignore class fields added no change item, event, "
+        f"manifest, state or stored byte; {file_size}",
     )
 
 
@@ -1295,7 +1305,7 @@ def evaluate(report: Mapping[str, Any]) -> list[Verdict]:
         _ram_verdict(seed_part, server, local),
         _page_verdict(server, local),
         _limit_verdict(seed_part, server, noisy_part, local),
-        _warning_verdict(noisy_part),
+        _suppression_verdict(noisy_part),
     ]
 
 
@@ -1375,10 +1385,11 @@ def render_markdown(report: Mapping[str, Any], verdicts: Sequence[Verdict]) -> s
             f"{_seconds(changes_page, 'warm_median_seconds')} |"
         )
     lines += [
-        f"| Noisy fixture | {noisy_part['stored_snapshots']} manifests for "
-        f"{noisy_part['polls'] - 1} polls, {noisy_part['stored_change_items']} items, "
-        f"{noisy_part['growth_bytes_per_poll'] / 1024:.0f} KB a poll |",
-        f"| Volatility signals found | {len(noisy_part['warning_signals'])} |",
+        f"| Counters-only fixture | {noisy_part['polls'] - 1} polls added "
+        f"{noisy_part['added_change_items']} items, {noisy_part['added_snapshots']} manifests, "
+        f"{noisy_part['added_states']} states and {noisy_part['added_bytes']} stored bytes; "
+        f"database file {noisy_part['database_bytes_baseline'] / 1024:.0f} KB then "
+        f"{noisy_part['database_bytes'] / 1024:.0f} KB |",
         "",
     ]
     return "\n".join(lines)
