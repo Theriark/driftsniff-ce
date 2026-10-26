@@ -257,9 +257,7 @@ def data_dir(tmp_path: Path, pki: Pki) -> Path:
     return folder
 
 
-def get(
-    server: FakeTlsServer, name: str, settings: TlsSettings | None, data_dir: Path
-) -> object:
+def get(server: FakeTlsServer, name: str, settings: TlsSettings | None, data_dir: Path) -> object:
     """GET /info of the TLS server under ``name``; the connection goes to the pinned 127.0.0.1."""
     pin = AddressPin()
     pin.set(ALLOWED)
