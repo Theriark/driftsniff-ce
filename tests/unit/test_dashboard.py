@@ -1048,9 +1048,11 @@ def test_the_dashboard_page_renders_every_section_with_text_alternatives(
     ]
     assert parsed.find("div").count({"class": "card metric"}) == 0
     assert {"href": "/settings"} in parsed.find("a")  # the sidebar's Admin > Settings
-    # every chart is an image with a title and a description
-    charts = [svg for svg in parsed.find("svg") if svg.get("role") == "img"]
+    # every chart is an image with a title and a description; a drift line with change links
+    # is a group instead, so its links are not hidden inside an image (THE-1351)
+    charts = [svg for svg in parsed.find("svg") if svg.get("role") in ("img", "group")]
     assert len(charts) == 2 + 4  # the ring, the trend, four drift lines
+    assert [svg for svg in charts if svg.get("role") == "group"]
     for chart in charts:
         labelled = str(chart["aria-labelledby"]).split()
         assert len(labelled) == 2 and labelled[0].endswith("-t") and labelled[1].endswith("-d")

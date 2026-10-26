@@ -28,9 +28,11 @@
 
 {# trend is a driftsniff.web.dashboard.Trend: 30 days oldest first, the bars and grid lines of
    a 600 by 170 drawing, and the description. The table behind the disclosure is the text
-   alternative; it lists the days that had items. #}
+   alternative; it lists the days that had items. The wrapper scrolls when the card is
+   narrower than the drawing and nothing in it can take the focus, so the wrapper itself is a
+   focusable group named by the chart title: a keyboard reaches the scroll (THE-1351). #}
 {% macro trend_chart(trend, id_prefix) %}
-<div class="chart-wrap">
+<div class="chart-wrap" tabindex="0" role="group" aria-labelledby="{{ id_prefix }}-t">
   <svg class="chart" viewBox="0 0 600 170" role="img" aria-labelledby="{{ id_prefix }}-t {{ id_prefix }}-d">
     <title id="{{ id_prefix }}-t">Change items per day, last 30 days, stacked by severity</title>
     <desc id="{{ id_prefix }}-d">{{ trend.description }}</desc>

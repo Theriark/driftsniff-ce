@@ -464,7 +464,7 @@ def test_the_list_shows_status_flags_last_check_version_and_drift_line(world: Wo
     hrefs = {a.get("href") for a in parsed.find("a")}
     assert {f"/sources/{source_id}", f"/sources/{xo.id}", "/sources/1"} <= hrefs
     assert "/sources/new" not in hrefs  # a viewer cannot add
-    strips = [svg for svg in parsed.find("svg") if svg.get("role") == "img"]
+    strips = [svg for svg in parsed.find("svg") if svg.get("role") in ("img", "group")]
     assert len(strips) == 3  # the two sources and the push source of the store fixture
     admin = assert_page(world.get("/sources"))
     assert {"class": "btn btn--primary", "href": "/sources/new"} in admin.find("a")
