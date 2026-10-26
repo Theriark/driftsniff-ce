@@ -130,32 +130,82 @@ any manifest or state being stored.
 **Revision note (R&D Lead ruling, THE-1377 report rev 1).** The first version of this check looked
 for a volatility warning and reported a miss, because the product has none. The ruling is that a
 volatility warning is not in the approved Community Edition scope and that "prove the volatility
-warning" in P11-T1 was an analysis error. The check is therefore the one above. No warning is built
-and no miss is reported by design. The main fixture already shows the same property for its 180
-counters-only polls (`quiet_polls_stored_snapshot` is 0).
+warning" in P11-T1 was an analysis error. The check is therefore the one above. No warning is
+built; the check passes or misses only on what the polls stored. The main fixture already shows
+the same property for its 180 counters-only polls (`quiet_polls_stored_snapshot` is 0).
 
 ## Results
 
-**No container result is recorded here yet.** The numbers for peak RAM, CPU, database size, first
-page and the 512 MB limit are a **gap** in this document: nothing is copied until it is read from
-the job summary or the report artifact of a container run of the merged script (CI runs
-40266867617 and 40263139852 are named for that, and need someone with access to the Actions
-artifacts). A figure that was not read from there is not entered, and no target is claimed met
-or missed. The pull request that adds the script has only the unit tests and the small
-end-to-end run in its checks (`tests/unit/test_load_test.py`), which prove the fixture, the
-verdicts and the partial-report paths but measure nothing about the image. The first container
-run replaces this paragraph with its table (copy the Markdown the script prints) and the commit
-and image digest it measured. To run it by hand:
+One container run of the script, read from the job log of the CI job `Container measurement`.
+Every target is met; the RAM peak is below the planned range, which is not a miss.
+
+**Where it comes from**
+
+| Item | Value |
+|---|---|
+| CI run, job | 40279708378, `Container measurement` (job 121430295032), conclusion success |
+| Artifact | `load-test-measurements` (artifact 12632121214, 2,312 bytes, kept 30 days) with the report JSON and the Markdown |
+| Source measured | the merge ref of pull request 120 (commit a4bad74c61a62975002a5bad7830708b74530b9e: head a9884adc3c1b4a31e9f13e0d4f687ea005ef2235 merged into 3b3457a9a4f435481b2c6419fb99a2f7bf3f37d7). It is not the later merge commit of that pull request on `development` |
+| Image | `driftsniff:ci`, loaded from the `driftsniff-ci-image` artifact of the same run (artifact digest sha256:cec227f093e1dcb0f0af4dc35924e0bd1d91f82377dfc776a2bad90b54c4ad6e); the image digest itself was not printed in the log |
+| Mode, fixture | `container`; 1,000 objects, 2,000 change items, 90 days, 4 polls a day, seed 20261025 |
+| Runner | a GitHub-hosted runner, one sample |
+
+**Verdicts**
+
+| Check | Result | Detail |
+|---|---|---|
+| fixture | pass | 1000 objects, 2000 change items, 181 manifests over 90 days; 180 polls with only volatile counters stored no snapshot |
+| ram | below | peak 92 MB is below the planned 150-250 MB |
+| first page | pass | 0.10 s, target under 1 s |
+| 512 MB limit | pass | cgroup peak 134 MB, no container was killed or stopped |
+| volatile-field suppression | pass | 48 polls that differ only in ignore class fields added no change item, event, manifest, state or stored byte; database file 330 KB after the baseline, 256 KB after the last poll |
+
+**Measurements**
+
+| Measurement | Value |
+|---|---|
+| Peak resident memory, pipeline (seed) | 87 MB |
+| Peak resident memory, server | 92 MB |
+| Resident memory, server idle | 87 MB |
+| Container memory peak (cgroup), seed and server | 134 MB and 122 MB |
+| CPU, average over the pipeline run | 100 % of one CPU |
+| CPU, burst (best 1 s) | 101 % of one CPU |
+| Pipeline run time per poll (volatile only, with changes, p95) | 22 ms, 75 ms, 85 ms |
+| Whole fixture | 18 s for 361 polls |
+| Database file | 8.7 MB |
+| Growth, baseline then per day | 0.15 MB, 78 KB a day |
+| Stored rows | 181 manifests, 180 events, 2000 items, 2787 states |
+| Server CPU, first page and 20 more | 0.26 CPU s |
+| First page `/` (cold) | 0.10 s |
+| First page `/` (warm median, p95) | 0.01 s, 0.01 s |
+| Change list `/changes` (cold, warm median) | 0.04 s, 0.00 s |
+| Counters-only fixture | 48 polls added 0 items, 0 manifests, 0 states and 0 stored bytes; database file 330 KB then 256 KB |
+
+**Reading the numbers**
+
+- The peak resident memory (92 MB) is under the planned 150 to 250 MB. The plan's range is
+  therefore an overestimate for this fixture; the 512 MB limit has a wide margin (cgroup peak
+  134 MB, which includes file cache).
+- The CPU figures say that the pipeline run is limited by one CPU; a runner with a slower core
+  takes longer for the 361 polls, and the figure is not a promise for another machine.
+- Database growth is reported (0.15 MB for the baseline, 78 KB a day) for the R&D Lead to compare
+  with section 14 of rnd-report-1; it is not compared here.
+- The database file after the last counters-only poll (256 KB) is smaller than after the baseline
+  (330 KB). The file size is information only; the criterion is that nothing was stored.
+
+This is a measurement of the image against a synthetic fixture in CI. It is not a measurement on
+Stage or VM-09, not a test of a real controller and not a human QA result.
+
+To run it by hand:
 
 ```
 docker build --build-arg SOURCE_SHA=load-test --tag driftsniff:load .
 python3 scripts/load_test.py container --image driftsniff:load --markdown measured.md --report-json measured.json
 ```
 
-To run it in CI, Platform & Release Engineer adds one job (workflow files are not part of this
-change) that downloads the `driftsniff-ci-image` artifact the way the `smoke` job does, loads it
-and runs `python3 scripts/load_test.py container --image driftsniff:ci`. It needs about 5 to
-15 minutes on a hosted runner.
+In CI the job `Container measurement` downloads the `driftsniff-ci-image` artifact the way the
+`smoke` job does, loads it and runs `python3 scripts/load_test.py container --image driftsniff:ci`.
+It reports only: it never gates a deployment. It needs about 5 to 15 minutes on a hosted runner.
 
 ## Limits
 
@@ -168,7 +218,7 @@ and runs `python3 scripts/load_test.py container --image driftsniff:ci`. It need
   collector hands the pipeline the same raw objects. Their own memory bounds are tested in
   `tests/contract` (docs/xo-client.md).
 - The container steps are tested against a fake docker command and, for a server that drops the
-  connection, a local socket; their numbers are not in this document yet (see Results).
+  connection, a local socket. The numbers in Results come from one real container run in CI.
 - The suppression check counts what the product stored for the source. It does not compare the
   database file size as a pass criterion, because the run records of the polls add rows.
 - The database growth target refers to section 14 of rnd-report-1, which this task could not read.
@@ -181,4 +231,5 @@ and runs `python3 scripts/load_test.py container --image driftsniff:ci`. It need
 ## Rollback
 
 The script, its tests and this page change no product code, setting, image or workflow. Remove the
-three files to roll back.
+three files to roll back; to undo only the recorded results, revert the commit that added the
+Results table.
