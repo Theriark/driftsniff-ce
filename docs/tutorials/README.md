@@ -1,8 +1,8 @@
 # Tutorials
 
-Step-by-step walk-throughs for release candidate v27.0.0-rc.1. Each step has a screenshot of the
-Development build `36f78cc9`, taken at 1440 px unless the caption says otherwise. The data in them
-is synthetic.
+Step-by-step walk-throughs for release candidate v27.0.0-rc.1 (candidate `f055ef16`). Each step
+has a screenshot taken on Development build `36f78cc9`, whose application files are identical to
+the candidate, at 1440 px unless the caption says otherwise. The data in them is synthetic.
 
 | Tutorial | Role you need | Time |
 |---|---|---|

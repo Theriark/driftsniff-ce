@@ -1,6 +1,7 @@
 # Admin guide
 
-For release candidate v27.0.0-rc.1, build `36f78cc9`. Everything here needs the admin role. The
+For release candidate v27.0.0-rc.1, candidate `f055ef16` (screenshots taken on build `36f78cc9`,
+whose application files are identical). Everything here needs the admin role. The
 screenshots show the Development installation with synthetic data and its three test accounts,
 named after their roles.
 

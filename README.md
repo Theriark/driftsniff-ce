@@ -4,10 +4,12 @@ driftsniff Community Edition (CE) is a self-hosted tool that records changes to 
 Xen Orchestra configuration, keeps the before and after values, and gives each change an
 explainable risk label.
 
-> **Release candidate v27.0.0-rc.1.** This documentation describes the Development build
-> `36f78cc95919b115103af19bd10773d9d69a7386` (image
-> `ghcr.io/theriark/driftsniff-ce@sha256:00399d270784845ae00d5fe4bb263e2404439bbbe99714dc53a4325ce6a1fd0c`).
-> The tag `v27.0.0-rc.1` is created for that exact build after this documentation is reviewed; the
+> **Release candidate v27.0.0-rc.1.** This documentation describes the Development candidate
+> `f055ef16c30da7e2a7db26a82c8837ae51449a65` (image
+> `ghcr.io/theriark/driftsniff-ce@sha256:0339eb05329f5e474e52fe1d92614a04012ee9428f309c38c5b26ed79da381de`).
+> That commit is the merge of this documentation into `development`; its application files are
+> identical to build `36f78cc95919b115103af19bd10773d9d69a7386`, on which every screenshot was
+> taken. The tag `v27.0.0-rc.1` is created for that exact candidate after this documentation is reviewed; the
 > application itself still reports its package version `0.1.0.dev0` in the footer and on the
 > settings page. It is not a stable release and not ready for production use.
 >

@@ -1,9 +1,12 @@
 # driftsniff CE documentation
 
-Documentation for release candidate **v27.0.0-rc.1**, Development build
-`36f78cc95919b115103af19bd10773d9d69a7386`. The screenshots were taken on that build at
-`https://ce-dev-driftsniff.theriark.dev` on 26 October 2026 with synthetic test data only; the
-[documentation manifest](documentation-manifest.json) lists every file with its SHA-256.
+Documentation for release candidate **v27.0.0-rc.1**, Development candidate
+`f055ef16c30da7e2a7db26a82c8837ae51449a65` (image digest `sha256:0339eb05…`). That commit is the
+merge of this documentation into `development`; its application files are identical to build
+`36f78cc95919b115103af19bd10773d9d69a7386`, on which every screenshot was taken at
+`https://ce-dev-driftsniff.theriark.dev` on 26 October 2026 with synthetic test data only. The
+[documentation manifest](documentation-manifest.json) lists every file with its SHA-256 and, for
+every screenshot, the build it was taken on.
 
 ## For people who use driftsniff
 
