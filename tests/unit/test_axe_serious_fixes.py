@@ -171,6 +171,27 @@ def test_the_trend_chart_scroller_is_a_focusable_group_named_by_the_chart_title(
     assert svg["role"] == "img"
 
 
+def test_the_trend_chart_y_axis_stays_outside_the_scroller() -> None:
+    """THE-1371: the y-axis labels are their own drawing beside the scroller, so a scroll that
+    opens on today cannot hide them; the scroller keeps its focus and name (THE-1351)."""
+    html = render_macro(
+        '{% from "components/charts.html" import trend_chart %}{{ trend_chart(trend, "trend") }}',
+        trend=trend(),
+    )
+    frame = html.index('<div class="chart-frame">')
+    axis = html.index('<svg class="chart-axis" viewBox="0 0 30 170" aria-hidden="true"')
+    wrap = html.index('<div class="chart-wrap"')
+    assert frame < axis < html.index("</svg>", axis) < wrap
+    axis_svg = html[axis : html.index("</svg>", axis)]
+    assert ">2</text>" in axis_svg and ">0</text>" in axis_svg
+    plot = html[wrap : html.index("</div>", wrap)]
+    assert 'viewBox="30 0 570 170"' in plot
+    assert ' x="0"' not in plot  # no y-axis label left inside the scroller
+    tree = parse(html)
+    (svg,) = [s for s in tree.find("svg") if s.get("class") == "chart"]
+    assert svg["aria-labelledby"] == "trend-t trend-d"
+
+
 def test_a_focused_scroller_shows_the_focus_ring() -> None:
     """The scrollers have no focus rule of their own; the one ring of app.css must reach them."""
     css = _strip_comments((STATIC / "app.css").read_text(encoding="utf-8"))
