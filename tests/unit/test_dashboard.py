@@ -37,6 +37,8 @@ from driftsniff.main import create_app
 from driftsniff.web.auth import SESSION_COOKIE, AuthService, make_password_hasher
 from driftsniff.web.dashboard import (
     ACTIVITY_ROWS,
+    CHART_BOTTOM,
+    CHART_TOP,
     DRIFT_MAX_CHECKS,
     MUTES_HREF,
     RING_CIRCUMFERENCE,
@@ -63,6 +65,7 @@ from driftsniff.web.dashboard import (
     width_class,
     window_text,
 )
+from driftsniff.web.templating import drift_marks
 
 ORIGIN = "http://testserver"
 BROWSER = {"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"}
@@ -411,7 +414,6 @@ def test_trend_geometry_stacks_the_bars_and_labels_the_grid() -> None:
     bars, grid = trend_geometry(days)
     assert [line.label for line in grid] == ["6", "4", "2"]
     assert [line.y for line in grid] == ["30.0", "70.0", "110.0"]
-    assert [line.label_y for line in grid] == ["34.0", "74.0", "114.0"]
     assert [bar.severity for bar in bars] == ["low", "medium", "critical"]
     # heights: 1, 2 and 3 of 6 on a 120 unit scale, stacked from the baseline at 150
     assert [bar.height for bar in bars] == ["20.0", "40.0", "60.0"]
@@ -614,9 +616,8 @@ def test_a_narrow_attention_list_gives_the_text_its_own_line() -> None:
 def test_the_trend_chart_fits_a_desktop_card_and_opens_on_today() -> None:
     """THE-1371: at 1440 px the half-width card leaves 502 px for the chart, and a 520 px
     minimum hid the y-axis labels behind the scroll that opens on today. The chart is a 30 unit
-    y-axis beside a 570 unit plot at one scale; it may shrink to 480 px, where its labels are
-    still 12 px. Narrower, only the plot scrolls (from the right, so today is in view first)
-    and the y-axis stays beside it."""
+    y-axis beside a 570 unit plot at one scale; it may shrink to 480 px. Narrower, only the plot
+    scrolls (from the right, so today is in view first) and the y-axis stays beside it."""
     rules = _css_rules()
     chart = "".join(rules[".chart"])
     wrap = "".join(rules[".chart-wrap"])
@@ -625,18 +626,40 @@ def test_the_trend_chart_fits_a_desktop_card_and_opens_on_today() -> None:
         "".join(rules[".chart-frame"]),
     )
     plot = re.search(r"min-width:\s*(\d+)px", chart)
-    label = re.search(r"font-size:\s*(\d+)px", "".join(rules[".chart-axis .axis-label"]))
-    assert frame is not None and plot is not None and label is not None
-    axis, plot_min, font = int(frame.group(1)), int(plot.group(1)), int(label.group(1))
+    assert frame is not None and plot is not None
+    axis, plot_min = int(frame.group(1)), int(plot.group(1))
     # 5 % of the frame is 30 of 600 units: both drawings share one scale at every width
     assert axis * 570 == plot_min * 30
-    assert font * axis / 30 >= 12
     assert axis + plot_min <= 502
     assert re.search(r"overflow-x:\s*auto", wrap)
     assert re.search(r"direction:\s*rtl", wrap)
     assert re.search(r"direction:\s*ltr", chart)
     assert re.search(r"display:\s*block", chart)
     assert re.search(r"overflow:\s*visible", "".join(rules[".chart-axis"]))
+
+
+def test_the_trend_chart_axis_labels_are_html_text_at_the_14_px_floor() -> None:
+    """THE-1402 F3: as SVG text the 15 unit labels shrank with the drawing to 12 px at 1440 and
+    390 px. They are HTML text at 14 px now: the y-axis column is as tall as the 154 unit plot
+    and spreads its labels from the top grid line to the baseline, as the grid lines are spread;
+    the time axis is as wide as the plot and scrolls with it."""
+    rules = _css_rules()
+    for selector in (".chart-axis .axis-label", ".chart-days"):
+        assert re.search(r"font-size:\s*var\(--fs-14\)", "".join(rules[selector])), selector
+    assert ".chart .axis-label" not in rules
+    column = "".join(rules[".chart-axis"])
+    assert re.search(r"aspect-ratio:\s*30\s*/\s*154", column)
+    labels = "".join(rules[".chart-axis__labels"])
+    top = re.search(r"top:\s*calc\(100%\s*\*\s*(\d+)\s*/\s*154\)", labels)
+    bottom = re.search(r"bottom:\s*calc\(100%\s*\*\s*(\d+)\s*/\s*154\)", labels)
+    assert top is not None and bottom is not None
+    assert int(top.group(1)) == CHART_TOP and 154 - int(bottom.group(1)) == CHART_BOTTOM
+    assert re.search(r"justify-content:\s*space-between", labels)
+    days = "".join(rules[".chart-days"])
+    assert re.search(r"min-width:\s*456px", days) and re.search(r"direction:\s*ltr", days)
+    _, grid = trend_geometry([TrendDay("x", 1, 0, 0, 0)] * 30)
+    # the labels are spread evenly, so the grid lines must be: thirds of the plot height
+    assert [float(line.y) for line in grid] == [30.0, 70.0, 110.0]
 
 
 def test_the_trend_row_stacks_before_its_cards_are_too_narrow_for_the_chart() -> None:
@@ -842,8 +865,11 @@ def test_the_drift_lines_mark_each_check_or_each_day(
     assert not lab.per_day and lab.href == "/sources/1"
     assert lab.meta == "Push source, 3 pushes in 30 days"
     assert [check["kind"] for check in lab.checks] == ["ok", "change", "failed"]
+    # each check is aged from when it finished, so it is drawn at its time (THE-1402 F2)
+    assert [check["age"] * 48 for check in lab.checks] == pytest.approx([4, 2, 1])
     assert lab.checks[1] == {
         "kind": "change",
+        "age": lab.checks[1]["age"],
         "severity": "critical",
         "summary": "3 changes in 2 resource types, highest severity critical",
         "href": f"/changes/{seeded['critical']}",
@@ -864,8 +890,24 @@ def test_the_drift_lines_mark_each_check_or_each_day(
         "ok",
     ]
     assert xo.checks[7]["severity"] == "high"
+    # one mark per day, at its day: ten days ago up to yesterday
+    assert [check["age"] for check in xo.checks] == [float(day) for day in range(10, 0, -1)]
     assert lines["branch-gw"].checks == () and lines[HOSTILE_NAME].checks == ()
     assert DRIFT_MAX_CHECKS == 31
+
+
+def test_the_checks_of_the_last_hours_are_drawn_at_the_today_end_of_the_strip(
+    service: DashboardService, seeded: dict[str, int]
+) -> None:
+    """THE-1402 F2: three pushes of the last two hours were drawn at x 8, 28 and 48, beside
+    "30 days ago"; they belong beside "today", one hour being 20 / 24 of a unit."""
+    lines = {row.name: row for row in service.load().driftlines}
+    lab = {mark.kind: mark.x for mark in drift_marks(lines["lab-controller"].checks)}
+    assert lab == {"ok": 606.3, "change": 607.2, "failed": 607.6}
+    office = drift_marks(lines["office-xo"].checks)
+    assert [mark.x for mark in office if mark.kind != "change"][-1] == 588.0
+    (high,) = [mark for mark in office if mark.kind == "change"]
+    assert high.x == 548.0 and high.severity == "high"
 
 
 def test_the_trend_counts_items_per_day_by_severity(

@@ -1169,9 +1169,13 @@ textarea.input {
   border: 1px solid transparent;
 }
 
+/* the shape takes the badge's text colour, which meets 4.5 to 1 on its tint in both themes; a
+   symbol has no fill of its own, so without this the shape was black (THE-1402 F1) */
 .sev svg {
+  flex: none;
   width: 12px;
   height: 12px;
+  fill: currentColor;
 }
 
 .sev--low {
@@ -1597,23 +1601,61 @@ textarea.input {
 
 /* ---- trend chart, breakdowns, timeline ------------------------------------------------- */
 
-/* the chart draws 600 units wide: a 30 unit y-axis and a 570 unit plot, one scale for both.
-   It shrinks with its card down to 480 px (24 + 456), where its 15 unit labels are still 12 px,
-   so the half-width card of a 1440 px screen (502 px) shows all 30 days without scrolling.
-   Narrower than that only the plot scrolls inside its wrapper, like the drift line, and the
-   y-axis stays in view beside it. The wrapper is right-to-left so the scroll opens on today,
-   the end that matters; the drawing itself stays left-to-right */
+/* the chart is 600 units wide: a 30 unit y-axis column and a 570 unit plot, one scale for
+   both. It shrinks with its card down to 480 px (24 + 456), so the half-width card of a
+   1440 px screen (502 px) shows all 30 days without scrolling. Narrower than that only the plot
+   scrolls inside its wrapper, like the drift line, and the y-axis stays in view beside it. The
+   wrapper is right-to-left so the scroll opens on today, the end that matters; the drawing
+   itself stays left-to-right. The labels of both axes are HTML text at 14 px: as SVG text they
+   shrank with the drawing to 12 px (THE-1402 F3) */
 .chart-frame {
   display: grid;
   grid-template-columns: max(5%, 24px) minmax(0, 1fr);
   align-items: start;
 }
 
+/* as tall as the 154 unit plot at its scale; the labels run from the top grid line (y 30) to
+   the baseline (y 150) in even thirds, as the grid lines do, each centred on its line */
 .chart-axis {
-  display: block;
-  width: 100%;
-  height: auto;
+  position: relative;
+  aspect-ratio: 30 / 154;
   overflow: visible;
+}
+
+.chart-axis__labels {
+  position: absolute;
+  top: calc(100% * 30 / 154);
+  bottom: calc(100% * 4 / 154);
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.chart-axis .axis-label {
+  display: block;
+  height: 0;
+  line-height: 0;
+  padding-right: var(--sp-1);
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-axis .axis-label,
+.chart-days {
+  font-size: var(--fs-14);
+  color: var(--text-2);
+}
+
+/* the ends of the time axis, under the plot and as wide as it, so they scroll with it */
+.chart-days {
+  display: flex;
+  justify-content: space-between;
+  min-width: 456px;
+  direction: ltr;
+  padding-top: var(--sp-1);
 }
 
 .chart-wrap {
@@ -1648,13 +1690,6 @@ textarea.input {
 .chart .grid-line {
   stroke: var(--border);
   stroke-width: 1;
-}
-
-.chart .axis-label,
-.chart-axis .axis-label {
-  font-size: 15px;
-  fill: var(--text-2);
-  font-family: var(--font-sans);
 }
 
 .disclosure > summary {

@@ -262,7 +262,7 @@ class DriftRow:
     href: str
     meta: str
     id_prefix: str
-    checks: tuple[dict[str, str], ...]
+    checks: tuple[dict[str, Any], ...]
     per_day: bool
 
 
@@ -291,7 +291,6 @@ class TrendBar:
 @dataclass(frozen=True, slots=True)
 class GridLine:
     y: str
-    label_y: str
     label: str
 
 
@@ -500,7 +499,7 @@ def trend_geometry(days: Sequence[TrendDay]) -> tuple[tuple[TrendBar, ...], tupl
     grid: list[GridLine] = []
     for step in (3, 2, 1):
         y = CHART_BOTTOM - height * step / 3
-        grid.append(GridLine(f"{y:.1f}", f"{y + 4:.1f}", str(top * step // 3)))
+        grid.append(GridLine(f"{y:.1f}", str(top * step // 3)))
     if not days:
         return (), tuple(grid)
     bars: list[TrendBar] = []
@@ -1014,7 +1013,10 @@ def _driftlines(
     events_30: Sequence[Any],
     now: datetime,
 ) -> tuple[DriftRow, ...]:
-    """One strip per source: per check up to 31 checks in 30 days, else one mark per UTC day."""
+    """One strip per source: per check up to 31 checks in 30 days, else one mark per UTC day.
+
+    Every check carries its age in days, so the strip draws it at its time (THE-1402 F2).
+    """
     by_source: dict[int, list[Any]] = defaultdict(list)
     for run in runs_30:
         by_source[int(run.source_id)].append(run)
@@ -1035,7 +1037,7 @@ def _driftlines(
         if per_day:
             checks = _checks_per_day(source.id, source_runs, events_by_day, now)
         else:
-            checks = _checks_per_run(source.id, source_runs, events_by_key)
+            checks = _checks_per_run(source.id, source_runs, events_by_key, now)
         count = len(source_runs)
         meta = source_type_label(source.type)
         if source.version:
@@ -1054,24 +1056,31 @@ def _rank(event: Any) -> int:
     return SEVERITIES.index(str(event.max_severity))
 
 
-def _check_of(event: Any | None, failed: bool) -> dict[str, str]:
+def _check_of(event: Any | None, failed: bool, age: float) -> dict[str, Any]:
     if event is not None:
         return {
             "kind": "change",
+            "age": age,
             "severity": str(event.max_severity),
             "summary": str(event.summary),
             "href": f"/changes/{int(event.id)}",
         }
-    return {"kind": "failed" if failed else "ok"}
+    return {"kind": "failed" if failed else "ok", "age": age}
 
 
 def _checks_per_run(
-    source_id: int, source_runs: Sequence[Any], events_by_key: Mapping[tuple[int, str], Any]
-) -> list[dict[str, str]]:
-    checks: list[dict[str, str]] = []
+    source_id: int,
+    source_runs: Sequence[Any],
+    events_by_key: Mapping[tuple[int, str], Any],
+    now: datetime,
+) -> list[dict[str, Any]]:
+    """One check per run, aged from when it finished."""
+    checks: list[dict[str, Any]] = []
     for run in source_runs:
-        event = events_by_key.get((source_id, str(run.finished_at)))
-        checks.append(_check_of(event, run.status != "ok" and event is None))
+        finished = str(run.finished_at)
+        event = events_by_key.get((source_id, finished))
+        age = (now - parse_stamp(finished)).total_seconds() / 86400
+        checks.append(_check_of(event, run.status != "ok" and event is None, age))
     return checks
 
 
@@ -1080,8 +1089,10 @@ def _checks_per_day(
     source_runs: Sequence[Any],
     events_by_day: Mapping[tuple[int, date], Any],
     now: datetime,
-) -> list[dict[str, str]]:
-    """One check per UTC day of the window that had a run: the worst outcome of that day."""
+) -> list[dict[str, Any]]:
+    """One check per UTC day of the window that had a run: the worst outcome of that day.
+
+    A day's mark sits at its day: today at the right end, 30 days ago at the left."""
     bad_days: set[date] = set()
     run_days: set[date] = set()
     for run in source_runs:
@@ -1090,13 +1101,13 @@ def _checks_per_day(
         if run.status != "ok":
             bad_days.add(day)
     today = now.date()
-    checks: list[dict[str, str]] = []
+    checks: list[dict[str, Any]] = []
     for offset in range(DRIFT_DAYS, -1, -1):
         day = today - timedelta(days=offset)
         if day not in run_days:
             continue
         event = events_by_day.get((source_id, day))
-        checks.append(_check_of(event, day in bad_days and event is None))
+        checks.append(_check_of(event, day in bad_days and event is None, float(offset)))
     return checks
 
 

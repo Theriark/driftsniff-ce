@@ -1,8 +1,8 @@
 {# The drift line (docs/design-direction.md section 2): one strip per source, the last 30 days
-   of checks, oldest on the left. A thin tick is a check without change, a hollow tick a failed
+   of checks, each at its time between 30 days ago (left) and today (right). A thin tick is a check without change, a hollow tick a failed
    or partial run, a severity shape a check that found changes (it links to the event and names
    it in its title). The labels under the strip are HTML text, so they never shrink below 14 px.
-   checks is a list of {kind: ok|failed|change, severity, summary, href}; id_prefix makes the
+   checks is a list of {kind: ok|failed|change, age (days before now), severity, summary, href}; id_prefix makes the
    title and desc ids unique on a page with several strips.
    A strip with change links is a named group, not an image: an image's children are
    presentational, so links inside one are nested interactive controls that a screen reader
@@ -11,7 +11,7 @@
    scroller itself takes the keyboard focus (axe scrollable-region-focusable). #}
 {% macro drift_line(name, checks, id_prefix, href="", meta="", short=false) %}
 {% set marks = drift_marks(checks) %}
-{% set width = drift_width(checks | length) %}
+{% set width = drift_width %}
 {% set linked = marks | selectattr("kind", "equalto", "change") | list | length > 0 %}
 <div class="driftline{% if short %} driftline--short{% endif %}">
   {% if not short %}

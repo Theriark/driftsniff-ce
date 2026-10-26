@@ -21,7 +21,7 @@ from driftsniff import __version__
 from driftsniff.config import Settings
 from driftsniff.main import create_app
 from driftsniff.web.templating import (
-    DRIFT_MIN_WIDTH,
+    DRIFT_WIDTH,
     NAV_GROUPS,
     NAV_ICONS,
     NAV_ITEMS,
@@ -29,7 +29,7 @@ from driftsniff.web.templating import (
     TEMPLATES_DIR,
     Shell,
     drift_marks,
-    drift_width,
+    drift_x,
     environment,
     initials,
     make_environment,
@@ -57,12 +57,12 @@ ADMIN = Shell(
 NOBODY = Shell(title="Sign in")
 
 CHECKS: list[dict[str, Any]] = [
-    {"kind": "ok"},
-    {"kind": "failed"},
-    {"kind": "change", "severity": "low", "summary": "network Guest renamed", "href": "/c/1"},
-    {"kind": "change", "severity": "medium", "summary": "recipients <b>x</b>", "href": "/c/2"},
-    {"kind": "change", "severity": "high", "summary": "secure boot off", "href": "/c/3"},
-    {"kind": "change", "severity": "critical", "summary": "policy deleted", "href": "/c/4"},
+    {"kind": "ok", "age": 30},
+    {"kind": "failed", "age": 20},
+    {"kind": "change", "age": 10, "severity": "low", "summary": "Guest renamed", "href": "/c/1"},
+    {"kind": "change", "age": 3, "severity": "medium", "summary": "to <b>x</b>", "href": "/c/2"},
+    {"kind": "change", "age": 1, "severity": "high", "summary": "secure boot off", "href": "/c/3"},
+    {"kind": "change", "age": 0, "severity": "critical", "summary": "policy gone", "href": "/c/4"},
 ]
 
 
@@ -797,18 +797,18 @@ def test_drift_line_draws_every_check_kind_and_describes_itself() -> None:
     svg = parsed.find("svg")[0]
     # it holds change links, so it is a group, not an image (axe nested-interactive, THE-1351)
     assert svg["role"] == "group" and svg["aria-labelledby"] == "dl1-t dl1-d"
-    assert svg["viewbox"] == f"0 0 {DRIFT_MIN_WIDTH} 32"  # the parser lowercases names
+    assert svg["viewbox"] == f"0 0 {DRIFT_WIDTH} 32"  # the parser lowercases names
     assert "Drift line of lab-controller, last 30 days" in text
     assert len([a for a in parsed.find("line") if a.get("class") == "tick"]) == 1
     assert parsed.find("rect") == [
-        {"class": "tick--hollow", "x": "25", "y": "12", "width": "6", "height": "14"}
+        {"class": "tick--hollow", "x": "205", "y": "12", "width": "6", "height": "14"}
     ]
-    assert parsed.find("circle") == [{"class": "mark mark--low", "cx": "48", "cy": "18", "r": "6"}]
+    assert parsed.find("circle") == [{"class": "mark mark--low", "cx": "408", "cy": "18", "r": "6"}]
     paths = [attrs["class"] for attrs in parsed.find("path")]
     assert paths == ["mark mark--medium", "mark mark--high", "mark mark--critical"]
     links = [attrs["href"] for attrs in parsed.find("a") if attrs.get("class") is None]
     assert links == ["/c/1", "/c/2", "/c/3", "/c/4"]
-    assert "recipients &lt;b&gt;x&lt;/b&gt;" in text
+    assert "to &lt;b&gt;x&lt;/b&gt;" in text
     assert "30 days ago" in text and "today" in text
     assert {"class": "driftline__name", "href": "/sources/1"} in parsed.find("a")
     short = drift("lab-controller", CHECKS, "dl2", short=True)
@@ -899,17 +899,52 @@ def test_sparkline_points_scale_into_the_box() -> None:
 def test_drift_marks_and_width() -> None:
     marks = drift_marks(CHECKS)
     assert [mark.kind for mark in marks] == ["ok", "failed", "change", "change", "change", "change"]
-    assert [mark.x for mark in marks] == [8.0, 28.0, 48.0, 68.0, 88.0, 108.0]
-    assert marks[2].d == "" and marks[3].d == "M68 10 L76 25 H60 Z"
-    assert marks[4].d == "M88 9 L97 18 L88 27 L79 18 Z"
-    assert marks[5].d == "M104.3 9 H111.7 L117 14.3 V21.7 L111.7 27 H104.3 L99 21.7 V14.3 Z"
-    assert drift_width(0) == 616 and drift_width(31) == 616 and drift_width(40) == 796
-    for bad in ({"kind": "odd"}, {"kind": "change", "severity": "worse"}):
+    assert [mark.x for mark in marks] == [8.0, 208.0, 408.0, 548.0, 588.0, 608.0]
+    assert marks[2].d == "" and marks[3].d == "M548 10 L556 25 H540 Z"
+    assert marks[4].d == "M588 9 L597 18 L588 27 L579 18 Z"
+    assert marks[5].d == "M604.3 9 H611.7 L617 14.3 V21.7 L611.7 27 H604.3 L599 21.7 V14.3 Z"
+    assert DRIFT_WIDTH == 616
+    for bad in (
+        {"kind": "odd", "age": 1},
+        {"kind": "change", "age": 1, "severity": "worse"},
+        {"kind": "ok"},
+    ):
         try:
             drift_marks([bad])
         except ValueError:
             continue
         raise AssertionError(f"{bad} was accepted")
+
+
+def test_a_drift_mark_sits_at_the_time_of_its_check_not_at_its_place_in_the_list() -> None:
+    """THE-1402 F2: the marks were packed from the left (x = 8 + 20 * index) under the axis
+    "30 days ago ... today", so the only check of a source, made an hour ago, was drawn at
+    30 days ago and a narrow strip that opens on today opened empty."""
+    hour = 1 / 24
+    (only,) = drift_marks([{"kind": "change", "age": hour, "severity": "high", "href": "/c/9"}])
+    assert only.x == drift_x(hour) and only.x > DRIFT_WIDTH - 10
+    assert only.d.startswith(f"M{only.x:g} ")
+    # two checks a day apart are one day step apart wherever they are in the window
+    recent = drift_marks([{"kind": "ok", "age": 1.0}, {"kind": "ok", "age": 0.0}])
+    assert [mark.x for mark in recent] == [588.0, 608.0]
+    assert drift_x(30) == 8.0 and drift_x(15) == 308.0 and drift_x(0) == 608.0
+    # a time outside the window is held at the nearer end, never drawn off the strip
+    assert drift_x(30.6) == 8.0 and drift_x(-0.01) == 608.0
+
+
+def test_a_drift_line_draws_its_changes_over_the_ticks_of_the_same_time() -> None:
+    drift = component("driftline.html", "drift_line")
+    checks = [
+        {"kind": "change", "age": 0.02, "severity": "low", "summary": "a", "href": "/c/1"},
+        {"kind": "ok", "age": 0.01},
+        {"kind": "failed", "age": 0.0},
+    ]
+    marks = drift_marks(checks)
+    assert [mark.kind for mark in marks] == ["ok", "failed", "change"]
+    text = drift("lab-controller", checks, "dl9")
+    assert text.index('class="tick"') < text.index('class="tick--hollow"') < text.index("/c/1")
+    (circle,) = Parsed(text).find("circle")
+    assert circle["cx"] == "607"
 
 
 def test_render_uses_one_shared_environment() -> None:

@@ -190,10 +190,11 @@
   margin-right: auto;
 }
 
+/* both drawings are one unit per CSS pixel, so 14 units are the 14 px floor of the brief */
 .replay-label,
 .replay-axis {
   font-family: var(--font-sans);
-  font-size: 13px;
+  font-size: 14px;
   fill: var(--text-2);
 }
 
@@ -226,7 +227,7 @@
 
 .heat-n {
   font-family: var(--font-sans);
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   fill: var(--on-heat);
