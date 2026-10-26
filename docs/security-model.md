@@ -77,11 +77,12 @@ Policy: private and loopback targets are allowed on purpose. Link-local `169.254
 | Embedded IPv4 judged by the inner address | `test_source_addresses_embedded.py` (13 tests) |
 | Redirects never followed | `test_redirects_are_never_followed`, `test_notify_webhook.py::test_a_redirect_to_the_metadata_address_is_a_failure_and_nothing_follows_it` |
 | Webhook and mail connect to the checked address (rebinding closed) | `test_the_connection_goes_to_the_address_that_was_checked_not_to_the_name`, `test_a_name_that_resolves_to_a_blocked_address_is_refused`, `test_one_blocked_answer_among_allowed_ones_refuses_the_target` |
+| UniFi and Xen Orchestra connect to the checked address (rebinding closed): the name is resolved once in `probe()`, the first answer is pinned, a later answer is never used, the TLS host name check and SNI keep the name | `contract/test_collector_pinning.py::test_unifi_connects_to_the_first_answer_and_never_uses_a_later_one`, `test_xo_connects_to_the_first_answer_and_never_uses_a_later_one`, `test_a_blocked_answer_sends_nothing_to_either_collector`, `test_ca_file_mode_refuses_a_name_the_certificate_does_not_cover` |
 | Webhook signed over timestamp and body | `test_the_signature_covers_the_timestamp_and_the_body_with_the_documented_construction` |
 | TLS verified by default; `ca_file`, pinned and insecure are explicit; a pin mismatch sends nothing | `contract/test_tls.py` |
 | Probe never prints the credential | `test_source_probe.py` |
 
-Collector rebinding is NOT closed: see gap G1.
+Collector rebinding is closed for UniFi and Xen Orchestra (gap G1, fixed).
 
 #### Secrets handling (`secrets/`)
 
@@ -129,7 +130,7 @@ No high finding is open. These gaps are listed here and are not fixed by this do
 
 | Id | Severity | Gap | Fix |
 |---|---|---|---|
-| G1 | Medium | Xen Orchestra and UniFi clients resolve a name once, check the answers, then connect by name, so DNS rebinding can reach a blocked address and the credential header goes there (`collectors/resolve.py`, `collectors/unifi/client.py`). Only an admin sets the address; answers must parse as controller data. Webhook and mail already pin the address. | Reuse the pinned-address transport of `notify/webhook.py` in the collector client; one copy of the check; a rebinding contract test per collector. |
+| G1 | Medium | **Fixed.** Xen Orchestra and UniFi clients resolved a name once, checked the answers, then connected by name (DNS rebinding window). Now `probe()` resolves once (`collectors/resolve.py::pin_address`), refuses a blocked answer and pins the first answer; every connection of the run goes to that address (`collectors/tls.py::AddressPin`, `AddressBackend`) in all four TLS modes, while the name stays the TLS host name, SNI and `Host`. A new probe is a new lookup; with no pinned address a connection fails closed. | Test: `contract/test_collector_pinning.py::test_unifi_connects_to_the_first_answer_and_never_uses_a_later_one` and `test_xo_connects_to_the_first_answer_and_never_uses_a_later_one` (a name that does not exist in DNS; the second answer is the metadata address and is never used). |
 | G2 | Low | With `DRIFTSNIFF_TRUSTED_PROXY=true` uvicorn uses `forwarded_allow_ips=*` (`cli.py`). If the port is reachable by anything but the proxy, `X-Forwarded-For` (resets the per-address throttle; per-user throttle and lock remain) and `X-Forwarded-Proto` are forgeable. Default compose binds 127.0.0.1, trusted proxy off. No test. | Proxy list from a setting; document that the port must not be exposed. |
 | G3 | Low | Anyone knowing a user name can lock that user for 15 minutes, including the only admin. Throttle is in memory, single worker, 4096 keys (eviction possible; stored lock unaffected). | Accept for CE and document; optional CLI unlock. |
 | G4 | Low | gitleaks runs only in CI: no documented local command or pre-commit config; commit scan only on pull requests, a push to `development` scans files only. `.gitleaksignore` has three exact-commit entries for synthetic fixtures with reasons; reviewed, acceptable. | Document a local command or pre-commit config; scan pushed commits. |
@@ -141,4 +142,4 @@ No high finding is open. These gaps are listed here and are not fixed by this do
 | G10 | Low | Backups hold the full configuration history and encrypted credentials; no automated test restores a backup and starts from it. | Add a restore test; document backup storage. |
 | G11 | Info | The scanner is a safety net: non-secret-shaped values in free text are stored as they are. | Covered by the sensitivity statement. |
 
-An independent pass by the Application Security Engineer can be requested by Delivery; G1 and G2 deserve it.
+An independent pass by the Application Security Engineer can be requested by Delivery; G2 deserves it; the G1 change is to be reviewed once CI is green.
