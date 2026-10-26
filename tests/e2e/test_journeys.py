@@ -21,7 +21,7 @@ from .support import Accounts, Audit, Watch
 FIXTURE_SOURCE = "DEV-FIXTURE synthetic (removable)"
 FAKE_SOURCE = "E2E fake source"
 PUSH_FIELDS = "networks: _id, name, vlan"
-TOKEN_NAME = "e2e-token"
+READER_NAME = "e2e-reader"
 STATE: dict[str, list[int]] = {}
 
 
@@ -62,13 +62,12 @@ def test_01_setup_creates_the_first_admin(
     expect(page.locator("#username")).to_have_value(accounts.admin)
     expect(page.locator("#password")).to_have_value("")
     audit.current(page, "setup-wrong-code")
-    watch.allow_refusals = False
     page.fill("#code", app.setup_code)
     page.fill("#password", accounts.admin_password)
     page.get_by_role("button", name="Create admin and sign in").click()
     expect(page).to_have_url(f"{app.base_url}/")
     expect(page.locator(".user-name")).to_have_text(accounts.admin)
-    # setup is gone once an admin exists
+    # setup is gone once an admin exists: a 404, which the browser logs as a console error
     response = page.goto(f"{app.base_url}/setup")
     assert response is not None and response.status == 404
 
@@ -125,8 +124,9 @@ def test_04_add_a_fake_push_source(page: Page, app: LiveApp, audit: Audit, watch
     page.fill("#name", FAKE_SOURCE)
     page.fill("#push_fields", PUSH_FIELDS)
     page.get_by_role("button", name="Add source").click()
-    expect(page).to_have_url(re.compile(r"/sources/\d+$"))
-    expect(page.get_by_text(FAKE_SOURCE).first).to_be_visible()
+    expect(page).to_have_url(re.compile(r"/sources/\d+(\?notice=created)?$"))
+    expect(page.get_by_role("heading", name=FAKE_SOURCE, level=1)).to_be_visible()
+    expect(page.get_by_text("Source added")).to_be_visible()
     audit.current(page, "source-detail")
 
 
@@ -196,20 +196,20 @@ def test_07_history_and_current_configuration(page: Page, app: LiveApp, audit: A
 def test_08_create_and_revoke_an_api_token(page: Page, app: LiveApp, audit: Audit) -> None:
     open_page(page, app, "/settings")
     audit.current(page, "settings")
-    page.fill("#token-name", TOKEN_NAME)
+    page.fill("#token-name", READER_NAME)
     page.get_by_role("button", name="Make token").click()
-    expect(page.get_by_role("heading", name=f"New token {TOKEN_NAME}, shown once")).to_be_visible()
+    expect(page.get_by_role("heading", name=f"New token {READER_NAME}, shown once")).to_be_visible()
     expect(page.locator("#new-token")).not_to_have_value("")
     audit.current(page, "settings-token-created")
     # shown once: a fresh visit lists the token by its prefix, never the value
     open_page(page, app, "/settings")
     expect(page.locator("#new-token")).to_have_count(0)
-    row = page.locator("tr", has_text=TOKEN_NAME)
+    row = page.locator("tr", has_text=READER_NAME)
     expect(row.get_by_text("Active")).to_be_visible()
-    page.get_by_role("button", name=f"Revoke {TOKEN_NAME}").click()
-    row = page.locator("tr", has_text=TOKEN_NAME)
+    page.get_by_role("button", name=f"Revoke {READER_NAME}").click()
+    row = page.locator("tr", has_text=READER_NAME)
     expect(row.get_by_text("Revoked")).to_be_visible()
-    expect(page.get_by_role("button", name=f"Revoke {TOKEN_NAME}")).to_have_count(0)
+    expect(page.get_by_role("button", name=f"Revoke {READER_NAME}")).to_have_count(0)
     audit.current(page, "settings-token-revoked")
 
 
