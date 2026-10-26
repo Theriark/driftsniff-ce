@@ -26,6 +26,11 @@ The behaviour below is the plan's and does not depend on them.
 
 TLS modes come from ``collectors/tls.py``: the caller passes the settings of the source.
 
+``probe()`` resolves the host name once, refuses a blocked answer and pins the first answer: every
+connection of the run goes to that address and the name is not looked up again (DNS rebinding,
+``collectors/resolve.py``); the TLS host name check and SNI still use the name. The redirect
+refusal of the shared client remains.
+
 Not done here (other tasks): the factory that builds a client from a stored source and saves the
 state ``token_expiring`` (``serve`` has no scheduler until it exists).
 """
@@ -51,8 +56,8 @@ from driftsniff.collectors.base import (
     fetch_ndjson,
     make_client,
 )
-from driftsniff.collectors.resolve import Resolver, check_address, system_resolver
-from driftsniff.collectors.tls import TlsSettings
+from driftsniff.collectors.resolve import Resolver, pin_address, system_resolver
+from driftsniff.collectors.tls import AddressPin, TlsSettings
 from driftsniff.collectors.xo.normalize import prepare_objects
 from driftsniff.collectors.xo.resources import (
     COLLECTIONS,
@@ -157,7 +162,13 @@ class XoClient(Collector):
         self._entered = entered_expiry(expires_on)
         self._observed: datetime | None = None
         self._clock = clock or _utc_now
-        self._client = make_client(transport=transport, tls=tls, data_dir=data_dir)
+        self._address = AddressPin()
+        self._client = make_client(
+            transport=transport,
+            tls=tls,
+            data_dir=data_dir,
+            address=self._address if transport is None else None,
+        )
         self._client.timeout = httpx.Timeout(request_timeout)
         self._ready = False
 
@@ -182,7 +193,8 @@ class XoClient(Collector):
     def probe(self) -> str | None:
         """Check the address and the credential, then read the credential expiry once."""
         self._ready = False
-        check_address(self._base_url, self._resolver)
+        self._address.clear()
+        self._address.set(pin_address(self._base_url, self._resolver))
         try:
             fetch_json(self._client, f"{self._base_url}{REST_PREFIX}", headers=self._headers)
         except CollectorError as error:

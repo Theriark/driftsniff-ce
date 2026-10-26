@@ -34,25 +34,23 @@ TLS modes come from ``collectors/tls.py`` (P7-T3): the caller passes the setting
 Not done here (other tasks): the factory that builds a client from a stored source and saves the
 detected base path and the state ``unsupported``.
 
-A host name is resolved once, before the first request, and every address is checked with
-``blocked_reason``. The connection then resolves the name again, so a name that changes its answer
-between the two is not caught (DNS rebinding); the redirect refusal of the shared client remains.
+``probe()`` resolves the host name once, refuses a blocked answer (``collectors/resolve.py``) and
+pins the first answer: every connection of the run goes to that address and the name is not looked
+up again (DNS rebinding); the TLS host name check and SNI still use the name. The redirect refusal
+of the shared client remains.
 """
 
-import ipaddress
 import re
-import socket
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, Final
-from urllib.parse import quote, urlencode, urlsplit
+from urllib.parse import quote, urlencode
 
 import httpx
 from pydantic import ValidationError
 
 from driftsniff.collectors.base import (
     ERROR_BAD_JSON,
-    ERROR_CONNECTION,
     REQUEST_TIMEOUT_SECONDS,
     STATUS_ERROR,
     Collector,
@@ -62,7 +60,8 @@ from driftsniff.collectors.base import (
     fetch_json,
     make_client,
 )
-from driftsniff.collectors.tls import TlsSettings
+from driftsniff.collectors.resolve import Resolver, pin_address, system_resolver
+from driftsniff.collectors.tls import AddressPin, TlsSettings
 from driftsniff.collectors.unifi.models import (
     AclOrdering,
     FirewallOrdering,
@@ -96,7 +95,7 @@ from driftsniff.collectors.unifi.resources import (
 )
 from driftsniff.config import DEFAULT_DATA_DIR
 from driftsniff.core.canonical import JsonValue
-from driftsniff.sources.addresses import blocked_reason, validate_base_url
+from driftsniff.sources.addresses import validate_base_url
 
 API_KEY_HEADER: Final = "X-API-KEY"
 FLOOR_VERSION: Final = (10, 1, 84)
@@ -111,7 +110,6 @@ ERROR_FORBIDDEN: Final = "forbidden"
 ERROR_UNAUTHORIZED: Final = "unauthorized"
 ERROR_NO_API: Final = "no_api"
 ERROR_NOT_PROBED: Final = "not_probed"
-ERROR_BLOCKED_ADDRESS: Final = "blocked_address"
 ERROR_UNKNOWN_RESOURCE: Final = "unknown_resource"
 
 STATUS_FORBIDDEN: Final = "403"
@@ -120,8 +118,6 @@ STATUS_UNAUTHORIZED: Final = "401"
 
 _VERSION = re.compile(r"(\d{1,4})\.(\d{1,4})\.(\d{1,6})(?:[.+-][0-9A-Za-z.+-]{0,32})?")
 _SITE_ID = re.compile(r"[A-Za-z0-9_-]{1,64}")
-
-Resolver = Callable[[str], Sequence[str]]
 
 
 def parse_version(text: str) -> tuple[int, int, int] | None:
@@ -147,17 +143,6 @@ class UnsupportedVersionError(CollectorError):
         super().__init__(ERROR_UNSUPPORTED_VERSION, message)
 
 
-def _system_resolver(host: str) -> Sequence[str]:
-    try:
-        found = socket.getaddrinfo(host, None, type=socket.SOCK_STREAM)
-    except (OSError, UnicodeError):
-        raise CollectorError(
-            ERROR_CONNECTION,
-            "the controller address cannot be resolved",
-        ) from None
-    return [str(entry[4][0]) for entry in found]
-
-
 class UnifiClient(Collector):
     """Reads the UniFi Network application read only. One instance serves one run."""
 
@@ -179,8 +164,14 @@ class UnifiClient(Collector):
         self._base_url = validate_base_url(base_url, allow_plain_http=allow_plain_http)
         self._headers = {API_KEY_HEADER: api_key}
         self._hint = base_path if base_path in BASE_PATHS else None
-        self._resolver = resolver or _system_resolver
-        self._client = make_client(transport=transport, tls=tls, data_dir=data_dir)
+        self._resolver = resolver or system_resolver
+        self._address = AddressPin()
+        self._client = make_client(
+            transport=transport,
+            tls=tls,
+            data_dir=data_dir,
+            address=self._address if transport is None else None,
+        )
         self._client.timeout = httpx.Timeout(request_timeout)
         self._base_path: str | None = None
         self._version: str | None = None
@@ -198,7 +189,8 @@ class UnifiClient(Collector):
     def probe(self) -> str | None:
         """Find the base path, read the version and enforce the floor."""
         self._ready = False
-        self._check_address()
+        self._address.clear()
+        self._address.set(pin_address(self._base_url, self._resolver))
         for path in self._candidate_paths():
             try:
                 parsed, _ = fetch_json(
@@ -271,22 +263,6 @@ class UnifiClient(Collector):
         self._client.close()
 
     # -- probe helpers ------------------------------------------------------------------------
-
-    def _check_address(self) -> None:
-        host = urlsplit(self._base_url).hostname or ""
-        for text in self._resolver(host):
-            try:
-                address = ipaddress.ip_address(text.split("%", 1)[0])
-            except ValueError:
-                raise CollectorError(
-                    ERROR_BLOCKED_ADDRESS,
-                    "the controller address resolves to an unusable value",
-                ) from None
-            if blocked_reason(address) is not None:
-                raise CollectorError(
-                    ERROR_BLOCKED_ADDRESS,
-                    "the controller address resolves to a blocked address",
-                )
 
     def _candidate_paths(self) -> list[str]:
         if self._hint is None:

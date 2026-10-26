@@ -14,6 +14,11 @@ A source stores one of four modes in its options (docs/tls.md has the user view)
 * ``insecure``: nothing is verified. The service needs the confirmation text
   :data:`INSECURE_CONFIRMATION`, writes the audit event and stores the flag ``insecure``.
 
+Every transport can also be bound to an :class:`AddressPin`: the collector puts the address it
+checked into the pin and each connection then goes to that address, never to the name (no second
+DNS lookup), while the name stays the TLS host name, the SNI value and the ``Host`` header. All
+four modes work the same way with a pin; without one the connection resolves the name itself.
+
 This module does not import the collector base (the base imports it), logs nothing, and every
 message is fixed: no path, fingerprint or certificate text is put into an error.
 """
@@ -184,6 +189,89 @@ def make_ssl_context(
     return context
 
 
+# -- connecting to a checked address ----------------------------------------------------------
+
+
+class AddressPin:
+    """The address a collector has checked and every connection must use; empty until set."""
+
+    def __init__(self) -> None:
+        self._address: str | None = None
+
+    def set(self, address: str) -> None:
+        self._address = address
+
+    def clear(self) -> None:
+        self._address = None
+
+    def get(self) -> str | None:
+        return self._address
+
+
+class AddressBackend(httpcore.NetworkBackend):
+    """The standard backend, but every TCP connection goes to the pinned address.
+
+    With no address in the pin the connection fails closed: the name is never looked up.
+    """
+
+    def __init__(self, pin: AddressPin, inner: httpcore.NetworkBackend | None = None) -> None:
+        self._pin = pin
+        self._inner = inner if inner is not None else httpcore.SyncBackend()
+
+    def connect_tcp(
+        self,
+        host: str,
+        port: int,
+        timeout: float | None = None,
+        local_address: str | None = None,
+        socket_options: Iterable[Any] | None = None,
+    ) -> httpcore.NetworkStream:
+        address = self._pin.get()
+        if address is None:
+            raise httpcore.ConnectError("no checked address to connect to")
+        return self._inner.connect_tcp(
+            address,
+            port,
+            timeout=timeout,
+            local_address=local_address,
+            socket_options=socket_options,
+        )
+
+    def connect_unix_socket(
+        self,
+        path: str,
+        timeout: float | None = None,
+        socket_options: Iterable[Any] | None = None,
+    ) -> httpcore.NetworkStream:
+        raise httpcore.ConnectError("unix sockets are not used")
+
+    def sleep(self, seconds: float) -> None:
+        self._inner.sleep(seconds)
+
+
+def _use_backend(
+    transport: httpx.HTTPTransport, context: ssl.SSLContext, backend: httpcore.NetworkBackend
+) -> None:
+    """Give ``transport`` a connection pool that connects through ``backend``."""
+    limits = httpx.Limits()
+    transport._pool.close()
+    transport._pool = httpcore.ConnectionPool(
+        ssl_context=context,
+        max_connections=limits.max_connections,
+        max_keepalive_connections=limits.max_keepalive_connections,
+        keepalive_expiry=limits.keepalive_expiry,
+        network_backend=backend,
+    )
+
+
+class _AddressTransport(httpx.HTTPTransport):
+    """An httpx transport for the modes without a pin that connects to the pinned address."""
+
+    def __init__(self, context: ssl.SSLContext, address: AddressPin) -> None:
+        super().__init__(verify=context, trust_env=False)
+        _use_backend(self, context, AddressBackend(address))
+
+
 # -- pinning in the handshake ------------------------------------------------------------------
 
 
@@ -271,18 +359,11 @@ class PinnedTransport(httpx.HTTPTransport):
     is refused before a connection is made.
     """
 
-    def __init__(self, pin_hex: str) -> None:
+    def __init__(self, pin_hex: str, address: AddressPin | None = None) -> None:
         context = make_ssl_context(TlsSettings(MODE_PINNED, pin=normalize_pin(pin_hex)))
         super().__init__(verify=context, trust_env=False)
-        limits = httpx.Limits()
-        self._pool.close()
-        self._pool = httpcore.ConnectionPool(
-            ssl_context=context,
-            max_connections=limits.max_connections,
-            max_keepalive_connections=limits.max_keepalive_connections,
-            keepalive_expiry=limits.keepalive_expiry,
-            network_backend=PinningBackend(pin_hex),
-        )
+        inner = AddressBackend(address) if address is not None else None
+        _use_backend(self, context, PinningBackend(pin_hex, inner))
 
     def handle_request(self, request: httpx.Request) -> httpx.Response:
         if request.url.scheme != "https":
@@ -291,14 +372,23 @@ class PinnedTransport(httpx.HTTPTransport):
 
 
 def build_transport(
-    settings: TlsSettings, data_dir: Path | str = DEFAULT_DATA_DIR
+    settings: TlsSettings,
+    data_dir: Path | str = DEFAULT_DATA_DIR,
+    address: AddressPin | None = None,
 ) -> httpx.BaseTransport:
-    """The httpx transport that enforces ``settings``."""
+    """The httpx transport that enforces ``settings``.
+
+    With ``address`` every connection goes to the address in that pin and the name is not looked
+    up again; the TLS checks of the mode still use the name of the request.
+    """
     if settings.mode == MODE_PINNED:
         if settings.pin is None:
             raise TlsConfigError("a pin is given exactly when the TLS mode is pinned")
-        return PinnedTransport(settings.pin)
-    return httpx.HTTPTransport(verify=make_ssl_context(settings, data_dir), trust_env=False)
+        return PinnedTransport(settings.pin, address)
+    context = make_ssl_context(settings, data_dir)
+    if address is not None:
+        return _AddressTransport(context, address)
+    return httpx.HTTPTransport(verify=context, trust_env=False)
 
 
 def classify_failure(error: BaseException) -> str | None:

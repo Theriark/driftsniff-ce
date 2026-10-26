@@ -36,6 +36,7 @@ import httpx
 from driftsniff.collectors.tls import (
     ERROR_TLS,
     ERROR_TLS_PIN,
+    AddressPin,
     TlsSettings,
     build_transport,
     classify_failure,
@@ -186,6 +187,7 @@ def make_client(
     transport: httpx.BaseTransport | None = None,
     tls: TlsSettings | None = None,
     data_dir: Path | str = DEFAULT_DATA_DIR,
+    address: AddressPin | None = None,
 ) -> httpx.Client:
     """An HTTP client with the limits of this module: 30 second timeout, no redirects.
 
@@ -193,11 +195,15 @@ def make_client(
     mode of the source (``driftsniff.collectors.tls``; without it the default trust store is
     used); ``transport`` is there for tests and excludes ``tls``. A caller adds its own credential
     header.
+
+    ``address`` binds the client to an :class:`~driftsniff.collectors.tls.AddressPin`: every
+    connection goes to the address the caller put in the pin and the name is never looked up
+    again. Without ``tls`` the default mode (``verify``) is used for it. It excludes ``transport``.
     """
-    if tls is not None:
-        if transport is not None:
-            raise ValueError("a transport and TLS settings exclude each other")
-        transport = build_transport(tls, data_dir)
+    if transport is not None and (tls is not None or address is not None):
+        raise ValueError("a transport and TLS settings or an address pin exclude each other")
+    if tls is not None or address is not None:
+        transport = build_transport(tls or TlsSettings(), data_dir, address)
     return httpx.Client(
         timeout=REQUEST_TIMEOUT_SECONDS,
         follow_redirects=FOLLOW_REDIRECTS,
