@@ -13,14 +13,17 @@ Commands:
   same volumes, times the first page and reads memory and CPU from inside the container. Needs
   only the standard library and the docker command on the host. This is the run to record.
 * ``local``: the same fixture in this process (no docker, no memory limit). For development and
-  the unit tests; its numbers are not the acceptance numbers.
+  the unit tests; it measures nothing against the targets, so those checks are gaps.
 * ``seed`` and ``noisy``: run inside the container by ``container``; they import the product.
 
-A miss against a target is reported as a miss and makes the exit code 1; the report is always
-complete. Exit code 2 means the harness itself failed.
+A miss against a target is reported as a miss and makes the exit code 1. A check that could not be
+measured is a gap, never a pass. A container that is killed for memory, or a server that stops
+answering, gives a partial report with those misses and gaps, not a traceback. The report is
+always written; exit code 2 means only that the harness itself failed.
 """
 
 import argparse
+import http.client
 import json
 import logging
 import math
@@ -114,10 +117,6 @@ NOISY_CHANGES_PER_POLL: Final = 3
 
 class LoadTestError(Exception):
     """The harness cannot run or cannot finish; this is not a result about the product."""
-
-
-class LimitMissError(LoadTestError):
-    """A container was killed for memory: that is a result about the product, a miss."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -898,7 +897,12 @@ def _spec_arguments(spec: FixtureSpec) -> list[str]:
 
 
 def _run_phase(image: str, name: str, command: str, spec: FixtureSpec) -> dict[str, Any]:
-    """Run ``seed`` or ``noisy`` in a hardened container on its own volumes; return its result."""
+    """Run ``seed`` or ``noisy`` in a hardened container on its own volumes; return its result.
+
+    A container killed for memory is a result about the product, not a harness failure: the
+    answer is a partial result (``partial`` and ``oom_killed`` true, no measurements) that the
+    verdicts turn into a miss and gaps.
+    """
     script = Path(__file__).resolve()
     data, keys = f"{name}-data", f"{name}-keys"
     _docker("volume", "create", data)
@@ -921,14 +925,15 @@ def _run_phase(image: str, name: str, command: str, spec: FixtureSpec) -> dict[s
         command,
         *_spec_arguments(spec),
     )
+    exit_code = int(_inspect(name, "{{.State.ExitCode}}"))
     if _inspect(name, "{{.State.OOMKilled}}") == "true":
-        raise LimitMissError(f"the {command} container was killed for memory at the 512 MB limit")
+        return {"phase": command, "partial": True, "oom_killed": True, "exit_code": exit_code}
     if done.returncode != 0:
         tail = " ".join(done.stderr.split())[-300:]
         raise LoadTestError(f"the {command} container failed ({done.returncode}): {tail}")
     result = _last_json(done.stdout)
     result["oom_killed"] = False
-    result["exit_code"] = int(_inspect(name, "{{.State.ExitCode}}"))
+    result["exit_code"] = exit_code
     return result
 
 
@@ -940,7 +945,11 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 
 
 def _fetch(port: str, path: str, cookie: str) -> tuple[int, int, float]:
-    """GET a page of the running container; return the status, the size and the seconds."""
+    """GET a page of the running container; return the status, the size and the seconds.
+
+    A server that does not answer (connection refused or reset, no status line, a time-out, as when
+    the container was killed) gives status 0, which the verdicts report; it never raises.
+    """
     opener = urllib.request.build_opener(_NoRedirect)
     request = urllib.request.Request(  # noqa: S310 (a fixed http address on the loopback)
         f"http://127.0.0.1:{port}{path}",
@@ -952,6 +961,8 @@ def _fetch(port: str, path: str, cookie: str) -> tuple[int, int, float]:
             status, body = response.status, response.read()
     except urllib.error.HTTPError as error:
         status, body = error.code, error.read()
+    except (OSError, http.client.HTTPException):
+        status, body = 0, b""
     return status, len(body), time.perf_counter() - started
 
 
@@ -976,8 +987,30 @@ def _cgroup_peak(name: str) -> float | None:
         return None
 
 
+def _server_state(name: str) -> tuple[bool, bool]:
+    """Whether the server container is running, and whether it was killed for memory."""
+    running = _inspect(name, "{{.State.Running}}") == "true"
+    killed = _inspect(name, "{{.State.OOMKilled}}") == "true"
+    return running, killed
+
+
+def _server_readings(name: str) -> dict[str, Any]:
+    """Peak memory of the server process; None for what cannot be read (it may have stopped)."""
+    readings: dict[str, Any] = {"peak_rss_mb": None, "cgroup_peak_mb": None}
+    try:
+        readings["peak_rss_mb"] = _process_mb(name, "VmHWM")
+    except LoadTestError:
+        return readings
+    readings["cgroup_peak_mb"] = _cgroup_peak(name)
+    return readings
+
+
 def _serve_and_time(image: str, name: str, cookie: str, volumes: tuple[str, str]) -> dict[str, Any]:
-    """Start the server on the seeded volumes, time the pages and read its memory and CPU."""
+    """Start the server on the seeded volumes, time the pages and read its memory and CPU.
+
+    A server that stops, is killed for memory or stops answering gives a partial result
+    (``running`` false or a page with status 0, ``oom_killed`` as docker reports it).
+    """
     data, keys = volumes
     _docker(
         "run",
@@ -997,8 +1030,17 @@ def _serve_and_time(image: str, name: str, cookie: str, volumes: tuple[str, str]
     )
     health = ""
     for _ in range(HEALTH_WAIT_SECONDS):
-        if _inspect(name, "{{.State.Running}}") != "true":
-            raise LoadTestError("the server container stopped before it became healthy")
+        running, killed = _server_state(name)
+        if not running:
+            return {
+                "idle_rss_mb": None,
+                "peak_rss_mb": None,
+                "cgroup_peak_mb": None,
+                "pages": {},
+                "running": False,
+                "oom_killed": killed,
+                "stopped_before_healthy": True,
+            }
         health = _inspect(name, "{{if .State.Health}}{{.State.Health.Status}}{{end}}")
         if health == "healthy":
             break
@@ -1018,17 +1060,22 @@ def _serve_and_time(image: str, name: str, cookie: str, volumes: tuple[str, str]
             if status != 200:
                 break
         result["pages"][path] = {"status": status, "bytes": size, **_page_summary(timings)}
+        if status == 0:
+            break
         if path == "/":
             result["cpu_seconds_first_page_and_warm"] = _process_cpu(name) - cpu_before
-    result["peak_rss_mb"] = _process_mb(name, "VmHWM")
-    result["cgroup_peak_mb"] = _cgroup_peak(name)
-    result["running"] = _inspect(name, "{{.State.Running}}") == "true"
-    result["oom_killed"] = _inspect(name, "{{.State.OOMKilled}}") == "true"
+    result.update(_server_readings(name))
+    result["running"], result["oom_killed"] = _server_state(name)
     return result
 
 
 def run_container(image: str, spec: FixtureSpec) -> dict[str, Any]:
-    """The whole measurement against ``image``; containers and volumes are always removed."""
+    """The whole measurement against ``image``; containers and volumes are always removed.
+
+    A container killed for memory or a server that stops answering gives a partial report (see
+    ``evaluate``), not an exception. ``server`` then holds ``skipped`` when there is nothing to
+    serve because the seed was killed.
+    """
     spec.validate()
     _docker("image", "inspect", image)
     tag = f"driftsniff-load-{os.getpid()}"
@@ -1036,8 +1083,13 @@ def run_container(image: str, spec: FixtureSpec) -> dict[str, Any]:
     volumes = [f"{tag}-seed-data", f"{tag}-seed-keys", f"{tag}-noisy-data", f"{tag}-noisy-keys"]
     try:
         seeded = _run_phase(image, f"{tag}-seed", "seed", spec)
-        cookie = str(seeded.pop("session"))
-        server = _serve_and_time(image, f"{tag}-server", cookie, (volumes[0], volumes[1]))
+        if seeded.get("partial"):
+            server: dict[str, Any] = {
+                "skipped": "the seed container was killed for memory, so there was nothing to serve"
+            }
+        else:
+            cookie = str(seeded.pop("session"))
+            server = _serve_and_time(image, f"{tag}-server", cookie, (volumes[0], volumes[1]))
         noisy_result = _run_phase(image, f"{tag}-noisy", "noisy", spec)
     finally:
         for container in containers:
@@ -1086,21 +1138,22 @@ def run_local(spec: FixtureSpec) -> dict[str, Any]:
 
 @dataclass(frozen=True, slots=True)
 class Verdict:
-    """One check against a target: ``pass``, ``below`` (better than planned), ``miss``, ``note``."""
+    """One check against a target.
+
+    ``pass``, ``below`` (better than planned), ``miss`` (the target is not met), ``note`` (met,
+    with a remark) or ``gap`` (not measured, so neither met nor missed; never a pass).
+    """
 
     check: str
     outcome: str
     detail: str
 
 
-def evaluate(report: Mapping[str, Any]) -> list[Verdict]:
-    """Compare a report with the targets of P11-T1. A miss is never softened."""
-    seed_part: Mapping[str, Any] = report["seed"]
-    server: Mapping[str, Any] = report["server"]
-    noisy_part: Mapping[str, Any] = report["noisy"]
-    spec: Mapping[str, Any] = report["spec"]
-    verdicts: list[Verdict] = []
-
+def _fixture_verdict(seed_part: Mapping[str, Any], spec: Mapping[str, Any]) -> Verdict:
+    if seed_part.get("partial"):
+        return Verdict(
+            "fixture", "gap", "the seed container was killed, so there is no fixture result"
+        )
     problems = []
     if seed_part["stored_change_items"] != seed_part["planned_changes"]:
         problems.append(
@@ -1116,103 +1169,148 @@ def evaluate(report: Mapping[str, Any]) -> list[Verdict]:
         )
     if seed_part["change_polls_without_event"]:
         problems.append(f"{seed_part['change_polls_without_event']} change polls had no event")
-    verdicts.append(
-        Verdict(
-            "fixture",
-            "miss" if problems else "pass",
-            "; ".join(problems)
-            or (
-                f"{seed_part['last_object_count']} objects, {seed_part['stored_change_items']} "
-                f"change items, {seed_part['stored_snapshots']} manifests over {spec['days']} "
-                f"days; {seed_part['quiet_polls']} polls with only volatile counters stored "
-                "no snapshot"
-            ),
-        )
+    return Verdict(
+        "fixture",
+        "miss" if problems else "pass",
+        "; ".join(problems)
+        or (
+            f"{seed_part['last_object_count']} objects, {seed_part['stored_change_items']} "
+            f"change items, {seed_part['stored_snapshots']} manifests over {spec['days']} "
+            f"days; {seed_part['quiet_polls']} polls with only volatile counters stored "
+            "no snapshot"
+        ),
     )
 
+
+def _ram_verdict(seed_part: Mapping[str, Any], server: Mapping[str, Any], local: bool) -> Verdict:
     peaks = [seed_part.get("rss_peak_mb"), server.get("peak_rss_mb")]
     peak = max((value for value in peaks if value is not None), default=None)
     low, high = TARGET_RSS_MB
+    if local:
+        seen = "" if peak is None else f" (this process peaked at {peak:.0f} MB, for development)"
+        return Verdict("ram", "gap", f"not measured: local mode has no container{seen}")
+    if seed_part.get("oom_killed") or server.get("oom_killed"):
+        seen = "" if peak is None else f"; last reading {peak:.0f} MB"
+        detail = f"a container was killed at the 512 MB limit, so the peak is above {high:.0f} MB"
+        return Verdict("ram", "miss", detail + seen)
     if peak is None:
-        verdicts.append(Verdict("ram", "miss", "no resident memory could be read"))
-    elif peak > high:
-        verdicts.append(Verdict("ram", "miss", f"peak {peak:.0f} MB is above {high:.0f} MB"))
-    elif peak < low:
+        return Verdict("ram", "gap", "no resident memory could be read")
+    if peak > high:
+        return Verdict("ram", "miss", f"peak {peak:.0f} MB is above {high:.0f} MB")
+    if peak < low:
         detail = f"peak {peak:.0f} MB is below the planned {low:.0f}-{high:.0f} MB"
-        verdicts.append(Verdict("ram", "below", detail))
-    else:
-        detail = f"peak {peak:.0f} MB, target {low:.0f}-{high:.0f} MB"
-        verdicts.append(Verdict("ram", "pass", detail))
+        return Verdict("ram", "below", detail)
+    return Verdict("ram", "pass", f"peak {peak:.0f} MB, target {low:.0f}-{high:.0f} MB")
 
-    page = server["pages"].get("/", {})
+
+def _page_verdict(server: Mapping[str, Any], local: bool) -> Verdict:
+    if server.get("skipped"):
+        return Verdict("first page", "gap", f"not measured: {server['skipped']}")
+    page = server["pages"].get("/")
+    if page is None:
+        return Verdict("first page", "gap", "the server stopped before the page was requested")
+    if page.get("status") == 0:
+        return Verdict("first page", "miss", "the server did not answer the request")
     if page.get("status") != 200:
-        verdicts.append(Verdict("first page", "miss", f"the page answered {page.get('status')}"))
-    elif page["cold_seconds"] >= TARGET_FIRST_PAGE_SECONDS:
-        verdicts.append(
-            Verdict("first page", "miss", f"{page['cold_seconds']:.2f} s, target under 1 s")
-        )
-    else:
-        verdicts.append(
-            Verdict("first page", "pass", f"{page['cold_seconds']:.2f} s, target under 1 s")
-        )
+        return Verdict("first page", "miss", f"the page answered {page.get('status')}")
+    cold = page["cold_seconds"]
+    if local:
+        detail = f"not measured: local mode times the test client ({cold:.2f} s), not the container"
+        return Verdict("first page", "gap", detail)
+    if cold >= TARGET_FIRST_PAGE_SECONDS:
+        return Verdict("first page", "miss", f"{cold:.2f} s, target under 1 s")
+    return Verdict("first page", "pass", f"{cold:.2f} s, target under 1 s")
 
-    killed = bool(seed_part.get("oom_killed")) or bool(server.get("oom_killed"))
-    failed = seed_part.get("exit_code", 0) != 0 or not server.get("running", True)
+
+def _limit_verdict(
+    seed_part: Mapping[str, Any],
+    server: Mapping[str, Any],
+    noisy_part: Mapping[str, Any],
+    local: bool,
+) -> Verdict:
+    if local:
+        return Verdict(
+            "512 MB limit", "gap", "not measured: local mode has no container and no memory limit"
+        )
+    parts = (("seed", seed_part), ("server", server), ("noisy", noisy_part))
+    killed = [name for name, part in parts if part.get("oom_killed")]
+    if killed:
+        detail = f"killed for memory at the limit: {', '.join(killed)}"
+        return Verdict("512 MB limit", "miss", detail)
+    stopped = [
+        name
+        for name, part in parts
+        if part.get("exit_code", 0) != 0 or part.get("running") is False
+    ]
+    if stopped:
+        return Verdict("512 MB limit", "miss", f"stopped before it finished: {', '.join(stopped)}")
     cgroup = [
         value
         for value in (seed_part.get("cgroup_peak_mb"), server.get("cgroup_peak_mb"))
         if value is not None
     ]
-    if killed or failed:
-        verdicts.append(
-            Verdict("512 MB limit", "miss", "a container was killed for memory or stopped")
+    if server.get("skipped"):
+        return Verdict("512 MB limit", "gap", f"not measured for the server: {server['skipped']}")
+    if cgroup and max(cgroup) >= MEMORY_LIMIT_MB:
+        return Verdict(
+            "512 MB limit",
+            "note",
+            f"no container was killed; the cgroup peak {max(cgroup):.0f} MB reached the "
+            "limit (it counts file cache the kernel can drop)",
         )
-    elif cgroup and max(cgroup) >= MEMORY_LIMIT_MB:
-        verdicts.append(
-            Verdict(
-                "512 MB limit",
-                "note",
-                f"no container was killed; the cgroup peak {max(cgroup):.0f} MB reached the "
-                "limit (it counts file cache the kernel can drop)",
-            )
-        )
-    else:
-        seen = f"cgroup peak {max(cgroup):.0f} MB, " if cgroup else ""
-        verdicts.append(
-            Verdict("512 MB limit", "pass", f"{seen}no container was killed or stopped")
-        )
+    seen = f"cgroup peak {max(cgroup):.0f} MB, " if cgroup else ""
+    return Verdict("512 MB limit", "pass", f"{seen}no container was killed or stopped")
 
+
+def _warning_verdict(noisy_part: Mapping[str, Any]) -> Verdict:
+    if noisy_part.get("partial"):
+        return Verdict(
+            "volatility warning", "gap", "the noisy container was killed, so nothing was checked"
+        )
     if noisy_part["warning_observed"]:
-        verdicts.append(
-            Verdict("volatility warning", "pass", f"{len(noisy_part['warning_signals'])} signal(s)")
+        return Verdict(
+            "volatility warning", "pass", f"{len(noisy_part['warning_signals'])} signal(s)"
         )
-    else:
-        verdicts.append(
-            Verdict(
-                "volatility warning",
-                "miss",
-                f"{noisy_part['stored_snapshots']} manifests stored for "
-                f"{noisy_part['polls'] - 1} polls (a snapshot at every poll) and no run record, "
-                "log line or dashboard row warns about it",
-            )
-        )
-    return verdicts
+    return Verdict(
+        "volatility warning",
+        "miss",
+        f"{noisy_part['stored_snapshots']} manifests stored for "
+        f"{noisy_part['polls'] - 1} polls (a snapshot at every poll) and no run record, "
+        "log line or dashboard row warns about it",
+    )
+
+
+def evaluate(report: Mapping[str, Any]) -> list[Verdict]:
+    """Compare a report with the targets of P11-T1. A miss is never softened.
+
+    What was not measured is a gap, never a pass: everything about the container in ``local``
+    mode, and whatever a killed or stopped container could not report.
+    """
+    seed_part: Mapping[str, Any] = report["seed"]
+    server: Mapping[str, Any] = report["server"]
+    noisy_part: Mapping[str, Any] = report["noisy"]
+    local = report.get("mode") == "local"
+    return [
+        _fixture_verdict(seed_part, report["spec"]),
+        _ram_verdict(seed_part, server, local),
+        _page_verdict(server, local),
+        _limit_verdict(seed_part, server, noisy_part, local),
+        _warning_verdict(noisy_part),
+    ]
 
 
 def _mb(value: float | None) -> str:
     return "n/a" if value is None else f"{value:.0f} MB"
 
 
-def render_markdown(report: Mapping[str, Any], verdicts: Sequence[Verdict]) -> str:
-    """The measurements as Markdown tables, for the job summary and docs/measurements.md."""
-    seed_part: Mapping[str, Any] = report["seed"]
-    server: Mapping[str, Any] = report["server"]
-    noisy_part: Mapping[str, Any] = report["noisy"]
+def _seconds(page: Mapping[str, Any], key: str) -> str:
+    """A time of a page that answered; n/a for a page that did not (or was not requested)."""
+    return f"{page[key]:.2f} s" if page.get("status") == 200 and key in page else "n/a"
+
+
+def _header(report: Mapping[str, Any], verdicts: Sequence[Verdict]) -> list[str]:
     spec: Mapping[str, Any] = report["spec"]
-    page = server["pages"].get("/", {})
-    changes_page = server["pages"].get("/changes")
-    day_growth = seed_part["stored_growth_bytes"] / max(1, spec["days"])
-    lines = [
+    return [
         "## Load test results",
         "",
         f"Mode `{report['mode']}`, image `{report['image'] or 'none'}`. Fixture: "
@@ -1223,6 +1321,27 @@ def render_markdown(report: Mapping[str, Any], verdicts: Sequence[Verdict]) -> s
         "|---|---|---|",
         *(f"| {item.check} | {item.outcome} | {item.detail} |" for item in verdicts),
         "",
+    ]
+
+
+def render_markdown(report: Mapping[str, Any], verdicts: Sequence[Verdict]) -> str:
+    """The measurements as Markdown tables, for the job summary and docs/measurements.md."""
+    seed_part: Mapping[str, Any] = report["seed"]
+    server: Mapping[str, Any] = report["server"]
+    noisy_part: Mapping[str, Any] = report["noisy"]
+    spec: Mapping[str, Any] = report["spec"]
+    lines = _header(report, verdicts)
+    if seed_part.get("partial") or server.get("skipped") or noisy_part.get("partial"):
+        lines += [
+            "The run is incomplete: a container was killed, so only the checks above are "
+            "reported. A gap is not measured and is not a pass.",
+            "",
+        ]
+        return "\n".join(lines)
+    page = server["pages"].get("/", {})
+    changes_page = server["pages"].get("/changes")
+    day_growth = seed_part["stored_growth_bytes"] / max(1, spec["days"])
+    lines += [
         "| Measurement | Value |",
         "|---|---|",
         f"| Peak resident memory, pipeline (seed) | {_mb(seed_part.get('rss_peak_mb'))} |",
@@ -1245,14 +1364,15 @@ def render_markdown(report: Mapping[str, Any], verdicts: Sequence[Verdict]) -> s
         f"events, {seed_part['stored_change_items']} items, {seed_part['stored_states']} states |",
         f"| Server CPU, first page and {WARM_REQUESTS} more | "
         f"{server.get('cpu_seconds_first_page_and_warm', 0):.2f} CPU s |",
-        f"| First page `/` (cold) | {page.get('cold_seconds', 0):.2f} s |",
-        f"| First page `/` (warm median, p95) | {page.get('warm_median_seconds', 0):.2f} s, "
-        f"{page.get('warm_p95_seconds', 0):.2f} s |",
+        f"| First page `/` (cold) | {_seconds(page, 'cold_seconds')} |",
+        f"| First page `/` (warm median, p95) | {_seconds(page, 'warm_median_seconds')}, "
+        f"{_seconds(page, 'warm_p95_seconds')} |",
     ]
     if changes_page is not None:
         lines.append(
             "| Change list `/changes` (cold, warm median) | "
-            f"{changes_page['cold_seconds']:.2f} s, {changes_page['warm_median_seconds']:.2f} s |"
+            f"{_seconds(changes_page, 'cold_seconds')}, "
+            f"{_seconds(changes_page, 'warm_median_seconds')} |"
         )
     lines += [
         f"| Noisy fixture | {noisy_part['stored_snapshots']} manifests for "
@@ -1336,7 +1456,7 @@ def _publish(report: dict[str, Any], args: argparse.Namespace) -> int:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """Run a command and return the exit code: 0 all targets met, 1 a miss, 2 the harness failed."""
+    """Run a command; return 0 no miss, 1 at least one miss (the report is written), 2 harness."""
     args = build_parser().parse_args(argv)
     try:
         spec = _spec_from(args)
@@ -1348,9 +1468,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         result = runner(spec, args.data_dir, args.key_file)
         print(json.dumps(result))
         return 0
-    except LimitMissError as error:
-        print(f"::error title=load-test 512 MB limit::miss: {error}")
-        return 1
     except LoadTestError as error:
         print(f"load_test: {error}", file=sys.stderr)
         return 2
