@@ -167,11 +167,12 @@
   border-radius: var(--radius-s);
   text-decoration: none;
   color: var(--text);
-  transition: background var(--t-fast) var(--ease-out);
 }
 
+/* the fade sits on the hover rule only, so a colour scheme change is instant (THE-1351) */
 .resource-rail a:hover {
   background: var(--surface-2);
+  transition: background var(--t-fast) var(--ease-out);
 }
 
 .resource-rail a[aria-current="page"] {

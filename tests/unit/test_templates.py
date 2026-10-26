@@ -795,7 +795,8 @@ def test_drift_line_draws_every_check_kind_and_describes_itself() -> None:
     text = drift("lab-controller", CHECKS, "dl1", href="/sources/1", meta="6 checks")
     parsed = Parsed(text)
     svg = parsed.find("svg")[0]
-    assert svg["role"] == "img" and svg["aria-labelledby"] == "dl1-t dl1-d"
+    # it holds change links, so it is a group, not an image (axe nested-interactive, THE-1351)
+    assert svg["role"] == "group" and svg["aria-labelledby"] == "dl1-t dl1-d"
     assert svg["viewbox"] == f"0 0 {DRIFT_MIN_WIDTH} 32"  # the parser lowercases names
     assert "Drift line of lab-controller, last 30 days" in text
     assert len([a for a in parsed.find("line") if a.get("class") == "tick"]) == 1
