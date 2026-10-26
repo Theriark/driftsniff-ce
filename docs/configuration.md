@@ -15,12 +15,32 @@ and the master key is a file on the key volume.
 | `DRIFTSNIFF_PORT` | `8080` | The port inside the container. `compose.yaml` fixes it. |
 | `DRIFTSNIFF_DATA_DIR` | `/data` | The folder of the database, the backups and the CA bundles. `compose.yaml` fixes it. |
 | `DRIFTSNIFF_KEY_FILE` | `/keys/master.key` | The master key file, created at the first start. `compose.yaml` fixes it. |
-| `DRIFTSNIFF_OLD_KEY_FILE` | unset | The previous master key, only while you change keys. See [key-management.md](key-management.md). |
-| `DRIFTSNIFF_ENVIRONMENT_LABEL` | unset | A badge in the header, 1 to 24 ASCII letters, digits, spaces or hyphens, for example `Development`. Unset shows no badge. |
+| `DRIFTSNIFF_OLD_KEY_FILE` | unset | The previous master key, only while you change keys. See [key-management.md](key-management.md). Not forwarded by the shipped `compose.yaml`; see below. |
+| `DRIFTSNIFF_ENVIRONMENT_LABEL` | unset | A badge in the header, 1 to 24 ASCII letters, digits, spaces or hyphens, for example `Development`. Unset shows no badge. Not forwarded by the shipped `compose.yaml`; see below. |
 | `DRIFTSNIFF_IMAGE` | `driftsniff:local` | Read by `compose.yaml` only: the image to run or the tag of the local build. |
 
-Put the variables in the shell or in an `.env` file next to `compose.yaml`, then run
-`docker compose up -d`.
+The shipped `compose.yaml` forwards only `DRIFTSNIFF_BASE_URL`, `DRIFTSNIFF_TRUSTED_PROXY` and
+`DRIFTSNIFF_LOG_LEVEL` into the container, and reads `DRIFTSNIFF_IMAGE` itself. Put those four in
+the shell or in an `.env` file next to `compose.yaml`, then run `docker compose up -d`.
+
+`DRIFTSNIFF_ENVIRONMENT_LABEL` and `DRIFTSNIFF_OLD_KEY_FILE` are **not** forwarded by the shipped
+`compose.yaml`: a value in the shell or in `.env` does not reach the container. To set them, either
+add a `compose.override.yaml` next to `compose.yaml` (Docker Compose merges it on every
+`docker compose up -d`):
+
+```yaml
+services:
+  driftsniff:
+    environment:
+      DRIFTSNIFF_ENVIRONMENT_LABEL: Development
+```
+
+or pass the variable to one command in the running container with `docker compose exec -e`, for
+example `docker compose exec -e DRIFTSNIFF_OLD_KEY_FILE=/keys/master.key.old driftsniff python -m driftsniff rekey`.
+The rekey in [key-management.md](key-management.md) needs the old key for one full collection cycle
+after the command, so for that step put `DRIFTSNIFF_OLD_KEY_FILE` in the override file as well and
+remove it when the cycle has finished. Development, Stage and production set the label through
+their deployment manifest, not through `compose.yaml`.
 
 ## Settings in the web interface
 

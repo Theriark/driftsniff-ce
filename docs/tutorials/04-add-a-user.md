@@ -45,7 +45,7 @@ The script sends the token in the `Authorization` header with the word `Bearer`;
 **Revoke** on its row. A revoked token stops at once, for good.
 
 The screenshot shows the forms before they are submitted: no user or token was made on
-Development for this tutorial. The two revoked tokens in the list are test tokens of earlier
-checks.
+Development for this tutorial. The two rows in the token list are revoked test tokens of earlier
+checks; their names and first characters are blurred in the screenshot.
 
 **Next:** [Read the history and the configuration of a source](05-history-and-configuration.md).

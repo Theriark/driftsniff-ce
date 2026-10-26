@@ -56,4 +56,6 @@ history; the screenshots in this documentation show the built product.
 
 All screenshots are in [images/](images/). Each one is listed in the
 [documentation manifest](documentation-manifest.json) with the page, the role that was signed in,
-the viewport, the theme, the capture time (Europe/Lisbon) and the documents that use it.
+the viewport, the theme, the capture time (Europe/Lisbon) and the documents that use it. Where a
+capture shows the names or first characters of the revoked Development test tokens, those entries
+are blurred; the manifest marks each blurred capture.
