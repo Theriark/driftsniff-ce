@@ -243,6 +243,20 @@ def test_revoking_a_token_comes_back_with_a_notice(kit: Kit) -> None:
     assert "token.revoked" in actions(kit)
 
 
+def test_the_tokens_tab_counts_the_tokens_its_table_lists(kit: Kit) -> None:
+    """THE-1402 F8: the tab said API tokens 0 above a table of two revoked tokens."""
+    admin = kit.new_session("admin")
+    for info in kit.tokens.list_tokens():
+        submit(kit, admin, f"/tokens/{info.token_id}/revoke", {})
+    body = show(kit, admin).text
+    listed = body.count('<code class="settings-sub">')
+    assert listed >= 1
+    tab = re.search(
+        r'href="#tokens">API tokens<span class="tabs__count num">.*?</span>([0-9,]+)<', body
+    )
+    assert tab is not None and int(tab.group(1).replace(",", "")) == listed
+
+
 # ---- 3. the notification channel --------------------------------------------------------------
 
 

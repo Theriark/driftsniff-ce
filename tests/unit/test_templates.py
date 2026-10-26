@@ -8,12 +8,14 @@ helper functions of ``driftsniff.web.templating`` are checked on their own as we
 
 import dataclasses
 import json
+import re
 from collections.abc import Callable, Iterable, Iterator
 from datetime import UTC, datetime, timedelta
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
 
+import pytest
 from fastapi.routing import APIRoute
 from markupsafe import Markup
 
@@ -460,6 +462,38 @@ def test_severity_badges_carry_colour_shape_and_word() -> None:
         assert severity.capitalize() in "".join(parsed.text)
 
 
+def test_a_severity_shape_takes_the_colour_of_its_badge() -> None:
+    """THE-1402 F1: the badge svg had no fill, so its shape rendered black (1.5 to 1 on the dark
+    tint). The rule must give the svg the badge's text colour, and the shapes of the sprite must
+    have no fill of their own, or they would not inherit it (THE-1416)."""
+    css = (TEMPLATES_DIR.parent / "static" / "app.css").read_text(encoding="utf-8")
+    block = re.search(r"^\.sev svg \{([^}]*)\}", css, re.MULTILINE)
+    assert block is not None and re.search(r"fill:\s*currentColor;", block.group(1), re.I)
+    icons = (TEMPLATES_DIR / "_icons.html").read_text(encoding="utf-8")
+    for severity in SEVERITIES:
+        symbol = re.search(rf'<symbol id="sev-{severity}"[^>]*>(.*?)</symbol>', icons, re.S)
+        assert symbol is not None and "fill" not in symbol.group(1), severity
+
+
+def test_code_fields_stay_mono_and_the_configuration_note_keeps_a_short_line() -> None:
+    """THE-1402 F10: the declared resources textarea (class input mono) was set in the sans face,
+    because the input rule resets the font after .mono, and the configuration footnote ran about
+    150 characters wide."""
+    static = TEMPLATES_DIR.parent / "static"
+    css = (static / "app.css").read_text(encoding="utf-8")
+    block = re.search(r"^\.input\.mono \{([^}]*)\}", css, re.MULTILINE)
+    assert block is not None and "font-family: var(--font-mono);" in block.group(1)
+    form = (TEMPLATES_DIR / "sources" / "form.html").read_text(encoding="utf-8")
+    assert '<textarea class="input mono" id="push_fields"' in form
+    history = (static / "history.css").read_text(encoding="utf-8")
+    note = re.search(r"^\.config-note \{([^}]*)\}", history, re.MULTILINE)
+    assert note is not None
+    width = re.search(r"max-width: ([0-9]+)ch;", note.group(1))
+    assert width is not None and int(width.group(1)) < 80
+    page = (TEMPLATES_DIR / "history" / "configuration.html").read_text(encoding="utf-8")
+    assert '<p class="hint config-note">Secret values are never stored.' in page
+
+
 def test_status_badges_have_an_icon_and_a_word_for_every_kind() -> None:
     badge = component("badges.html", "status_badge")
     expected = {
@@ -801,9 +835,9 @@ def test_drift_line_draws_every_check_kind_and_describes_itself() -> None:
     assert "Drift line of lab-controller, last 30 days" in text
     assert len([a for a in parsed.find("line") if a.get("class") == "tick"]) == 1
     assert parsed.find("rect") == [
-        {"class": "tick--hollow", "x": "205", "y": "12", "width": "6", "height": "14"}
+        {"class": "tick--hollow", "x": "207", "y": "12", "width": "6", "height": "14"}
     ]
-    assert parsed.find("circle") == [{"class": "mark mark--low", "cx": "408", "cy": "18", "r": "6"}]
+    assert parsed.find("circle") == [{"class": "mark mark--low", "cx": "410", "cy": "18", "r": "6"}]
     paths = [attrs["class"] for attrs in parsed.find("path")]
     assert paths == ["mark mark--medium", "mark mark--high", "mark mark--critical"]
     links = [attrs["href"] for attrs in parsed.find("a") if attrs.get("class") is None]
@@ -899,11 +933,11 @@ def test_sparkline_points_scale_into_the_box() -> None:
 def test_drift_marks_and_width() -> None:
     marks = drift_marks(CHECKS)
     assert [mark.kind for mark in marks] == ["ok", "failed", "change", "change", "change", "change"]
-    assert [mark.x for mark in marks] == [8.0, 208.0, 408.0, 548.0, 588.0, 608.0]
-    assert marks[2].d == "" and marks[3].d == "M548 10 L556 25 H540 Z"
-    assert marks[4].d == "M588 9 L597 18 L588 27 L579 18 Z"
-    assert marks[5].d == "M604.3 9 H611.7 L617 14.3 V21.7 L611.7 27 H604.3 L599 21.7 V14.3 Z"
-    assert DRIFT_WIDTH == 616
+    assert [mark.x for mark in marks] == [10.0, 210.0, 410.0, 550.0, 590.0, 610.0]
+    assert marks[2].d == "" and marks[3].d == "M550 10 L558 25 H542 Z"
+    assert marks[4].d == "M590 9 L599 18 L590 27 L581 18 Z"
+    assert marks[5].d == "M606.3 9 H613.7 L619 14.3 V21.7 L613.7 27 H606.3 L601 21.7 V14.3 Z"
+    assert DRIFT_WIDTH == 620
     for bad in (
         {"kind": "odd", "age": 1},
         {"kind": "change", "age": 1, "severity": "worse"},
@@ -922,14 +956,31 @@ def test_a_drift_mark_sits_at_the_time_of_its_check_not_at_its_place_in_the_list
     30 days ago and a narrow strip that opens on today opened empty."""
     hour = 1 / 24
     (only,) = drift_marks([{"kind": "change", "age": hour, "severity": "high", "href": "/c/9"}])
-    assert only.x == drift_x(hour) and only.x > DRIFT_WIDTH - 10
+    assert only.x == drift_x(hour) and only.x > drift_x(0) - 1
     assert only.d.startswith(f"M{only.x:g} ")
     # two checks a day apart are one day step apart wherever they are in the window
     recent = drift_marks([{"kind": "ok", "age": 1.0}, {"kind": "ok", "age": 0.0}])
-    assert [mark.x for mark in recent] == [588.0, 608.0]
-    assert drift_x(30) == 8.0 and drift_x(15) == 308.0 and drift_x(0) == 608.0
+    assert [mark.x for mark in recent] == [590.0, 610.0]
+    assert drift_x(30) == 10.0 and drift_x(15) == 310.0 and drift_x(0) == 610.0
     # a time outside the window is held at the nearer end, never drawn off the strip
-    assert drift_x(30.6) == 8.0 and drift_x(-0.01) == 608.0
+    assert drift_x(30.6) == 10.0 and drift_x(-0.01) == 610.0
+
+
+@pytest.mark.parametrize("age", [0.0, 30.0])
+@pytest.mark.parametrize("severity", SEVERITIES)
+def test_every_drift_mark_and_its_focus_stroke_fit_inside_the_strip(
+    age: float, severity: str
+) -> None:
+    """THE-1416: with an 8 unit pad the critical mark at today reached x 617 of a 616 wide
+    viewBox (618 with the 2 unit focus stroke), so its right edge was cut off."""
+    check = {"kind": "change", "age": age, "severity": severity, "href": "/c/1"}
+    (mark,) = drift_marks([check])
+    if mark.d:
+        xs = [float(n) for n in re.findall(r"[MLH](-?[0-9.]+)", mark.d)]
+    else:  # the low circle, radius 6
+        xs = [mark.x - 6, mark.x + 6]
+    focus = 1  # half of the 2 unit focus stroke lies outside the shape
+    assert min(xs) - focus >= 0 and max(xs) + focus <= DRIFT_WIDTH, (severity, age, xs)
 
 
 def test_a_drift_line_draws_its_changes_over_the_ticks_of_the_same_time() -> None:
@@ -944,7 +995,7 @@ def test_a_drift_line_draws_its_changes_over_the_ticks_of_the_same_time() -> Non
     text = drift("lab-controller", checks, "dl9")
     assert text.index('class="tick"') < text.index('class="tick--hollow"') < text.index("/c/1")
     (circle,) = Parsed(text).find("circle")
-    assert circle["cx"] == "607"
+    assert circle["cx"] == "609"
 
 
 def test_render_uses_one_shared_environment() -> None:

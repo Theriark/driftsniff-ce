@@ -32,11 +32,14 @@ from driftsniff.web.templating import SEVERITIES, number
 
 WINDOWS: Final = (7, 30, 90)
 LABEL_WIDTH: Final = 128
+# the names end 8 units before the cells; 10 cut the widest name (119.1 px) at a 118 anchor by
+# about 1 px on the left (THE-1416). LABEL_WIDTH cannot grow: the 30 day map fills a 768 screen
+LABEL_GAP: Final = 8
 ROW_HEIGHT: Final = 24
 CELL_HEIGHT: Final = 20
 AXIS_HEIGHT: Final = 24
-# 17 characters of 14 px text: the widest known name cut to 17 measured 119 px against the
-# 118 unit anchor (Dev, THE-1405), so it stays inside the card; Firewall policies stays whole
+# 17 characters of 14 px text: the widest known name cut to 17 measured 119.1 px on Dev
+# (THE-1405), inside the 120 unit anchor (LABEL_WIDTH - LABEL_GAP); Firewall policies stays whole
 LABEL_CHARS: Final = 17
 LEVELS: Final = 4
 # per window: the width of one day column, the gap between two cells, the digits a cell can print
@@ -200,6 +203,7 @@ class ReplayView:
     width: int
     height: int
     label_width: int
+    label_x: int
     grid_height: int
     track_width: int
     pitch: int
@@ -404,6 +408,7 @@ def replay_view(replay: Replay) -> ReplayView:
         width=span * pitch,
         height=grid_height + AXIS_HEIGHT,
         label_width=LABEL_WIDTH,
+        label_x=LABEL_WIDTH - LABEL_GAP,
         grid_height=grid_height,
         track_width=span * pitch,
         pitch=pitch,

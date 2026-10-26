@@ -39,13 +39,14 @@
 {% set ch_errors = failure.fields if failure and failure.form == "channel" else {} %}
 {% set retention_errors = failure.fields if failure and failure.form == "retention" else {} %}
 {% set storage_errors = failure.fields if failure and failure.form == "storage" else {} %}
-{% set active_tokens = tokens | selectattr("status", "equalto", "active") | list if tokens is not none else [] %}
+{# a tab counts the rows its part lists: the tokens tab said 0 above a table of two revoked
+   tokens when it counted the active ones only (THE-1402 F8) #}
 
 {{ page_header("Settings", "Who can sign in, which programs may read driftsniff, where alerts go and how long history is kept.") }}
 
 {{ tab_strip("Settings", [
   {"label": "Users", "href": "#users", "count": users | length if users is not none else none},
-  {"label": "API tokens", "href": "#tokens", "count": active_tokens | length if tokens is not none else none},
+  {"label": "API tokens", "href": "#tokens", "count": tokens | length if tokens is not none else none},
   {"label": "Notifications", "href": "#notifications"},
   {"label": "Retention and storage", "href": "#retention"},
   {"label": "About", "href": "#about"},

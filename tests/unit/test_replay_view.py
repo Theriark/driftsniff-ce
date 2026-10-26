@@ -25,6 +25,7 @@ from driftsniff.web.replay import Replay, ReplayCell, ReplayResource, build_repl
 from driftsniff.web.replay_view import (
     LABEL_WIDTH,
     WINDOWS,
+    day_summary,
     level_of,
     replay_view,
     window_of,
@@ -351,6 +352,34 @@ def test_the_row_names_are_a_drawing_beside_the_scroller_so_they_never_scroll_aw
     assert "Firewall policies" in names and "Networks" in names
     assert 'aria-hidden="true"' in names[:300]
     assert "replay-label" not in text[scroller:]
+
+
+def test_the_widest_row_name_ends_inside_the_name_drawing() -> None:
+    """THE-1416: the names were anchored at x 118 and the widest known name cut to 17 characters
+    measured 119.1 px at 14 px on Development, so about 1 px of its first letter was cut off."""
+    labels = [a for tag, a in Tags(render_section(replay_of(FIXTURE))).tags if tag == "text"]
+    xs = {a.get("x") for a in labels if a.get("class") == "replay-label"}
+    assert xs == {"120"}
+    (x,) = xs
+    widest_measured = 119.1
+    assert x is not None and float(x) - widest_measured >= 0
+
+
+def test_a_day_without_items_offers_no_link_to_an_empty_list() -> None:
+    """THE-1402 F11: the panel of an empty day still offered Open the changes of that day."""
+    panel = environment().from_string(
+        '{% from "sources/_replay.html" import day_panel %}{{ day_panel(summary) }}'
+    )
+    empty = Tags(panel.render(summary=day_summary(2, LAST, [])))
+    (link,) = [a for a in empty.find("a") if "data-replay-day-link" in a]
+    assert "hidden" in link
+    busy_cell = replay_view(replay_of(FIXTURE)).cells[0]
+    busy = Tags(panel.render(summary=day_summary(2, LAST, [busy_cell])))
+    (link,) = [a for a in busy.find("a") if "data-replay-day-link" in a]
+    assert "hidden" not in link
+    # the script keeps the link in step with the day under the cursor
+    script = (STATIC / "replay.js").read_text(encoding="utf-8")
+    assert "link.hidden = !sum;" in script
 
 
 def test_the_controls_wrap_and_the_facts_give_way_on_a_narrow_card() -> None:
