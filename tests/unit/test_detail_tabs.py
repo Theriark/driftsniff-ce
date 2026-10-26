@@ -106,7 +106,10 @@ def source_detail(polled: bool, *, checks: int = 0) -> SourceDetail:
         controller_version=None,
     )
     health = SourceHealth(2, view.name, view.type, True, "ok", "", False, None, "/sources/2")
-    marks = tuple({"kind": "ok", "severity": "", "summary": "", "href": ""} for _ in range(checks))
+    marks = tuple(
+        {"kind": "ok", "age": float(day), "severity": "", "summary": "", "href": ""}
+        for day in range(checks)
+    )
     coverage = (CoverageRow("networks", "Networks", "200", "ok", "200 OK", "", 3, NOW),)
     runs = (RunEntry("", "No change", NOW - timedelta(hours=1)),) if polled else ()
     return SourceDetail(

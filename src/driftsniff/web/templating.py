@@ -85,12 +85,15 @@ NAV_ICONS: Final = {
 TOPBAR_ACTION_HIDDEN: Final = ("/", "/sources")
 TOPBAR_ACTION: Final = ("Add source", "/sources/new")
 
-# Drift line geometry (docs/design-direction.md section 2): a 32 unit tall strip, one position
-# every 20 units, the first at 8, so 31 checks give the 616 wide strip of the mock-ups.
+# Drift line geometry (docs/design-direction.md section 2): a 32 unit tall strip under the axis
+# "30 days ago ... today", one day every 20 units with 30 days ago at 8 and today at 608, so the
+# strip is the 616 wide one of the mock-ups. A mark sits at the time of its check, never at its
+# place in the list (THE-1402 F2: packed from the left, a change of today read as 30 days old).
 DRIFT_STEP: Final = 20
 DRIFT_PAD: Final = 8
 DRIFT_HEIGHT: Final = 32
-DRIFT_MIN_WIDTH: Final = 616
+DRIFT_SPAN_DAYS: Final = 30
+DRIFT_WIDTH: Final = 2 * DRIFT_PAD + DRIFT_STEP * DRIFT_SPAN_DAYS
 DRIFT_CHECK_KINDS: Final = ("ok", "failed", "change")
 
 
@@ -241,19 +244,33 @@ def _mark_path(severity: str, x: float) -> str:
     return ""
 
 
-def drift_marks(checks: Iterable[Mapping[str, Any]]) -> list[DriftMark]:
-    """Where and how to draw each check of a drift line, in the order given (oldest first).
+def drift_x(age: float) -> float:
+    """Where a check ``age`` days before now sits on the strip: today at the right end.
 
-    A check is a mapping with ``kind`` (ok, failed or change) and, for a change, ``severity``,
-    ``summary`` and ``href``. The low mark is a circle (drawn by the template from ``x``); the
-    other three severities carry a path.
+    An age outside the window (a clock step, a run that started inside it and ended a moment
+    later) is held at the nearer end rather than drawn off the strip.
+    """
+    days = min(max(age, 0.0), float(DRIFT_SPAN_DAYS))
+    return round(DRIFT_PAD + DRIFT_STEP * (DRIFT_SPAN_DAYS - days), 1)
+
+
+def drift_marks(checks: Iterable[Mapping[str, Any]]) -> list[DriftMark]:
+    """Where and how to draw each check of a drift line, placed by the time of the check.
+
+    A check is a mapping with ``kind`` (ok, failed or change), ``age`` (days before now, a
+    fraction allowed) and, for a change, ``severity``, ``summary`` and ``href``. The low mark is
+    a circle (drawn by the template from ``x``); the other three severities carry a path. Checks
+    close in time can share a spot, so the changes come last and are drawn over the ticks; among
+    themselves every kind keeps the order given (oldest first), which is the tab order.
     """
     marks: list[DriftMark] = []
-    for index, check in enumerate(checks):
+    for check in checks:
         kind = str(check.get("kind", "ok"))
         if kind not in DRIFT_CHECK_KINDS:
             raise ValueError(f"unknown drift line check kind {kind!r}")
-        x = float(DRIFT_PAD + DRIFT_STEP * index)
+        if "age" not in check:
+            raise ValueError("a drift line check needs its age in days")
+        x = drift_x(float(check["age"]))
         if kind != "change":
             marks.append(DriftMark(kind, x))
             continue
@@ -270,14 +287,7 @@ def drift_marks(checks: Iterable[Mapping[str, Any]]) -> list[DriftMark]:
                 d=_mark_path(severity, x),
             )
         )
-    return marks
-
-
-def drift_width(count: int) -> int:
-    """The viewBox width of a strip of ``count`` checks; never narrower than the mock-ups."""
-    if count <= 0:
-        return DRIFT_MIN_WIDTH
-    return max(DRIFT_MIN_WIDTH, 2 * DRIFT_PAD + DRIFT_STEP * (count - 1))
+    return sorted(marks, key=lambda mark: mark.kind == "change")
 
 
 def nav_groups(shell: Shell) -> tuple[NavGroup, ...]:
@@ -364,7 +374,7 @@ def make_environment() -> Environment:
         iso_utc=iso_utc,
         sparkline_points=sparkline_points,
         drift_marks=drift_marks,
-        drift_width=drift_width,
+        drift_width=DRIFT_WIDTH,
         drift_height=DRIFT_HEIGHT,
     )
     return environment

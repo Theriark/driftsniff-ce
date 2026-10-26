@@ -31,8 +31,10 @@ One horizontal strip per source covering the last 30 days, drawn as inline SVG o
 | Mark | the severity shape (section 5), 12 to 18 px, filled with the severity colour, inside a link | a check that found changes; the shape and colour are those of its highest severity |
 | Labels | HTML text under the strip, 14 px `text-2` at both ends: "30 days ago" and "today" (not SVG text, so they never scale below 14 px) | orientation without a full axis |
 
-Rules: one mark per check, spaced evenly by check (not by wall-clock time, so an irregular
-interval never squeezes the strip); hover or focus on a mark shows the event summary in the SVG
+Rules: one mark per check, placed at the time of the check on the 30 day axis, one day every
+20 units with today at the right end (THE-1402 F2: spaced evenly by check, the newest check of a
+quiet source sat beside "30 days ago"; a strip in per-day mode is still one evenly spaced mark per
+day, and checks close in time share a spot with the change marks drawn over the ticks); hover or focus on a mark shows the event summary in the SVG
 `title` and the link opens the event; a focused mark gets a 2 px `ink` stroke; the strip
 scrolls horizontally below 480 px wide instead of shrinking the marks; every strip carries a
 `title` and a `desc` so the content is readable without the picture. It appears on the
@@ -95,9 +97,9 @@ the guide allows, so the first installed family is used.
 
 Fourteen pixels is the smallest text anywhere, in HTML and in SVG: the drift line labels are
 HTML text under the strip, the posture ring is drawn one to one (160 px column, 160 unit
-viewBox) so its 32 and 14 unit text renders at 32 and 14 px, and the trend chart never shrinks
-below its 600 unit drawing width (it scrolls inside its wrapper below that, like the drift line)
-so its 14 unit axis labels render at 14 px or more. Nothing is set at 10, 11 or 12 px.
+viewBox) so its 32 and 14 unit text renders at 32 and 14 px, the trend chart's axis labels are
+HTML text beside and under its drawing, and the replay map is drawn one unit per pixel with
+14 unit labels and counts (THE-1405). Nothing is set at 10, 11, 12 or 13 px.
 
 Numbers use tabular figures (`font-variant-numeric: tabular-nums`) wherever they line up in a
 column. Before and after values, paths, ids and fingerprints use the mono stack at 14 px. No

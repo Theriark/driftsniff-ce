@@ -75,7 +75,7 @@ def render_macro(source: str, **context: Any) -> str:
     return environment().from_string(source).render(**context)
 
 
-def drift_line(checks: list[dict[str, str]], short: bool = False) -> str:
+def drift_line(checks: list[dict[str, Any]], short: bool = False) -> str:
     return render_macro(
         '{% from "components/driftline.html" import drift_line %}'
         '{{ drift_line("FIXTURE source", checks, "dl-1", href="/sources/1", meta="m", '
@@ -85,8 +85,9 @@ def drift_line(checks: list[dict[str, str]], short: bool = False) -> str:
     )
 
 
-CHANGE = {
+CHANGE: dict[str, Any] = {
     "kind": "change",
+    "age": 1.0,
     "severity": "high",
     "summary": "2 objects changed",
     "href": "/changes/7",
@@ -105,7 +106,12 @@ def assert_no_link_inside_an_image(tree: Tree) -> None:
 
 def test_a_drift_line_with_change_links_is_a_group_whose_links_name_themselves() -> None:
     for short in (False, True):
-        tree = parse(drift_line([{"kind": "ok"}, CHANGE, {"kind": "failed"}], short=short))
+        checks: list[dict[str, Any]] = [
+            {"kind": "ok", "age": 2.0},
+            CHANGE,
+            {"kind": "failed", "age": 0.5},
+        ]
+        tree = parse(drift_line(checks, short=short))
         assert_no_link_inside_an_image(tree)
         (svg,) = tree.find("svg")
         assert svg["role"] == "group"
@@ -121,7 +127,7 @@ def test_a_drift_line_with_change_links_is_a_group_whose_links_name_themselves()
 
 
 def test_a_drift_line_without_change_links_stays_an_image() -> None:
-    tree = parse(drift_line([{"kind": "ok"}, {"kind": "failed"}]))
+    tree = parse(drift_line([{"kind": "ok", "age": 2.0}, {"kind": "failed", "age": 0.5}]))
     (svg,) = tree.find("svg")
     assert svg["role"] == "img"
     assert [a["href"] for a in tree.find("a")] == ["/sources/1"]  # the name, outside the drawing
@@ -132,7 +138,7 @@ def test_a_drift_line_without_change_links_stays_an_image() -> None:
 
 
 def test_a_drift_strip_without_links_is_a_focusable_named_group() -> None:
-    cases: list[list[dict[str, str]]] = [[], [{"kind": "ok"}] * 31]
+    cases: list[list[dict[str, Any]]] = [[], [{"kind": "ok", "age": float(n)} for n in range(31)]]
     for checks in cases:
         tree = parse(drift_line(checks, short=True))
         strips = [d for d in tree.find("div") if d.get("class") == "driftline__strip"]
@@ -149,7 +155,7 @@ def test_a_drift_strip_without_links_is_a_focusable_named_group() -> None:
 
 def trend() -> SimpleNamespace:
     bar = SimpleNamespace(severity="low", x=40, y=140, width=14, height=10)
-    grid = [SimpleNamespace(y=100, label_y=104, label="2")]
+    grid = [SimpleNamespace(y=100, label="2")]
     day = SimpleNamespace(label="24 Oct", total=1, low=1, medium=0, high=0, critical=0)
     return SimpleNamespace(grid=grid, bars=[bar], days=[day], description="1 item on 24 Oct.")
 
@@ -179,14 +185,16 @@ def test_the_trend_chart_y_axis_stays_outside_the_scroller() -> None:
         trend=trend(),
     )
     frame = html.index('<div class="chart-frame">')
-    axis = html.index('<svg class="chart-axis" viewBox="0 0 30 170" aria-hidden="true"')
+    axis = html.index('<div class="chart-axis" aria-hidden="true">')
     wrap = html.index('<div class="chart-wrap"')
-    assert frame < axis < html.index("</svg>", axis) < wrap
-    axis_svg = html[axis : html.index("</svg>", axis)]
-    assert ">2</text>" in axis_svg and ">0</text>" in axis_svg
-    plot = html[wrap : html.index("</div>", wrap)]
-    assert 'viewBox="30 0 570 170"' in plot
-    assert ' x="0"' not in plot  # no y-axis label left inside the scroller
+    assert frame < axis < wrap
+    labels = html[axis:wrap]
+    assert ">2</span>" in labels and ">0</span>" in labels and "<svg" not in labels
+    plot = html[wrap : html.index("</svg>", wrap)]
+    assert 'viewBox="30 0 570 154"' in plot
+    assert "<text" not in plot  # no label is SVG text that shrinks with the drawing (F3)
+    days = html.index('<div class="chart-days" aria-hidden="true">')
+    assert wrap < days < html.index("</details>") and "30 days ago" in html[days:]
     tree = parse(html)
     (svg,) = [s for s in tree.find("svg") if s.get("class") == "chart"]
     assert svg["aria-labelledby"] == "trend-t trend-d"

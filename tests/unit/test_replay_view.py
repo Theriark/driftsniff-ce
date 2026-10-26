@@ -170,6 +170,24 @@ def test_a_cell_prints_its_count_only_where_it_fits() -> None:
     assert quarter == {"2026-10-24": "", "2026-10-23": ""}
 
 
+def test_the_map_text_meets_the_14_px_floor_and_fits_its_cells() -> None:
+    """THE-1402 F3: the row and day labels were 13 px and the cell counts 11 px. Both drawings
+    are one unit per CSS pixel, so 14 units are 14 px; a 15 px cell of the 30 day window then
+    holds one bold digit."""
+    sheet = (STATIC / "replay.css").read_text(encoding="utf-8")
+    sizes = [int(size) for size in re.findall(r"font-size:\s*(\d+)px", sheet)]
+    assert sizes and min(sizes) >= 14
+    for selector in (r"\.replay-axis \{", r"\.heat-n \{"):
+        body = re.search(selector + r"([^}]*)\}", sheet)
+        assert body is not None and "font-size: 14px" in body.group(1), selector
+    two = [("2026-10-24", "unifi-networks", "low", 12), ("2026-10-23", "unifi-networks", "low", 9)]
+    month = {c.day: c.text for c in replay_view(replay_of(two)).cells}
+    assert month == {"2026-10-24": "", "2026-10-23": "9"}
+    week = {c.day: c.text for c in replay_view(replay_of(two, days=7)).cells}
+    assert week == {"2026-10-24": "12", "2026-10-23": "9"}
+    assert LABEL_WIDTH == 128
+
+
 def test_a_cell_links_to_the_changes_it_counts_with_muted_ones_included() -> None:
     cell = next(c for c in replay_view(replay_of(FIXTURE)).cells if c.day == "2026-10-22")
     parts = urlsplit(cell.href)

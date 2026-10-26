@@ -193,7 +193,9 @@ P7-T2 and P8-T2), so until then those two kinds never appear on a real installat
 checks in 30 days; a source checked more often (the default interval is five minutes, so most
 polled sources) gets one mark per UTC day that had a check, carrying the worst outcome of that
 day: a change mark in the colour and shape of the day's highest event, else a hollow tick for
-a day with a failed or partial run, else a thin tick. The strip's `desc` says how many checks
+a day with a failed or partial run, else a thin tick. Every mark sits at its time on the axis,
+a check at the moment it finished and a day mark at its day, so today is the right end
+(THE-1405). The strip's `desc` says how many checks
 it stands for and the card's hint names the rule. (2) The storage card compares the database
 file with a constant warning size of 2 GiB (`STORAGE_WARNING_BYTES`); a setting can replace
 it in P10-T8. (3) "New this week" counts events created in the last seven UTC days whatever
