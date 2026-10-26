@@ -34,6 +34,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH=/app/src \
     DRIFTSNIFF_COMMIT=${SOURCE_SHA}
 
+# Pick up the Debian security fix for the OpenSSL libraries when the base layer is older than the
+# archive (CVE-2026-84782, fixed in 3.0.22-1~deb12u2). Only these two packages are upgraded, no
+# package is added, and the apt lists are removed so the layer carries no package index.
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends --only-upgrade libssl3 openssl \
+    && rm -rf /var/lib/apt/lists/*
+
 # Fixed ids so volume ownership is the same on every host. /keys and /data are the only
 # writable places besides the /tmp tmpfs; the root file system is run read-only.
 RUN groupadd --gid 10001 driftsniff \
