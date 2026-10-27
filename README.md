@@ -4,12 +4,12 @@ driftsniff Community Edition (CE) is a self-hosted tool that records changes to 
 Xen Orchestra configuration, keeps the before and after values, and gives each change an
 explainable risk label.
 
-> **Release candidate v27.0.0-rc.1.** This documentation describes the Development candidate
+> **Release candidate v27.0.0-rc.2.** This documentation describes the Development candidate
 > `51051220f9b932d47bc00fe1aefaf61afd0972e3` (image
 > `ghcr.io/theriark/driftsniff-ce@sha256:2bc3627e3b8eda13a62073ee54a6ff6f10d6760b4d7aa697e33606425af5471b`).
 > Its application files are identical to build `36f78cc95919b115103af19bd10773d9d69a7386`, on
 > which every screenshot was taken; the commits in between changed only documentation, the CI
-> workflow and its change classifier. The tag `v27.0.0-rc.1` is created for that exact candidate after this documentation is reviewed; the
+> workflow and its change classifier. The tag `v27.0.0-rc.2` is created for that exact candidate after this documentation is reviewed; the
 > application itself still reports its package version `0.1.0.dev0` in the footer and on the
 > settings page. It is not a stable release and not ready for production use.
 >
@@ -74,7 +74,7 @@ Start at the [documentation index](docs/README.md). The main guides:
 - [API guide](docs/api-guide.md)
 - [Operations: health, backup, restore and upgrade](docs/operations.md)
 - [Tutorials](docs/tutorials/README.md), step by step with screenshots
-- [Release notes for v27.0.0-rc.1](docs/release-notes/v27.0.0-rc.1.md)
+- [Release notes for v27.0.0-rc.2](docs/release-notes/v27.0.0-rc.2.md)
 
 ## On a phone
 
@@ -106,3 +106,7 @@ Before v27.0.0-rc.1 this README said that driftsniff had no release and nothing 
 and it showed no screens. That was true of the repository until the Phase 10 web interface was
 deployed; it no longer is. Earlier review screenshots are kept with their task records, not in this
 repository.
+
+The documentation of this candidate was first labelled v27.0.0-rc.1. That label was never tagged
+and its review copy is superseded, so the same candidate is documented again as v27.0.0-rc.2.
+The [v27.0.0-rc.1 release notes](docs/release-notes/v27.0.0-rc.1.md) are kept as superseded history.
