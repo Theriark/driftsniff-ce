@@ -1,6 +1,6 @@
 # User guide
 
-For release candidate v27.0.0-rc.1, candidate `f055ef16` (screenshots taken on build `36f78cc9`,
+For release candidate v27.0.0-rc.1, candidate `51051220` (screenshots taken on build `36f78cc9`,
 whose application files are identical). The screenshots show the Development
 installation with synthetic data: the source called "DEV-FIXTURE synthetic (removable)" and every
 object named FIXTURE are test data, not a real network.
