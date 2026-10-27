@@ -1,9 +1,12 @@
 # driftsniff CE documentation
 
-Documentation for release candidate **v27.0.0-rc.1**, Development build
-`36f78cc95919b115103af19bd10773d9d69a7386`. The screenshots were taken on that build at
-`https://ce-dev-driftsniff.theriark.dev` on 26 October 2026 with synthetic test data only; the
-[documentation manifest](documentation-manifest.json) lists every file with its SHA-256.
+Documentation for release candidate **v27.0.0-rc.1**, Development candidate
+`51051220f9b932d47bc00fe1aefaf61afd0972e3` (image digest `sha256:2bc3627e…`). Its application
+files are identical to build `36f78cc95919b115103af19bd10773d9d69a7386`, on which every
+screenshot was taken at
+`https://ce-dev-driftsniff.theriark.dev` on 26 October 2026 with synthetic test data only. The
+[documentation manifest](documentation-manifest.json) lists every file with its SHA-256 and, for
+every screenshot, the build it was taken on.
 
 ## For people who use driftsniff
 
@@ -49,8 +52,9 @@ The engineering notes of each part. They describe how the code works and which t
 | Storage and settings | [database.md](database.md), [retention-and-backup.md](retention-and-backup.md), [settings.md](settings.md) |
 | Build, test and deploy | [ci-cd.md](ci-cd.md), [ci-baseline.md](ci-baseline.md), [e2e-ci.md](e2e-ci.md), [canary-harness.md](canary-harness.md), [measurements.md](measurements.md), [deploy-development.md](deploy-development.md), [dev-fixture.md](dev-fixture.md), [dev-test-accounts.md](dev-test-accounts.md) |
 
-The HTML files in [mockups/](mockups/) are the Phase 10 design mock-ups. They are kept as design
-history; the screenshots in this documentation show the built product.
+The Phase 10 design mock-ups are HTML files in the `docs/mockups/` folder of the source
+repository. They are kept there as design history and are not part of the published documentation
+package; the screenshots in this documentation show the built product.
 
 ## Screenshots
 

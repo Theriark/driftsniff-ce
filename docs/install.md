@@ -29,7 +29,7 @@ To run a published image instead of building one, set `DRIFTSNIFF_IMAGE` to its 
 example the image of this candidate:
 
 ```
-DRIFTSNIFF_IMAGE=ghcr.io/theriark/driftsniff-ce@sha256:00399d270784845ae00d5fe4bb263e2404439bbbe99714dc53a4325ce6a1fd0c docker compose up -d
+DRIFTSNIFF_IMAGE=ghcr.io/theriark/driftsniff-ce@sha256:2bc3627e3b8eda13a62073ee54a6ff6f10d6760b4d7aa697e33606425af5471b docker compose up -d
 ```
 
 Check that it answers:
