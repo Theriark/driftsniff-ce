@@ -1,6 +1,6 @@
 # driftsniff CE documentation
 
-Documentation for release candidate **v27.0.0-rc.1**, Development candidate
+Documentation for release candidate **v27.0.0-rc.2**, Development candidate
 `51051220f9b932d47bc00fe1aefaf61afd0972e3` (image digest `sha256:2bc3627e…`). Its application
 files are identical to build `36f78cc95919b115103af19bd10773d9d69a7386`, on which every
 screenshot was taken at
@@ -18,7 +18,8 @@ every screenshot, the build it was taken on.
 | [Admin guide](admin-guide.md) | add sources, users, API tokens and a notification channel; set retention |
 | [API guide](api-guide.md) | read changes and attach notes from a script, or push a configuration |
 | [Operations](operations.md) | check health, back up, restore, upgrade and roll back |
-| [Release notes v27.0.0-rc.1](release-notes/v27.0.0-rc.1.md) | see what this candidate contains and what it does not |
+| [Release notes v27.0.0-rc.2](release-notes/v27.0.0-rc.2.md) | see what this candidate contains and what it does not |
+| [Release notes v27.0.0-rc.1 (superseded)](release-notes/v27.0.0-rc.1.md) | history only: the earlier label of this same candidate, never tagged |
 
 ## Tutorials
 
