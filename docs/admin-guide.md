@@ -1,6 +1,6 @@
 # Admin guide
 
-For release candidate v27.0.0-rc.2, candidate `51051220` (screenshots taken on build `36f78cc9`,
+For release candidate v27.0.0-rc.3, candidate `51051220` (screenshots taken on build `36f78cc9`,
 whose application files are identical). Everything here needs the admin role. The
 screenshots show the Development installation with synthetic data and its three test accounts,
 named after their roles.
@@ -18,9 +18,12 @@ at the top of the form.
 |---|---|
 | UniFi Network | a name, the `https://` address of the UniFi Network application, a read-only API key, the check interval, the resources to read and the TLS mode |
 | Xen Orchestra | a name, the `https://` address of the XO server, an authentication token, optionally the date the token expires (driftsniff warns 14 days before), the interval, the resources and the TLS mode |
-| Push source | a name and the declared resources and fields: one resource per line, a colon, then the top-level fields a sender may send, for example `networks: _id, name, vlan`. Every other field is dropped on arrival. |
+| Push source | a name and the declared resources and fields: one resource per line, a colon, then the top-level fields a sender may send, for example `unifi-networks: id, name, vlanId`. Use a resource name that has a type table and include its key field `id`. Every other field is dropped on arrival. |
 
 ![The Add a source form for a push source: Name and Declared resources and fields](images/add-source-push-1440.png)
+
+The hint under the box in this build still shows the older example `networks: _id, name, vlan`;
+a UniFi post in that form is refused with `bad_object`. Use the form in the table above.
 
 - **Test connection** reads the version and every resource once, read only, and shows what
   answered. It stores nothing.
