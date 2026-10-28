@@ -290,7 +290,10 @@ def _parse_push_fields(text: str) -> dict[str, list[str]] | str:
         resource, colon, names = line.partition(":")
         listed = [name.strip() for name in names.split(",") if name.strip()]
         if not colon or not resource.strip() or not listed:
-            return "Write each line as a resource, a colon and its fields: networks: _id, name."
+            return (
+                "Write each line as a resource, a colon and its fields: "
+                "unifi-networks: id, name, vlanId."
+            )
         if resource.strip() in declared:
             return f"The resource {resource.strip()[:40]} is declared twice."
         declared[resource.strip()] = listed

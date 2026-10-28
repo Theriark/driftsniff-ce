@@ -53,7 +53,7 @@
     <div class="field">
       <label for="push_fields">Declared resources and fields</label>
       <textarea class="input mono" id="push_fields" name="push_fields" rows="6" spellcheck="false" aria-describedby="push_fields-help{% if errors.get('push_fields') %} push_fields-error{% endif %}"{% if errors.get('push_fields') %} aria-invalid="true"{% endif %}>{{ values.push_fields }}</textarea>
-      <span class="help" id="push_fields-help">One resource per line: its name, a colon, then the top-level fields the sender may send, for example networks: _id, name, vlan. Every other field is dropped on arrival.</span>
+      <span class="help" id="push_fields-help">One resource per line: its name, a colon, then the top-level fields the sender may send, for example unifi-networks: id, name, vlanId. Every other field is dropped on arrival.</span>
       {% if errors.get("push_fields") %}<span class="error" id="push_fields-error">{{ errors["push_fields"] }}</span>{% endif %}
     </div>
     {% endif %}

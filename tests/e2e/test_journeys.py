@@ -20,7 +20,7 @@ from .support import Accounts, Audit, Watch
 
 FIXTURE_SOURCE = "DEV-FIXTURE synthetic (removable)"
 FAKE_SOURCE = "E2E fake source"
-PUSH_FIELDS = "networks: _id, name, vlan"
+PUSH_FIELDS = "unifi-networks: id, name, vlanId"
 READER_NAME = "e2e-reader"
 STATE: dict[str, list[int]] = {}
 

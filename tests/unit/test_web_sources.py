@@ -56,6 +56,8 @@ TYPED_CONFIRMATION = "CANARY-not the sentence"
 # The forms of the shell on every signed-in page: sign out, and the top bar change search.
 SHELL_FORMS = {"/logout", "/changes"}
 OBJECTS: Sequence[Mapping[str, JsonValue]] = ({"id": "a"}, {"id": "b"})
+# The push example the form hint and the line error show (THE-1517).
+PUSH_FIELDS_EXAMPLE = "unifi-networks: id, name, vlanId"
 
 
 class Parsed(HTMLParser):
@@ -666,11 +668,13 @@ def test_a_push_source_declares_fields_and_shows_its_sender_key_once(world: Worl
     assert {a.get("name") for a in form.find("input")} & {"credential", "base_url"} == set()
     created = world.post(
         "/sources/new",
-        {"full_form": "1", "type": "push", "name": "netbox", "push_fields": "networks: _id, name"},
+        {"full_form": "1", "type": "push", "name": "netbox", "push_fields": PUSH_FIELDS_EXAMPLE},
     )
     assert created.status_code == 303
     source_id = int(created.headers["location"].split("/")[2].split("?")[0])
-    assert world.service.get(source_id).options == {"push_fields": {"networks": ["_id", "name"]}}
+    assert world.service.get(source_id).options == {
+        "push_fields": {"unifi-networks": ["id", "name", "vlanId"]}
+    }
     made = assert_page(world.post(f"/sources/{source_id}/push-key", {}))
     key_input = next(a for a in made.find("input") if a.get("name") == "push_key")
     key = str(key_input.get("value"))
@@ -685,6 +689,20 @@ def test_a_push_source_declares_fields_and_shows_its_sender_key_once(world: Worl
         {"full_form": "1", "type": "push", "name": "x", "push_fields": "networks"},
     )
     assert bad.status_code == 422
+
+
+def test_the_push_hint_and_line_error_show_the_unifi_networks_example(world: World) -> None:
+    """THE-1517: the example was ``networks: _id, name, vlan``, which a push refuses with 422."""
+    hint = " ".join(assert_page(world.get("/sources/new?type=push")).joined().split())
+    assert f"for example {PUSH_FIELDS_EXAMPLE}." in hint
+    bad = world.post(
+        "/sources/new",
+        {"full_form": "1", "type": "push", "name": "x", "push_fields": "networks"},
+    )
+    assert bad.status_code == 422
+    assert f"its fields: {PUSH_FIELDS_EXAMPLE}." in bad.text
+    for text in (hint, bad.text):
+        assert "_id, name" not in text and "name, vlan." not in text
 
 
 # ---- test connection ------------------------------------------------------------------------
@@ -801,7 +819,7 @@ def test_without_a_scheduler_the_pages_promise_no_check(store: Database) -> None
 def add_push(world: World) -> int:
     created = world.post(
         "/sources/new",
-        {"full_form": "1", "type": "push", "name": "netbox", "push_fields": "networks: _id, name"},
+        {"full_form": "1", "type": "push", "name": "netbox", "push_fields": PUSH_FIELDS_EXAMPLE},
     )
     assert created.status_code == 303
     return int(created.headers["location"].split("/")[2].split("?")[0])
