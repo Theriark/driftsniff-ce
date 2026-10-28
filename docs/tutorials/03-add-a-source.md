@@ -68,8 +68,8 @@ list must include the resource's key field, `id`. A post with an unknown resourc
 
 ![The Add a source form for a push source with the Name and Declared resources and fields boxes](../images/add-source-push-1440.png)
 
-The hint under the box in this build still shows the older example `networks: _id, name, vlan`.
-Do not copy it for UniFi data: a post in that form is refused with `bad_object`.
+The hint under the box shows the same example. A line without a colon or without fields is
+refused when you add the source, with that example in the error text.
 
 Select **Add source**, then **Make sender key** on the source page and give the key to the sender.
 It is shown once. The sender then posts the configuration as in the [API

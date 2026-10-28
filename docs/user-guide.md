@@ -1,7 +1,8 @@
 # User guide
 
-For release candidate v27.0.0-rc.3, candidate `51051220` (screenshots taken on build `36f78cc9`,
-whose application files are identical). The screenshots show the Development
+For release candidate v27.0.0-rc.4, candidate `63eaa6ad`. The screenshots were taken on the
+Development build `36f78cc9`; the candidate changes only the hint under the push form, which
+none of these pages shows. The screenshots show the Development
 installation with synthetic data: the source called "DEV-FIXTURE synthetic (removable)" and every
 object named FIXTURE are test data, not a real network.
 
