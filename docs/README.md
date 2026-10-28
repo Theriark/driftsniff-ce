@@ -1,12 +1,15 @@
 # driftsniff CE documentation
 
-Documentation for release candidate **v27.0.0-rc.4**, Development candidate
-`63eaa6ad764955d1d57124ca7727e7bfcb49ddc9` (image digest `sha256:53ee8584…`). It differs from
-the earlier build `36f78cc95919b115103af19bd10773d9d69a7386` only in the hint under the push
-source form. The push form screenshot was taken on the candidate at
+Documentation for release candidate **v27.0.0-rc.5**, Development candidate
+`40963ddf3b52f689ca48028611e79374ba362b8a` (image digest `sha256:bb09f8a3…`). Its application
+files are identical to those of build `63eaa6ad764955d1d57124ca7727e7bfcb49ddc9` (image digest
+`sha256:53ee8584…`), on which the application behaviour was verified; the candidate differs from
+that build only in the CI workflow and a CI test, which the image does not contain. Build
+`63eaa6ad` in turn differs from the earlier build `36f78cc95919b115103af19bd10773d9d69a7386` only
+in the hint under the push source form. The push form screenshot was taken on `63eaa6ad` at
 `https://ce-dev-driftsniff.theriark.dev` on 28 October 2026; the other screenshots were taken
-there on build `36f78cc9` on 26 October 2026 and show pages the candidate does not change. All
-captures hold synthetic test data only. The
+there on build `36f78cc9` on 26 October 2026 and show pages that neither later build changes. No
+screenshot was taken on `40963ddf`. All captures hold synthetic test data only. The
 [documentation manifest](documentation-manifest.json) lists every file with its SHA-256 and, for
 every screenshot, the build it was taken on.
 
@@ -20,7 +23,8 @@ every screenshot, the build it was taken on.
 | [Admin guide](admin-guide.md) | add sources, users, API tokens and a notification channel; set retention |
 | [API guide](api-guide.md) | read changes and attach notes from a script, or push a configuration |
 | [Operations](operations.md) | check health, back up, restore, upgrade and roll back |
-| [Release notes v27.0.0-rc.4](release-notes/v27.0.0-rc.4.md) | see what this candidate contains and what it does not |
+| [Release notes v27.0.0-rc.5](release-notes/v27.0.0-rc.5.md) | see what this candidate contains and what it does not |
+| [Release notes v27.0.0-rc.4 (superseded)](release-notes/v27.0.0-rc.4.md) | history only: the label of candidate `63eaa6ad`, never tagged; its application files are those of this candidate |
 | [Release notes v27.0.0-rc.3 (superseded)](release-notes/v27.0.0-rc.3.md) | history only: the label of the previous candidate `51051220`, never tagged; its push form hint was wrong |
 | [Release notes v27.0.0-rc.2 (superseded)](release-notes/v27.0.0-rc.2.md) | history only: an earlier label of candidate `51051220`, never tagged; its push example was wrong |
 | [Release notes v27.0.0-rc.1 (superseded)](release-notes/v27.0.0-rc.1.md) | history only: the first label of candidate `51051220`, never tagged |

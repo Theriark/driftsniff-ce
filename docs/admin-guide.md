@@ -1,8 +1,9 @@
 # Admin guide
 
-For release candidate v27.0.0-rc.4, candidate `63eaa6ad`. The push form screenshot was taken on
-that build; the others were taken on the Development build `36f78cc9`, whose pages the candidate
-does not change. Everything here needs the admin role. The
+For release candidate v27.0.0-rc.5, candidate `40963ddf`, whose application files are those of
+build `63eaa6ad`. The push form screenshot was taken on `63eaa6ad`; the others were taken on the
+Development build `36f78cc9`, whose pages neither later build changes. Everything here needs the
+admin role. The
 screenshots show the Development installation with synthetic data and its three test accounts,
 named after their roles.
 

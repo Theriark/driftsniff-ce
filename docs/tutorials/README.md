@@ -1,9 +1,10 @@
 # Tutorials
 
-Step-by-step walk-throughs for release candidate v27.0.0-rc.4 (candidate `63eaa6ad`). Each step
-has a screenshot at 1440 px unless the caption says otherwise. The push form in tutorial 3 was
-captured on the candidate build; the other screenshots were taken on Development build
-`36f78cc9`, whose pages the candidate does not change. The data in them is synthetic.
+Step-by-step walk-throughs for release candidate v27.0.0-rc.5 (candidate `40963ddf`, whose
+application files are those of build `63eaa6ad`). Each step has a screenshot at 1440 px unless
+the caption says otherwise. The push form in tutorial 3 was captured on build `63eaa6ad`; the
+other screenshots were taken on Development build `36f78cc9`, whose pages neither later build
+changes. The data in them is synthetic.
 
 | Tutorial | Role you need | Time |
 |---|---|---|

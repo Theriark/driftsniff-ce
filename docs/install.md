@@ -1,6 +1,6 @@
 # Installation
 
-For release candidate v27.0.0-rc.4. driftsniff CE runs as one container with two volumes: `data`
+For release candidate v27.0.0-rc.5. driftsniff CE runs as one container with two volumes: `data`
 (the database) and `keys` (the master key). It needs no separate database server.
 
 ## What you need
@@ -29,7 +29,7 @@ To run a published image instead of building one, set `DRIFTSNIFF_IMAGE` to its 
 example the image of this candidate:
 
 ```
-DRIFTSNIFF_IMAGE=ghcr.io/theriark/driftsniff-ce@sha256:53ee8584006d95cf128681ff1bbd3510276ab5848fb9d9c43d0084baaa022812 docker compose up -d
+DRIFTSNIFF_IMAGE=ghcr.io/theriark/driftsniff-ce@sha256:bb09f8a33c3ad95e8e52884dd887791a6d62862dee5a34d960ac6f12d1a44f16 docker compose up -d
 ```
 
 Check that it answers:
