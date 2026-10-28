@@ -4,12 +4,13 @@ driftsniff Community Edition (CE) is a self-hosted tool that records changes to 
 Xen Orchestra configuration, keeps the before and after values, and gives each change an
 explainable risk label.
 
-> **Release candidate v27.0.0-rc.3.** This documentation describes the Development candidate
-> `51051220f9b932d47bc00fe1aefaf61afd0972e3` (image
-> `ghcr.io/theriark/driftsniff-ce@sha256:2bc3627e3b8eda13a62073ee54a6ff6f10d6760b4d7aa697e33606425af5471b`).
-> Its application files are identical to build `36f78cc95919b115103af19bd10773d9d69a7386`, on
-> which every screenshot was taken; the commits in between changed only documentation, the CI
-> workflow and its change classifier. The tag `v27.0.0-rc.3` is created for that exact candidate after this documentation is reviewed; the
+> **Release candidate v27.0.0-rc.4.** This documentation describes the Development candidate
+> `63eaa6ad764955d1d57124ca7727e7bfcb49ddc9` (image
+> `ghcr.io/theriark/driftsniff-ce@sha256:53ee8584006d95cf128681ff1bbd3510276ab5848fb9d9c43d0084baaa022812`).
+> It differs from the earlier build `36f78cc95919b115103af19bd10773d9d69a7386` only in the hint
+> under the push source form; that form was captured again on the candidate, and the other
+> screenshots, taken on `36f78cc9`, show pages the candidate does not change. The tag
+> `v27.0.0-rc.4` is created for that exact candidate after this documentation is reviewed; the
 > application itself still reports its package version `0.1.0.dev0` in the footer and on the
 > settings page. It is not a stable release and not ready for production use.
 >
@@ -74,7 +75,7 @@ Start at the [documentation index](docs/README.md). The main guides:
 - [API guide](docs/api-guide.md)
 - [Operations: health, backup, restore and upgrade](docs/operations.md)
 - [Tutorials](docs/tutorials/README.md), step by step with screenshots
-- [Release notes for v27.0.0-rc.3](docs/release-notes/v27.0.0-rc.3.md)
+- [Release notes for v27.0.0-rc.4](docs/release-notes/v27.0.0-rc.4.md)
 
 ## On a phone
 
@@ -113,5 +114,10 @@ The [v27.0.0-rc.1 release notes](docs/release-notes/v27.0.0-rc.1.md) are kept as
 
 The v27.0.0-rc.2 label was not tagged either. Its review copy showed a push example
 (`networks` with `_id`, `name`, `vlan`) that a UniFi push source refuses, so the corrected
-documentation of the same candidate is labelled v27.0.0-rc.3. The
+documentation of the same candidate was labelled v27.0.0-rc.3. The
 [v27.0.0-rc.2 release notes](docs/release-notes/v27.0.0-rc.2.md) are kept as superseded history.
+
+The v27.0.0-rc.3 label was not tagged either. The application then corrected the same wrong
+example in the hint under its push form (pull request 131), which made a new Development
+candidate, `63eaa6ad`. That candidate is documented as v27.0.0-rc.4. The
+[v27.0.0-rc.3 release notes](docs/release-notes/v27.0.0-rc.3.md) are kept as superseded history.

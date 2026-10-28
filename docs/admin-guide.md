@@ -1,7 +1,8 @@
 # Admin guide
 
-For release candidate v27.0.0-rc.3, candidate `51051220` (screenshots taken on build `36f78cc9`,
-whose application files are identical). Everything here needs the admin role. The
+For release candidate v27.0.0-rc.4, candidate `63eaa6ad`. The push form screenshot was taken on
+that build; the others were taken on the Development build `36f78cc9`, whose pages the candidate
+does not change. Everything here needs the admin role. The
 screenshots show the Development installation with synthetic data and its three test accounts,
 named after their roles.
 
@@ -22,8 +23,8 @@ at the top of the form.
 
 ![The Add a source form for a push source: Name and Declared resources and fields](images/add-source-push-1440.png)
 
-The hint under the box in this build still shows the older example `networks: _id, name, vlan`;
-a UniFi post in that form is refused with `bad_object`. Use the form in the table above.
+The hint under the box shows the same example, `unifi-networks: id, name, vlanId`. A line
+without a colon or without fields is refused with that example in the error text.
 
 - **Test connection** reads the version and every resource once, read only, and shows what
   answered. It stores nothing.
