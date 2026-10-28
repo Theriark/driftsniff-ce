@@ -4,13 +4,16 @@ driftsniff Community Edition (CE) is a self-hosted tool that records changes to 
 Xen Orchestra configuration, keeps the before and after values, and gives each change an
 explainable risk label.
 
-> **Release candidate v27.0.0-rc.4.** This documentation describes the Development candidate
-> `63eaa6ad764955d1d57124ca7727e7bfcb49ddc9` (image
-> `ghcr.io/theriark/driftsniff-ce@sha256:53ee8584006d95cf128681ff1bbd3510276ab5848fb9d9c43d0084baaa022812`).
-> It differs from the earlier build `36f78cc95919b115103af19bd10773d9d69a7386` only in the hint
-> under the push source form; that form was captured again on the candidate, and the other
-> screenshots, taken on `36f78cc9`, show pages the candidate does not change. The tag
-> `v27.0.0-rc.4` is created for that exact candidate after this documentation is reviewed; the
+> **Release candidate v27.0.0-rc.5.** This documentation describes the Development candidate
+> `40963ddf3b52f689ca48028611e79374ba362b8a` (image
+> `ghcr.io/theriark/driftsniff-ce@sha256:bb09f8a33c3ad95e8e52884dd887791a6d62862dee5a34d960ac6f12d1a44f16`).
+> Its application files are identical to those of build `63eaa6ad764955d1d57124ca7727e7bfcb49ddc9`
+> (image `sha256:53ee8584…`), on which the application behaviour was verified; the candidate
+> differs from that build only in the CI workflow and a CI test (pull request 133), which the
+> image does not contain, so its image is a separate build of the same application files. The
+> push source form was captured on `63eaa6ad`; the other screenshots, taken on the earlier build
+> `36f78cc95919b115103af19bd10773d9d69a7386`, show pages that neither later build changes. The tag
+> `v27.0.0-rc.5` is created for that exact candidate after this documentation is reviewed; the
 > application itself still reports its package version `0.1.0.dev0` in the footer and on the
 > settings page. It is not a stable release and not ready for production use.
 >
@@ -75,7 +78,7 @@ Start at the [documentation index](docs/README.md). The main guides:
 - [API guide](docs/api-guide.md)
 - [Operations: health, backup, restore and upgrade](docs/operations.md)
 - [Tutorials](docs/tutorials/README.md), step by step with screenshots
-- [Release notes for v27.0.0-rc.4](docs/release-notes/v27.0.0-rc.4.md)
+- [Release notes for v27.0.0-rc.5](docs/release-notes/v27.0.0-rc.5.md)
 
 ## On a phone
 
@@ -119,5 +122,11 @@ documentation of the same candidate was labelled v27.0.0-rc.3. The
 
 The v27.0.0-rc.3 label was not tagged either. The application then corrected the same wrong
 example in the hint under its push form (pull request 131), which made a new Development
-candidate, `63eaa6ad`. That candidate is documented as v27.0.0-rc.4. The
+candidate, `63eaa6ad`. That candidate was documented as v27.0.0-rc.4. The
 [v27.0.0-rc.3 release notes](docs/release-notes/v27.0.0-rc.3.md) are kept as superseded history.
+
+The v27.0.0-rc.4 label was not tagged either. Before its tag was created, pull request 133 added
+a first-run check of the published image to the CI workflow, which made a new Development
+candidate, `40963ddf`, with the same application files as `63eaa6ad`. That candidate is
+documented as v27.0.0-rc.5. The [v27.0.0-rc.4 release notes](docs/release-notes/v27.0.0-rc.4.md)
+are kept as superseded history.

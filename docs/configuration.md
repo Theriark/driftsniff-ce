@@ -1,6 +1,6 @@
 # Configuration
 
-For release candidate v27.0.0-rc.4. driftsniff reads its settings from `DRIFTSNIFF_` environment
+For release candidate v27.0.0-rc.5. driftsniff reads its settings from `DRIFTSNIFF_` environment
 variables at start. An invalid value stops the start with a message that names the setting. No
 setting holds a secret: source credentials are entered in the web interface and stored encrypted,
 and the master key is a file on the key volume.

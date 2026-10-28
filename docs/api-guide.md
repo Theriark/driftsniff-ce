@@ -1,6 +1,6 @@
 # API guide
 
-For release candidate v27.0.0-rc.4. driftsniff has a small HTTP API under `/api/v1` for scripts:
+For release candidate v27.0.0-rc.5. driftsniff has a small HTTP API under `/api/v1` for scripts:
 read the changes, attach an external analysis to a change, and push a configuration. The full
 schema is served by the application at `/api/v1/openapi.json`.
 
