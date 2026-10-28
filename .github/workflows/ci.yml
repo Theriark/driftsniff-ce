@@ -169,12 +169,13 @@ jobs:
           .venv/bin/python -m pip install --require-hashes --no-deps -r requirements-dev.txt
           .venv/bin/python -m pip check
 
-      # tests/e2e needs a browser and runs in the Browser e2e job.
+      # tests/e2e needs a browser and runs in the Browser e2e job; tests/image_first_run needs Docker
+      # and a browser and runs in the First-run image check job.
       - name: Run automated tests with coverage
         shell: bash
         run: |
           set -euo pipefail
-          .venv/bin/python -m pytest -q --ignore=tests/e2e --cov --cov-report=term-missing --cov-report=json:coverage.json
+          .venv/bin/python -m pytest -q --ignore=tests/e2e --ignore=tests/image_first_run --cov --cov-report=term-missing --cov-report=json:coverage.json
 
       # Fails when driftsniff.core, driftsniff.secrets or driftsniff.rules is below 90 percent and
       # writes the total, the per-package and the per-module lines to the job summary.
@@ -227,6 +228,81 @@ jobs:
           name: e2e-screenshots
           path: ${{ runner.temp }}/e2e-artifacts
           retention-days: 7
+          if-no-files-found: warn
+
+  # Test only. Pulls the already published candidate image by digest, starts it with empty temporary
+  # volumes on its own 127.0.0.1 port and walks the first-run flow in a real Chromium (setup page,
+  # weak password refused, admin created, /setup 404 afterwards). It never builds, pushes or deploys,
+  # touches no shared Development or Stage instance and is not a dependency of deploy-development.
+  # The image below is the candidate binding (source 63eaa6ad, THE-1556), distinct from this test
+  # commit. The setup code and the generated password are never printed. Not run on a push.
+  first-run-image:
+    name: First-run image check
+    needs: gate
+    if: ${{ needs.gate.result == 'success' && github.event_name != 'push' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    permissions:
+      contents: read
+      packages: read
+
+    env:
+      FIRST_RUN_IMAGE: ghcr.io/theriark/driftsniff-ce@sha256:53ee8584006d95cf128681ff1bbd3510276ab5848fb9d9c43d0084baaa022812
+      FIRST_RUN_EXPECTED_COMMIT: 63eaa6ad
+      FIRST_RUN_ARTIFACT_DIR: ${{ github.workspace }}/first-run-artifacts
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Log in to GitHub Container Registry (read only)
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install locked dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv .venv
+          .venv/bin/python -m pip install --require-hashes --no-deps -r requirements-dev.txt
+          .venv/bin/python -m pip check
+
+      - name: Install Chromium for Playwright
+        shell: bash
+        run: |
+          set -euo pipefail
+          .venv/bin/python -m playwright install --with-deps chromium
+
+      - name: Run the first-run flow against the published image
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${FIRST_RUN_ARTIFACT_DIR}"
+          .venv/bin/python -m pytest -q -o addopts="" -p no:cacheprovider tests/image_first_run
+
+      # The test removes its own container and volumes; this removes anything left by a crash.
+      - name: Remove leftover containers and volumes
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          docker ps --all --quiet --filter "name=driftsniff-first-run-" | xargs --no-run-if-empty docker rm --force
+          docker volume ls --quiet --filter "name=driftsniff-first-run-" | xargs --no-run-if-empty docker volume rm --force
+          echo "containers left: $(docker ps --all --quiet --filter 'name=driftsniff-first-run-' | wc -l)"
+          echo "volumes left: $(docker volume ls --quiet --filter 'name=driftsniff-first-run-' | wc -l)"
+
+      # Screenshots and evidence.json (no setup code, no password) are a CI artifact only.
+      - name: Upload first-run evidence
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: first-run-image-evidence
+          path: ${{ github.workspace }}/first-run-artifacts
+          retention-days: 14
           if-no-files-found: warn
 
   migration:
