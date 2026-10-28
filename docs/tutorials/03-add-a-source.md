@@ -58,10 +58,18 @@ Choose **Push source**, enter a name and declare the resources and fields the se
 resource per line, for example:
 
 ```
-networks: _id, name, vlan
+unifi-networks: id, name, vlanId
 ```
 
+A resource name must be one that driftsniff has a type table for, such as `unifi-networks` or
+`unifi-devices` for UniFi data (see [vendor-notes/unifi.md](../vendor-notes/unifi.md)), and the
+list must include the resource's key field, `id`. A post with an unknown resource fails it with
+`unknown_resource`; a missing key field fails it with `bad_object` (HTTP 422).
+
 ![The Add a source form for a push source with the Name and Declared resources and fields boxes](../images/add-source-push-1440.png)
+
+The hint under the box in this build still shows the older example `networks: _id, name, vlan`.
+Do not copy it for UniFi data: a post in that form is refused with `bad_object`.
 
 Select **Add source**, then **Make sender key** on the source page and give the key to the sender.
 It is shown once. The sender then posts the configuration as in the [API

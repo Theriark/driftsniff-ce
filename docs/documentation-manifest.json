@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "product": "driftsniff CE",
   "repository": "Theriark/driftsniff-ce",
-  "version": "v27.0.0-rc.2",
-  "versionNote": "RC tag not created yet; it is created for this exact commit and image after documentation review. Supersedes the label v27.0.0-rc.1, which was never tagged; same candidate, image and screenshots. The application reports package version 0.1.0.dev0.",
+  "version": "v27.0.0-rc.3",
+  "versionNote": "RC tag not created yet; it is created for this exact commit and image after documentation review. Supersedes the labels v27.0.0-rc.1 and v27.0.0-rc.2, neither of which was tagged; same candidate, image and screenshots. rc.3 corrects the push example (unifi-networks with id, name, vlanId). The application reports package version 0.1.0.dev0.",
   "sourceCommit": "51051220f9b932d47bc00fe1aefaf61afd0972e3",
   "sourceCommitNote": "development after the merge of PR 127 (CI workflow and change classifier only); application files identical to applicationBuild.",
   "applicationBuild": "36f78cc95919b115103af19bd10773d9d69a7386",
@@ -14,11 +14,11 @@
   "applicationBuildRunId": 40375997475,
   "applicationBuildDigest": "sha256:00399d270784845ae00d5fe4bb263e2404439bbbe99714dc53a4325ce6a1fd0c",
   "documentationRevision": {
-    "branch": "feat/driftsniff-ce-the-1480-rc2",
-    "base": "development at febb39b6 (merge of PR 128, docs-only provenance update to candidate 51051220)",
-    "note": "Docs-only relabel of the documentation from v27.0.0-rc.1 to v27.0.0-rc.2 for the same candidate 51051220; the documentation commit is the head of this branch that contains this manifest; documentation changes no application file.",
-    "previousDocumentationHead": "ef74d7406d3dc00c8ccfb40464924690afeacf78",
-    "task": "THE-1480 (successor of THE-1472)",
+    "branch": "feat/driftsniff-ce-the-1480-rc3",
+    "base": "development at 73b27414 (merge of PR 129, docs-only relabel to v27.0.0-rc.2)",
+    "note": "Docs-only correction of the push example (finding D1 of THE-1496: networks with _id, name, vlan answers 422 bad_object; unifi-networks with id, name, vlanId answers 200) and relabel from v27.0.0-rc.2 to v27.0.0-rc.3 for the same candidate 51051220; the documentation commit is the head of this branch that contains this manifest; documentation changes no application file.",
+    "previousDocumentationHead": "cd5cb6899f20d2721b0107ef3f0fc12461eab0ba",
+    "task": "THE-1480 (successor of THE-1472), rc.3 round",
     "jira": "https://theriark.atlassian.net/browse/DRS-436"
   },
   "captureEnvironment": {
@@ -34,22 +34,24 @@
     "browser": "Theriark Browser (Chrome), scale css, reduced motion emulated"
   },
   "documents": [
-    {"path": "README.md", "sha256": "3b78a0032e645ee4e3c62b073130e7fd28803cd7d6a733b827b637738d7375cc", "status": "rewritten"},
-    {"path": "docs/README.md", "sha256": "9bc6a54270e5b36ca31107b0f2586533311796eb81c4b150d19055e1af0a695b", "status": "new", "role": "documentation index"},
-    {"path": "docs/install.md", "sha256": "5fabf20253113407e1c3764602a08bc93dbe9065751475e7597e245c629f8e33", "status": "new", "role": "installation guide"},
-    {"path": "docs/configuration.md", "sha256": "86051a69c8cbdfe8fb7ac783ea6a4a7f1acf9fcf2ca5499cc58c8268d3ca2ed6", "status": "new", "role": "configuration guide"},
-    {"path": "docs/user-guide.md", "sha256": "5f52290e20a06877de6822c4330a9e2f7a88999ff5d0e5b9cd0ae70ac20af63a", "status": "new", "role": "user guide"},
-    {"path": "docs/admin-guide.md", "sha256": "c544661f58d91f59217f2d67b6c4a1d157268d8708cb19917c2fe3759de3fca5", "status": "new", "role": "admin guide"},
-    {"path": "docs/api-guide.md", "sha256": "1f2be8217f133aca7bce8e63cda5ae8970b72ae99a788ddb6ea227def84baab5", "status": "new", "role": "API guide"},
-    {"path": "docs/operations.md", "sha256": "5dfa8a3630859ea9494474bce49c5969505efbc1dbebd5cadb639b6537b0da02", "status": "new", "role": "operations guide"},
-    {"path": "docs/release-notes/v27.0.0-rc.2.md", "sha256": "5fbf965b04ed4e18d7a58573fe0f9e9dab7cf4a0f80b276a25413a85099e1185", "status": "new", "role": "release notes"},
+    {"path": "README.md", "sha256": "2139136301be77a0a06acf750d9f2691251299e5834042cd1ceba019898555a4", "status": "rewritten"},
+    {"path": "docs/README.md", "sha256": "ee348f1c5063bdbbd661ad84a88e81963712880edec38a5c12f3eda7d67ac185", "status": "new", "role": "documentation index"},
+    {"path": "docs/install.md", "sha256": "418268a352aedefe5f4e150ec203261142f012a6f9b69ad809bb3e94db43e7dc", "status": "new", "role": "installation guide"},
+    {"path": "docs/configuration.md", "sha256": "eb2c16efd074618aa875f188a1707f10971735610c83dcbf5cee2e973eef285d", "status": "new", "role": "configuration guide"},
+    {"path": "docs/user-guide.md", "sha256": "3fb5a268716956e438ed5ee9a89c36716d435011fc103c2c5db8d21bafbdaecc", "status": "new", "role": "user guide"},
+    {"path": "docs/admin-guide.md", "sha256": "9bc3279090b367ebb1c0757e7319cb5cb466551c6b2f170d92923d1a896c3e39", "status": "new", "role": "admin guide"},
+    {"path": "docs/api-guide.md", "sha256": "67e46fa94fc4ca1dfb19a18660c057f3ba9f6d040b5e455a0d19517453531b40", "status": "new", "role": "API guide"},
+    {"path": "docs/operations.md", "sha256": "35a92b5f366a897c1c400adfb526e39d89fbf7117ed3f098e8d3d70fb6359124", "status": "new", "role": "operations guide"},
+    {"path": "docs/release-notes/v27.0.0-rc.3.md", "sha256": "3e047239a1558cc975a2106e9e16d39435a10dac078bf433968a099d6f77f0c5", "status": "new", "role": "release notes"},
+    {"path": "docs/release-notes/v27.0.0-rc.2.md", "sha256": "de17d0263e68d4860933c74e91527df570ec35f013a85b9c9f5b780587bd3db9", "status": "superseded", "role": "release notes of the earlier, never tagged label v27.0.0-rc.2; kept as history"},
     {"path": "docs/release-notes/v27.0.0-rc.1.md", "sha256": "4515788ce9db06b57657a769f103bfa81e55c7202f08e20c5096da88f5982ed4", "status": "superseded", "role": "release notes of the earlier, never tagged label v27.0.0-rc.1; kept as history"},
-    {"path": "docs/tutorials/README.md", "sha256": "aa8986f45db57782a92a1cd04043bf53d02719e4ead4d648e0993a0082312e48", "status": "new", "role": "tutorial index"},
+    {"path": "docs/tutorials/README.md", "sha256": "b26f0090d97973ac27e88c51883c7f01d6b0fce081d7f5dcbb2c89650d14dd23", "status": "new", "role": "tutorial index"},
     {"path": "docs/tutorials/01-first-sign-in.md", "sha256": "3c0885d6076eca77851907a45ac4ccd9ff4b6e00f39f34281145c8f427c10196", "status": "new", "role": "tutorial"},
     {"path": "docs/tutorials/02-review-a-change.md", "sha256": "7ccfc36666edb6f78e64d14e47c6499cb44549be5a76e5b53f3c101326b9e8e5", "status": "new", "role": "tutorial"},
-    {"path": "docs/tutorials/03-add-a-source.md", "sha256": "9428cf45a80077d5e26df33efee16b53d500fce29763752c1a987e229de31723", "status": "new", "role": "tutorial"},
+    {"path": "docs/tutorials/03-add-a-source.md", "sha256": "7e9a3d427c5a3ea6add6a79bf273517cfc4fb0e830c8605342b7d36b9afcfdb6", "status": "new", "role": "tutorial"},
     {"path": "docs/tutorials/04-add-a-user.md", "sha256": "e0084f53307c301de24e042b1ee558d25ab2fbab007135bd8ab3d1b72e25ca61", "status": "new", "role": "tutorial"},
-    {"path": "docs/tutorials/05-history-and-configuration.md", "sha256": "a0db6fa7565ecd32db06f22bf8bd55c2dbbcc58b4d271071048c04c382484e96", "status": "new", "role": "tutorial"}
+    {"path": "docs/tutorials/05-history-and-configuration.md", "sha256": "a0db6fa7565ecd32db06f22bf8bd55c2dbbcc58b4d271071048c04c382484e96", "status": "new", "role": "tutorial"},
+    {"path": "docs/push.md", "sha256": "6b5e3fed6868503d45ea444f534cf61ee55252ed34a2c6ce13d53305eded6851", "status": "corrected", "role": "reference document; push_fields and body examples corrected to unifi-networks with id, name, vlanId"}
   ],
   "primaryPreview": {"path": "docs/images/dashboard-1440.png", "viewport": "1440x900", "theme": "light", "role": "admin", "usedBy": ["README.md"]},
   "screenshots": [
@@ -87,7 +89,7 @@
   "coverage": {
     "unchanged": [
       {"paths": ["docs/guides/unifi-setup.md", "docs/guides/xo-setup.md"], "reason": "Controller-side setup guides; still match the add-source forms of 36f78cc9; their NOT VERIFIED vendor labels stay."},
-      {"paths": ["docs/*.md reference documents listed in docs/README.md"], "reason": "Engineering notes per component; not user guides; unchanged by this documentation task and indexed from docs/README.md."},
+      {"paths": ["docs/*.md reference documents listed in docs/README.md"], "reason": "Engineering notes per component; not user guides; unchanged by this documentation task except docs/push.md, whose push example is corrected and listed under documents; indexed from docs/README.md."},
       {"paths": ["docs/mockups/"], "reason": "Phase 10 design mock-ups, kept as design history and labelled as such in docs/README.md."},
       {"paths": ["CONTRIBUTING.md", "SECURITY.md", "LICENSE", "brand/"], "reason": "Not version-labelled content; still accurate."}
     ],
@@ -100,11 +102,13 @@
     "historical": [
       {"item": "THE-1416 and THE-716 review captures", "reason": "Not reused: every current capture was retaken on the deployed 36f78cc9 build in this task; earlier captures stay with their task records as historical evidence."},
       {"item": "README.md before v27.0.0-rc.1", "reason": "Summarised under 'History of this file' in README.md."},
-      {"item": "Label v27.0.0-rc.1 and its Nextcloud review copy /Theriark/Driftsniff/Documentation/v27.0.0-rc.1", "reason": "Never tagged; superseded by v27.0.0-rc.2 for the same candidate. Its release notes stay in docs/release-notes/v27.0.0-rc.1.md with a superseded banner; the Nextcloud copy is kept unchanged as history."}
+      {"item": "Label v27.0.0-rc.1 and its Nextcloud review copy /Theriark/Driftsniff/Documentation/v27.0.0-rc.1", "reason": "Never tagged; superseded by v27.0.0-rc.2 for the same candidate. Its release notes stay in docs/release-notes/v27.0.0-rc.1.md with a superseded banner; the Nextcloud copy is kept unchanged as history."},
+      {"item": "Label v27.0.0-rc.2 and its Nextcloud review copy /Theriark/Driftsniff/Documentation/v27.0.0-rc.2", "reason": "Never tagged; its push example (networks with _id, name, vlan) is refused with 422 bad_object (THE-1496 finding D1), so it is superseded by v27.0.0-rc.3 for the same candidate. Its release notes stay in docs/release-notes/v27.0.0-rc.2.md with a superseded banner; the Nextcloud copy is kept unchanged as history."}
     ],
     "limitations": [
       "The Development fixture was last pushed on 2026-10-24, so drift line marks sit two days before the 'today' end of the strip, not at today.",
-      "The application footer shows package version 0.1.0.dev0; the RC label v27.0.0-rc.2 is the tag created after review.",
+      "The application footer shows package version 0.1.0.dev0; the RC label v27.0.0-rc.3 is the tag created after review.",
+      "docs/images/add-source-push-1440.png shows the application's own hint under the push form, which still reads networks: _id, name, vlan. That text is in src/driftsniff/web/templates/sources/form.html and src/driftsniff/web/routes_sources.py, outside this docs-only scope; admin-guide.md, tutorial 3 and the rc.3 release notes say so next to the image.",
       "Two revoked Development test tokens exist in the shared data. Their names and first characters are blurred in docs/images/settings-1440-full.png and docs/images/dashboard-1440-full.png (see the redacted field of each entry); no other capture shows them. The blur was applied in the live page before capture because no image editor is available in the writer workspace; the captures are otherwise unedited.",
       "docs/images/settings-1440-full.png and docs/images/dashboard-1440-full.png were recaptured at 21:34 and 21:35 Europe/Lisbon on the same Development build 36f78cc9 (Settings About showed build 36f78cc95919); relative times and the storage figure in them are one hour later than in the other captures.",
       "Provenance (prepare_documentation gate, cycle 1): the candidate is 51051220 with image digest sha256:2bc3627e..., development after the merge of PR 127 (CI run 40412524256). No capture was retaken for it: git diff 36f78cc9..51051220 outside docs/ and README.md touches only .github/workflows/ci.yml, scripts/classify_changes.py, tests/unit/test_classify_changes.py and the classifier import setting in pyproject.toml, and the image copies only src/, requirements.txt and LICENSE, which are identical. Every view is therefore unchanged and no capture is presented as a capture of 51051220.",

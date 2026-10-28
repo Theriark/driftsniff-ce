@@ -1,6 +1,6 @@
 # Tutorials
 
-Step-by-step walk-throughs for release candidate v27.0.0-rc.2 (candidate `51051220`). Each step
+Step-by-step walk-throughs for release candidate v27.0.0-rc.3 (candidate `51051220`). Each step
 has a screenshot taken on Development build `36f78cc9`, whose application files are identical to
 the candidate, at 1440 px unless the caption says otherwise. The data in them is synthetic.
 

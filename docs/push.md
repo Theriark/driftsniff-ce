@@ -10,9 +10,10 @@ The collector is `driftsniff.collectors.push.PushCollector`, the endpoint is in
 
 1. Create a source of type `push` (no address, no credential).
 2. Declare, per resource, the top-level fields that are configuration, with the source option
-   `push_fields`, for example `{"networks": ["_id", "name", "vlan", "passphrase"]}`. Every other
+   `push_fields`, for example `{"unifi-networks": ["id", "name", "vlanId"]}`. Every other
    field of a pushed object is dropped before anything is stored. Include the key field of the
-   resource (the one its type table names) or the run fails with `bad_object`.
+   resource (the one its type table names; `id` for every UniFi and Xen Orchestra resource) or
+   the run fails with `bad_object`.
 3. Make a sender key with `SourceService.set_push_key`. It is returned once. Only its SHA-256
    is stored (`push_token_hash`), so it cannot be shown again; make a new one to replace it, and
    the old one stops working at once. The audit event `source.push_key` records that a key was
@@ -38,7 +39,7 @@ curl -X POST https://driftsniff.example/api/v1/push/3 \
 The body is a JSON object that maps resource names to lists of objects, at most 10 MB:
 
 ```
-{"networks": [{"_id": "n1", "name": "Lab", "vlan": 10}], "hosts": []}
+{"unifi-networks": [{"id": "n1", "name": "Lab", "vlanId": 10}]}
 ```
 
 Each post is the complete current list of every resource it contains. A resource that is not in

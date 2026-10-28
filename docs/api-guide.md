@@ -1,6 +1,6 @@
 # API guide
 
-For release candidate v27.0.0-rc.2. driftsniff has a small HTTP API under `/api/v1` for scripts:
+For release candidate v27.0.0-rc.3. driftsniff has a small HTTP API under `/api/v1` for scripts:
 read the changes, attach an external analysis to a change, and push a configuration. The full
 schema is served by the application at `/api/v1/openapi.json`.
 
@@ -67,8 +67,11 @@ curl -X POST https://driftsniff.example/api/v1/push/<SOURCE_ID> \
 The body maps each declared resource to the complete current list of its objects, at most 10 MB:
 
 ```
-{"networks": [{"_id": "n1", "name": "Lab", "vlan": 10}]}
+{"unifi-networks": [{"id": "n1", "name": "Lab", "vlanId": 10}]}
 ```
+
+This body fits a push source that declares `unifi-networks: id, name, vlanId`. Each object needs
+the key field of its resource (`id`), or the post is refused with 422 `bad_object`.
 
 A resource that is not in the post keeps its previous state; an empty list means every object of
 it is gone. Fields that the source does not declare are dropped before anything is stored. The

@@ -1,6 +1,6 @@
 # Operations
 
-For release candidate v27.0.0-rc.2. How to check that driftsniff runs, keep its data safe, upgrade
+For release candidate v27.0.0-rc.3. How to check that driftsniff runs, keep its data safe, upgrade
 it and roll it back. The commands assume the `compose.yaml` of this repository; the service is
 called `driftsniff`.
 
