@@ -1,0 +1,296 @@
+{
+  "_comment": "Synthetic TrueNAS 25.10 system for the fake JSON-RPC API (tests/contract/fake_truenas.py). Every value is invented; field names follow the API reference 25.10 (docs/vendor-notes/truenas.md). Keys of 'methods' are JSON-RPC method names, values are their results. No value is a real secret.",
+  "methods": {
+    "system.version": "25.10.1",
+    "system.info": {
+      "version": "25.10.1",
+      "hostname": "nas-lab-01",
+      "model": "Synthetic Lab Chassis",
+      "cores": 8,
+      "physical_cores": 4,
+      "physmem": 34359738368,
+      "uptime_seconds": 86400.5,
+      "timezone": "Europe/Lisbon",
+      "system_serial": "SYN-000123",
+      "ecc_memory": true
+    },
+    "pool.query": [
+      {
+        "id": 1,
+        "name": "tank",
+        "guid": "1508453829104455123",
+        "path": "/mnt/tank",
+        "status": "ONLINE",
+        "status_code": "OK",
+        "status_detail": null,
+        "healthy": true,
+        "warning": false,
+        "is_upgraded": true,
+        "size": 7937099956224,
+        "allocated": 2147483648000,
+        "free": 5789616308224,
+        "freeing": 0,
+        "size_str": "7937099956224",
+        "allocated_str": "2147483648000",
+        "free_str": "5789616308224",
+        "freeing_str": "0",
+        "fragmentation": "3",
+        "dedup_table_size": 0,
+        "dedup_table_quota": "auto",
+        "autotrim": {"parsed": "off", "rawvalue": "off", "value": "OFF", "source": "DEFAULT"},
+        "scan": {"function": "SCRUB", "state": "FINISHED", "start_time": {"$date": 1762560000000}, "end_time": {"$date": 1762563600000}, "percentage": 100.0, "bytes_to_process": 2147483648000, "bytes_processed": 2147483648000, "bytes_issued": 2147483648000, "pause": null, "errors": 0, "total_secs_left": null},
+        "expand": null,
+        "topology": {
+          "data": [
+            {"name": "mirror-0", "type": "MIRROR", "status": "ONLINE", "stats": {"read_errors": 0, "write_errors": 0, "checksum_errors": 0, "ops": [10, 20], "bytes": [4096, 8192]}, "children": [
+              {"name": "sda1", "type": "DISK", "disk": "sda", "status": "ONLINE", "stats": {"read_errors": 0, "write_errors": 0, "checksum_errors": 0}},
+              {"name": "sdb1", "type": "DISK", "disk": "sdb", "status": "ONLINE", "stats": {"read_errors": 0, "write_errors": 0, "checksum_errors": 0}}
+            ]}
+          ],
+          "log": [], "cache": [], "spare": [], "special": [], "dedup": []
+        }
+      }
+    ],
+    "pool.dataset.query": [
+      {
+        "id": "tank", "type": "FILESYSTEM", "name": "tank", "pool": "tank", "mountpoint": "/mnt/tank",
+        "encrypted": false, "encryption_root": null, "key_loaded": false, "locked": false, "children": [],
+        "user_properties": {},
+        "comments": {"parsed": "", "rawvalue": "", "value": "", "source": "DEFAULT"},
+        "compression": {"parsed": "lz4", "rawvalue": "lz4", "value": "LZ4", "source": "LOCAL"},
+        "sync": {"parsed": "standard", "rawvalue": "standard", "value": "STANDARD", "source": "DEFAULT"},
+        "readonly": {"parsed": false, "rawvalue": "off", "value": "OFF", "source": "DEFAULT"},
+        "acltype": {"parsed": "posix", "rawvalue": "posix", "value": "POSIX", "source": "LOCAL"},
+        "aclmode": {"parsed": "discard", "rawvalue": "discard", "value": "DISCARD", "source": "LOCAL"},
+        "atime": {"parsed": false, "rawvalue": "off", "value": "OFF", "source": "LOCAL"},
+        "quota": {"parsed": null, "rawvalue": "0", "value": null, "source": "DEFAULT"},
+        "recordsize": {"parsed": 131072, "rawvalue": "131072", "value": "128K", "source": "DEFAULT"},
+        "used": {"parsed": 2147483648000, "rawvalue": "2147483648000", "value": "1.95T", "source": "NONE"},
+        "available": {"parsed": 5789616308224, "rawvalue": "5789616308224", "value": "5.27T", "source": "NONE"},
+        "usedbysnapshots": {"parsed": 0, "rawvalue": "0", "value": "0B", "source": "NONE"},
+        "compressratio": {"parsed": "1.21", "rawvalue": "1.21", "value": "1.21x", "source": "NONE"},
+        "creation": {"parsed": {"$date": 1735689600000}, "rawvalue": "1735689600", "value": "Wed Jan  1  0:00 2025", "source": "NONE"}
+      },
+      {
+        "id": "tank/media", "type": "FILESYSTEM", "name": "tank/media", "pool": "tank", "mountpoint": "/mnt/tank/media",
+        "encrypted": false, "encryption_root": null, "key_loaded": false, "locked": false, "children": [],
+        "user_properties": {},
+        "comments": {"parsed": "Family photos and video", "rawvalue": "Family photos and video", "value": "Family photos and video", "source": "LOCAL"},
+        "compression": {"parsed": "lz4", "rawvalue": "lz4", "value": "LZ4", "source": "INHERITED"},
+        "sync": {"parsed": "standard", "rawvalue": "standard", "value": "STANDARD", "source": "DEFAULT"},
+        "readonly": {"parsed": false, "rawvalue": "off", "value": "OFF", "source": "DEFAULT"},
+        "acltype": {"parsed": "nfsv4", "rawvalue": "nfsv4", "value": "NFSV4", "source": "LOCAL"},
+        "aclmode": {"parsed": "restricted", "rawvalue": "restricted", "value": "RESTRICTED", "source": "LOCAL"},
+        "atime": {"parsed": false, "rawvalue": "off", "value": "OFF", "source": "INHERITED"},
+        "quota": {"parsed": 1099511627776, "rawvalue": "1099511627776", "value": "1T", "source": "LOCAL"},
+        "recordsize": {"parsed": 1048576, "rawvalue": "1048576", "value": "1M", "source": "LOCAL"},
+        "used": {"parsed": 1610612736000, "rawvalue": "1610612736000", "value": "1.46T", "source": "NONE"},
+        "available": {"parsed": 5789616308224, "rawvalue": "5789616308224", "value": "5.27T", "source": "NONE"},
+        "usedbysnapshots": {"parsed": 1073741824, "rawvalue": "1073741824", "value": "1G", "source": "NONE"},
+        "compressratio": {"parsed": "1.01", "rawvalue": "1.01", "value": "1.01x", "source": "NONE"},
+        "creation": {"parsed": {"$date": 1735776000000}, "rawvalue": "1735776000", "value": "Thu Jan  2  0:00 2025", "source": "NONE"}
+      },
+      {
+        "id": "tank/backups", "type": "FILESYSTEM", "name": "tank/backups", "pool": "tank", "mountpoint": "/mnt/tank/backups",
+        "encrypted": true, "encryption_root": "tank/backups", "key_loaded": true, "locked": false, "children": [],
+        "user_properties": {},
+        "key_format": {"parsed": "hex", "rawvalue": "hex", "value": "HEX", "source": "NONE"},
+        "encryption_algorithm": {"parsed": "aes-256-gcm", "rawvalue": "aes-256-gcm", "value": "AES-256-GCM", "source": "NONE"},
+        "pbkdf2iters": {"parsed": "0", "rawvalue": "0", "value": "0", "source": "DEFAULT"},
+        "comments": {"parsed": "", "rawvalue": "", "value": "", "source": "DEFAULT"},
+        "compression": {"parsed": "zstd", "rawvalue": "zstd", "value": "ZSTD", "source": "LOCAL"},
+        "sync": {"parsed": "always", "rawvalue": "always", "value": "ALWAYS", "source": "LOCAL"},
+        "readonly": {"parsed": false, "rawvalue": "off", "value": "OFF", "source": "DEFAULT"},
+        "acltype": {"parsed": "posix", "rawvalue": "posix", "value": "POSIX", "source": "INHERITED"},
+        "aclmode": {"parsed": "discard", "rawvalue": "discard", "value": "DISCARD", "source": "INHERITED"},
+        "atime": {"parsed": false, "rawvalue": "off", "value": "OFF", "source": "INHERITED"},
+        "quota": {"parsed": null, "rawvalue": "0", "value": null, "source": "DEFAULT"},
+        "recordsize": {"parsed": 131072, "rawvalue": "131072", "value": "128K", "source": "DEFAULT"},
+        "used": {"parsed": 429496729600, "rawvalue": "429496729600", "value": "400G", "source": "NONE"},
+        "available": {"parsed": 5789616308224, "rawvalue": "5789616308224", "value": "5.27T", "source": "NONE"},
+        "usedbysnapshots": {"parsed": 0, "rawvalue": "0", "value": "0B", "source": "NONE"},
+        "compressratio": {"parsed": "1.88", "rawvalue": "1.88", "value": "1.88x", "source": "NONE"},
+        "creation": {"parsed": {"$date": 1735862400000}, "rawvalue": "1735862400", "value": "Fri Jan  3  0:00 2025", "source": "NONE"}
+      }
+    ],
+    "sharing.smb.query": [
+      {
+        "id": 1, "purpose": "LEGACY_SHARE", "name": "media", "path": "/mnt/tank/media", "enabled": true,
+        "comment": "Media library", "readonly": false, "browsable": true, "access_based_share_enumeration": false,
+        "locked": false, "audit": {"enable": false, "watch_list": [], "ignore_list": []},
+        "options": {"recyclebin": false, "path_suffix": null, "hostsallow": ["10.20.0.0/24"], "hostsdeny": [], "guestok": false, "streams": true, "durablehandle": true, "shadowcopy": true, "fsrvp": false, "home": false, "acl": true, "afp": false, "timemachine": false, "timemachine_quota": 0, "aapl_name_mangling": false, "vuid": null, "auxsmbconf": ""}
+      },
+      {
+        "id": 2, "purpose": "DEFAULT_SHARE", "name": "backups", "path": "/mnt/tank/backups", "enabled": true,
+        "comment": "", "readonly": false, "browsable": false, "access_based_share_enumeration": true,
+        "locked": false, "audit": {"enable": true, "watch_list": ["backup-operators"], "ignore_list": []},
+        "options": {"aapl_name_mangling": false}
+      }
+    ],
+    "sharing.nfs.query": [
+      {
+        "id": 1, "path": "/mnt/tank/media", "aliases": [], "comment": "Media for the players",
+        "networks": ["10.20.0.0/24"], "hosts": [], "ro": true,
+        "maproot_user": null, "maproot_group": null, "mapall_user": "nobody", "mapall_group": "nogroup",
+        "security": ["SYS"], "enabled": true, "locked": false, "expose_snapshots": false
+      }
+    ],
+    "iscsi.target.query": [
+      {"id": 1, "name": "vmstore", "alias": "VM store", "mode": "ISCSI", "groups": [{"portal": 1, "initiator": 1, "authmethod": "CHAP", "auth": 1}], "auth_networks": ["10.30.0.0/24"], "rel_tgt_id": 1, "iscsi_parameters": null}
+    ],
+    "iscsi.extent.query": [
+      {"id": 1, "name": "vmstore0", "type": "DISK", "disk": "zvol/tank/vmstore0", "serial": "SYN0001", "path": "zvol/tank/vmstore0", "filesize": "0", "blocksize": 512, "pblocksize": false, "avail_threshold": null, "comment": "", "naa": "0x6589cfc000000aaa0000000000000001", "insecure_tpc": true, "xen": false, "rpm": "SSD", "ro": false, "enabled": true, "vendor": "TrueNAS", "product_id": "iSCSI Disk", "locked": false}
+    ],
+    "user.query": [
+      {
+        "id": 1, "uid": 0, "username": "root", "unixhash": "*", "smbhash": "*", "home": "/root", "shell": "/usr/bin/zsh",
+        "full_name": "root", "builtin": true, "smb": false, "userns_idmap": null, "group": {"id": 1, "bsdgrp_gid": 0, "bsdgrp_group": "root"},
+        "groups": [], "password_disabled": true, "ssh_password_enabled": false, "sshpubkey": null, "locked": false,
+        "sudo_commands": [], "sudo_commands_nopasswd": [], "email": null, "local": true, "immutable": true,
+        "twofactor_auth_configured": false, "sid": null, "last_password_change": null, "password_age": null,
+        "password_history": null, "password_change_required": false, "roles": ["FULL_ADMIN"], "api_keys": []
+      },
+      {
+        "id": 70, "uid": 950, "username": "truenas_admin", "unixhash": "$6$SYNTHETIC$notarealhash.admin", "smbhash": "*", "home": "/home/truenas_admin", "shell": "/usr/bin/zsh",
+        "full_name": "Local Administrator", "builtin": false, "smb": false, "userns_idmap": null, "group": {"id": 70, "bsdgrp_gid": 950, "bsdgrp_group": "truenas_admin"},
+        "groups": [41], "password_disabled": false, "ssh_password_enabled": false, "sshpubkey": "ssh-ed25519 AAAASYNTHETICADMINKEY admin@lab", "locked": false,
+        "sudo_commands": [], "sudo_commands_nopasswd": [], "email": "admin@lab.example", "local": true, "immutable": false,
+        "twofactor_auth_configured": true, "sid": null, "last_password_change": {"$date": 1760000000000}, "password_age": 33,
+        "password_history": null, "password_change_required": false, "roles": ["FULL_ADMIN"], "api_keys": [1]
+      },
+      {
+        "id": 71, "uid": 3000, "username": "alice", "unixhash": "$6$SYNTHETIC$notarealhash.alice", "smbhash": "SYNTHETICNTHASHALICE", "home": "/mnt/tank/home/alice", "shell": "/usr/sbin/nologin",
+        "full_name": "Alice Example", "builtin": false, "smb": true, "userns_idmap": null, "group": {"id": 71, "bsdgrp_gid": 3000, "bsdgrp_group": "alice"},
+        "groups": [45], "password_disabled": false, "ssh_password_enabled": false, "sshpubkey": null, "locked": false,
+        "sudo_commands": [], "sudo_commands_nopasswd": [], "email": null, "local": true, "immutable": false,
+        "twofactor_auth_configured": false, "sid": "S-1-5-21-0000000000-0000000000-0000000000-20071", "last_password_change": {"$date": 1755000000000}, "password_age": 91,
+        "password_history": null, "password_change_required": false, "roles": [], "api_keys": []
+      }
+    ],
+    "group.query": [
+      {"id": 41, "gid": 544, "name": "builtin_administrators", "group": "builtin_administrators", "builtin": true, "sudo_commands": [], "sudo_commands_nopasswd": [], "smb": false, "userns_idmap": null, "local": true, "sid": null, "roles": ["FULL_ADMIN"], "users": [70], "immutable": true},
+      {"id": 45, "gid": 545, "name": "builtin_users", "group": "builtin_users", "builtin": true, "sudo_commands": [], "sudo_commands_nopasswd": [], "smb": true, "userns_idmap": null, "local": true, "sid": null, "roles": [], "users": [71], "immutable": true},
+      {"id": 71, "gid": 3000, "name": "alice", "group": "alice", "builtin": false, "sudo_commands": [], "sudo_commands_nopasswd": [], "smb": true, "userns_idmap": null, "local": true, "sid": null, "roles": [], "users": [71], "immutable": false}
+    ],
+    "ssh.config": {
+      "id": 1, "bindiface": [], "tcpport": 22, "password_login_groups": [], "passwordauth": false, "kerberosauth": false,
+      "tcpfwd": false, "compression": false, "sftp_log_level": "", "sftp_log_facility": "", "weak_ciphers": ["AES128-CBC"], "options": "",
+      "privatekey": "SYNTHETIC-PRIVATE-KEY-NOT-A-KEY-ssh-legacy (placeholder, not a key; a real box sends a PEM block)",
+      "host_key": null, "host_key_pub": null,
+      "host_dsa_key": null, "host_dsa_key_pub": null, "host_dsa_key_cert_pub": null,
+      "host_ecdsa_key": "SYNTHETIC-PRIVATE-KEY-NOT-A-KEY-ecdsa (placeholder, not a key; a real box sends a PEM block)", "host_ecdsa_key_pub": "ecdsa-sha2-nistp256 AAAASYNTHETICECDSA root@nas-lab-01", "host_ecdsa_key_cert_pub": null,
+      "host_ed25519_key": "SYNTHETIC-PRIVATE-KEY-NOT-A-KEY-ed25519 (placeholder, not a key; a real box sends a PEM block)", "host_ed25519_key_pub": "ssh-ed25519 AAAASYNTHETICED25519 root@nas-lab-01", "host_ed25519_key_cert_pub": null,
+      "host_rsa_key": "SYNTHETIC-PRIVATE-KEY-NOT-A-KEY-rsa (placeholder, not a key; a real box sends a PEM block)", "host_rsa_key_pub": "ssh-rsa AAAASYNTHETICRSA root@nas-lab-01", "host_rsa_key_cert_pub": null
+    },
+    "service.query": [
+      {"id": 1, "service": "cifs", "enable": true, "state": "RUNNING", "pids": [2201, 2202]},
+      {"id": 2, "service": "nfs", "enable": true, "state": "RUNNING", "pids": [2301]},
+      {"id": 3, "service": "ssh", "enable": false, "state": "STOPPED", "pids": []},
+      {"id": 4, "service": "iscsitarget", "enable": true, "state": "RUNNING", "pids": []},
+      {"id": 5, "service": "snmp", "enable": false, "state": "STOPPED", "pids": []},
+      {"id": 6, "service": "ups", "enable": false, "state": "STOPPED", "pids": []}
+    ],
+    "interface.query": [
+      {
+        "id": "enp1s0", "name": "enp1s0", "fake": false, "type": "PHYSICAL",
+        "aliases": [{"type": "INET", "address": "10.20.0.10", "netmask": 24}], "ipv4_dhcp": false, "ipv6_auto": false,
+        "description": "LAN", "mtu": 1500, "vlan_parent_interface": null, "vlan_tag": null, "vlan_pcp": null,
+        "lag_protocol": null, "lag_ports": [], "bridge_members": [], "enable_learning": true,
+        "state": {"name": "enp1s0", "orig_name": "enp1s0", "description": "LAN", "mtu": 1500, "cloned": false, "flags": ["UP", "BROADCAST", "RUNNING", "MULTICAST"], "link_state": "LINK_STATE_UP", "media_type": "Ethernet", "active_media_subtype": "1000Mb/s Twisted Pair", "link_address": "52:54:00:00:00:10", "rx_queues": 4, "tx_queues": 4, "aliases": [{"type": "INET", "address": "10.20.0.10", "netmask": 24, "broadcast": "10.20.0.255"}]}
+      }
+    ],
+    "network.configuration.config": {
+      "id": 1, "hostname": "nas-lab-01", "domain": "lab.example", "ipv4gateway": "10.20.0.1", "ipv6gateway": "",
+      "nameserver1": "10.20.0.1", "nameserver2": "9.9.9.9", "nameserver3": "", "httpproxy": "", "hosts": [], "domains": [],
+      "service_announcement": {"netbios": false, "mdns": true, "wsd": true}, "activity": {"type": "DENY", "activities": []},
+      "hostname_local": "nas-lab-01", "hostname_b": null, "hostname_virtual": null,
+      "state": {"ipv4gateway": "10.20.0.1", "ipv6gateway": "", "nameserver1": "10.20.0.1", "nameserver2": "9.9.9.9", "nameserver3": "", "hosts": []}
+    },
+    "pool.snapshottask.query": [
+      {"id": 1, "dataset": "tank/media", "recursive": true, "lifetime_value": 2, "lifetime_unit": "WEEK", "enabled": true, "exclude": [], "naming_schema": "auto-%Y-%m-%d_%H-%M", "allow_empty": false, "schedule": {"minute": "0", "hour": "*", "dom": "*", "month": "*", "dow": "*", "begin": "00:00", "end": "23:59"}, "vmware_sync": false, "state": {"state": "FINISHED", "datetime": {"$date": 1762920000000}}},
+      {"id": 2, "dataset": "tank/backups", "recursive": false, "lifetime_value": 30, "lifetime_unit": "DAY", "enabled": true, "exclude": [], "naming_schema": "daily-%Y-%m-%d", "allow_empty": true, "schedule": {"minute": "15", "hour": "2", "dom": "*", "month": "*", "dow": "*", "begin": "00:00", "end": "23:59"}, "vmware_sync": false, "state": {"state": "FINISHED", "datetime": {"$date": 1762913700000}}}
+    ],
+    "replication.query": [
+      {
+        "id": 1, "name": "media-offsite", "direction": "PUSH", "transport": "SSH",
+        "ssh_credentials": {"id": 3, "name": "offsite-nas", "type": "SSH_CREDENTIALS", "attributes": {"host": "offsite.lab.example", "port": 22, "username": "repl", "private_key": 2, "remote_host_key": "ssh-ed25519 AAAASYNTHETICREMOTE", "connect_timeout": 10}},
+        "sudo": false, "netcat_active_side": null, "netcat_active_side_listen_address": null, "netcat_active_side_port_min": null, "netcat_active_side_port_max": null, "netcat_passive_side_connect_address": null,
+        "source_datasets": ["tank/media"], "target_dataset": "backup/media", "recursive": true, "exclude": [], "properties": true, "properties_exclude": [], "properties_override": {}, "replicate": false,
+        "encryption": false, "encryption_inherit": null, "encryption_key": null, "encryption_key_format": null, "encryption_key_location": null,
+        "periodic_snapshot_tasks": [{"id": 1, "dataset": "tank/media", "recursive": true, "lifetime_value": 2, "lifetime_unit": "WEEK", "enabled": true, "exclude": [], "naming_schema": "auto-%Y-%m-%d_%H-%M", "allow_empty": false, "schedule": {"minute": "0", "hour": "*", "dom": "*", "month": "*", "dow": "*", "begin": "00:00", "end": "23:59"}, "vmware_sync": false, "state": "FINISHED"}],
+        "naming_schema": [], "also_include_naming_schema": [], "name_regex": null, "auto": true, "schedule": null, "restrict_schedule": null, "only_matching_schedule": false,
+        "allow_from_scratch": false, "readonly": "SET", "hold_pending_snapshots": false, "retention_policy": "SOURCE", "lifetime_value": null, "lifetime_unit": null, "lifetimes": [],
+        "compression": null, "speed_limit": null, "large_block": true, "embed": false, "compressed": true, "retries": 5, "logging_level": null, "enabled": true,
+        "state": {"state": "FINISHED", "datetime": {"$date": 1762920060000}, "last_snapshot": "tank/media@auto-2026-11-12_04-00"}, "job": null, "has_encrypted_dataset_keys": false
+      }
+    ],
+    "cloudsync.query": [
+      {
+        "id": 1, "description": "Backups to object storage", "path": "/mnt/tank/backups",
+        "credentials": {"id": 1, "name": "lab-s3", "provider": {"type": "S3", "access_key_id": "SYNTHETICACCESSKEY", "secret_access_key": "SYNTHETIC-secret-access-key-0001"}},
+        "attributes": {"bucket": "lab-backups", "folder": "/nas-lab-01", "fast_list": false, "storage_class": "STANDARD"},
+        "schedule": {"minute": "30", "hour": "3", "dom": "*", "month": "*", "dow": "*"},
+        "pre_script": "", "post_script": "", "snapshot": false, "include": [], "exclude": [], "args": "", "enabled": true,
+        "job": {"id": 812, "state": "SUCCESS", "time_finished": {"$date": 1762918200000}}, "locked": false,
+        "bwlimit": [], "transfers": 4, "direction": "PUSH", "transfer_mode": "SYNC",
+        "encryption": true, "filename_encryption": true, "encryption_password": "SYNTHETIC-encryption-password-0001", "encryption_salt": "SYNTHETIC-salt-0001",
+        "create_empty_src_dirs": false, "follow_symlinks": false
+      }
+    ],
+    "cloudsync.credentials.query": [
+      {"id": 1, "name": "lab-s3", "provider": {"type": "S3", "access_key_id": "SYNTHETICACCESSKEY", "secret_access_key": "SYNTHETIC-secret-access-key-0001", "endpoint": "https://s3.lab.example", "region": "eu-west-1", "skip_region": false, "signatures_v2": false, "max_upload_parts": 10000}}
+    ],
+    "cronjob.query": [
+      {"id": 1, "enabled": true, "stderr": false, "stdout": true, "schedule": {"minute": "0", "hour": "4", "dom": "*", "month": "*", "dow": "0"}, "command": "/usr/local/bin/rotate-logs.sh", "description": "Weekly log rotation", "user": "truenas_admin"}
+    ],
+    "certificate.query": [
+      {
+        "id": 1, "type": 8, "name": "truenas_default", "cert_type": "CERTIFICATE",
+        "certificate": "SYNTHETIC-CERTIFICATE-0001 (placeholder; a real box sends a PEM block)",
+        "privatekey": "SYNTHETIC-PRIVATE-KEY-NOT-A-KEY-certificate (placeholder, not a key; a real box sends a PEM block)",
+        "CSR": null, "acme_uri": null, "renew_days": 10, "add_to_trusted_store": false,
+        "root_path": "/etc/certificates", "certificate_path": "/etc/certificates/truenas_default.crt", "privatekey_path": "/etc/certificates/truenas_default.key", "csr_path": "/etc/certificates/truenas_default.csr",
+        "key_length": 2048, "key_type": "RSA", "common": "nas-lab-01.lab.example", "san": ["DNS:nas-lab-01.lab.example"], "DN": "/CN=nas-lab-01.lab.example",
+        "digest_algorithm": "SHA256", "from": "Mon Nov  3 10:00:00 2025", "until": "Thu Dec  5 10:00:00 2026", "serial": 4242, "fingerprint": "AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD",
+        "chain": false, "expired": false, "parsed": true
+      }
+    ]
+  },
+  "drift": [
+    {"method": "ssh.config", "id": 1, "path": "passwordauth", "value": true, "expect": {"resource": "truenas-ssh", "path": "passwordauth", "severity": "critical", "rule_id": "truenas.ssh.password_login"}},
+    {"method": "user.query", "id": 1, "path": "ssh_password_enabled", "value": true, "expect": {"resource": "truenas-users", "path": "ssh_password_enabled", "severity": "critical", "rule_id": "truenas.users.ssh_password"}},
+    {"method": "sharing.smb.query", "id": 1, "path": "options.guestok", "value": true, "expect": {"resource": "truenas-smb-shares", "path": "options.guestok", "severity": "critical", "rule_id": "truenas.smb.guest_access"}},
+    {"method": "sharing.nfs.query", "id": 1, "path": "networks", "value": [], "expect": {"resource": "truenas-nfs-shares", "path": "open_to_all", "severity": "critical", "rule_id": "truenas.nfs.open_to_all"}},
+    {"method": "user.query", "id": 71, "path": "roles", "value": ["FULL_ADMIN"], "expect": {"resource": "truenas-users", "path": "full_admin", "severity": "critical", "rule_id": "truenas.users.full_admin"}},
+    {"method": "group.query", "id": 41, "path": "users", "value": [70, 71], "expect": {"resource": "truenas-groups", "path": "users", "severity": "high", "rule_id": null}},
+    {"method": "pool.dataset.query", "id": "tank/media", "path": "readonly.value", "value": "ON", "expect": {"resource": "truenas-datasets", "path": "readonly", "severity": "high", "rule_id": "truenas.datasets.readonly"}},
+    {"method": "pool.snapshottask.query", "id": 2, "path": "enabled", "value": false, "expect": {"resource": "truenas-snapshot-tasks", "path": "enabled", "severity": "high", "rule_id": "truenas.snapshot_tasks.disabled"}},
+    {"method": "replication.query", "id": 1, "path": "enabled", "value": false, "expect": {"resource": "truenas-replication-tasks", "path": "enabled", "severity": "high", "rule_id": "truenas.replication.disabled"}},
+    {"method": "service.query", "id": 3, "path": "enable", "value": true, "expect": {"resource": "truenas-services", "path": "enable", "severity": "high", "rule_id": "truenas.services.enabled"}},
+    {"method": "cronjob.query", "id": 1, "path": "description", "value": "Weekly log rotation (all logs)", "expect": {"resource": "truenas-cron-jobs", "path": "description", "severity": "low", "rule_id": "truenas.cron.description"}},
+    {"method": "cloudsync.credentials.query", "id": 1, "path": "provider.secret_access_key", "value": "SYNTHETIC-secret-access-key-0002", "expect": {"resource": "truenas-cloud-credentials", "path": "provider.secret_access_key", "severity": "high", "rule_id": null}}
+  ],
+  "volatile": [
+    {"method": "pool.query", "id": 1, "path": "free", "value": 5700000000000},
+    {"method": "pool.query", "id": 1, "path": "allocated", "value": 2237099956224},
+    {"method": "pool.query", "id": 1, "path": "status", "value": "DEGRADED"},
+    {"method": "pool.query", "id": 1, "path": "healthy", "value": false},
+    {"method": "pool.query", "id": 1, "path": "scan.state", "value": "SCANNING"},
+    {"method": "pool.query", "id": 1, "path": "topology.data", "value": [{"name": "mirror-0", "type": "MIRROR", "status": "DEGRADED", "stats": {"read_errors": 3}, "children": []}]},
+    {"method": "pool.dataset.query", "id": "tank/media", "path": "used.value", "value": "1.50T"},
+    {"method": "pool.dataset.query", "id": "tank/media", "path": "available.value", "value": "5.20T"},
+    {"method": "pool.dataset.query", "id": "tank/backups", "path": "key_loaded", "value": false},
+    {"method": "pool.dataset.query", "id": "tank/backups", "path": "locked", "value": true},
+    {"method": "sharing.smb.query", "id": 2, "path": "locked", "value": true},
+    {"method": "service.query", "id": 1, "path": "pids", "value": [3301, 3302]},
+    {"method": "service.query", "id": 2, "path": "state", "value": "STOPPED"},
+    {"method": "interface.query", "id": "enp1s0", "path": "state.link_state", "value": "LINK_STATE_DOWN"},
+    {"method": "network.configuration.config", "id": 1, "path": "state.nameserver1", "value": "10.20.0.2"},
+    {"method": "pool.snapshottask.query", "id": 1, "path": "state.state", "value": "RUNNING"},
+    {"method": "replication.query", "id": 1, "path": "state.state", "value": "RUNNING"},
+    {"method": "replication.query", "id": 1, "path": "job", "value": {"id": 901, "state": "RUNNING", "progress": {"percent": 42}}},
+    {"method": "cloudsync.query", "id": 1, "path": "job", "value": {"id": 813, "state": "RUNNING"}},
+    {"method": "user.query", "id": 71, "path": "password_age", "value": 92},
+    {"method": "certificate.query", "id": 1, "path": "expired", "value": true}
+  ]
+}

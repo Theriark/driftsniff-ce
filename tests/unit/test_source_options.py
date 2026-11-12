@@ -68,7 +68,7 @@ def test_the_expiry_date_is_written_as_year_month_day(
 def test_the_options_belong_to_their_types(service: SourceService) -> None:
     with pytest.raises(SourceValidationError, match="only an xo source"):
         service.create(**polled("unifi", credential_expires_on="2026-11-30"))
-    with pytest.raises(SourceValidationError, match="only a unifi or xo source"):
+    with pytest.raises(SourceValidationError, match="only a polled source"):
         service.create(
             name="pusher", source_type="push", actor="admin", options={"resources_off": ["x"]}
         )

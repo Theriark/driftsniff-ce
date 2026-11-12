@@ -11,7 +11,7 @@
 {% from "components/forms.html" import text_field %}
 {% from "components/states.html" import banner, state %}
 {% block content %}
-{% set polled = values.source_type in ("unifi", "xo") %}
+{% set polled = values.source_type in ("unifi", "xo", "portainer", "qnap", "synology", "truenas") %}
 {% set back = "/sources/" ~ source.id if editing else "/sources" %}
 <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/sources">Sources</a> / {% if editing %}<a href="/sources/{{ source.id }}">{{ source.name }}</a> / Edit{% else %}Add a source{% endif %}</nav>
 {{ page_header(shell.title, "Edit what driftsniff reads and how. The type of a source cannot change." if editing else "Choose what driftsniff should watch, then tell it how to read it. It only ever reads.") }}
@@ -39,12 +39,15 @@
     <h2 id="sec-source">{{ "Source" if polled else "Push source" }}</h2>
     {{ text_field("name", "name", "Name", value=values.name, help="How this source is called everywhere in driftsniff, for example branch-gw. Up to 100 characters.", error=errors.get("name", ""), autocomplete="off", required=true) }}
     {% if polled %}
-    {{ text_field("base_url", "base_url", "Address", value=values.base_url, type="url", help="The address of the " ~ ("UniFi Network application" if values.source_type == "unifi" else "Xen Orchestra server") ~ ", starting with https://. No user name, query or path to the API.", error=errors.get("base_url", ""), autocomplete="off", placeholder="https://controller.example", required=not editing, mono=true) }}
+    {{ text_field("base_url", "base_url", "Address", value=values.base_url, type="url", help="The address of the " ~ ("UniFi Network application" if values.source_type == "unifi" else "Portainer server" if values.source_type == "portainer" else "QNAP NAS" if values.source_type == "qnap" else "Synology NAS (DSM, usually port 5001)" if values.source_type == "synology" else "TrueNAS system" if values.source_type == "truenas" else "Xen Orchestra server") ~ ", starting with https://. No user name, query or path to the API.", error=errors.get("base_url", ""), autocomplete="off", placeholder="https://controller.example", required=not editing, mono=true) }}
     <div class="check">
       <input id="allow_plain_http" name="allow_plain_http" type="checkbox" value="on"{% if values.allow_plain_http %} checked{% endif %} aria-describedby="allow_plain_http-help">
       <label for="allow_plain_http">Allow a plain http address</label>
       <span class="help" id="allow_plain_http-help">Only for a lab without TLS: the {{ credential_label }} then travels unencrypted. Saving it writes an audit event.</span>
     </div>
+    {% if values.source_type in ("synology", "qnap", "truenas") %}
+    {{ text_field("username", "username", "User name", value=values.username, help="The account driftsniff signs in with: an administrator without 2-step verification. driftsniff only reads, and signs out after each check.", error=errors.get("username", ""), autocomplete="off", required=not editing) }}
+    {% endif %}
     {{ text_field("credential", "credential", credential_label, type="password", help=("Leave empty to keep the stored " ~ credential_label ~ ". A new one replaces it. " if editing else "") ~ "It is stored encrypted and never shown again, not even to you.", error=errors.get("credential", ""), autocomplete="off", required=not editing, mono=true) }}
     {% if values.source_type == "xo" %}
     {{ text_field("credential_expires_on", "credential_expires_on", "Credential expires on (optional)", value=values.credential_expires_on, type="date", help="driftsniff warns from 14 days before this date. When Xen Orchestra reports the expiry itself, that date wins.", error=errors.get("credential_expires_on", ""), autocomplete="off") }}

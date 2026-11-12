@@ -1,0 +1,61 @@
+# Synology DSM rules for the firewall, auto block and the network settings. Every field name is
+# unverified; the firewall and auto block names have no written source.
+version: 1
+rules:
+  - id: synology.firewall.any
+    resource: synology-firewall
+    path: "**"
+    severity: high
+    rationale: The firewall settings changed, which changes what can reach the NAS.
+  - id: synology.firewall.disabled
+    resource: synology-firewall
+    path: enable_firewall
+    when: {name: boolean_flips_to, value: false}
+    severity: critical
+    rationale: The firewall was switched off, so every service of the NAS is reachable again.
+  - id: synology.firewall_profiles.any
+    resource: synology-firewall-profiles
+    path: "**"
+    severity: high
+    rationale: A firewall profile or its rules changed, which changes what can reach the NAS.
+  - id: synology.auto_block.any
+    resource: synology-auto-block
+    path: "**"
+    severity: medium
+    rationale: An auto block setting changed, which changes how fast repeated failed sign ins are blocked.
+  - id: synology.auto_block.disabled
+    resource: synology-auto-block
+    path: enable
+    when: {name: boolean_flips_to, value: false}
+    severity: high
+    rationale: Auto block was switched off, so password guessing is no longer slowed down.
+  - id: synology.network.any
+    resource: synology-network
+    path: "**"
+    severity: medium
+    rationale: A network setting of the NAS changed.
+  - id: synology.network.dns_primary
+    resource: synology-network
+    path: dns_primary
+    severity: high
+    rationale: The primary DNS server changed, so the NAS may now resolve names through another server.
+  - id: synology.network.dns_secondary
+    resource: synology-network
+    path: dns_secondary
+    severity: high
+    rationale: The secondary DNS server changed, so the NAS may now resolve names through another server.
+  - id: synology.network.gateway
+    resource: synology-network
+    path: gateway
+    severity: high
+    rationale: The default gateway changed, so the traffic of the NAS takes another route.
+  - id: synology.network.server_name
+    resource: synology-network
+    path: server_name
+    severity: low
+    rationale: The server name changed, which changes only how the NAS is found by name.
+  - id: synology.interfaces.any
+    resource: synology-network-interfaces
+    path: "**"
+    severity: medium
+    rationale: A network interface changed its address or mode.

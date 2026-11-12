@@ -1,0 +1,64 @@
+# Synology DSM rules for SSH and Telnet, file services, QuickConnect and packages.
+# Every field name is unverified; the terminal and QuickConnect names have no written source.
+version: 1
+rules:
+  - id: synology.terminal.any
+    resource: synology-terminal
+    path: "**"
+    severity: high
+    rationale: The SSH or Telnet settings changed, which changes how an administrator can reach a shell.
+  - id: synology.terminal.telnet_on
+    resource: synology-terminal
+    path: enable_telnet
+    when: {name: boolean_flips_to, value: true}
+    severity: critical
+    rationale: Telnet was switched on, so administrator passwords cross the network in clear.
+  - id: synology.terminal.telnet_off
+    resource: synology-terminal
+    path: enable_telnet
+    when: {name: boolean_flips_to, value: false}
+    severity: low
+    rationale: Telnet was switched off, which removes a clear text way in.
+  - id: synology.terminal.ssh_on
+    resource: synology-terminal
+    path: enable_ssh
+    when: {name: boolean_flips_to, value: true}
+    severity: high
+    rationale: SSH was switched on, so administrators can now reach a shell on the NAS.
+  - id: synology.terminal.ssh_off
+    resource: synology-terminal
+    path: enable_ssh
+    when: {name: boolean_flips_to, value: false}
+    severity: low
+    rationale: SSH was switched off, which removes a way in.
+  - id: synology.terminal.ssh_port
+    resource: synology-terminal
+    path: ssh_port
+    severity: medium
+    rationale: The SSH port changed, which changes what the firewall and clients must allow.
+  - id: synology.file_services.any
+    resource: synology-file-services
+    path: "**"
+    severity: medium
+    rationale: An SMB, NFS or AFP setting changed, which can change how clients reach the shared folders.
+  - id: synology.quickconnect.any
+    resource: synology-quickconnect
+    path: "**"
+    severity: medium
+    rationale: A QuickConnect setting changed, which changes how the NAS is reached from outside.
+  - id: synology.quickconnect.enabled
+    resource: synology-quickconnect
+    path: enabled
+    when: {name: boolean_flips_to, value: true}
+    severity: high
+    rationale: QuickConnect was switched on, so the NAS can be reached from the internet through Synology relays.
+  - id: synology.packages.any
+    resource: synology-packages
+    path: "**"
+    severity: medium
+    rationale: A package was installed, removed or changed, which changes the software that runs on the NAS.
+  - id: synology.packages.version
+    resource: synology-packages
+    path: version
+    severity: low
+    rationale: A package was updated to another version.

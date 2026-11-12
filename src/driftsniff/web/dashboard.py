@@ -81,7 +81,15 @@ CHART_BAR_WIDTH: Final = 12.0
 EMPTY_WIDTH: Final = 600.0
 EMPTY_TICK_WIDTH: Final = 2.0
 
-SOURCE_TYPE_LABELS: Final = {"unifi": "UniFi Network", "xo": "Xen Orchestra", "push": "Push source"}
+SOURCE_TYPE_LABELS: Final = {
+    "unifi": "UniFi Network",
+    "xo": "Xen Orchestra",
+    "push": "Push source",
+    "portainer": "Portainer",
+    "qnap": "QNAP QTS / QuTS hero",
+    "synology": "Synology DSM",
+    "truenas": "TrueNAS",
+}
 # Source states a later task may store in sources.state; anything else counts as plain.
 STATE_UNSUPPORTED: Final = "unsupported"
 STATE_TOKEN_EXPIRING: Final = "token_expiring"  # noqa: S105 (a state word, not a value)
@@ -143,6 +151,55 @@ RESOURCE_LABELS: Final = {
     "groups": "Groups",
     "acl-roles": "ACL roles",
     "acl-privileges": "ACL privileges",
+    "portainer-environments": "Environments",
+    "portainer-environment-groups": "Environment groups",
+    "portainer-tags": "Tags",
+    "portainer-edge-groups": "Edge groups",
+    "portainer-stacks": "Stacks",
+    "portainer-users": "Portainer users",
+    "portainer-teams": "Teams",
+    "portainer-team-memberships": "Team memberships",
+    "portainer-registries": "Registries",
+    "portainer-settings": "Portainer settings",
+    "qnap-system": "System",
+    "qnap-network-interfaces": "Network adapters",
+    "qnap-volumes": "Volumes",
+    "qnap-shared-folders": "Shared folders",
+    "qnap-web-services": "Web interface",
+    "qnap-apps": "Apps",
+    "synology-shares": "Shared folders",
+    "synology-guest-share-access": "Guest access to shared folders",
+    "synology-users": "Users",
+    "synology-groups": "Groups",
+    "synology-administrators": "Administrators",
+    "synology-terminal": "SSH and Telnet",
+    "synology-firewall": "Firewall",
+    "synology-firewall-profiles": "Firewall profiles",
+    "synology-auto-block": "Auto block",
+    "synology-2fa-policy": "2-step verification policy",
+    "synology-file-services": "File services (SMB, NFS, AFP)",
+    "synology-packages": "Packages",
+    "synology-network-interfaces": "Network interfaces",
+    "synology-network": "Network settings",
+    "synology-quickconnect": "QuickConnect",
+    "truenas-pools": "Pools",
+    "truenas-datasets": "Datasets",
+    "truenas-smb-shares": "SMB shares",
+    "truenas-nfs-shares": "NFS shares",
+    "truenas-iscsi-targets": "iSCSI targets",
+    "truenas-iscsi-extents": "iSCSI extents",
+    "truenas-users": "Users",
+    "truenas-groups": "Groups",
+    "truenas-ssh": "SSH service",
+    "truenas-services": "Services",
+    "truenas-interfaces": "Network interfaces",
+    "truenas-network-config": "Network settings",
+    "truenas-snapshot-tasks": "Snapshot tasks",
+    "truenas-replication-tasks": "Replication tasks",
+    "truenas-cloud-sync-tasks": "Cloud sync tasks",
+    "truenas-cloud-credentials": "Cloud credentials",
+    "truenas-cron-jobs": "Cron jobs",
+    "truenas-certificates": "Certificates",
 }
 
 # Audit actions as the timeline words them: actor, verb phrase, then the target.

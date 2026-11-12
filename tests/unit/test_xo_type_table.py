@@ -126,7 +126,11 @@ def table(index: RuleIndex, resource: str) -> ResourceTable:
 
 
 def xo_resources(index: RuleIndex) -> list[str]:
-    return sorted(name for name in index.type_tables if not name.startswith("unifi-"))
+    return sorted(
+        n
+        for n in index.type_tables
+        if not n.startswith(("unifi-", "portainer-", "qnap-", "truenas-", "synology-"))
+    )
 
 
 def test_the_xo_resources_are_the_collections_of_the_plan(index: RuleIndex) -> None:

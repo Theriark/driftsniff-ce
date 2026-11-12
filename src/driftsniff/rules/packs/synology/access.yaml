@@ -1,0 +1,46 @@
+# Synology DSM rules for users, groups, administrators and the 2-step verification policy.
+# Every field name is unverified (rules/types/synology.yaml, docs/vendor-notes/synology.md).
+# Added and removed users and groups are floored high, an added administrator critical.
+version: 1
+rules:
+  - id: synology.users.any
+    resource: synology-users
+    path: "**"
+    severity: high
+    rationale: A user account changed, which can change who may sign in to the NAS and what they reach.
+  - id: synology.users.description
+    resource: synology-users
+    path: description
+    severity: low
+    rationale: The description of a user changed, which is documentation only.
+  - id: synology.users.email
+    resource: synology-users
+    path: email
+    severity: low
+    rationale: The mail address of a user changed, which only changes where DSM sends notices.
+  - id: synology.users.two_factor_off
+    resource: synology-users
+    path: 2fa_status
+    when: {name: boolean_flips_to, value: false}
+    severity: critical
+    rationale: A user no longer signs in with 2-step verification, so a stolen password is enough.
+  - id: synology.groups.any
+    resource: synology-groups
+    path: "**"
+    severity: high
+    rationale: A group changed, which changes the permissions of every member.
+  - id: synology.groups.description
+    resource: synology-groups
+    path: description
+    severity: low
+    rationale: The description of a group changed, which is documentation only.
+  - id: synology.administrators.description
+    resource: synology-administrators
+    path: description
+    severity: low
+    rationale: The description of an administrator changed, which is documentation only.
+  - id: synology.two_factor_policy.any
+    resource: synology-2fa-policy
+    path: "**"
+    severity: high
+    rationale: The rule that decides who must use 2-step verification changed.

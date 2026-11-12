@@ -4,6 +4,8 @@ Layout under the rules root (by default the ``driftsniff.rules`` package folder)
 
     packs/unifi/*.yaml     rule packs of the UniFi collector
     packs/xo/*.yaml        rule packs of the Xen Orchestra collector
+    packs/synology/*.yaml  rule packs of the Synology DSM collector
+    packs/truenas/*.yaml   rule packs of the TrueNAS collector
     types/*.yaml           type tables, one entry per resource
 
 :func:`load_rules` reads every such file, validates it and returns a :class:`RuleIndex`. Anything
@@ -46,7 +48,14 @@ from driftsniff.rules.schema import (
 )
 
 DEFAULT_ROOT: Final = Path(__file__).resolve().parent
-PACK_DIRECTORIES: Final = ("packs/unifi", "packs/xo")
+PACK_DIRECTORIES: Final = (
+    "packs/unifi",
+    "packs/xo",
+    "packs/portainer",
+    "packs/qnap",
+    "packs/synology",
+    "packs/truenas",
+)
 TYPES_DIRECTORY: Final = "types"
 MAX_FILE_BYTES: Final = 1_000_000
 MAX_NODES: Final = 100_000

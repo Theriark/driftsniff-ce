@@ -1,0 +1,119 @@
+# Portainer rules for who may sign in and what they may do: users, teams, team memberships,
+# registries and the settings. These resources have the object floor high in
+# rules/types/portainer.yaml, so a rule here matters when it is critical or explains why.
+# Role values (docs/vendor-notes/portainer.md, statement 8): user role 1 administrator, 2 standard
+# user; team membership role 1 leader, 2 member; authentication method 1 internal, 2 LDAP, 3 OAuth.
+version: 1
+rules:
+  - id: portainer.users.role_to_admin
+    resource: portainer-users
+    path: Role
+    when: {name: enum_transition, from: [2], to: [1]}
+    severity: critical
+    rationale: A user became a Portainer administrator, which gives full control of every environment.
+  - id: portainer.users.role
+    resource: portainer-users
+    path: Role
+    severity: high
+    rationale: The role of a user changed, which changes what the user may do in Portainer.
+  - id: portainer.users.username
+    resource: portainer-users
+    path: Username
+    severity: high
+    rationale: A user was renamed, which can hide who holds an account or map it to another directory user.
+  - id: portainer.teams.deny_access
+    resource: portainer-teams
+    path: DenyPortainerAccess
+    severity: high
+    rationale: Whether the members of a team may use Portainer at all changed.
+  - id: portainer.team_memberships.role_to_leader
+    resource: portainer-team-memberships
+    path: Role
+    when: {name: enum_transition, from: [2], to: [1]}
+    severity: critical
+    rationale: A user became leader of a team, so the user can now add and remove members of it.
+  - id: portainer.team_memberships.team
+    resource: portainer-team-memberships
+    path: TeamID
+    severity: high
+    rationale: A membership moved to another team, which changes the access of that user.
+  - id: portainer.registries.url
+    resource: portainer-registries
+    path: URL
+    severity: high
+    rationale: A registry points to another address, so images may now be pulled from somewhere else.
+  - id: portainer.registries.credentials
+    resource: portainer-registries
+    path: Password
+    severity: high
+    rationale: The credential of a registry changed.
+  - id: portainer.registries.accesses
+    resource: portainer-registries
+    path: RegistryAccesses
+    severity: high
+    rationale: Which users or teams may use a registry in an environment changed.
+  - id: portainer.registries.tls_skip_verify
+    resource: portainer-registries
+    path: ManagementConfiguration.TLSConfig.TLSSkipVerify
+    when: {name: boolean_flips_to, value: true}
+    severity: critical
+    rationale: Certificate checks were switched off for a registry, so anyone on the path can pose as it.
+  - id: portainer.settings.authentication_method
+    resource: portainer-settings
+    path: AuthenticationMethod
+    severity: critical
+    rationale: The way users sign in to Portainer changed (internal, LDAP or OAuth).
+  - id: portainer.settings.ldap
+    resource: portainer-settings
+    path: LDAPSettings.**
+    severity: high
+    rationale: A setting of the LDAP directory used for sign in changed.
+  - id: portainer.settings.ldap_tls_skip_verify
+    resource: portainer-settings
+    path: LDAPSettings.TLSConfig.TLSSkipVerify
+    when: {name: boolean_flips_to, value: true}
+    severity: critical
+    rationale: Certificate checks of the LDAP directory were switched off, so sign in can be intercepted.
+  - id: portainer.settings.oauth
+    resource: portainer-settings
+    path: OAuthSettings.**
+    severity: high
+    rationale: A setting of the OAuth provider used for sign in changed.
+  - id: portainer.settings.oauth_endpoints
+    resource: portainer-settings
+    path: OAuthSettings.AuthorizationURI
+    severity: critical
+    rationale: Sign in is now sent to another OAuth authorization address.
+  - id: portainer.settings.oauth_auto_create
+    resource: portainer-settings
+    path: OAuthSettings.OAuthAutoCreateUsers
+    when: {name: boolean_flips_to, value: true}
+    severity: critical
+    rationale: Anyone the OAuth provider accepts now gets a Portainer account automatically.
+  - id: portainer.settings.password_length
+    resource: portainer-settings
+    path: InternalAuthSettings.RequiredPasswordLength
+    severity: high
+    rationale: The minimum password length of internal users changed.
+  - id: portainer.settings.trust_on_first_connect
+    resource: portainer-settings
+    path: TrustOnFirstConnect
+    when: {name: boolean_flips_to, value: true}
+    severity: critical
+    rationale: New Edge agents are now trusted without review when they first connect.
+  - id: portainer.settings.enforce_edge_id
+    resource: portainer-settings
+    path: EnforceEdgeID
+    when: {name: boolean_flips_to, value: false}
+    severity: critical
+    rationale: Edge agents no longer have to present their Edge ID, so another agent can take an environment's place.
+  - id: portainer.settings.templates_url
+    resource: portainer-settings
+    path: TemplatesURL
+    severity: high
+    rationale: App templates now come from another address, and they define what users deploy.
+  - id: portainer.settings.session_timeout
+    resource: portainer-settings
+    path: UserSessionTimeout
+    severity: high
+    rationale: How long a signed in session lasts changed.

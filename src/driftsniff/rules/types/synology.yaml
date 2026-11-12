@@ -1,0 +1,198 @@
+# Type tables of the Synology DSM collector. Notes with sources and dates:
+# docs/vendor-notes/synology.md.
+#
+# Every SYNO.Core.* API name and every field name below is UNVERIFIED. Synology does not document
+# the SYNO.Core.* configuration APIs; the names come from community client libraries (notes, S2 to
+# S4) or, where the notes say "unknown", from no written source at all. No lab DSM was used. A field
+# that is not listed is unclassified and shows as a fingerprint only, so an unknown field is never
+# shown in clear and still raises a change (medium unless a rule says otherwise).
+#
+# Field status (details in the notes):
+#   synology-shares            name, desc, vol_path, uuid, hidden, encryption, enable_recycle_bin,
+#                              recycle_bin_admin_only: S3 (go-synology Share struct); the
+#                              permission rows (name, is_readonly, is_writable, is_deny, is_custom,
+#                              is_admin, inherit): S2 (synology-api docstrings); unite_permission,
+#                              is_aclmode, is_usb_share: S2. The two permission lists are added by
+#                              the collector, one per principal type.
+#   synology-guest-share-access  built by the collector from the guest permission row (S2 fields).
+#   synology-users             name, uid, description, email, expired, cannot_chg_passwd,
+#                              passwd_never_expire, password_last_change, 2fa_status: S2.
+#   synology-groups            name, gid, description: S2; members is added by the collector from
+#                              SYNO.Core.Group.Member (S2).
+#   synology-administrators    name, uid, description: S2 (SYNO.Core.Group.Member users).
+#   synology-packages          id, name, version, timestamp, additional.status,
+#                              additional.startable: S3 (go-synology InstalledPackage).
+#   synology-network           every field: S3 (go-synology NetworkConfig and GatewayInfo).
+#   synology-network-interfaces  ifname, ip, mask, status, type, use_dhcp: S3 (GatewayInfo has
+#                              this shape; that an interface row has it too is our reading).
+#   synology-terminal, synology-firewall, synology-auto-block, synology-quickconnect: the field
+#                              names are UNKNOWN (no written source; recalled from the DSM web
+#                              interface). They are the ones the rules need and must be checked
+#                              against a lab DSM first.
+#   synology-firewall-profiles, synology-2fa-policy, synology-file-services: no field is named;
+#                              every field stays unclassified until a lab answer is read.
+#
+# object_key is the key the collector gives a settings object (a get call answers one object):
+# "settings", or smb, nfs and afp for the file services.
+#
+# Floors: added and removed users, groups and shares are at least high; an added administrator or
+# guest access to a share is critical. Modified fields are rated by the rules, whose catch-all for
+# users, groups, shares, the terminal and the firewall is high.
+version: 1
+types:
+  - resource: synology-shares
+    key_field: name
+    name_field: name
+    floors: {added: high, removed: high}
+    fields:
+      name: config
+      desc: config
+      vol_path: config
+      hidden: config
+      encryption: config
+      enable_recycle_bin: config
+      recycle_bin_admin_only: config
+      unite_permission: config
+      is_aclmode: config
+      is_usb_share: config
+      uuid: ignore
+      permissions_local_user: config
+      permissions_local_user.name: config
+      permissions_local_user.is_readonly: config
+      permissions_local_user.is_writable: config
+      permissions_local_user.is_deny: config
+      permissions_local_user.is_custom: config
+      permissions_local_user.is_admin: config
+      permissions_local_user.inherit: config
+      permissions_local_group: config
+      permissions_local_group.name: config
+      permissions_local_group.is_readonly: config
+      permissions_local_group.is_writable: config
+      permissions_local_group.is_deny: config
+      permissions_local_group.is_custom: config
+      permissions_local_group.is_admin: config
+      permissions_local_group.inherit: config
+    lists:
+      permissions_local_user: {mode: set, key_field: name}
+      permissions_local_group: {mode: set, key_field: name}
+  - resource: synology-guest-share-access
+    key_field: share
+    name_field: share
+    floors: {added: critical, modified: critical}
+    fields:
+      share: config
+      is_readonly: config
+      is_writable: config
+  - resource: synology-users
+    key_field: name
+    name_field: name
+    floors: {added: high, removed: high}
+    fields:
+      name: config
+      uid: config
+      description: config
+      email: config
+      expired: config
+      cannot_chg_passwd: config
+      passwd_never_expire: config
+      2fa_status: config
+      password_last_change: ignore
+  - resource: synology-groups
+    key_field: name
+    name_field: name
+    floors: {added: high, removed: high}
+    fields:
+      name: config
+      gid: config
+      description: config
+      members: config
+    lists:
+      members: set
+  - resource: synology-administrators
+    key_field: name
+    name_field: name
+    floors: {added: critical, removed: high}
+    fields:
+      name: config
+      uid: config
+      description: config
+  - resource: synology-terminal
+    key_field: object_key
+    fields:
+      object_key: config
+      enable_ssh: config
+      enable_telnet: config
+      ssh_port: config
+  - resource: synology-firewall
+    key_field: object_key
+    fields:
+      object_key: config
+      enable_firewall: config
+      profile_name: config
+  - resource: synology-firewall-profiles
+    key_field: name
+    name_field: name
+    floors: {added: high, removed: high}
+    fields:
+      name: config
+  - resource: synology-auto-block
+    key_field: object_key
+    fields:
+      object_key: config
+      enable: config
+  - resource: synology-2fa-policy
+    key_field: object_key
+    fields:
+      object_key: config
+  - resource: synology-file-services
+    key_field: object_key
+    fields:
+      object_key: config
+  - resource: synology-packages
+    key_field: id
+    name_field: name
+    fields:
+      id: config
+      name: config
+      version: config
+      additional.status: config
+      additional.startable: ignore
+      timestamp: ignore
+  - resource: synology-network-interfaces
+    key_field: ifname
+    name_field: ifname
+    fields:
+      ifname: config
+      ip: config
+      mask: config
+      type: config
+      use_dhcp: config
+      status: ignore
+  - resource: synology-network
+    key_field: object_key
+    fields:
+      object_key: config
+      arp_ignore: config
+      dns_manual: config
+      dns_primary: config
+      dns_secondary: config
+      enable_ip_conflict_detect: config
+      enable_windomain: config
+      gateway: config
+      gateway_info.ifname: config
+      gateway_info.ip: config
+      gateway_info.mask: config
+      gateway_info.type: config
+      gateway_info.use_dhcp: config
+      gateway_info.status: ignore
+      ipv4_first: config
+      multi_gateway: config
+      server_name: config
+      use_dhcp_domain: config
+      v6gateway: config
+  - resource: synology-quickconnect
+    key_field: object_key
+    fields:
+      object_key: config
+      enabled: config
+      server_alias: config

@@ -1,0 +1,31 @@
+# Synology DSM rules for shared folders and guest access. Every field name is unverified.
+# Added and removed shares are floored high; guest access to a share is floored critical.
+version: 1
+rules:
+  - id: synology.shares.any
+    resource: synology-shares
+    path: "**"
+    severity: high
+    rationale: A shared folder changed, which can change who reaches its files.
+  - id: synology.shares.desc
+    resource: synology-shares
+    path: desc
+    severity: low
+    rationale: The description of a shared folder changed, which is documentation only.
+  - id: synology.shares.hidden
+    resource: synology-shares
+    path: hidden
+    severity: medium
+    rationale: Whether a shared folder is listed in the network browser changed, while its permissions stayed.
+  - id: synology.shares.recycle_bin_off
+    resource: synology-shares
+    path: enable_recycle_bin
+    when: {name: boolean_flips_to, value: false}
+    severity: medium
+    rationale: The recycle bin of a shared folder was switched off, so deleted files cannot be restored from it.
+  - id: synology.guest_access.writable
+    resource: synology-guest-share-access
+    path: is_writable
+    when: {name: boolean_flips_to, value: true}
+    severity: critical
+    rationale: The guest account may now write to a shared folder without signing in.

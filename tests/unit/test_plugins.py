@@ -155,7 +155,14 @@ def test_the_ce_defaults_do_what_the_plan_says(auth: AuthService, tmp_path: Path
     assert registry.get(interfaces.RUNNER).execute(lambda: 41 + 1) == 42
     assert registry.get(interfaces.STORAGE).database_location(tmp_path) == database_path(tmp_path)
     packs = registry.get(interfaces.RULES).pack_directories()
-    assert [path.name for path in packs] == ["unifi", "xo"]
+    assert [path.name for path in packs] == [
+        "unifi",
+        "xo",
+        "portainer",
+        "qnap",
+        "synology",
+        "truenas",
+    ]
     assert all(path.is_dir() for path in packs)
     grant = registry.get(interfaces.AUTH).login("admin", CORRECT, "10.0.0.1")
     assert grant.principal.username == "admin"

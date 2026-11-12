@@ -180,7 +180,9 @@ def test_the_security_sensitive_objects_have_the_object_floor_high(
 
 def test_other_xo_objects_have_no_object_floor(index: RuleIndex) -> None:
     for resource, table in index.type_tables.items():
-        if resource not in FLOORED and not resource.startswith("unifi-"):
+        if resource not in FLOORED and not resource.startswith(
+            ("unifi-", "portainer-", "qnap-", "truenas-", "synology-")
+        ):
             assert table.floors == {}, resource
 
 

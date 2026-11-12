@@ -20,6 +20,9 @@ at the top of the form.
 |---|---|
 | UniFi Network | a name, the `https://` address of the UniFi Network application, a read-only API key, the check interval, the resources to read and the TLS mode |
 | Xen Orchestra | a name, the `https://` address of the XO server, an authentication token, optionally the date the token expires (driftsniff warns 14 days before), the interval, the resources and the TLS mode |
+| Portainer | a name, the `https://` address of the Portainer server, an access token, the interval, the resources and the TLS mode |
+| QNAP QTS / QuTS hero | a name, the `https://` address of the NAS, the user name and password of an administrator account without 2-step verification, the interval, the resources and the TLS mode |
+| Synology DSM | a name, the `https://` address of the NAS (usually port 5001), the user name and password of a dedicated DSM administrator without 2-step verification, the interval, the resources and the TLS mode |
 | Push source | a name and the declared resources and fields: one resource per line, a colon, then the top-level fields a sender may send, for example `unifi-networks: id, name, vlanId`. Use a resource name that has a type table and include its key field `id`. Every other field is dropped on arrival. |
 
 ![The Add a source form for a push source: Name and Declared resources and fields](images/add-source-push-1440.png)
@@ -37,7 +40,7 @@ without a colon or without fields is refused with that example in the error text
 - The TLS modes are explained in [configuration.md](configuration.md#certificate-checks-of-a-source).
 
 Prepare the account on the controller first: [UniFi](guides/unifi-setup.md),
-[Xen Orchestra](guides/xo-setup.md). The step-by-step version is the tutorial
+[Xen Orchestra](guides/xo-setup.md), [Portainer](guides/portainer-setup.md), [QNAP](guides/qnap-setup.md), [Synology DSM](guides/synology-setup.md). The step-by-step version is the tutorial
 [Add a source](tutorials/03-add-a-source.md).
 
 ### A push source's sender key

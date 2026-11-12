@@ -59,7 +59,9 @@ from driftsniff.sources.service import (
     OPTION_INTERVAL_SECONDS,
     OPTION_PUSH_FIELDS,
     OPTION_RESOURCES_OFF,
+    OPTION_USERNAME,
     POLLED_TYPES,
+    USERNAME_TYPES,
     SourceNameTakenError,
     SourceNotFoundError,
     SourceValidationError,
@@ -236,6 +238,7 @@ class FormValues:
     tls_ca_file: str = ""
     tls_pin: str = ""
     credential_expires_on: str = ""
+    username: str = ""
     push_fields: str = ""
     resources_on: frozenset[str] | None = None
 
@@ -258,6 +261,7 @@ class FormValues:
             tls_ca_file=str(options.get(OPTION_TLS_CA_FILE, "")),
             tls_pin=str(options.get(OPTION_TLS_PIN, "")),
             credential_expires_on="" if expires is None else expires.isoformat(),
+            username=str(options.get(OPTION_USERNAME, "")),
             push_fields="\n".join(lines),
             resources_on=frozenset(every) - resources_off(options),
         )
@@ -459,6 +463,19 @@ def _parse_polled(
     _parse_resources(parsed, fields, current, full)
     if values.source_type == "xo":
         _parse_expiry(parsed, fields, current)
+    if values.source_type in USERNAME_TYPES:
+        _parse_username(parsed, fields, current)
+
+
+def _parse_username(parsed: ParsedForm, fields: dict[str, str], current: SourceView | None) -> None:
+    """The user name of a user and password source; empty on the edit form keeps the stored one."""
+    raw = _text(fields, OPTION_USERNAME) or ""
+    stored = "" if current is None else str(current.options.get(OPTION_USERNAME, ""))
+    parsed.values.username = raw or stored
+    if raw:
+        parsed.options[OPTION_USERNAME] = raw
+    elif not stored:
+        parsed.errors[OPTION_USERNAME] = "Enter the user name driftsniff signs in with."
 
 
 def _resource_choices(values: FormValues) -> list[dict[str, Any]]:

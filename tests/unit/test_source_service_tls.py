@@ -97,7 +97,7 @@ def test_leaving_insecure_removes_the_flag(service: SourceService) -> None:
 
 
 def test_a_push_source_has_no_tls_options(service: SourceService) -> None:
-    with pytest.raises(SourceValidationError, match="only a unifi or xo"):
+    with pytest.raises(SourceValidationError, match="only a polled source"):
         service.create(
             name="pusher", source_type="push", actor="admin", options={"tls_mode": "verify"}
         )

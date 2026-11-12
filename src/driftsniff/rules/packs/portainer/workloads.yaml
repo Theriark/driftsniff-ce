@@ -1,0 +1,140 @@
+# Portainer rules for environments, environment groups, tags, Edge groups and stacks.
+# A field that has no rule here is MEDIUM, unclassified, until it is reviewed.
+version: 1
+rules:
+  - id: portainer.environments.url
+    resource: portainer-environments
+    path: URL
+    severity: high
+    rationale: An environment points to another address, so Portainer now manages a different engine.
+  - id: portainer.environments.tls_skip_verify
+    resource: portainer-environments
+    path: TLSConfig.TLSSkipVerify
+    when: {name: boolean_flips_to, value: true}
+    severity: critical
+    rationale: Certificate checks of an environment were switched off, so anyone on the path can pose as it.
+  - id: portainer.environments.tls_off
+    resource: portainer-environments
+    path: TLSConfig.TLS
+    when: {name: boolean_flips_to, value: false}
+    severity: critical
+    rationale: TLS was switched off for an environment, so its API traffic travels in clear.
+  - id: portainer.environments.user_access
+    resource: portainer-environments
+    path: UserAccessPolicies
+    severity: high
+    rationale: Which users may use an environment, or their role in it, changed.
+  - id: portainer.environments.team_access
+    resource: portainer-environments
+    path: TeamAccessPolicies
+    severity: high
+    rationale: Which teams may use an environment, or their role in it, changed.
+  - id: portainer.environments.group
+    resource: portainer-environments
+    path: GroupId
+    severity: medium
+    rationale: An environment moved to another group and takes the access of that group.
+  - id: portainer.environments.tags
+    resource: portainer-environments
+    path: TagIds
+    severity: medium
+    rationale: The tags of an environment changed, which can add it to or remove it from Edge groups.
+  - id: portainer.environments.privileged_for_users
+    resource: portainer-environments
+    path: SecuritySettings.allowPrivilegedModeForRegularUsers
+    when: {name: boolean_flips_to, value: true}
+    severity: critical
+    rationale: Regular users may now start privileged containers, which gives them control of the host.
+  - id: portainer.environments.bind_mounts_for_users
+    resource: portainer-environments
+    path: SecuritySettings.allowBindMountsForRegularUsers
+    when: {name: boolean_flips_to, value: true}
+    severity: high
+    rationale: Regular users may now mount host folders into containers.
+  - id: portainer.environments.host_namespace_for_users
+    resource: portainer-environments
+    path: SecuritySettings.allowHostNamespaceForRegularUsers
+    when: {name: boolean_flips_to, value: true}
+    severity: high
+    rationale: Regular users may now share the host's namespaces with a container.
+  - id: portainer.environments.edge_key
+    resource: portainer-environments
+    path: EdgeKey
+    severity: high
+    rationale: The key an Edge agent uses to join this environment changed.
+  - id: portainer.environments.name
+    resource: portainer-environments
+    path: Name
+    severity: low
+    rationale: The environment was renamed, which changes only how people find it.
+  - id: portainer.environment_groups.user_access
+    resource: portainer-environment-groups
+    path: UserAccessPolicies
+    severity: high
+    rationale: Which users may use the environments of a group changed.
+  - id: portainer.environment_groups.team_access
+    resource: portainer-environment-groups
+    path: TeamAccessPolicies
+    severity: high
+    rationale: Which teams may use the environments of a group changed.
+  - id: portainer.environment_groups.name
+    resource: portainer-environment-groups
+    path: Name
+    severity: low
+    rationale: An environment group was renamed, which changes only how people find it.
+  - id: portainer.tags.name
+    resource: portainer-tags
+    path: Name
+    severity: low
+    rationale: A tag was renamed, which changes only how people find it.
+  - id: portainer.edge_groups.membership
+    resource: portainer-edge-groups
+    path: Endpoints
+    severity: medium
+    rationale: The environments of an Edge group changed, so Edge stacks deploy to another set of machines.
+  - id: portainer.edge_groups.dynamic
+    resource: portainer-edge-groups
+    path: TagIds
+    severity: medium
+    rationale: The tags that select the environments of a dynamic Edge group changed.
+  - id: portainer.stacks.env
+    resource: portainer-stacks
+    path: Env
+    severity: high
+    rationale: An environment variable of a stack was added, removed or changed; such values often hold credentials.
+  - id: portainer.stacks.file
+    resource: portainer-stacks
+    path: StackFileContent
+    severity: high
+    rationale: The definition file of a stack changed, so its containers, images or mounts may differ.
+  - id: portainer.stacks.git_url
+    resource: portainer-stacks
+    path: GitConfig.URL
+    severity: high
+    rationale: A stack is now deployed from another git repository.
+  - id: portainer.stacks.git_reference
+    resource: portainer-stacks
+    path: GitConfig.ReferenceName
+    severity: medium
+    rationale: A stack now follows another branch or tag of its repository.
+  - id: portainer.stacks.git_tls_skip_verify
+    resource: portainer-stacks
+    path: GitConfig.TLSSkipVerify
+    when: {name: boolean_flips_to, value: true}
+    severity: high
+    rationale: Certificate checks of the git repository of a stack were switched off.
+  - id: portainer.stacks.auto_update
+    resource: portainer-stacks
+    path: AutoUpdate.**
+    severity: medium
+    rationale: How a stack updates itself from git or a webhook changed.
+  - id: portainer.stacks.endpoint
+    resource: portainer-stacks
+    path: EndpointId
+    severity: medium
+    rationale: A stack now belongs to another environment.
+  - id: portainer.stacks.name
+    resource: portainer-stacks
+    path: Name
+    severity: low
+    rationale: A stack was renamed.
