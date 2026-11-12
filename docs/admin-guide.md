@@ -24,7 +24,7 @@ at the top of the form.
 | QNAP QTS / QuTS hero | a name, the `https://` address of the NAS, the user name and password of an administrator account without 2-step verification, the interval, the resources and the TLS mode |
 | Synology DSM | a name, the `https://` address of the NAS (usually port 5001), the user name and password of a dedicated DSM administrator without 2-step verification, the interval, the resources and the TLS mode |
 | Grafana | a name, the `https://` address of the Grafana server, a service account token (role Admin for full coverage), the interval, the resources and the TLS mode |
-| Prometheus | a name, the address of the Prometheus server (usually port 9090), a bearer token for the proxy in front of it (any text when Prometheus has no sign in), the interval, the resources and the TLS mode |
+| Prometheus | a name, the address of the Prometheus server (usually port 9090), a bearer token for the proxy in front of it (any text when Prometheus has no sign in) or a user name and password for its basic auth, the interval, the resources and the TLS mode |
 | UniFi Protect | a name, the `https://` address of the UniFi OS console that runs Protect, an integration API key, the interval, the resources and the TLS mode |
 | Checkmk | a name, the `https://` address of the site including the site name (`https://host/mysite`), the user name and automation secret of an automation user without the right to make changes, the interval, the resources and the TLS mode |
 | Home Assistant | a name, the address of Home Assistant (`https://`, or `http://` with **Allow a plain http address**), a long-lived access token of an administrator, the interval, the resources and the TLS mode |

@@ -28,6 +28,7 @@ has helpers that change the configuration so that two reads show a drift (:meth:
 applies a standard set: one low, one medium, one high and one critical change).
 """
 
+import base64
 import copy
 import json
 import threading
@@ -269,6 +270,8 @@ class Scenario:
 
     state: dict[str, Any] = field(default_factory=default_state)
     require_token: bool = True
+    # basic auth (user, password) asked for instead of the bearer token (basic_auth_users)
+    basic: tuple[str, str] | None = None
     status: dict[str, int] = field(default_factory=dict)
     raw: dict[str, bytes] = field(default_factory=dict)
 
@@ -402,7 +405,11 @@ class _Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         scenario = cast("_Server", self.server).scenario
         path, query = self._record("GET")
-        if scenario.require_token and self.headers.get("Authorization") != f"Bearer {TOKEN}":
+        expected = f"Bearer {TOKEN}"
+        if scenario.basic is not None:
+            pair = base64.b64encode(":".join(scenario.basic).encode()).decode("ascii")
+            expected = f"Basic {pair}"
+        if scenario.require_token and self.headers.get("Authorization") != expected:
             self._send(401, b"Unauthorized\n", "text/plain")
             return
         route = ROUTES.get(path)

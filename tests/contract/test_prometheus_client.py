@@ -6,6 +6,7 @@ then a read after :meth:`Scenario.drift`, gives the expected change items and se
 secret the fake serves is ever stored in clear.
 """
 
+import base64
 import logging
 from collections.abc import Iterator
 from contextlib import contextmanager, suppress
@@ -34,6 +35,7 @@ from driftsniff.db.migrate import upgrade_to_head
 from driftsniff.rules.engine import RuleEngine
 from driftsniff.rules.loader import load_rules
 from driftsniff.secrets.fingerprint import Fingerprinter
+from driftsniff.sources.factory import build_collector
 from driftsniff.sources.runs import RunPipeline, RunReport
 
 from .fake_prometheus import (
@@ -83,6 +85,47 @@ def test_a_probe_reads_the_build_info_with_the_bearer_token() -> None:
         (request,) = server.requests
     assert request.path == "/api/v1/status/buildinfo"
     assert request.authorization == f"Bearer {TOKEN}"
+
+
+def test_with_a_user_name_the_credential_is_sent_as_basic_auth() -> None:
+    password = "CANARY-pmb-0"  # noqa: S105 - a test canary
+    scenario = Scenario(basic=("driftsniff", password))
+    with connected(scenario, password, username="driftsniff") as (server, client):
+        assert client.probe() == VERSION
+        assert all(result.ok for result in read_all(client).values())
+        authorizations = {request.authorization for request in server.requests}
+    (header,) = authorizations
+    assert header is not None and header.startswith("Basic ")
+    assert base64.b64decode(header.removeprefix("Basic ")) == f"driftsniff:{password}".encode()
+
+
+def test_a_wrong_basic_auth_password_is_unauthorized_and_never_echoed() -> None:
+    scenario = Scenario(basic=("driftsniff", "CANARY-pmb-0"))
+    with connected(scenario, "CANARY-pmw-0", username="driftsniff") as (_, client):
+        with pytest.raises(CollectorError) as caught:
+            client.probe()
+    assert (caught.value.error_class, caught.value.status) == (ERROR_UNAUTHORIZED, "401")
+    assert "CANARY-pmw-0" not in str(caught.value)
+
+
+@pytest.mark.parametrize("username", ["", "a:b", "tab	here"])
+def test_a_user_name_basic_auth_cannot_carry_is_refused(username: str) -> None:
+    with pytest.raises(ValueError, match="user name"):
+        PrometheusClient("https://prometheus.example.invalid", "x", username=username)
+
+
+def test_the_factory_sends_basic_auth_only_when_a_user_name_is_set() -> None:
+    plain = build_collector("prometheus", "https://prometheus.example.invalid", b"tok", {})
+    basic = build_collector(
+        "prometheus", "https://prometheus.example.invalid", b"pw", {"username": "reader"}
+    )
+    try:
+        assert isinstance(plain, PrometheusClient) and isinstance(basic, PrometheusClient)
+        assert plain._headers["Authorization"] == "Bearer tok"
+        assert basic._headers["Authorization"].startswith("Basic ")
+    finally:
+        plain.close()
+        basic.close()
 
 
 def test_a_wrong_token_is_unauthorized_and_never_echoed() -> None:
@@ -416,3 +459,14 @@ def test_no_secret_the_fake_serves_is_stored_or_logged_in_clear(
     for secret in SECRETS:
         assert secret not in text, secret
         assert secret not in caplog.text, secret
+
+
+def test_the_add_form_takes_a_prometheus_source_with_or_without_a_user_name() -> None:
+    from driftsniff.web.routes_sources import parse_form
+
+    fields = {"name": "prom", "base_url": "https://prometheus.example.invalid", "credential": "x"}
+    without = parse_form(dict(fields), "prometheus")
+    assert "username" not in without.errors and "username" not in without.options
+    given = parse_form({**fields, "username": " reader "}, "prometheus")
+    assert "username" not in given.errors
+    assert given.options["username"] == "reader"

@@ -904,8 +904,12 @@ jobs:
       cancel-in-progress: false
 
     steps:
+      # The schedule runs from the default branch, which holds only workflow definitions, so the
+      # scheduled run tests development; a manual dispatch tests the branch it was started on.
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event_name == 'schedule' && 'development' || github.ref }}
 
       - name: Install locked dependencies
         shell: bash

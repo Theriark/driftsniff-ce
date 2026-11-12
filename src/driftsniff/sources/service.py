@@ -82,7 +82,9 @@ OPTION_CREDENTIAL_EXPIRES_ON = "credential_expires_on"
 OPTION_USERNAME = "username"
 MAX_USERNAME_CHARS = 128
 # Source types that sign in with a user name (option username) and a password (the credential).
-USERNAME_TYPES = ("synology", "qnap", "truenas", "redfish", "checkmk")
+USERNAME_TYPES = ("synology", "qnap", "truenas", "redfish", "checkmk", "prometheus")
+# Types whose user name may stay empty: Prometheus then sends the credential as a bearer token.
+OPTIONAL_USERNAME_TYPES = ("prometheus",)
 DEFAULT_INTERVAL_SECONDS = 300
 MIN_INTERVAL_SECONDS = 60
 MAX_INTERVAL_SECONDS = 3600

@@ -60,6 +60,7 @@ from driftsniff.sources.service import (
     OPTION_PUSH_FIELDS,
     OPTION_RESOURCES_OFF,
     OPTION_USERNAME,
+    OPTIONAL_USERNAME_TYPES,
     POLLED_TYPES,
     USERNAME_TYPES,
     SourceNameTakenError,
@@ -474,7 +475,7 @@ def _parse_username(parsed: ParsedForm, fields: dict[str, str], current: SourceV
     parsed.values.username = raw or stored
     if raw:
         parsed.options[OPTION_USERNAME] = raw
-    elif not stored:
+    elif not stored and parsed.values.source_type not in OPTIONAL_USERNAME_TYPES:
         parsed.errors[OPTION_USERNAME] = "Enter the user name driftsniff signs in with."
 
 
