@@ -1,0 +1,89 @@
+# UniFi Protect rules for cameras. The integration API does not expose recording settings, motion
+# zones or privacy zones (docs/vendor-notes/unifi_protect.md), so no rule can see a camera stop
+# recording or gain a privacy mask; the removal of a camera is high by the object floor of the
+# type table. A field that has no rule here is MEDIUM, unclassified, until it is reviewed.
+version: 1
+rules:
+  - id: protect.cameras.smart_detect_object_removed
+    resource: protect-cameras
+    path: smartDetectSettings.objectTypes
+    when: becomes_empty
+    severity: high
+    rationale: A kind of object the camera detected (person, vehicle, package, plate, face or animal) is no longer detected, so its alerts stop.
+  - id: protect.cameras.smart_detect_object_added
+    resource: protect-cameras
+    path: smartDetectSettings.objectTypes
+    severity: low
+    rationale: The camera now detects another kind of object.
+  - id: protect.cameras.smart_detect_audio_removed
+    resource: protect-cameras
+    path: smartDetectSettings.audioTypes
+    when: becomes_empty
+    severity: high
+    rationale: A kind of sound the camera detected (such as a smoke alarm or breaking glass) is no longer detected, so its alerts stop.
+  - id: protect.cameras.smart_detect_audio_added
+    resource: protect-cameras
+    path: smartDetectSettings.audioTypes
+    severity: low
+    rationale: The camera now detects another kind of sound.
+  - id: protect.cameras.microphone_on
+    resource: protect-cameras
+    path: isMicEnabled
+    when: {name: boolean_flips_to, value: true}
+    severity: medium
+    rationale: The microphone of a camera was switched on, so it now records sound, which can raise privacy and legal questions.
+  - id: protect.cameras.microphone
+    resource: protect-cameras
+    path: isMicEnabled
+    severity: low
+    rationale: The microphone of a camera was switched off.
+  - id: protect.cameras.mic_volume
+    resource: protect-cameras
+    path: micVolume
+    severity: low
+    rationale: The microphone volume of a camera changed.
+  - id: protect.cameras.name
+    resource: protect-cameras
+    path: name
+    severity: low
+    rationale: A camera was renamed.
+  - id: protect.cameras.mac
+    resource: protect-cameras
+    path: mac
+    severity: medium
+    rationale: A camera now reports another MAC address, so a different device may stand behind it.
+  - id: protect.cameras.type
+    resource: protect-cameras
+    path: type
+    severity: medium
+    rationale: A camera now reports another model, so a different device may stand behind it.
+  - id: protect.cameras.guid
+    resource: protect-cameras
+    path: guid
+    severity: low
+    rationale: The device identifier of a camera changed.
+  - id: protect.cameras.model_key
+    resource: protect-cameras
+    path: modelKey
+    severity: low
+    rationale: The kind of device the API reports changed.
+  - id: protect.cameras.led
+    resource: protect-cameras
+    path: ledSettings.**
+    severity: low
+    rationale: A light setting of a camera (status, welcome or flood light) changed.
+  - id: protect.cameras.osd
+    resource: protect-cameras
+    path: osdSettings.**
+    severity: low
+    rationale: What a camera prints over its picture (name, date, logo) changed.
+  - id: protect.cameras.video_mode
+    resource: protect-cameras
+    path: videoMode
+    severity: low
+    rationale: The video mode of a camera changed.
+  - id: protect.cameras.hdr
+    resource: protect-cameras
+    path: hdrType
+    severity: low
+    rationale: The HDR mode of a camera changed.

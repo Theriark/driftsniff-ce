@@ -162,6 +162,14 @@ def test_the_ce_defaults_do_what_the_plan_says(auth: AuthService, tmp_path: Path
         "qnap",
         "synology",
         "truenas",
+        "proxmox",
+        "homeassistant",
+        "redfish",
+        "grafana",
+        "prometheus",
+        "zabbix",
+        "checkmk",
+        "unifi_protect",
     ]
     assert all(path.is_dir() for path in packs)
     grant = registry.get(interfaces.AUTH).login("admin", CORRECT, "10.0.0.1")

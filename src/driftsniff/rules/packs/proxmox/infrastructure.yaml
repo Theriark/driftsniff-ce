@@ -1,0 +1,310 @@
+# Proxmox VE rules for the cluster, nodes, guests, storage, firewall, jobs, HA and pools.
+# Proxmox answers booleans as 0 and 1. A field without a rule here is MEDIUM, unclassified,
+# until it is reviewed.
+version: 1
+rules:
+  - id: proxmox.cluster_options.migration_unsecure
+    resource: proxmox-cluster-options
+    path: migration_unsecure
+    when: {name: any_to_value, value: 1}
+    severity: high
+    rationale: Guest migration traffic is no longer sent through an encrypted tunnel.
+  - id: proxmox.cluster_options.second_factor
+    resource: proxmox-cluster-options
+    path: webauthn
+    severity: high
+    rationale: The WebAuthn settings used for second factor sign in changed.
+  - id: proxmox.cluster_options.description
+    resource: proxmox-cluster-options
+    path: description
+    severity: low
+    rationale: The datacenter notes changed, which changes only what people read.
+  - id: proxmox.nodes.description
+    resource: proxmox-nodes
+    path: description
+    severity: low
+    rationale: The notes of a node changed, which changes only what people read.
+  - id: proxmox.vms.name
+    resource: proxmox-vms
+    path: name
+    severity: low
+    rationale: A virtual machine was renamed, which changes only how people find it.
+  - id: proxmox.vms.description
+    resource: proxmox-vms
+    path: description
+    severity: low
+    rationale: The notes of a virtual machine changed, which changes only what people read.
+  - id: proxmox.vms.node
+    resource: proxmox-vms
+    path: node
+    severity: low
+    rationale: A virtual machine now runs on another node, as after a migration.
+  - id: proxmox.vms.network
+    resource: proxmox-vms
+    path: "net[n]"
+    severity: medium
+    rationale: A network device of a virtual machine was added, removed or changed (bridge, VLAN, firewall flag).
+  - id: proxmox.vms.disk_scsi
+    resource: proxmox-vms
+    path: "scsi[n]"
+    severity: medium
+    rationale: A SCSI disk of a virtual machine was added, removed or changed.
+  - id: proxmox.vms.disk_virtio
+    resource: proxmox-vms
+    path: "virtio[n]"
+    severity: medium
+    rationale: A VirtIO disk of a virtual machine was added, removed or changed.
+  - id: proxmox.vms.disk_sata
+    resource: proxmox-vms
+    path: "sata[n]"
+    severity: medium
+    rationale: A SATA disk of a virtual machine was added, removed or changed.
+  - id: proxmox.vms.disk_ide
+    resource: proxmox-vms
+    path: "ide[n]"
+    severity: medium
+    rationale: An IDE disk or CD drive of a virtual machine was added, removed or changed.
+  - id: proxmox.vms.host_pci
+    resource: proxmox-vms
+    path: "hostpci[n]"
+    severity: high
+    rationale: A host PCI device was passed to a virtual machine or taken from it.
+  - id: proxmox.vms.args
+    resource: proxmox-vms
+    path: args
+    severity: high
+    rationale: The raw arguments handed to QEMU changed, which can change anything about the virtual machine.
+  - id: proxmox.vms.hookscript
+    resource: proxmox-vms
+    path: hookscript
+    severity: high
+    rationale: The hook script of a virtual machine changed; it runs as root on the node.
+  - id: proxmox.vms.protection_off
+    resource: proxmox-vms
+    path: protection
+    when: {name: any_to_value, value: 0}
+    severity: high
+    rationale: Protection was removed, so the virtual machine and its disks can now be deleted.
+  - id: proxmox.vms.ssh_keys
+    resource: proxmox-vms
+    path: sshkeys
+    severity: high
+    rationale: The SSH keys cloud-init puts into a virtual machine changed, which changes who can log in.
+  - id: proxmox.vms.ci_password
+    resource: proxmox-vms
+    path: cipassword
+    severity: high
+    rationale: The password cloud-init sets in a virtual machine changed.
+  - id: proxmox.containers.hostname
+    resource: proxmox-containers
+    path: hostname
+    severity: low
+    rationale: A container was renamed, which changes only how people find it.
+  - id: proxmox.containers.description
+    resource: proxmox-containers
+    path: description
+    severity: low
+    rationale: The notes of a container changed, which changes only what people read.
+  - id: proxmox.containers.node
+    resource: proxmox-containers
+    path: node
+    severity: low
+    rationale: A container now runs on another node, as after a migration.
+  - id: proxmox.containers.network
+    resource: proxmox-containers
+    path: "net[n]"
+    severity: medium
+    rationale: A network device of a container was added, removed or changed.
+  - id: proxmox.containers.mount_points
+    resource: proxmox-containers
+    path: "mp[n]"
+    severity: medium
+    rationale: A mount point of a container was added, removed or changed.
+  - id: proxmox.containers.privileged
+    resource: proxmox-containers
+    path: unprivileged
+    when: {name: any_to_value, value: 0}
+    severity: critical
+    rationale: A container became privileged, so root inside it is close to root on the node.
+  - id: proxmox.containers.features
+    resource: proxmox-containers
+    path: features
+    severity: high
+    rationale: The kernel features a container may use (nesting, keyctl, mounts) changed.
+  - id: proxmox.containers.devices
+    resource: proxmox-containers
+    path: "dev[n]"
+    severity: high
+    rationale: A host device was passed to a container or taken from it.
+  - id: proxmox.containers.raw_lxc
+    resource: proxmox-containers
+    path: lxc
+    severity: high
+    rationale: Raw LXC settings of a container changed, which can bypass its isolation.
+  - id: proxmox.containers.env
+    resource: proxmox-containers
+    path: env
+    severity: high
+    rationale: The environment of a container changed; such values often hold credentials.
+  - id: proxmox.containers.hookscript
+    resource: proxmox-containers
+    path: hookscript
+    severity: high
+    rationale: The hook script of a container changed; it runs as root on the node.
+  - id: proxmox.containers.protection_off
+    resource: proxmox-containers
+    path: protection
+    when: {name: any_to_value, value: 0}
+    severity: high
+    rationale: Protection was removed, so the container and its volumes can now be deleted.
+  - id: proxmox.storage.skip_cert_verification
+    resource: proxmox-storage
+    path: skip-cert-verification
+    when: {name: any_to_value, value: 1}
+    severity: critical
+    rationale: Certificate checks of a storage were switched off, so anyone on the path can pose as it.
+  - id: proxmox.storage.fingerprint
+    resource: proxmox-storage
+    path: fingerprint
+    severity: high
+    rationale: The pinned certificate of a backup server storage changed.
+  - id: proxmox.storage.server
+    resource: proxmox-storage
+    path: server
+    severity: high
+    rationale: A storage points to another server, so disks or backups now go somewhere else.
+  - id: proxmox.storage.credentials
+    resource: proxmox-storage
+    path: password
+    severity: high
+    rationale: The credential of a storage changed.
+  - id: proxmox.storage.encryption_key
+    resource: proxmox-storage
+    path: encryption-key
+    severity: high
+    rationale: The key that encrypts backups on a storage changed.
+  - id: proxmox.firewall_options.disabled
+    resource: proxmox-firewall-options
+    path: enable
+    when: {name: any_to_value, value: 0}
+    severity: critical
+    rationale: The firewall was switched off for the whole cluster, so no node or guest rule is enforced.
+  - id: proxmox.firewall_options.enable
+    resource: proxmox-firewall-options
+    path: enable
+    severity: high
+    rationale: Whether the cluster firewall is on changed.
+  - id: proxmox.firewall_options.policy_in_accept
+    resource: proxmox-firewall-options
+    path: policy_in
+    when: {name: any_to_value, value: ACCEPT}
+    severity: critical
+    rationale: The cluster now accepts incoming traffic that no rule allows.
+  - id: proxmox.firewall_options.policy_in
+    resource: proxmox-firewall-options
+    path: policy_in
+    severity: high
+    rationale: What happens to incoming traffic that no rule matches changed.
+  - id: proxmox.firewall_options.policy_out
+    resource: proxmox-firewall-options
+    path: policy_out
+    severity: high
+    rationale: What happens to outgoing traffic that no rule matches changed.
+  - id: proxmox.firewall_options.policy_forward
+    resource: proxmox-firewall-options
+    path: policy_forward
+    severity: high
+    rationale: What happens to forwarded traffic that no rule matches changed.
+  - id: proxmox.firewall_rules.accept
+    resource: proxmox-firewall-rules
+    path: action
+    when: {name: any_to_value, value: ACCEPT}
+    severity: critical
+    rationale: A firewall rule now accepts traffic it did not accept before.
+  - id: proxmox.firewall_rules.rule
+    resource: proxmox-firewall-rules
+    path: "**"
+    severity: high
+    rationale: A cluster or security group firewall rule changed, which changes what traffic passes.
+  - id: proxmox.firewall_rules.comment
+    resource: proxmox-firewall-rules
+    path: comment
+    severity: low
+    rationale: The comment of a firewall rule changed.
+  - id: proxmox.firewall_groups.comment
+    resource: proxmox-firewall-groups
+    path: comment
+    severity: low
+    rationale: The comment of a security group changed.
+  - id: proxmox.firewall_aliases.cidr
+    resource: proxmox-firewall-aliases
+    path: cidr
+    severity: high
+    rationale: A firewall alias names another address, so every rule that uses it now matches other traffic.
+  - id: proxmox.firewall_aliases.comment
+    resource: proxmox-firewall-aliases
+    path: comment
+    severity: low
+    rationale: The comment of a firewall alias changed.
+  - id: proxmox.firewall_ipsets.entries
+    resource: proxmox-firewall-ipsets
+    path: entries
+    severity: high
+    rationale: The addresses of an IP set changed, so every rule that uses it now matches other traffic.
+  - id: proxmox.firewall_ipsets.comment
+    resource: proxmox-firewall-ipsets
+    path: comment
+    severity: low
+    rationale: The comment of an IP set changed.
+  - id: proxmox.backup_jobs.disabled
+    resource: proxmox-backup-jobs
+    path: enabled
+    when: {name: any_to_value, value: 0}
+    severity: high
+    rationale: A backup job was disabled, so its guests are no longer backed up.
+  - id: proxmox.backup_jobs.selection
+    resource: proxmox-backup-jobs
+    path: vmid
+    severity: medium
+    rationale: The guests a backup job saves changed.
+  - id: proxmox.backup_jobs.script
+    resource: proxmox-backup-jobs
+    path: script
+    severity: high
+    rationale: The hook script of a backup job changed; it runs as root on the node.
+  - id: proxmox.backup_jobs.comment
+    resource: proxmox-backup-jobs
+    path: comment
+    severity: low
+    rationale: The comment of a backup job changed.
+  - id: proxmox.replication_jobs.disabled
+    resource: proxmox-replication-jobs
+    path: disable
+    when: {name: any_to_value, value: 1}
+    severity: high
+    rationale: A replication job was disabled, so its guest is no longer copied to the other node.
+  - id: proxmox.replication_jobs.comment
+    resource: proxmox-replication-jobs
+    path: comment
+    severity: low
+    rationale: The comment of a replication job changed.
+  - id: proxmox.ha_resources.state
+    resource: proxmox-ha-resources
+    path: state
+    severity: medium
+    rationale: The requested state of a guest under high availability changed.
+  - id: proxmox.ha_resources.comment
+    resource: proxmox-ha-resources
+    path: comment
+    severity: low
+    rationale: The comment of a high availability resource changed.
+  - id: proxmox.pools.members
+    resource: proxmox-pools
+    path: members
+    severity: medium
+    rationale: The guests or storages of a pool changed, and with them the rights given on the pool.
+  - id: proxmox.pools.comment
+    resource: proxmox-pools
+    path: comment
+    severity: low
+    rationale: The comment of a pool changed.

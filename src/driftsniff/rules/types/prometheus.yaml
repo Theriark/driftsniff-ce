@@ -1,0 +1,461 @@
+# Type tables of the Prometheus collector. Notes with sources and dates:
+# docs/vendor-notes/prometheus.md.
+#
+# Field names were read on 2026-11-12 from the Prometheus configuration reference (global,
+# scrape_config, http_config, static_config, relabel_config, alertmanager_config, remote_write,
+# tsdb, exemplars), the command line flags page and the HTTP API page (envelope, buildinfo,
+# config, flags, rules). No lab Prometheus was used.
+#
+# UNVERIFIED (listed so a value that arrives is classified; not seen in what was read):
+# runtime.gogc, runtime.log_level (the flags page only says the log level moved there),
+# bearer_token and bearer_token_file (older versions), oauth2.endpoint_params, the sigv4 members
+# profile and role_arn, azuread.oauth.client_id and tenant_id, the place of
+# azuread.certificate.certificate_password, the rule group field queryOffset, and the rule fields
+# keepFiringFor, lastError, evaluationTime and lastEvaluation (the example of the API page does
+# not show them). Service discovery blocks other than file_sd_configs are unclassified except
+# their known secret members; flags not listed here are unclassified.
+#
+# Secrets: Prometheus itself prints <secret> for its secret-typed fields (basic_auth.password,
+# authorization.credentials, oauth2.client_secret, tls_config.key, sigv4.secret_key, ...); they are
+# still classed secret. Classed secret although Prometheus does NOT hide them: remote_write
+# headers (plain text in Prometheus, often a tenant id or a token), http_headers and
+# proxy_connect_header (maps with free keys), oauth2.endpoint_params and the azuread OAuth client
+# secret. A password written into a remote_write URL is replaced by <secret> in the collector.
+#
+# Volatile: health, lastError, evaluationTime, lastEvaluation, state and alerts of rules and rule
+# groups are ignored, so reads do not create noise. Targets and their live state are never read.
+version: 1
+types:
+  - resource: prometheus-global
+    key_field: id
+    fields:
+      id: config
+      global.scrape_interval: config
+      global.scrape_timeout: config
+      global.scrape_protocols: config
+      global.evaluation_interval: config
+      global.rule_query_offset: config
+      global.query_log_file: config
+      global.query_max_series: config
+      global.query_max_samples_read: config
+      global.query_max_duration: config
+      global.scrape_failure_log_file: config
+      global.body_size_limit: config
+      global.sample_limit: config
+      global.label_limit: config
+      global.label_name_length_limit: config
+      global.label_value_length_limit: config
+      global.target_limit: config
+      global.keep_dropped_targets: config
+      global.metric_name_validation_scheme: config
+      global.scrape_native_histograms: config
+      global.convert_classic_histograms_to_nhcb: config
+      global.always_scrape_classic_histograms: config
+      global.extra_scrape_metrics: config
+      global.external_labels: config
+      global.external_labels.name: config
+      global.external_labels.value: config
+      rule_files: config
+      scrape_config_files: config
+      runtime.gogc: config
+      runtime.log_level: config
+      storage.tsdb.out_of_order_time_window: config
+      storage.tsdb.retention.time: config
+      storage.tsdb.retention.size: config
+      storage.tsdb.retention.percentage: config
+      storage.exemplars.max_exemplars: config
+    lists:
+      global.external_labels: {mode: set, key_field: name}
+      global.scrape_protocols: ordered-scalar
+      rule_files: set
+      scrape_config_files: set
+  # One object per scrape config. Removing a job stops its metrics and every alert built on them.
+  - resource: prometheus-scrape-jobs
+    key_field: id
+    name_field: job_name
+    floors: {removed: high}
+    fields:
+      id: config
+      job_name: config
+      scrape_interval: config
+      scrape_timeout: config
+      scrape_protocols: config
+      fallback_scrape_protocol: config
+      metrics_path: config
+      honor_labels: config
+      honor_timestamps: config
+      track_timestamps_staleness: config
+      scheme: config
+      enable_compression: config
+      scrape_failure_log_file: config
+      body_size_limit: config
+      sample_limit: config
+      label_limit: config
+      label_name_length_limit: config
+      label_value_length_limit: config
+      target_limit: config
+      keep_dropped_targets: config
+      metric_name_validation_scheme: config
+      metric_name_escaping_scheme: config
+      native_histogram_bucket_limit: config
+      native_histogram_min_bucket_factor: config
+      scrape_native_histograms: config
+      convert_classic_histograms_to_nhcb: config
+      always_scrape_classic_histograms: config
+      extra_scrape_metrics: config
+      params: config
+      params.name: config
+      params.value: config
+      basic_auth.username: config
+      basic_auth.username_file: config
+      basic_auth.password: secret
+      basic_auth.password_file: config
+      authorization.type: config
+      authorization.credentials: secret
+      authorization.credentials_file: config
+      bearer_token: secret
+      bearer_token_file: config
+      oauth2.client_id: config
+      oauth2.client_secret: secret
+      oauth2.client_secret_file: config
+      oauth2.scopes: config
+      oauth2.token_url: config
+      oauth2.endpoint_params: secret
+      oauth2.client_certificate_key: secret
+      follow_redirects: config
+      enable_http2: config
+      tls_config.ca: config
+      tls_config.ca_file: config
+      tls_config.cert: config
+      tls_config.cert_file: config
+      tls_config.key: secret
+      tls_config.key_file: config
+      tls_config.server_name: config
+      tls_config.insecure_skip_verify: config
+      tls_config.min_version: config
+      tls_config.max_version: config
+      proxy_url: config
+      no_proxy: config
+      proxy_from_environment: config
+      proxy_connect_header: secret
+      http_headers: secret
+      static_configs: config
+      static_configs.targets: config
+      static_configs.labels: config
+      static_configs.labels.name: config
+      static_configs.labels.value: config
+      file_sd_configs: config
+      file_sd_configs.files: config
+      file_sd_configs.refresh_interval: config
+      consul_sd_configs.token: secret
+      consul_sd_configs.password: secret
+      ec2_sd_configs.secret_key: secret
+      aws_sd_configs.secret_key: secret
+      azure_sd_configs.client_secret: secret
+      relabel_configs: config
+      relabel_configs.source_labels: config
+      relabel_configs.separator: config
+      relabel_configs.target_label: config
+      relabel_configs.regex: config
+      relabel_configs.modulus: config
+      relabel_configs.replacement: config
+      relabel_configs.action: config
+      metric_relabel_configs: config
+      metric_relabel_configs.source_labels: config
+      metric_relabel_configs.separator: config
+      metric_relabel_configs.target_label: config
+      metric_relabel_configs.regex: config
+      metric_relabel_configs.modulus: config
+      metric_relabel_configs.replacement: config
+      metric_relabel_configs.action: config
+    lists:
+      params: {mode: set, key_field: name}
+      scrape_protocols: ordered-scalar
+      static_configs: set
+      static_configs.targets: set
+      static_configs.labels: {mode: set, key_field: name}
+      file_sd_configs: set
+      file_sd_configs.files: set
+      relabel_configs: ordered-scalar
+      relabel_configs.source_labels: ordered-scalar
+      metric_relabel_configs: ordered-scalar
+      metric_relabel_configs.source_labels: ordered-scalar
+  # One object keyed "alerting". The list of Alertmanagers is compared by position.
+  - resource: prometheus-alerting
+    key_field: id
+    fields:
+      id: config
+      alert_relabel_configs: config
+      alert_relabel_configs.source_labels: config
+      alert_relabel_configs.separator: config
+      alert_relabel_configs.target_label: config
+      alert_relabel_configs.regex: config
+      alert_relabel_configs.modulus: config
+      alert_relabel_configs.replacement: config
+      alert_relabel_configs.action: config
+      alertmanagers: config
+      alertmanagers.timeout: config
+      alertmanagers.api_version: config
+      alertmanagers.path_prefix: config
+      alertmanagers.scheme: config
+      alertmanagers.basic_auth.username: config
+      alertmanagers.basic_auth.username_file: config
+      alertmanagers.basic_auth.password: secret
+      alertmanagers.basic_auth.password_file: config
+      alertmanagers.authorization.type: config
+      alertmanagers.authorization.credentials: secret
+      alertmanagers.authorization.credentials_file: config
+      alertmanagers.bearer_token: secret
+      alertmanagers.bearer_token_file: config
+      alertmanagers.oauth2.client_id: config
+      alertmanagers.oauth2.client_secret: secret
+      alertmanagers.oauth2.client_secret_file: config
+      alertmanagers.oauth2.scopes: config
+      alertmanagers.oauth2.token_url: config
+      alertmanagers.oauth2.endpoint_params: secret
+      alertmanagers.oauth2.client_certificate_key: secret
+      alertmanagers.follow_redirects: config
+      alertmanagers.enable_http2: config
+      alertmanagers.tls_config.ca: config
+      alertmanagers.tls_config.ca_file: config
+      alertmanagers.tls_config.cert: config
+      alertmanagers.tls_config.cert_file: config
+      alertmanagers.tls_config.key: secret
+      alertmanagers.tls_config.key_file: config
+      alertmanagers.tls_config.server_name: config
+      alertmanagers.tls_config.insecure_skip_verify: config
+      alertmanagers.tls_config.min_version: config
+      alertmanagers.tls_config.max_version: config
+      alertmanagers.proxy_url: config
+      alertmanagers.no_proxy: config
+      alertmanagers.proxy_from_environment: config
+      alertmanagers.proxy_connect_header: secret
+      alertmanagers.http_headers: secret
+      alertmanagers.sigv4.region: config
+      alertmanagers.sigv4.access_key: config
+      alertmanagers.sigv4.secret_key: secret
+      alertmanagers.sigv4.profile: config
+      alertmanagers.sigv4.role_arn: config
+      alertmanagers.static_configs: config
+      alertmanagers.static_configs.targets: config
+      alertmanagers.static_configs.labels: config
+      alertmanagers.static_configs.labels.name: config
+      alertmanagers.static_configs.labels.value: config
+      alertmanagers.file_sd_configs: config
+      alertmanagers.file_sd_configs.files: config
+      alertmanagers.file_sd_configs.refresh_interval: config
+      alertmanagers.consul_sd_configs.token: secret
+      alertmanagers.consul_sd_configs.password: secret
+      alertmanagers.ec2_sd_configs.secret_key: secret
+      alertmanagers.aws_sd_configs.secret_key: secret
+      alertmanagers.azure_sd_configs.client_secret: secret
+      alertmanagers.relabel_configs: config
+      alertmanagers.relabel_configs.source_labels: config
+      alertmanagers.relabel_configs.separator: config
+      alertmanagers.relabel_configs.target_label: config
+      alertmanagers.relabel_configs.regex: config
+      alertmanagers.relabel_configs.modulus: config
+      alertmanagers.relabel_configs.replacement: config
+      alertmanagers.relabel_configs.action: config
+      alertmanagers.alert_relabel_configs: config
+      alertmanagers.alert_relabel_configs.source_labels: config
+      alertmanagers.alert_relabel_configs.separator: config
+      alertmanagers.alert_relabel_configs.target_label: config
+      alertmanagers.alert_relabel_configs.regex: config
+      alertmanagers.alert_relabel_configs.modulus: config
+      alertmanagers.alert_relabel_configs.replacement: config
+      alertmanagers.alert_relabel_configs.action: config
+    lists:
+      alert_relabel_configs: ordered-scalar
+      alert_relabel_configs.source_labels: ordered-scalar
+      alertmanagers: ordered-scalar
+      alertmanagers.static_configs: set
+      alertmanagers.static_configs.targets: set
+      alertmanagers.static_configs.labels: {mode: set, key_field: name}
+      alertmanagers.file_sd_configs: set
+      alertmanagers.file_sd_configs.files: set
+      alertmanagers.relabel_configs: ordered-scalar
+      alertmanagers.relabel_configs.source_labels: ordered-scalar
+      alertmanagers.alert_relabel_configs: ordered-scalar
+      alertmanagers.alert_relabel_configs.source_labels: ordered-scalar
+  # One object per target, keyed by its name, else by its URL: a new URL of an unnamed target
+  # shows as one target removed and one added, both high by the floors. Sending samples to a new
+  # place can leak every metric.
+  - resource: prometheus-remote-write
+    key_field: id
+    name_field: id
+    floors: {added: high, removed: high}
+    fields:
+      id: config
+      url: config
+      name: config
+      protobuf_message: config
+      remote_timeout: config
+      headers: secret
+      send_exemplars: config
+      send_native_histograms: config
+      round_robin_dns: config
+      convert_nhcb_to_classic: config
+      azuread.cloud: config
+      azuread.oauth.client_id: config
+      azuread.oauth.client_secret: secret
+      azuread.oauth.tenant_id: config
+      azuread.certificate.certificate_password: secret
+      google_iam.credentials_file: config
+      queue_config.capacity: config
+      queue_config.max_shards: config
+      queue_config.min_shards: config
+      queue_config.max_samples_per_send: config
+      queue_config.batch_send_deadline: config
+      queue_config.min_backoff: config
+      queue_config.max_backoff: config
+      queue_config.retry_on_http_429: config
+      queue_config.sample_age_limit: config
+      metadata_config.send: config
+      metadata_config.send_interval: config
+      metadata_config.max_samples_per_send: config
+      basic_auth.username: config
+      basic_auth.username_file: config
+      basic_auth.password: secret
+      basic_auth.password_file: config
+      authorization.type: config
+      authorization.credentials: secret
+      authorization.credentials_file: config
+      bearer_token: secret
+      bearer_token_file: config
+      oauth2.client_id: config
+      oauth2.client_secret: secret
+      oauth2.client_secret_file: config
+      oauth2.scopes: config
+      oauth2.token_url: config
+      oauth2.endpoint_params: secret
+      oauth2.client_certificate_key: secret
+      follow_redirects: config
+      enable_http2: config
+      tls_config.ca: config
+      tls_config.ca_file: config
+      tls_config.cert: config
+      tls_config.cert_file: config
+      tls_config.key: secret
+      tls_config.key_file: config
+      tls_config.server_name: config
+      tls_config.insecure_skip_verify: config
+      tls_config.min_version: config
+      tls_config.max_version: config
+      proxy_url: config
+      no_proxy: config
+      proxy_from_environment: config
+      proxy_connect_header: secret
+      http_headers: secret
+      sigv4.region: config
+      sigv4.access_key: config
+      sigv4.secret_key: secret
+      sigv4.profile: config
+      sigv4.role_arn: config
+      write_relabel_configs: config
+      write_relabel_configs.source_labels: config
+      write_relabel_configs.separator: config
+      write_relabel_configs.target_label: config
+      write_relabel_configs.regex: config
+      write_relabel_configs.modulus: config
+      write_relabel_configs.replacement: config
+      write_relabel_configs.action: config
+    lists:
+      write_relabel_configs: ordered-scalar
+      write_relabel_configs.source_labels: ordered-scalar
+  # One object keyed "flags". Every value is text ("true", "15d"). The collector turns the dots
+  # and dashes of a flag name into underscores: web.enable-admin-api is web_enable_admin_api.
+  - resource: prometheus-flags
+    key_field: id
+    fields:
+      id: config
+      web_enable_admin_api: config
+      web_enable_lifecycle: config
+      web_enable_remote_write_receiver: config
+      web_enable_otlp_receiver: config
+      web_config_file: config
+      web_external_url: config
+      web_listen_address: config
+      web_route_prefix: config
+      web_cors_origin: config
+      config_file: config
+      storage_tsdb_retention_time: config
+      storage_tsdb_retention_size: config
+      storage_tsdb_path: config
+      storage_agent_path: config
+      storage_agent_retention_min_time: config
+      storage_agent_retention_max_time: config
+      enable_feature: config
+      agent: config
+      auto_gomemlimit: config
+      auto_gomemlimit_ratio: config
+      alertmanager_notification_queue_capacity: config
+      rules_alert_for_outage_tolerance: config
+      rules_alert_for_grace_period: config
+      rules_alert_resend_delay: config
+      rules_max_concurrent_evals: config
+      query_lookback_delta: config
+      query_timeout: config
+      query_max_concurrency: config
+      query_max_samples: config
+      log_level: config
+  - resource: prometheus-rule-groups
+    key_field: id
+    name_field: name
+    fields:
+      id: config
+      name: config
+      file: config
+      interval: config
+      limit: config
+      queryOffset: config
+      evaluationTime: ignore
+      lastEvaluation: ignore
+  # Deleting an alerting rule silences that alert for good.
+  - resource: prometheus-alerting-rules
+    key_field: id
+    name_field: name
+    floors: {removed: high}
+    fields:
+      id: config
+      name: config
+      group: config
+      file: config
+      query: config
+      duration: config
+      keepFiringFor: config
+      labels: config
+      labels.name: config
+      labels.value: config
+      annotations: config
+      annotations.name: config
+      annotations.value: config
+      type: ignore
+      state: ignore
+      health: ignore
+      lastError: ignore
+      alerts: ignore
+      evaluationTime: ignore
+      lastEvaluation: ignore
+    lists:
+      labels: {mode: set, key_field: name}
+      annotations: {mode: set, key_field: name}
+  - resource: prometheus-recording-rules
+    key_field: id
+    name_field: name
+    fields:
+      id: config
+      name: config
+      group: config
+      file: config
+      query: config
+      labels: config
+      labels.name: config
+      labels.value: config
+      type: ignore
+      health: ignore
+      lastError: ignore
+      evaluationTime: ignore
+      lastEvaluation: ignore
+    lists:
+      labels: {mode: set, key_field: name}

@@ -183,7 +183,7 @@ def test_a_fetch_before_the_probe_is_refused() -> None:
 
 def test_a_bad_password_is_unauthorized_with_a_fixed_text() -> None:
     with fake_qnap() as server:
-        client = client_for(server, "CANARY-wrong-0001")
+        client = client_for(server, "CANARY-wrng-001")
         with pytest.raises(CollectorError) as caught:
             client.probe()
         client.close()

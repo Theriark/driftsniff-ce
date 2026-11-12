@@ -55,6 +55,14 @@ PACK_DIRECTORIES: Final = (
     "packs/qnap",
     "packs/synology",
     "packs/truenas",
+    "packs/proxmox",
+    "packs/homeassistant",
+    "packs/redfish",
+    "packs/grafana",
+    "packs/prometheus",
+    "packs/zabbix",
+    "packs/checkmk",
+    "packs/unifi_protect",
 )
 TYPES_DIRECTORY: Final = "types"
 MAX_FILE_BYTES: Final = 1_000_000

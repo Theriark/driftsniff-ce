@@ -1,0 +1,407 @@
+{
+  "commands": {
+    "get_config": {
+      "allowlist_external_dirs": ["/config/www", "/media"],
+      "allowlist_external_urls": [],
+      "components": ["api", "automation", "config", "frontend", "http", "lovelace", "met", "mqtt", "script", "sun"],
+      "config_dir": "/config",
+      "config_source": "storage",
+      "country": "PT",
+      "currency": "EUR",
+      "debug": false,
+      "elevation": 120,
+      "external_url": "https://home.example.invalid",
+      "internal_url": "http://192.0.2.10:8123",
+      "language": "en",
+      "latitude": 38.7,
+      "location_name": "Lab Home",
+      "logging": {"log_file_disabled_reason": null},
+      "longitude": -9.1,
+      "radius": 100,
+      "recovery_mode": false,
+      "safe_mode": false,
+      "state": "RUNNING",
+      "time_zone": "Europe/Lisbon",
+      "unit_system": {
+        "length": "km",
+        "accumulated_precipitation": "mm",
+        "area": "m²",
+        "mass": "g",
+        "pressure": "Pa",
+        "temperature": "°C",
+        "volume": "L",
+        "wind_speed": "m/s"
+      },
+      "version": "2026.11.0",
+      "whitelist_external_dirs": ["/config/www", "/media"]
+    },
+    "config_entries/get": [
+      {
+        "created_at": 1762000000.0,
+        "entry_id": "01JAAAAAAAAAAAAAAAAAAAAAA1",
+        "domain": "met",
+        "modified_at": 1762000000.0,
+        "title": "Lab Home",
+        "source": "onboarding",
+        "state": "loaded",
+        "supports_options": true,
+        "supports_remove_device": false,
+        "supports_unload": true,
+        "supports_reconfigure": true,
+        "supported_subentry_types": {},
+        "pref_disable_new_entities": false,
+        "pref_disable_polling": false,
+        "disabled_by": null,
+        "reason": null,
+        "error_reason_translation_domain": null,
+        "error_reason_translation_key": null,
+        "error_reason_translation_placeholders": null,
+        "num_subentries": 0
+      },
+      {
+        "created_at": 1762000100.0,
+        "entry_id": "01JAAAAAAAAAAAAAAAAAAAAAA2",
+        "domain": "mqtt",
+        "modified_at": 1762000100.0,
+        "title": "broker.example.invalid",
+        "source": "user",
+        "state": "loaded",
+        "supports_options": true,
+        "supports_remove_device": true,
+        "supports_unload": true,
+        "supports_reconfigure": true,
+        "supported_subentry_types": {},
+        "pref_disable_new_entities": false,
+        "pref_disable_polling": false,
+        "disabled_by": null,
+        "reason": null,
+        "error_reason_translation_domain": null,
+        "error_reason_translation_key": null,
+        "error_reason_translation_placeholders": null,
+        "num_subentries": 0
+      }
+    ],
+    "config/auth/list": [
+      {
+        "id": "a1b2c3d4e5f60000000000000000owner",
+        "username": "owner",
+        "name": "Lab Owner",
+        "is_owner": true,
+        "is_active": true,
+        "local_only": false,
+        "system_generated": false,
+        "group_ids": ["system-admin"],
+        "credentials": [{"type": "homeassistant"}]
+      },
+      {
+        "id": "a1b2c3d4e5f60000000000000000guest",
+        "username": "guest",
+        "name": "Guest Tablet",
+        "is_owner": false,
+        "is_active": true,
+        "local_only": true,
+        "system_generated": false,
+        "group_ids": ["system-users"],
+        "credentials": [{"type": "homeassistant"}]
+      },
+      {
+        "id": "a1b2c3d4e5f6000000000000supervisor",
+        "username": null,
+        "name": "Supervisor",
+        "is_owner": false,
+        "is_active": true,
+        "local_only": false,
+        "system_generated": true,
+        "group_ids": ["system-admin"],
+        "credentials": []
+      }
+    ],
+    "config/area_registry/list": [
+      {
+        "aliases": [],
+        "area_id": "garage",
+        "floor_id": null,
+        "humidity_entity_id": null,
+        "icon": "mdi:garage",
+        "labels": [],
+        "name": "Garage",
+        "picture": null,
+        "temperature_entity_id": null,
+        "created_at": 1762000000.0,
+        "modified_at": 1762000000.0
+      },
+      {
+        "aliases": ["lounge"],
+        "area_id": "living_room",
+        "floor_id": "ground",
+        "humidity_entity_id": null,
+        "icon": null,
+        "labels": [],
+        "name": "Living Room",
+        "picture": null,
+        "temperature_entity_id": "sensor.outdoor_temperature",
+        "created_at": 1762000000.0,
+        "modified_at": 1762000000.0
+      }
+    ],
+    "config/entity_registry/list": [
+      {
+        "area_id": null,
+        "categories": {},
+        "config_entry_id": "01JAAAAAAAAAAAAAAAAAAAAAA1",
+        "config_subentry_id": null,
+        "created_at": 1762000000.0,
+        "device_id": "dev0000000000000000000000000001",
+        "disabled_by": null,
+        "entity_category": null,
+        "entity_id": "sensor.outdoor_temperature",
+        "hidden_by": null,
+        "icon": null,
+        "id": "ent0000000000000000000000000001",
+        "labels": [],
+        "modified_at": 1762000000.0,
+        "name": null,
+        "next_name_part": null,
+        "options": {"conversation": {"should_expose": true}},
+        "original_name": "Temperature",
+        "platform": "met",
+        "translation_key": null,
+        "unique_id": "lab-home-temperature"
+      },
+      {
+        "area_id": "garage",
+        "categories": {},
+        "config_entry_id": "01JAAAAAAAAAAAAAAAAAAAAAA2",
+        "config_subentry_id": null,
+        "created_at": 1762000100.0,
+        "device_id": "dev0000000000000000000000000002",
+        "disabled_by": null,
+        "entity_category": null,
+        "entity_id": "cover.garage_door",
+        "hidden_by": null,
+        "icon": null,
+        "id": "ent0000000000000000000000000002",
+        "labels": [],
+        "modified_at": 1762000100.0,
+        "name": "Garage door",
+        "next_name_part": null,
+        "options": {"cloud.google_assistant": {"should_expose": true, "disable_2fa": false}},
+        "original_name": "Door",
+        "platform": "mqtt",
+        "translation_key": null,
+        "unique_id": "garage-door-01"
+      },
+      {
+        "area_id": null,
+        "categories": {},
+        "config_entry_id": null,
+        "config_subentry_id": null,
+        "created_at": 1762000200.0,
+        "device_id": null,
+        "disabled_by": null,
+        "entity_category": null,
+        "entity_id": "automation.porch_light_at_sunset",
+        "hidden_by": null,
+        "icon": null,
+        "id": "ent0000000000000000000000000003",
+        "labels": [],
+        "modified_at": 1762000200.0,
+        "name": null,
+        "next_name_part": null,
+        "options": {},
+        "original_name": "Porch light at sunset",
+        "platform": "automation",
+        "translation_key": null,
+        "unique_id": "1762000200001"
+      }
+    ],
+    "lovelace/dashboards/list": [
+      {
+        "id": "lab_overview",
+        "url_path": "lab-overview",
+        "title": "Lab overview",
+        "icon": "mdi:view-dashboard",
+        "show_in_sidebar": true,
+        "require_admin": true,
+        "mode": "storage"
+      },
+      {
+        "id": "map",
+        "url_path": "map",
+        "title": "Map",
+        "icon": "mdi:map",
+        "show_in_sidebar": true,
+        "require_admin": false,
+        "mode": "storage"
+      }
+    ],
+    "get_states": [
+      {
+        "entity_id": "sensor.outdoor_temperature",
+        "state": "11.4",
+        "attributes": {"unit_of_measurement": "°C", "friendly_name": "Outdoor temperature"},
+        "last_changed": "2026-11-12T10:00:00+00:00",
+        "last_reported": "2026-11-12T10:00:00+00:00",
+        "last_updated": "2026-11-12T10:00:00+00:00",
+        "context": {"id": "ctx01", "parent_id": null, "user_id": null}
+      },
+      {
+        "entity_id": "cover.garage_door",
+        "state": "closed",
+        "attributes": {"friendly_name": "Garage door"},
+        "last_changed": "2026-11-12T08:00:00+00:00",
+        "last_reported": "2026-11-12T08:00:00+00:00",
+        "last_updated": "2026-11-12T08:00:00+00:00",
+        "context": {"id": "ctx02", "parent_id": null, "user_id": null}
+      },
+      {
+        "entity_id": "automation.porch_light_at_sunset",
+        "state": "on",
+        "attributes": {
+          "id": "1762000200001",
+          "last_triggered": "2026-11-11T17:20:00+00:00",
+          "mode": "single",
+          "current": 0,
+          "friendly_name": "Porch light at sunset"
+        },
+        "last_changed": "2026-11-11T17:20:00+00:00",
+        "last_reported": "2026-11-11T17:20:00+00:00",
+        "last_updated": "2026-11-11T17:20:00+00:00",
+        "context": {"id": "ctx03", "parent_id": null, "user_id": null}
+      },
+      {
+        "entity_id": "automation.close_garage_at_night",
+        "state": "on",
+        "attributes": {
+          "id": "1762000300001",
+          "last_triggered": "2026-11-11T23:00:00+00:00",
+          "mode": "single",
+          "current": 0,
+          "friendly_name": "Close garage at night"
+        },
+        "last_changed": "2026-11-11T23:00:00+00:00",
+        "last_reported": "2026-11-11T23:00:00+00:00",
+        "last_updated": "2026-11-11T23:00:00+00:00",
+        "context": {"id": "ctx04", "parent_id": null, "user_id": null}
+      },
+      {
+        "entity_id": "script.water_garden",
+        "state": "off",
+        "attributes": {"last_triggered": null, "mode": "single", "current": 0, "friendly_name": "Water garden"},
+        "last_changed": "2026-11-12T06:00:00+00:00",
+        "last_reported": "2026-11-12T06:00:00+00:00",
+        "last_updated": "2026-11-12T06:00:00+00:00",
+        "context": {"id": "ctx05", "parent_id": null, "user_id": null}
+      }
+    ],
+    "automation/config": {
+      "automation.porch_light_at_sunset": {
+        "config": {
+          "id": "1762000200001",
+          "alias": "Porch light at sunset",
+          "description": "",
+          "mode": "single",
+          "triggers": [{"trigger": "sun", "event": "sunset", "offset": "0"}],
+          "conditions": [],
+          "actions": [
+            {"action": "light.turn_on", "target": {"entity_id": "light.porch"}},
+            {"action": "rest_command.notify_hub", "data": {"token": "CANARY-homeassistant-01"}}
+          ]
+        }
+      },
+      "automation.close_garage_at_night": {
+        "config": {
+          "id": "1762000300001",
+          "alias": "Close garage at night",
+          "description": "Closes the garage door at 23:00",
+          "mode": "single",
+          "triggers": [{"trigger": "time", "at": "23:00:00"}],
+          "conditions": [{"condition": "state", "entity_id": "cover.garage_door", "state": "open"}],
+          "actions": [{"action": "cover.close_cover", "target": {"entity_id": "cover.garage_door"}}]
+        }
+      }
+    },
+    "script/config": {
+      "script.water_garden": {
+        "config": {
+          "alias": "Water garden",
+          "description": "",
+          "mode": "single",
+          "sequence": [
+            {"action": "switch.turn_on", "target": {"entity_id": "switch.garden_valve"}},
+            {"delay": {"minutes": 15}},
+            {"action": "switch.turn_off", "target": {"entity_id": "switch.garden_valve"}}
+          ]
+        }
+      }
+    }
+  },
+  "drift": [
+    {
+      "command": "config/area_registry/list",
+      "id": "garage",
+      "path": "name",
+      "value": "Workshop",
+      "expect": [
+        {"resource": "homeassistant-areas", "path": "name", "severity": "low", "rule_id": "homeassistant.areas.general"}
+      ]
+    },
+    {
+      "command": "automation/config",
+      "id": "automation.porch_light_at_sunset",
+      "path": "config.actions",
+      "value": [
+        {"action": "light.turn_on", "target": {"entity_id": "light.porch"}, "data": {"brightness_pct": 40}},
+        {"action": "rest_command.notify_hub", "data": {"token": "CANARY-homeassistant-02"}}
+      ],
+      "expect": [
+        {"resource": "homeassistant-automations", "path": "config.actions", "severity": "medium", "rule_id": "homeassistant.automations.config"}
+      ]
+    },
+    {
+      "command": "get_states",
+      "id": "automation.close_garage_at_night",
+      "path": "state",
+      "value": "off",
+      "expect": [
+        {"resource": "homeassistant-automations", "path": "enabled", "severity": "medium", "rule_id": "homeassistant.automations.disabled"}
+      ]
+    },
+    {
+      "command": "get_config",
+      "id": null,
+      "path": "external_url",
+      "value": "https://home-new.example.invalid",
+      "expect": [
+        {"resource": "homeassistant-core-config", "path": "external_url", "severity": "high", "rule_id": "homeassistant.core.external_url"}
+      ]
+    },
+    {
+      "command": "config/auth/list",
+      "id": "a1b2c3d4e5f60000000000000000guest",
+      "path": "group_ids",
+      "value": ["system-admin"],
+      "expect": [
+        {"resource": "homeassistant-users", "path": "is_admin", "severity": "critical", "rule_id": "homeassistant.users.made_admin"},
+        {"resource": "homeassistant-users", "path": "group_ids", "severity": "high", "rule_id": "homeassistant.users.groups"}
+      ]
+    }
+  ],
+  "volatile": [
+    {"command": "get_states", "id": "sensor.outdoor_temperature", "path": "state", "value": "12.9"},
+    {"command": "get_states", "id": "sensor.outdoor_temperature", "path": "last_updated", "value": "2026-11-12T10:05:00+00:00"},
+    {"command": "get_states", "id": "cover.garage_door", "path": "state", "value": "open"},
+    {"command": "get_states", "id": "automation.porch_light_at_sunset", "path": "attributes.last_triggered", "value": "2026-11-12T17:19:00+00:00"},
+    {"command": "get_states", "id": "automation.porch_light_at_sunset", "path": "attributes.current", "value": 1},
+    {"command": "get_states", "id": "script.water_garden", "path": "state", "value": "on"},
+    {"command": "get_config", "id": null, "path": "state", "value": "STARTING"},
+    {"command": "get_config", "id": null, "path": "version", "value": "2026.11.1"},
+    {"command": "get_config", "id": null, "path": "components", "value": ["api", "automation", "config", "frontend", "http", "lovelace", "met", "mqtt", "script", "sun", "sensor.met"]},
+    {"command": "config_entries/get", "id": "01JAAAAAAAAAAAAAAAAAAAAAA2", "path": "state", "value": "setup_retry"},
+    {"command": "config_entries/get", "id": "01JAAAAAAAAAAAAAAAAAAAAAA2", "path": "reason", "value": "Connection refused"},
+    {"command": "config_entries/get", "id": "01JAAAAAAAAAAAAAAAAAAAAAA2", "path": "modified_at", "value": 1762900000.0},
+    {"command": "config/entity_registry/list", "id": "ent0000000000000000000000000001", "path": "modified_at", "value": 1762900000.0},
+    {"command": "config/entity_registry/list", "id": "ent0000000000000000000000000001", "path": "original_name", "value": "Outdoor temperature"},
+    {"command": "config/area_registry/list", "id": "living_room", "path": "modified_at", "value": 1762900000.0}
+  ]
+}

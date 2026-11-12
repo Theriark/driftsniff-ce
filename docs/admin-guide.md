@@ -23,6 +23,14 @@ at the top of the form.
 | Portainer | a name, the `https://` address of the Portainer server, an access token, the interval, the resources and the TLS mode |
 | QNAP QTS / QuTS hero | a name, the `https://` address of the NAS, the user name and password of an administrator account without 2-step verification, the interval, the resources and the TLS mode |
 | Synology DSM | a name, the `https://` address of the NAS (usually port 5001), the user name and password of a dedicated DSM administrator without 2-step verification, the interval, the resources and the TLS mode |
+| Grafana | a name, the `https://` address of the Grafana server, a service account token (role Admin for full coverage), the interval, the resources and the TLS mode |
+| Prometheus | a name, the address of the Prometheus server (usually port 9090), a bearer token for the proxy in front of it (any text when Prometheus has no sign in), the interval, the resources and the TLS mode |
+| UniFi Protect | a name, the `https://` address of the UniFi OS console that runs Protect, an integration API key, the interval, the resources and the TLS mode |
+| Checkmk | a name, the `https://` address of the site including the site name (`https://host/mysite`), the user name and automation secret of an automation user without the right to make changes, the interval, the resources and the TLS mode |
+| Home Assistant | a name, the address of Home Assistant (`https://`, or `http://` with **Allow a plain http address**), a long-lived access token of an administrator, the interval, the resources and the TLS mode |
+| Proxmox VE | a name, the `https://` address of one node (usually port 8006, no path), the whole API token `user@realm!tokenid=secret` of a token with the PVEAuditor role on `/`, the interval, the resources and the TLS mode |
+| Redfish (iDRAC, iLO, Supermicro) | a name, the `https://` address of the BMC, the user name and password of a dedicated ReadOnly BMC account, the interval, the resources and the TLS mode |
+| Zabbix | a name, the `https://` address of the Zabbix frontend including the path it is served under (for example `https://zabbix.example/zabbix`), an API token of a dedicated read-only user, the interval, the resources and the TLS mode |
 | Push source | a name and the declared resources and fields: one resource per line, a colon, then the top-level fields a sender may send, for example `unifi-networks: id, name, vlanId`. Use a resource name that has a type table and include its key field `id`. Every other field is dropped on arrival. |
 
 ![The Add a source form for a push source: Name and Declared resources and fields](images/add-source-push-1440.png)
@@ -40,7 +48,7 @@ without a colon or without fields is refused with that example in the error text
 - The TLS modes are explained in [configuration.md](configuration.md#certificate-checks-of-a-source).
 
 Prepare the account on the controller first: [UniFi](guides/unifi-setup.md),
-[Xen Orchestra](guides/xo-setup.md), [Portainer](guides/portainer-setup.md), [QNAP](guides/qnap-setup.md), [Synology DSM](guides/synology-setup.md). The step-by-step version is the tutorial
+[Xen Orchestra](guides/xo-setup.md), [Portainer](guides/portainer-setup.md), [QNAP](guides/qnap-setup.md), [Synology DSM](guides/synology-setup.md), [Grafana](guides/grafana-setup.md), [Prometheus](guides/prometheus-setup.md), [UniFi Protect](guides/unifi-protect-setup.md), [Checkmk](guides/checkmk-setup.md), [Home Assistant](guides/homeassistant-setup.md), [Proxmox VE](guides/proxmox-setup.md), [Redfish](guides/redfish-setup.md), [Zabbix](guides/zabbix-setup.md). The step-by-step version is the tutorial
 [Add a source](tutorials/03-add-a-source.md).
 
 ### A push source's sender key

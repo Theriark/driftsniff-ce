@@ -1,0 +1,227 @@
+# Zabbix rules for what is monitored and how problems are sent: hosts, host groups, templates,
+# triggers, actions, media types, global macros, proxies and maintenance periods.
+# A field that has no rule here is MEDIUM, unclassified, until it is reviewed. Values are texts:
+# status "0" enabled, "1" disabled; tls_connect and tls_accept "1" no encryption.
+version: 1
+rules:
+  - id: zabbix.hosts.status
+    resource: zabbix-hosts
+    path: status
+    severity: medium
+    rationale: A host was disabled or enabled, which stops or starts its monitoring.
+  - id: zabbix.hosts.templates
+    resource: zabbix-hosts
+    path: parentTemplates
+    severity: medium
+    rationale: A template was linked to or unlinked from a host, which adds or removes its items and triggers.
+  - id: zabbix.hosts.macros
+    resource: zabbix-hosts
+    path: macros
+    severity: medium
+    rationale: A macro of a host was added, removed or given another value, which can change thresholds or credentials of checks.
+  - id: zabbix.hosts.interfaces
+    resource: zabbix-hosts
+    path: interfaces
+    severity: medium
+    rationale: An interface of a host changed, so Zabbix may now poll another address or port.
+  - id: zabbix.hosts.groups
+    resource: zabbix-hosts
+    path: hostgroups
+    severity: medium
+    rationale: A host joined or left a host group, which changes who may see it and which actions apply.
+  - id: zabbix.hosts.tags
+    resource: zabbix-hosts
+    path: tags
+    severity: medium
+    rationale: The tags of a host changed, which can change tag based permissions and action conditions.
+  - id: zabbix.hosts.tls_connect_off
+    resource: zabbix-hosts
+    path: tls_connect
+    when: {name: any_to_value, value: "1"}
+    severity: high
+    rationale: Encryption of the connections from Zabbix to a host was switched off.
+  - id: zabbix.hosts.tls_accept_off
+    resource: zabbix-hosts
+    path: tls_accept
+    when: {name: any_to_value, value: "1"}
+    severity: high
+    rationale: A host may now connect to Zabbix only without encryption.
+  - id: zabbix.hosts.proxy
+    resource: zabbix-hosts
+    path: proxyid
+    severity: medium
+    rationale: Another proxy now monitors a host.
+  - id: zabbix.hosts.proxy_6
+    resource: zabbix-hosts
+    path: proxy_hostid
+    severity: medium
+    rationale: Another proxy now monitors a host.
+  - id: zabbix.hosts.technical_name
+    resource: zabbix-hosts
+    path: host
+    severity: medium
+    rationale: The technical name of a host changed, which active agent checks and scripts use to find it.
+  - id: zabbix.hosts.name
+    resource: zabbix-hosts
+    path: name
+    severity: low
+    rationale: The visible name of a host changed.
+  - id: zabbix.hosts.description
+    resource: zabbix-hosts
+    path: description
+    severity: low
+    rationale: The description of a host changed.
+  - id: zabbix.host_groups.name
+    resource: zabbix-host-groups
+    path: name
+    severity: low
+    rationale: A host group was renamed.
+  - id: zabbix.templates.templates
+    resource: zabbix-templates
+    path: parentTemplates
+    severity: medium
+    rationale: A template was linked to or unlinked from another template, which changes every host that uses it.
+  - id: zabbix.templates.macros
+    resource: zabbix-templates
+    path: macros
+    severity: medium
+    rationale: A macro of a template was added, removed or given another value, which affects every host that uses it.
+  - id: zabbix.templates.name
+    resource: zabbix-templates
+    path: name
+    severity: low
+    rationale: The visible name of a template changed.
+  - id: zabbix.templates.description
+    resource: zabbix-templates
+    path: description
+    severity: low
+    rationale: The description of a template changed.
+  - id: zabbix.triggers.disabled
+    resource: zabbix-triggers
+    path: status
+    when: {name: any_to_value, value: "1"}
+    severity: high
+    rationale: A trigger was disabled, so the problem it detects is no longer raised.
+  - id: zabbix.triggers.status
+    resource: zabbix-triggers
+    path: status
+    severity: medium
+    rationale: A trigger was enabled.
+  - id: zabbix.triggers.expression
+    resource: zabbix-triggers
+    path: expression
+    severity: high
+    rationale: The expression of a trigger changed, which changes when its problem is raised.
+  - id: zabbix.triggers.recovery_expression
+    resource: zabbix-triggers
+    path: recovery_expression
+    severity: high
+    rationale: The recovery expression of a trigger changed, which changes when its problem is closed.
+  - id: zabbix.triggers.priority
+    resource: zabbix-triggers
+    path: priority
+    severity: medium
+    rationale: The severity of a trigger changed, which changes which actions and people it reaches.
+  - id: zabbix.triggers.description
+    resource: zabbix-triggers
+    path: description
+    severity: low
+    rationale: The name of a trigger changed.
+  - id: zabbix.triggers.comments
+    resource: zabbix-triggers
+    path: comments
+    severity: low
+    rationale: The description of a trigger changed.
+  - id: zabbix.actions.disabled
+    resource: zabbix-actions
+    path: status
+    when: {name: any_to_value, value: "1"}
+    severity: high
+    rationale: An action was disabled, so the notifications or commands it sends stop.
+  - id: zabbix.actions.status
+    resource: zabbix-actions
+    path: status
+    severity: medium
+    rationale: An action was enabled.
+  - id: zabbix.actions.conditions
+    resource: zabbix-actions
+    path: filter.**
+    severity: high
+    rationale: The conditions of an action changed, which changes which events it handles.
+  - id: zabbix.actions.operations
+    resource: zabbix-actions
+    path: operations
+    severity: high
+    rationale: What an action does changed (who is notified, which command runs, which host groups or templates it sets).
+  - id: zabbix.actions.recovery_operations
+    resource: zabbix-actions
+    path: recovery_operations
+    severity: high
+    rationale: What an action does when a problem is resolved changed.
+  - id: zabbix.actions.update_operations
+    resource: zabbix-actions
+    path: update_operations
+    severity: medium
+    rationale: What an action does when a problem is updated changed.
+  - id: zabbix.actions.name
+    resource: zabbix-actions
+    path: name
+    severity: low
+    rationale: An action was renamed.
+  - id: zabbix.media_types.any
+    resource: zabbix-media-types
+    path: "**"
+    severity: high
+    rationale: A media type changed (where and how notifications are sent, its credential, script or parameters).
+  - id: zabbix.media_types.description
+    resource: zabbix-media-types
+    path: description
+    severity: low
+    rationale: The description of a media type changed.
+  - id: zabbix.global_macros.any
+    resource: zabbix-global-macros
+    path: "**"
+    severity: medium
+    rationale: A global macro was added, removed or given another value, which affects every host that uses it.
+  - id: zabbix.global_macros.description
+    resource: zabbix-global-macros
+    path: description
+    severity: low
+    rationale: The description of a global macro changed.
+  - id: zabbix.proxies.tls_connect_off
+    resource: zabbix-proxies
+    path: tls_connect
+    when: {name: any_to_value, value: "1"}
+    severity: high
+    rationale: Encryption of the connections from Zabbix to a proxy was switched off.
+  - id: zabbix.proxies.tls_accept_off
+    resource: zabbix-proxies
+    path: tls_accept
+    when: {name: any_to_value, value: "1"}
+    severity: high
+    rationale: A proxy may now connect to Zabbix only without encryption.
+  - id: zabbix.proxies.allowed_addresses
+    resource: zabbix-proxies
+    path: allowed_addresses
+    severity: high
+    rationale: The addresses an active proxy may connect from changed.
+  - id: zabbix.proxies.name
+    resource: zabbix-proxies
+    path: name
+    severity: low
+    rationale: A proxy was renamed.
+  - id: zabbix.proxies.description
+    resource: zabbix-proxies
+    path: description
+    severity: low
+    rationale: The description of a proxy changed.
+  - id: zabbix.maintenance.any
+    resource: zabbix-maintenance
+    path: "**"
+    severity: medium
+    rationale: A maintenance period was added, removed or changed, which can silence problems of its hosts.
+  - id: zabbix.maintenance.description
+    resource: zabbix-maintenance
+    path: description
+    severity: low
+    rationale: The description of a maintenance period changed.

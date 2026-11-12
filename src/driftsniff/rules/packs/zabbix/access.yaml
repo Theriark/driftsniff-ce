@@ -1,0 +1,91 @@
+# Zabbix rules for who may sign in and what they may do: users, user groups, user roles and the
+# authentication settings. These resources have the object floor high in rules/types/zabbix.yaml,
+# so a rule here matters when it is critical or explains why. Values are texts: role type "1"
+# User, "2" Admin, "3" Super admin; gui_access "3" frontend access disabled; users_status "1"
+# disabled (docs/vendor-notes/zabbix.md).
+version: 1
+rules:
+  - id: zabbix.users.super_admin
+    resource: zabbix-users
+    path: role.type
+    when: {name: any_to_value, value: "3"}
+    severity: critical
+    rationale: A user now has a Super admin role, which gives full control of Zabbix and every host it can run commands on.
+  - id: zabbix.users.role_type
+    resource: zabbix-users
+    path: role.type
+    severity: high
+    rationale: The user type of a user's role changed, which changes what the user may do in Zabbix.
+  - id: zabbix.users.role
+    resource: zabbix-users
+    path: roleid
+    severity: high
+    rationale: A user was given another role, which changes what the user may see and do.
+  - id: zabbix.users.groups
+    resource: zabbix-users
+    path: usrgrps
+    severity: high
+    rationale: A user joined or left a user group, which changes the hosts the user may see and change.
+  - id: zabbix.users.username
+    resource: zabbix-users
+    path: username
+    severity: high
+    rationale: A user was renamed, which can hide who holds an account or map it to another directory user.
+  - id: zabbix.users.autologin
+    resource: zabbix-users
+    path: autologin
+    when: {name: any_to_value, value: "1"}
+    severity: high
+    rationale: A user now stays signed in across browser sessions.
+  - id: zabbix.user_groups.rights
+    resource: zabbix-user-groups
+    path: hostgroup_rights
+    severity: high
+    rationale: The access of a user group to a host group was granted, removed or changed.
+  - id: zabbix.user_groups.template_rights
+    resource: zabbix-user-groups
+    path: templategroup_rights
+    severity: high
+    rationale: The access of a user group to a template group was granted, removed or changed.
+  - id: zabbix.user_groups.tag_filters
+    resource: zabbix-user-groups
+    path: tag_filters
+    severity: high
+    rationale: The tag based permissions of a user group changed, which changes the problems its members see.
+  - id: zabbix.user_groups.gui_access
+    resource: zabbix-user-groups
+    path: gui_access
+    severity: high
+    rationale: How the members of a user group sign in to the frontend changed, or whether they may at all.
+  - id: zabbix.user_groups.status
+    resource: zabbix-user-groups
+    path: users_status
+    severity: high
+    rationale: The members of a user group were enabled or disabled.
+  - id: zabbix.user_groups.mfa
+    resource: zabbix-user-groups
+    path: mfa_status
+    when: {name: any_to_value, value: "0"}
+    severity: critical
+    rationale: Multi-factor authentication was switched off for the members of a user group.
+  - id: zabbix.user_roles.super_admin
+    resource: zabbix-user-roles
+    path: type
+    when: {name: any_to_value, value: "3"}
+    severity: critical
+    rationale: A role became a Super admin role, so every user with it now has full control of Zabbix.
+  - id: zabbix.user_roles.type
+    resource: zabbix-user-roles
+    path: type
+    severity: high
+    rationale: The user type of a role changed, which changes what every user with it may do.
+  - id: zabbix.user_roles.rules
+    resource: zabbix-user-roles
+    path: rules.**
+    severity: high
+    rationale: What a role allows changed (frontend sections, API methods, actions, services or modules).
+  - id: zabbix.authentication.any
+    resource: zabbix-authentication
+    path: "**"
+    severity: critical
+    rationale: A setting of how users sign in to Zabbix changed (method, directories, password rules or multi-factor authentication).

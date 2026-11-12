@@ -1,0 +1,655 @@
+# Type tables of the Proxmox VE collector. Notes with sources and dates:
+# docs/vendor-notes/proxmox.md.
+#
+# Field names were read from the official API schema (pve-docs api-viewer, apidoc.js) and the
+# pve-access-control and pve-storage sources on 2026-11-12. No lab Proxmox VE was used, so no name
+# is lab verified. UNVERIFIED below:
+#   * proxmox-storage, proxmox-ha-resources, proxmox-ha-groups: the schema of the LIST answer
+#     names only the key; the members come from the create parameters (storage, HA) and, for
+#     storage, from the source of the list handler (it returns the stored config). Not lab checked.
+#   * proxmox-cluster-options: whether the property strings (migration, ha, crs, next-id, u2f,
+#     webauthn, bwlimit, tag-style, user-tag-access, notify, replication) come back as text or as
+#     objects. The top names are listed; members of an object stay unclassified (medium).
+#   * proxmox-backup-jobs: the members of prune-backups, fleecing and performance (objects).
+#   * proxmox-pools: that the list answer carries members (the schema says so for 8.x).
+#   * cipassword: whether the config answer masks it. It is secret either way.
+#
+# Numbered config keys (net0, scsi1, mp0, acmedomain0) are folded by the collector into one list
+# per kind, named like the schema (net[n]), of {slot, value} members keyed by slot.
+#
+# Proxmox answers booleans as 0 and 1; the rules use those numbers.
+#
+# Secrets: cipassword (VM), env (container, may hold credentials), password, encryption-key and
+# keyring (storage: kept in /etc/pve/priv and normally not returned), password and client-key
+# (realms; the realm read returns the stored hash unfiltered), keys (yubico ids of a user),
+# http_proxy (may carry user:password). API tokens are metadata only: Proxmox never returns a
+# token secret after creation.
+version: 1
+types:
+  - resource: proxmox-cluster-options
+    key_field: id
+    fields:
+      id: config
+      keyboard: config
+      language: config
+      console: config
+      http_proxy: secret
+      email_from: config
+      mac_prefix: config
+      max_workers: config
+      migration: config
+      migration_unsecure: config
+      bwlimit: config
+      ha: config
+      crs: config
+      fencing: config
+      next-id: config
+      notify: config
+      replication: config
+      registered-tags: config
+      tag-style: config
+      user-tag-access: config
+      u2f: config
+      webauthn: config
+      consent-text: config
+      description: config
+      location: config
+      allowed-tags: ignore
+  - resource: proxmox-nodes
+    key_field: node
+    name_field: node
+    fields:
+      node: config
+      ssl_fingerprint: config
+      description: config
+      location: config
+      acme: config
+      "acmedomain[n]": config
+      "acmedomain[n].slot": config
+      "acmedomain[n].value": config
+      wakeonlan: config
+      startall-onboot-delay: config
+      ballooning-target: config
+      digest: ignore
+    lists:
+      "acmedomain[n]": {mode: set, key_field: slot}
+  - resource: proxmox-vms
+    key_field: vmid
+    name_field: name
+    fields:
+      vmid: config
+      node: config
+      name: config
+      description: config
+      tags: config
+      template: config
+      onboot: config
+      startup: config
+      protection: config
+      ostype: config
+      arch: config
+      machine: config
+      bios: config
+      boot: config
+      bootdisk: config
+      cores: config
+      sockets: config
+      smp: config
+      vcpus: config
+      cpu: config
+      cpulimit: config
+      cpuunits: config
+      affinity: config
+      memory: config
+      balloon: config
+      shares: config
+      numa: config
+      hugepages: config
+      keephugepages: config
+      allow-ksm: config
+      agent: config
+      acpi: config
+      kvm: config
+      args: config
+      hookscript: config
+      vga: config
+      tablet: config
+      keyboard: config
+      localtime: config
+      startdate: config
+      tdf: config
+      freeze: config
+      reboot: config
+      autostart: config
+      watchdog: config
+      rng0: config
+      audio0: config
+      efidisk0: config
+      tpmstate0: config
+      scsihw: config
+      cdrom: config
+      smbios1: config
+      spice_enhancements: config
+      ivshmem: config
+      amd-sev: config
+      intel-tdx: config
+      migrate_downtime: config
+      migrate_speed: config
+      hotplug: config
+      vmstatestorage: config
+      citype: config
+      ciuser: config
+      cipassword: secret
+      cicustom: config
+      ciupgrade: config
+      nameserver: config
+      searchdomain: config
+      sshkeys: config
+      "net[n]": config
+      "net[n].slot": config
+      "net[n].value": config
+      "ide[n]": config
+      "ide[n].slot": config
+      "ide[n].value": config
+      "sata[n]": config
+      "sata[n].slot": config
+      "sata[n].value": config
+      "scsi[n]": config
+      "scsi[n].slot": config
+      "scsi[n].value": config
+      "virtio[n]": config
+      "virtio[n].slot": config
+      "virtio[n].value": config
+      "unused[n]": config
+      "unused[n].slot": config
+      "unused[n].value": config
+      "hostpci[n]": config
+      "hostpci[n].slot": config
+      "hostpci[n].value": config
+      "usb[n]": config
+      "usb[n].slot": config
+      "usb[n].value": config
+      "serial[n]": config
+      "serial[n].slot": config
+      "serial[n].value": config
+      "parallel[n]": config
+      "parallel[n].slot": config
+      "parallel[n].value": config
+      "ipconfig[n]": config
+      "ipconfig[n].slot": config
+      "ipconfig[n].value": config
+      "numa[n]": config
+      "numa[n].slot": config
+      "numa[n].value": config
+      "virtiofs[n]": config
+      "virtiofs[n].slot": config
+      "virtiofs[n].value": config
+      digest: ignore
+      lock: ignore
+      parent: ignore
+      snaptime: ignore
+      vmstate: ignore
+      runningmachine: ignore
+      runningcpu: ignore
+      running-nets-host-mtu: ignore
+      meta: ignore
+      vmgenid: ignore
+    lists:
+      "net[n]": {mode: set, key_field: slot}
+      "ide[n]": {mode: set, key_field: slot}
+      "sata[n]": {mode: set, key_field: slot}
+      "scsi[n]": {mode: set, key_field: slot}
+      "virtio[n]": {mode: set, key_field: slot}
+      "unused[n]": {mode: set, key_field: slot}
+      "hostpci[n]": {mode: set, key_field: slot}
+      "usb[n]": {mode: set, key_field: slot}
+      "serial[n]": {mode: set, key_field: slot}
+      "parallel[n]": {mode: set, key_field: slot}
+      "ipconfig[n]": {mode: set, key_field: slot}
+      "numa[n]": {mode: set, key_field: slot}
+      "virtiofs[n]": {mode: set, key_field: slot}
+  - resource: proxmox-containers
+    key_field: vmid
+    name_field: hostname
+    fields:
+      vmid: config
+      node: config
+      hostname: config
+      description: config
+      tags: config
+      template: config
+      onboot: config
+      startup: config
+      protection: config
+      ostype: config
+      arch: config
+      cores: config
+      cpulimit: config
+      cpuunits: config
+      memory: config
+      swap: config
+      rootfs: config
+      unprivileged: config
+      features: config
+      hookscript: config
+      nameserver: config
+      searchdomain: config
+      timezone: config
+      console: config
+      cmode: config
+      tty: config
+      entrypoint: config
+      env: secret
+      debug: config
+      lxc: config
+      "net[n]": config
+      "net[n].slot": config
+      "net[n].value": config
+      "mp[n]": config
+      "mp[n].slot": config
+      "mp[n].value": config
+      "dev[n]": config
+      "dev[n].slot": config
+      "dev[n].value": config
+      "unused[n]": config
+      "unused[n].slot": config
+      "unused[n].value": config
+      digest: ignore
+      lock: ignore
+      parent: ignore
+      snaptime: ignore
+    lists:
+      "net[n]": {mode: set, key_field: slot}
+      "mp[n]": {mode: set, key_field: slot}
+      "dev[n]": {mode: set, key_field: slot}
+      "unused[n]": {mode: set, key_field: slot}
+  - resource: proxmox-storage
+    key_field: storage
+    name_field: storage
+    floors: {removed: high}
+    fields:
+      storage: config
+      type: config
+      content: config
+      content-dirs: config
+      path: config
+      nodes: config
+      shared: config
+      disable: config
+      server: config
+      port: config
+      export: config
+      share: config
+      domain: config
+      subdir: config
+      smbversion: config
+      options: config
+      username: config
+      pool: config
+      data-pool: config
+      datastore: config
+      namespace: config
+      fingerprint: config
+      skip-cert-verification: config
+      monhost: config
+      krbd: config
+      fs-name: config
+      fuse: config
+      vgname: config
+      thinpool: config
+      base: config
+      saferemove: config
+      saferemove-stepsize: config
+      saferemove_throughput: config
+      tagged_only: config
+      portal: config
+      target: config
+      iscsiprovider: config
+      comstar_hg: config
+      comstar_tg: config
+      lio_tpg: config
+      nowritecache: config
+      blocksize: config
+      sparse: config
+      zfs-base-path: config
+      mountpoint: config
+      is_mountpoint: config
+      mkdir: config
+      create-base-path: config
+      create-subdirs: config
+      prune-backups: config
+      max-protected-backups: config
+      format: config
+      preallocation: config
+      bwlimit: config
+      nocow: config
+      snapshot-as-volume-chain: config
+      authsupported: config
+      master-pubkey: config
+      password: secret
+      encryption-key: secret
+      keyring: secret
+      digest: ignore
+  - resource: proxmox-firewall-options
+    key_field: id
+    fields:
+      id: config
+      enable: config
+      policy_in: config
+      policy_out: config
+      policy_forward: config
+      ebtables: config
+      log_ratelimit: config
+      digest: ignore
+  # Keyed by position (cluster/<pos>, group/<name>/<pos>): Proxmox rules have no id. A rule
+  # inserted above others shifts the keys below it, so those show as modified (see vendor notes).
+  - resource: proxmox-firewall-rules
+    key_field: id
+    floors: {added: high, removed: high}
+    fields:
+      id: config
+      group: config
+      pos: config
+      type: config
+      action: config
+      macro: config
+      source: config
+      dest: config
+      proto: config
+      dport: config
+      sport: config
+      iface: config
+      icmp-type: config
+      ipversion: config
+      log: config
+      enable: config
+      comment: config
+      digest: ignore
+  - resource: proxmox-firewall-groups
+    key_field: group
+    name_field: group
+    fields:
+      group: config
+      comment: config
+      digest: ignore
+  - resource: proxmox-firewall-aliases
+    key_field: name
+    name_field: name
+    fields:
+      name: config
+      cidr: config
+      comment: config
+      ipversion: config
+      digest: ignore
+  - resource: proxmox-firewall-ipsets
+    key_field: name
+    name_field: name
+    fields:
+      name: config
+      comment: config
+      entries: config
+      entries.cidr: config
+      entries.comment: config
+      entries.nomatch: config
+      entries.digest: ignore
+      digest: ignore
+    lists:
+      entries: {mode: set, key_field: cidr}
+  - resource: proxmox-users
+    key_field: userid
+    name_field: userid
+    floors: {added: high}
+    fields:
+      userid: config
+      enable: config
+      expire: config
+      firstname: config
+      lastname: config
+      email: config
+      comment: config
+      groups: config
+      realm-type: config
+      keys: secret
+      tokens: ignore
+      tfa-locked-until: ignore
+      totp-locked: ignore
+    lists:
+      groups: set
+  - resource: proxmox-tokens
+    key_field: id
+    name_field: id
+    floors: {added: high}
+    fields:
+      id: config
+      userid: config
+      tokenid: config
+      comment: config
+      expire: config
+      privsep: config
+  - resource: proxmox-groups
+    key_field: groupid
+    name_field: groupid
+    fields:
+      groupid: config
+      comment: config
+      users: config
+    lists:
+      users: set
+  - resource: proxmox-roles
+    key_field: roleid
+    name_field: roleid
+    fields:
+      roleid: config
+      privs: config
+      special: config
+    lists:
+      privs: set
+  - resource: proxmox-acl
+    key_field: id
+    floors: {added: high}
+    fields:
+      id: config
+      path: config
+      type: config
+      ugid: config
+      roleid: config
+      propagate: config
+  - resource: proxmox-admin-acl
+    key_field: id
+    floors: {added: critical, removed: high, modified: high}
+    fields:
+      id: config
+      path: config
+      type: config
+      ugid: config
+      roleid: config
+      propagate: config
+  - resource: proxmox-realms
+    key_field: realm
+    name_field: realm
+    floors: {added: high, removed: high}
+    fields:
+      realm: config
+      type: config
+      comment: config
+      default: config
+      tfa: config
+      server1: config
+      server2: config
+      port: config
+      mode: config
+      secure: config
+      verify: config
+      sslversion: config
+      capath: config
+      cert: config
+      certkey: config
+      domain: config
+      base_dn: config
+      bind_dn: config
+      user_attr: config
+      filter: config
+      group_dn: config
+      group_filter: config
+      group_name_attr: config
+      group_classes: config
+      user_classes: config
+      sync_attributes: config
+      sync-defaults-options: config
+      case-sensitive: config
+      check-connection: config
+      issuer-url: config
+      client-id: config
+      autocreate: config
+      username-claim: config
+      scopes: config
+      prompt: config
+      acr-values: config
+      audiences: config
+      groups-claim: config
+      groups-autocreate: config
+      groups-overwrite: config
+      query-userinfo: config
+      password: secret
+      client-key: secret
+      digest: ignore
+  - resource: proxmox-backup-jobs
+    key_field: id
+    name_field: id
+    floors: {removed: high}
+    fields:
+      id: config
+      type: config
+      enabled: config
+      schedule: config
+      repeat-missed: config
+      storage: config
+      dumpdir: config
+      node: config
+      all: config
+      vmid: config
+      exclude: config
+      exclude-path: config
+      pool: config
+      mode: config
+      compress: config
+      comment: config
+      notes-template: config
+      mailto: config
+      mailnotification: config
+      notification-mode: config
+      prune-backups: config
+      remove: config
+      protected: config
+      fleecing: config
+      performance: config
+      pbs-change-detection-mode: config
+      bwlimit: config
+      ionice: config
+      lockwait: config
+      stopwait: config
+      pigz: config
+      zstd: config
+      tmpdir: config
+      script: config
+      stdexcludes: config
+      stop: config
+      quiet: config
+      next-run: ignore
+  - resource: proxmox-replication-jobs
+    key_field: id
+    name_field: id
+    floors: {removed: high}
+    fields:
+      id: config
+      type: config
+      guest: config
+      jobnum: config
+      target: config
+      schedule: config
+      rate: config
+      comment: config
+      disable: config
+      remove_job: config
+      source: config
+  - resource: proxmox-ha-resources
+    key_field: sid
+    name_field: sid
+    floors: {removed: high}
+    fields:
+      sid: config
+      type: config
+      state: config
+      group: config
+      max_restart: config
+      max_relocate: config
+      failback: config
+      auto-rebalance: config
+      comment: config
+      digest: ignore
+  - resource: proxmox-ha-groups
+    key_field: group
+    name_field: group
+    fields:
+      group: config
+      type: config
+      nodes: config
+      restricted: config
+      nofailback: config
+      comment: config
+      digest: ignore
+  - resource: proxmox-sdn-zones
+    key_field: zone
+    name_field: zone
+    fields:
+      zone: config
+      type: config
+      bridge: config
+      bridge-disable-mac-learning: config
+      tag: config
+      vlan-protocol: config
+      peers: config
+      vxlan-port: config
+      vrf-vxlan: config
+      controller: config
+      secondary-controllers: config
+      exitnodes: config
+      exitnodes-primary: config
+      exitnodes-local-routing: config
+      advertise-subnets: config
+      disable-arp-nd-suppression: config
+      rt-import: config
+      mac: config
+      mtu: config
+      nodes: config
+      ipam: config
+      dns: config
+      reversedns: config
+      dnszone: config
+      dhcp: config
+      digest: ignore
+      state: ignore
+      pending: ignore
+  - resource: proxmox-sdn-vnets
+    key_field: vnet
+    name_field: vnet
+    fields:
+      vnet: config
+      zone: config
+      type: config
+      alias: config
+      tag: config
+      vlanaware: config
+      isolate-ports: config
+      digest: ignore
+      state: ignore
+      pending: ignore
+  - resource: proxmox-pools
+    key_field: poolid
+    name_field: poolid
+    fields:
+      poolid: config
+      comment: config
+      members: config
+    lists:
+      members: set

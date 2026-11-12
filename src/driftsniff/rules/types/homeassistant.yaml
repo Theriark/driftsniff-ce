@@ -1,0 +1,224 @@
+# Type tables of the Home Assistant collector. Notes with sources and dates:
+# docs/vendor-notes/homeassistant.md.
+#
+# Field names were read from the Home Assistant core source (dev branch, 2026-11-12): the answers
+# of get_config (core_config.py as_dict), config_entries/get (ConfigEntry.as_json_fragment),
+# config/auth/list (components/config/auth.py), config/area_registry/list (AreaEntry
+# json_fragment), config/entity_registry/list (RegistryEntry.as_partial_dict),
+# lovelace/dashboards/list (lovelace const.py create fields) and automation/config and
+# script/config ({"config": raw_config}). No lab Home Assistant was read, so every name is
+# UNVERIFIED against a live system. A field that is not listed is unclassified and shows as a
+# fingerprint only, never as a value.
+#
+# Names that are not in Home Assistant and come from this collector:
+#   homeassistant-core-config.id       fixed "core" (get_config answers one object)
+#   homeassistant-users.is_admin       derived: true when group_ids holds system-admin
+#   homeassistant-automations.enabled  derived: true when the automation entity state is on, false
+#                                      when off, absent otherwise (unavailable)
+#   homeassistant-automations.config / homeassistant-scripts.config  the raw_config of the entity
+#
+# Never stored: state values. Only the entity id and on/off of automations are read from
+# get_states; sensor readings and attributes never leave the client.
+#
+# Secret class (fingerprint only, a change is still seen):
+#   the home location (latitude, longitude, elevation) because it says where someone lives;
+#   the triggers, conditions, actions, sequences and variables of automations and scripts because
+#   they can carry credentials written inline or a resolved !secret value. Alias, description and
+#   mode stay readable.
+#
+# Volatile and run state fields are ignore class so that reading an unchanged system twice gives no
+# change: the run state (state, recovery_mode, safe_mode), the version and the loaded components
+# of the core config; the state, reason and error fields and capability flags of an integration;
+# created_at and modified_at everywhere; the integration provided name parts of an entity.
+#
+# No table has object floors: a floor applies to every item of its kind, so an added floor would
+# also raise every list member that is added. Added and removed objects are rated by the ** rules
+# of the packs instead (an added or removed object has the empty path).
+#
+# UNVERIFIED in particular: external_url is missing from get_config for a local-only user; the
+# option keys options.cloud.alexa / options.cloud.google_assistant / options.conversation of an
+# entity (exposed_entities.py, cloud/const.py) are written by the voice assistant settings.
+version: 1
+types:
+  - resource: homeassistant-core-config
+    key_field: id
+    name_field: location_name
+    fields:
+      id: config
+      location_name: config
+      latitude: secret
+      longitude: secret
+      elevation: secret
+      radius: config
+      unit_system: config
+      unit_system.length: config
+      unit_system.accumulated_precipitation: config
+      unit_system.area: config
+      unit_system.mass: config
+      unit_system.pressure: config
+      unit_system.temperature: config
+      unit_system.volume: config
+      unit_system.wind_speed: config
+      time_zone: config
+      country: config
+      currency: config
+      language: config
+      external_url: config
+      internal_url: config
+      allowlist_external_dirs: config
+      allowlist_external_urls: config
+      config_dir: config
+      config_source: config
+      debug: config
+      whitelist_external_dirs: ignore
+      components: ignore
+      state: ignore
+      version: ignore
+      recovery_mode: ignore
+      safe_mode: ignore
+      logging: ignore
+    lists:
+      allowlist_external_dirs: set
+      allowlist_external_urls: set
+  - resource: homeassistant-integrations
+    key_field: entry_id
+    name_field: title
+    fields:
+      entry_id: config
+      domain: config
+      title: config
+      source: config
+      disabled_by: config
+      pref_disable_new_entities: config
+      pref_disable_polling: config
+      num_subentries: config
+      state: ignore
+      reason: ignore
+      error_reason_translation_domain: ignore
+      error_reason_translation_key: ignore
+      error_reason_translation_placeholders: ignore
+      supports_options: ignore
+      supports_remove_device: ignore
+      supports_unload: ignore
+      supports_reconfigure: ignore
+      supported_subentry_types: ignore
+      created_at: ignore
+      modified_at: ignore
+  - resource: homeassistant-users
+    key_field: id
+    name_field: name
+    fields:
+      id: config
+      username: config
+      name: config
+      is_owner: config
+      is_active: config
+      is_admin: config
+      local_only: config
+      system_generated: config
+      group_ids: config
+      credentials: config
+      credentials.type: config
+    lists:
+      group_ids: set
+      credentials: set
+  - resource: homeassistant-automations
+    key_field: entity_id
+    name_field: entity_id
+    fields:
+      entity_id: config
+      enabled: config
+      config: config
+      config.id: config
+      config.alias: config
+      config.description: config
+      config.mode: config
+      config.max: config
+      config.max_exceeded: config
+      config.initial_state: config
+      config.triggers: secret
+      config.conditions: secret
+      config.actions: secret
+      config.trigger: secret
+      config.condition: secret
+      config.action: secret
+      config.variables: secret
+      config.trigger_variables: secret
+      config.use_blueprint: secret
+  - resource: homeassistant-scripts
+    key_field: entity_id
+    name_field: entity_id
+    fields:
+      entity_id: config
+      config: config
+      config.alias: config
+      config.description: config
+      config.icon: config
+      config.mode: config
+      config.max: config
+      config.max_exceeded: config
+      config.fields: config
+      config.sequence: secret
+      config.variables: secret
+      config.use_blueprint: secret
+  - resource: homeassistant-areas
+    key_field: area_id
+    name_field: name
+    fields:
+      area_id: config
+      name: config
+      aliases: config
+      floor_id: config
+      icon: config
+      labels: config
+      picture: config
+      humidity_entity_id: config
+      temperature_entity_id: config
+      created_at: ignore
+      modified_at: ignore
+    lists:
+      aliases: set
+      labels: set
+  - resource: homeassistant-entities
+    key_field: id
+    name_field: entity_id
+    fields:
+      id: config
+      entity_id: config
+      unique_id: config
+      platform: config
+      config_entry_id: config
+      config_subentry_id: config
+      device_id: config
+      area_id: config
+      name: config
+      icon: config
+      labels: config
+      categories: config
+      disabled_by: config
+      hidden_by: config
+      entity_category: config
+      options: config
+      options.conversation.should_expose: config
+      options.cloud.alexa.should_expose: config
+      options.cloud.google_assistant.should_expose: config
+      options.cloud.google_assistant.disable_2fa: config
+      original_name: ignore
+      translation_key: ignore
+      next_name_part: ignore
+      created_at: ignore
+      modified_at: ignore
+    lists:
+      labels: set
+  - resource: homeassistant-dashboards
+    key_field: url_path
+    name_field: title
+    fields:
+      url_path: config
+      id: config
+      title: config
+      icon: config
+      mode: config
+      filename: config
+      show_in_sidebar: config
+      require_admin: config

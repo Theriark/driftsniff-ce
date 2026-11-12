@@ -1,0 +1,48 @@
+# Grafana rules for who may sign in and what they may do: organisation users, teams, service
+# accounts and folder permissions. Users, service accounts and folder permissions have the object
+# floor high in rules/types/grafana.yaml, so a rule here matters when it is critical or explains
+# why. Roles (docs/vendor-notes/grafana.md): None, Viewer, Editor, Admin.
+version: 1
+rules:
+  - id: grafana.org_users.role_to_admin
+    resource: grafana-org-users
+    path: role
+    when: {name: enum_transition, from: ["None", "Viewer", "Editor"], to: ["Admin"]}
+    severity: critical
+    rationale: A user became an organisation administrator, with control of data sources, users and alerting.
+  - id: grafana.org_users.role
+    resource: grafana-org-users
+    path: role
+    severity: high
+    rationale: The organisation role of a user changed, which changes what the user may see and edit.
+  - id: grafana.org_users.login
+    resource: grafana-org-users
+    path: login
+    severity: high
+    rationale: A user's login changed, which can hide who holds an account or map it to another directory user.
+  - id: grafana.service_accounts.role_to_admin
+    resource: grafana-service-accounts
+    path: role
+    when: {name: enum_transition, from: ["None", "Viewer", "Editor"], to: ["Admin"]}
+    severity: critical
+    rationale: A service account became an organisation administrator, so its tokens now control the organisation.
+  - id: grafana.service_accounts.tokens
+    resource: grafana-service-accounts
+    path: tokens
+    severity: high
+    rationale: The number of tokens of a service account changed, so a credential was added or revoked.
+  - id: grafana.teams.any
+    resource: grafana-teams
+    path: '**'
+    severity: medium
+    rationale: A team was added, removed or changed, which changes whose folder and dashboard permissions apply.
+  - id: grafana.teams.name
+    resource: grafana-teams
+    path: name
+    severity: low
+    rationale: A team was renamed, which changes only how people find it.
+  - id: grafana.folder_permissions.entries
+    resource: grafana-folder-permissions
+    path: permissions
+    severity: high
+    rationale: Who may view, edit or administer a folder and its dashboards changed.

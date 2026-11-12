@@ -1,0 +1,131 @@
+# Checkmk rules for what is monitored and how: hosts, folders, host and service groups, time
+# periods and notification rules. Field names: rules/types/checkmk.yaml,
+# docs/vendor-notes/checkmk.md. A "**" rule per resource grades an added or removed object.
+version: 1
+rules:
+  - id: checkmk.hosts.any
+    resource: checkmk-hosts
+    path: "**"
+    severity: high
+    rationale: A host was added or removed, so what Checkmk monitors and alerts on changed.
+  - id: checkmk.hosts.attributes
+    resource: checkmk-hosts
+    path: attributes.**
+    severity: medium
+    rationale: An attribute of a host changed, which changes how it is monitored.
+  - id: checkmk.hosts.folder
+    resource: checkmk-hosts
+    path: folder
+    severity: medium
+    rationale: A host moved to another folder, so it inherits other attributes and permissions.
+  - id: checkmk.hosts.cluster
+    resource: checkmk-hosts
+    path: cluster_nodes
+    severity: medium
+    rationale: The nodes of a cluster host changed.
+  - id: checkmk.hosts.labels
+    resource: checkmk-hosts
+    path: attributes.labels
+    severity: low
+    rationale: A label of a host was added, removed or changed, which mostly selects rules and views.
+  - id: checkmk.hosts.alias
+    resource: checkmk-hosts
+    path: attributes.alias
+    severity: low
+    rationale: The alias of a host changed, which is a label only.
+  - id: checkmk.hosts.snmp_community
+    resource: checkmk-hosts
+    path: attributes.snmp_community
+    severity: high
+    rationale: The SNMP credentials of a host changed.
+  - id: checkmk.hosts.management_snmp_community
+    resource: checkmk-hosts
+    path: attributes.management_snmp_community
+    severity: high
+    rationale: The SNMP credentials of the management board of a host changed.
+  - id: checkmk.hosts.management_ipmi_credentials
+    resource: checkmk-hosts
+    path: attributes.management_ipmi_credentials
+    severity: high
+    rationale: The IPMI credentials of the management board of a host changed.
+  - id: checkmk.folders.any
+    resource: checkmk-folders
+    path: "**"
+    severity: high
+    rationale: A folder was added or removed, which changes the attributes and permissions its hosts inherit.
+  - id: checkmk.folders.attributes
+    resource: checkmk-folders
+    path: attributes.**
+    severity: medium
+    rationale: An attribute of a folder changed, and every host in it inherits the new value.
+  - id: checkmk.folders.title
+    resource: checkmk-folders
+    path: title
+    severity: low
+    rationale: The title of a folder changed, which is a label only.
+  - id: checkmk.folders.labels
+    resource: checkmk-folders
+    path: attributes.labels
+    severity: low
+    rationale: A label of a folder was added, removed or changed, which mostly selects rules and views.
+  - id: checkmk.folders.snmp_community
+    resource: checkmk-folders
+    path: attributes.snmp_community
+    severity: high
+    rationale: The SNMP credentials that the hosts of a folder inherit changed.
+  - id: checkmk.folders.management_snmp_community
+    resource: checkmk-folders
+    path: attributes.management_snmp_community
+    severity: high
+    rationale: The SNMP credentials of the management board that the hosts of a folder inherit changed.
+  - id: checkmk.folders.management_ipmi_credentials
+    resource: checkmk-folders
+    path: attributes.management_ipmi_credentials
+    severity: high
+    rationale: The IPMI credentials of the management board that the hosts of a folder inherit changed.
+  - id: checkmk.host_groups.title
+    resource: checkmk-host-groups
+    path: title
+    severity: low
+    rationale: The alias of a host group changed, which is a label only.
+  - id: checkmk.service_groups.title
+    resource: checkmk-service-groups
+    path: title
+    severity: low
+    rationale: The alias of a service group changed, which is a label only.
+  - id: checkmk.time_periods.alias
+    resource: checkmk-time-periods
+    path: alias
+    severity: low
+    rationale: The alias of a time period changed, which is a label only.
+  - id: checkmk.time_periods.ranges
+    resource: checkmk-time-periods
+    path: "**"
+    severity: medium
+    rationale: A time period changed, which changes when notifications are sent and checks run.
+  - id: checkmk.notification_rules.any
+    resource: checkmk-notification-rules
+    path: "**"
+    severity: medium
+    rationale: A notification rule was added, removed or changed, which changes who is alerted and when.
+  - id: checkmk.notification_rules.method
+    resource: checkmk-notification-rules
+    path: rule_config.notification_method.**
+    severity: high
+    rationale: How a notification is delivered changed, so alerts may go to another place or stop.
+  - id: checkmk.notification_rules.disabled
+    resource: checkmk-notification-rules
+    path: rule_config.rule_properties.do_not_apply_this_rule.state
+    when: {name: any_to_value, value: enabled}
+    severity: high
+    rationale: A notification rule was switched off, so the alerts it sent stop.
+  - id: checkmk.notification_rules.description
+    resource: checkmk-notification-rules
+    path: rule_config.rule_properties.description
+    severity: low
+    rationale: The description of a notification rule changed, which is a label only.
+  - id: checkmk.notification_rules.comment
+    resource: checkmk-notification-rules
+    path: rule_config.rule_properties.comment
+    severity: low
+    rationale: The comment of a notification rule changed, which is documentation only.

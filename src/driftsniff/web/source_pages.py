@@ -23,14 +23,22 @@ from typing import Any, Final
 
 import sqlalchemy as sa
 
+from driftsniff.collectors.checkmk.resources import RESOURCES as CHECKMK_RESOURCES
+from driftsniff.collectors.grafana.resources import RESOURCES as GRAFANA_RESOURCES
+from driftsniff.collectors.homeassistant.resources import RESOURCES as HOMEASSISTANT_RESOURCES
 from driftsniff.collectors.portainer.resources import RESOURCES as PORTAINER_RESOURCES
+from driftsniff.collectors.prometheus.resources import RESOURCES as PROMETHEUS_RESOURCES
+from driftsniff.collectors.proxmox.resources import RESOURCES as PROXMOX_RESOURCES
 from driftsniff.collectors.qnap.resources import RESOURCES as QNAP_RESOURCES
+from driftsniff.collectors.redfish.resources import RESOURCES as REDFISH_RESOURCES
 from driftsniff.collectors.synology.resources import RESOURCES as SYNOLOGY_RESOURCES
 from driftsniff.collectors.tls import MODE_VERIFY, OPTION_TLS_MODE
 from driftsniff.collectors.truenas.resources import RESOURCES as TRUENAS_RESOURCES
 from driftsniff.collectors.unifi.resources import RESOURCES as UNIFI_RESOURCES
+from driftsniff.collectors.unifi_protect.resources import RESOURCES as PROTECT_RESOURCES
 from driftsniff.collectors.xo.client import entered_expiry, expiry_is_near
 from driftsniff.collectors.xo.resources import COLLECTIONS as XO_COLLECTIONS
+from driftsniff.collectors.zabbix.resources import RESOURCES as ZABBIX_RESOURCES
 from driftsniff.db.engine import Database
 from driftsniff.db.tables import objects, resource_coverage, runs, sources
 from driftsniff.rules.loader import load_rules
@@ -69,6 +77,14 @@ CREDENTIAL_LABELS: Final = {
     "qnap": "Password",
     "synology": "Password",
     "truenas": "API key",
+    "proxmox": "API token (user@realm!tokenid=secret)",
+    "homeassistant": "Long-lived access token",
+    "redfish": "Password",
+    "grafana": "Service account token",
+    "prometheus": "Bearer token",
+    "zabbix": "API token",
+    "checkmk": "Automation secret",
+    "unifi_protect": "API key",
 }
 STATUS_OK: Final = "200"
 STATUS_FORBIDDEN: Final = "403"
@@ -98,6 +114,22 @@ def resources_of(source_type: str, options: Mapping[str, object]) -> tuple[str, 
         return tuple(resource.name for resource in SYNOLOGY_RESOURCES)
     if source_type == "truenas":
         return tuple(resource.name for resource in TRUENAS_RESOURCES)
+    if source_type == "grafana":
+        return tuple(resource.name for resource in GRAFANA_RESOURCES)
+    if source_type == "prometheus":
+        return tuple(resource.name for resource in PROMETHEUS_RESOURCES)
+    if source_type == "unifi_protect":
+        return tuple(resource.name for resource in PROTECT_RESOURCES)
+    if source_type == "checkmk":
+        return tuple(resource.name for resource in CHECKMK_RESOURCES)
+    if source_type == "homeassistant":
+        return tuple(resource.name for resource in HOMEASSISTANT_RESOURCES)
+    if source_type == "proxmox":
+        return tuple(resource.name for resource in PROXMOX_RESOURCES)
+    if source_type == "redfish":
+        return REDFISH_RESOURCES
+    if source_type == "zabbix":
+        return tuple(resource.name for resource in ZABBIX_RESOURCES)
     declared = options.get(OPTION_PUSH_FIELDS)
     return tuple(sorted(declared)) if isinstance(declared, dict) else ()
 

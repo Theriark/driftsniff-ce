@@ -18,7 +18,23 @@ NAMING_CONVENTION = {
 
 DEFAULT_WORKSPACE_ID = 1
 USER_ROLES = ("viewer", "operator", "admin")
-SOURCE_TYPES = ("unifi", "xo", "push", "portainer", "truenas", "synology", "qnap")
+SOURCE_TYPES = (
+    "unifi",
+    "xo",
+    "push",
+    "portainer",
+    "truenas",
+    "synology",
+    "qnap",
+    "proxmox",
+    "homeassistant",
+    "redfish",
+    "grafana",
+    "prometheus",
+    "zabbix",
+    "checkmk",
+    "unifi_protect",
+)
 RUN_STATUSES = ("ok", "partial", "failed", "skipped")
 SNAPSHOT_KINDS = ("normal", "baseline")
 SEVERITIES = ("low", "medium", "high", "critical")

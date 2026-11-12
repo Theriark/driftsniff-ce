@@ -25,6 +25,23 @@ FINGERPRINT = "fp1:0a1b2c3d:" + "0" * 32
 OTHER_FINGERPRINT = "fp1:0a1b2c3d:" + "1" * 32
 FLOORED = ("servers", "backup-repositories", "users", "groups", "acl-roles", "acl-privileges")
 
+# Tables and resources of the other collectors (each prefixes its names with its own word).
+NON_XO_PREFIXES = (
+    "unifi-",
+    "portainer-",
+    "qnap-",
+    "truenas-",
+    "synology-",
+    "proxmox-",
+    "homeassistant-",
+    "redfish-",
+    "grafana-",
+    "prometheus-",
+    "zabbix-",
+    "checkmk-",
+    "protect-",
+)
+
 
 @pytest.fixture(scope="module")
 def index() -> RuleIndex:
@@ -180,9 +197,7 @@ def test_the_security_sensitive_objects_have_the_object_floor_high(
 
 def test_other_xo_objects_have_no_object_floor(index: RuleIndex) -> None:
     for resource, table in index.type_tables.items():
-        if resource not in FLOORED and not resource.startswith(
-            ("unifi-", "portainer-", "qnap-", "truenas-", "synology-")
-        ):
+        if resource not in FLOORED and not resource.startswith(NON_XO_PREFIXES):
             assert table.floors == {}, resource
 
 

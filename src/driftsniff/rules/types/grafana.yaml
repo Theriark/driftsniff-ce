@@ -1,0 +1,250 @@
+# Type tables of the Grafana collector. Notes with sources and dates: docs/vendor-notes/grafana.md.
+#
+# The field names were read from the Grafana HTTP API documentation (data sources, folders,
+# folder permissions, search, dashboards, alerting provisioning, organisation, teams, service
+# accounts) on 2026-11-12. No lab Grafana was used, so no name is lab verified. Names marked
+# UNVERIFIED below were not in the documentation that was read (they are known from newer Grafana
+# answers or from the provisioning documentation of another page); they are listed so a value
+# that arrives is classified, and a field that is not listed is unclassified and shows as a
+# fingerprint only.
+#
+# Secrets: Grafana never returns the secure fields of a data source (only secureJsonFields, a map
+# of names to true) and answers password and basicAuthPassword empty; both are classed secret in
+# case a version returns them. The settings of a contact point mix plain values and credentials
+# (a webhook or chat URL that holds its token, passwords, keys) whose names depend on the type, so
+# the whole settings object is secret: only its fingerprint is kept.
+#
+# Volatile: data source version, dashboard version, id and iteration, alert rule updated, the
+# last seen fields of users, avatar URLs, the starred flag and the token's own access control
+# lists. They are ignored so reads do not create noise.
+version: 1
+types:
+  - resource: grafana-datasources
+    key_field: uid
+    name_field: name
+    floors: {removed: high}
+    fields:
+      uid: config
+      name: config
+      type: config
+      access: config
+      url: config
+      user: config
+      database: config
+      basicAuth: config
+      basicAuthUser: config
+      withCredentials: config
+      isDefault: config
+      readOnly: config
+      jsonData: config
+      # From the provisioning documentation (common jsonData of the core data sources).
+      jsonData.tlsAuth: config
+      jsonData.tlsAuthWithCACert: config
+      jsonData.tlsSkipVerify: config
+      jsonData.serverName: config
+      jsonData.timeout: config
+      secureJsonFields: config
+      password: secret
+      basicAuthPassword: secret
+      secureJsonData: secret
+      id: ignore
+      orgId: ignore
+      typeLogoUrl: ignore
+      typeName: ignore
+      version: ignore
+  # From /api/search?type=dash-folder. folderUid is the parent of a nested folder (UNVERIFIED
+  # that search lists nested folders; the folder list documentation says /api/folders does not).
+  - resource: grafana-folders
+    key_field: uid
+    name_field: title
+    floors: {removed: high}
+    fields:
+      uid: config
+      title: config
+      folderUid: config
+      id: ignore
+      orgId: ignore
+      url: ignore
+      uri: ignore
+      slug: ignore
+      type: ignore
+      tags: ignore
+      isStarred: ignore
+      folderId: ignore
+      folderTitle: ignore
+      folderUrl: ignore
+      sortMeta: ignore
+  # One object per folder, built by the collector (collectors/grafana/normalize.py). Admin only.
+  # permission: 1 View, 2 Edit, 4 Admin. inherited is UNVERIFIED (nested folders).
+  - resource: grafana-folder-permissions
+    key_field: uid
+    name_field: title
+    floor: high
+    fields:
+      uid: config
+      title: config
+      permissions: config
+      permissions.subject: config
+      permissions.permission: config
+      permissions.userLogin: config
+      permissions.team: config
+      permissions.role: config
+      permissions.inherited: config
+    lists:
+      permissions: {mode: set, key_field: subject}
+  # Built by the collector from /api/dashboards/uid/{uid}: uid, title and meta.folderUid lifted to
+  # the top, the dashboard model kept as dashboard. Its members are unclassified (shown as a
+  # fingerprint) except the bookkeeping that every save changes.
+  - resource: grafana-dashboards
+    key_field: uid
+    name_field: title
+    floors: {removed: medium}
+    fields:
+      uid: config
+      title: config
+      folderUid: config
+      dashboard: config
+      dashboard.uid: ignore
+      dashboard.title: ignore
+      dashboard.id: ignore
+      dashboard.version: ignore
+      dashboard.iteration: ignore
+      dashboard.tags: config
+      dashboard.timezone: config
+      dashboard.schemaVersion: config
+    lists:
+      dashboard.tags: set
+  # Admin only (alert.provisioning:read). The members of notification_settings and record are
+  # not listed in the schema that was read: UNVERIFIED, unclassified.
+  - resource: grafana-alert-rules
+    key_field: uid
+    name_field: title
+    floors: {removed: high}
+    fields:
+      uid: config
+      orgID: config
+      folderUID: config
+      ruleGroup: config
+      title: config
+      condition: config
+      data: config
+      data.refId: config
+      data.queryType: config
+      data.datasourceUid: config
+      data.relativeTimeRange: config
+      data.model: config
+      noDataState: config
+      execErrState: config
+      for: config
+      keepFiringFor: config
+      annotations: config
+      labels: config
+      provenance: config
+      isPaused: config
+      notification_settings: config
+      record: config
+      id: ignore
+      updated: ignore
+    lists:
+      data: {mode: set, key_field: refId}
+  # Admin only. settings is secret as a whole (see the header).
+  - resource: grafana-contact-points
+    key_field: uid
+    name_field: name
+    floor: high
+    fields:
+      uid: config
+      name: config
+      type: config
+      settings: secret
+      disableResolveMessage: config
+      provenance: config
+  # One object, keyed "policies" by the collector. Admin only. Child routes have the same members
+  # as the root; the order of routes decides which policy applies first.
+  - resource: grafana-notification-policies
+    key_field: id
+    floor: high
+    fields:
+      id: config
+      receiver: config
+      group_by: config
+      group_wait: config
+      group_interval: config
+      repeat_interval: config
+      continue: config
+      match: config
+      match_re: config
+      matchers: config
+      object_matchers: config
+      mute_time_intervals: config
+      provenance: config
+      routes: config
+      routes.receiver: config
+      routes.group_by: config
+      routes.group_wait: config
+      routes.group_interval: config
+      routes.repeat_interval: config
+      routes.continue: config
+      routes.match: config
+      routes.match_re: config
+      routes.matchers: config
+      routes.object_matchers: config
+      routes.mute_time_intervals: config
+      routes.provenance: config
+      routes.routes: config
+    lists:
+      group_by: set
+      mute_time_intervals: set
+      routes.group_by: set
+      routes.mute_time_intervals: set
+  # Admin only (org.users:read). Role: None, Viewer, Editor, Admin. isDisabled and authLabels are
+  # UNVERIFIED (not in the documented example).
+  - resource: grafana-org-users
+    key_field: userId
+    name_field: login
+    floor: high
+    fields:
+      userId: config
+      login: config
+      email: config
+      name: config
+      role: config
+      isDisabled: config
+      authLabels: config
+      orgId: ignore
+      avatarUrl: ignore
+      lastSeenAt: ignore
+      lastSeenAtAge: ignore
+      accessControl: ignore
+    lists:
+      authLabels: set
+  # Admin only (teams:read on every team). uid is UNVERIFIED.
+  - resource: grafana-teams
+    key_field: id
+    name_field: name
+    fields:
+      id: config
+      uid: config
+      name: config
+      email: config
+      memberCount: config
+      orgId: ignore
+      avatarUrl: ignore
+      permission: ignore
+      accessControl: ignore
+  # Admin only (serviceaccounts:read). tokens is the number of tokens. uid is UNVERIFIED.
+  - resource: grafana-service-accounts
+    key_field: id
+    name_field: name
+    floor: high
+    fields:
+      id: config
+      uid: config
+      name: config
+      login: config
+      role: config
+      isDisabled: config
+      tokens: config
+      orgId: ignore
+      avatarUrl: ignore
+      accessControl: ignore

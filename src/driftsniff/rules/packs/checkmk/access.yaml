@@ -1,0 +1,113 @@
+# Checkmk rules for who may sign in and what they may see: users, contact groups and the
+# password store. Field names: rules/types/checkmk.yaml, docs/vendor-notes/checkmk.md.
+# A "**" rule per resource grades an added or removed object; the more specific rules grade fields.
+# Built-in role ids (statement 9 of the notes): admin, user, guest, agent_registration.
+version: 1
+rules:
+  - id: checkmk.users.any
+    resource: checkmk-users
+    path: "**"
+    severity: high
+    rationale: A user account was added, removed or changed, which changes who may sign in to Checkmk.
+  - id: checkmk.users.roles
+    resource: checkmk-users
+    path: roles
+    severity: high
+    rationale: A role of a user was added or removed, which changes what the user may do in Checkmk.
+  - id: checkmk.users.roles_admin
+    resource: checkmk-users
+    path: roles
+    when: {name: any_to_value, value: admin}
+    severity: critical
+    rationale: A user was given the administrator role, which allows every change to the site and its hosts.
+  - id: checkmk.users.disable_login
+    resource: checkmk-users
+    path: disable_login
+    severity: medium
+    rationale: Whether a user may sign in changed.
+  - id: checkmk.users.login_enabled
+    resource: checkmk-users
+    path: disable_login
+    when: {name: boolean_flips_to, value: false}
+    severity: high
+    rationale: A locked user may sign in again.
+  - id: checkmk.users.auth_option
+    resource: checkmk-users
+    path: auth_option.**
+    severity: high
+    rationale: How a user signs in changed (password, automation secret or an external directory).
+  - id: checkmk.users.authorized_sites
+    resource: checkmk-users
+    path: authorized_sites
+    severity: high
+    rationale: The sites a user may see changed.
+  - id: checkmk.users.contactgroups
+    resource: checkmk-users
+    path: contactgroups
+    severity: medium
+    rationale: The contact groups of a user changed, which changes the hosts the user sees and is notified about.
+  - id: checkmk.users.notifications
+    resource: checkmk-users
+    path: disable_notifications.**
+    severity: medium
+    rationale: Whether a user is notified changed, so alerts may no longer reach that person.
+  - id: checkmk.users.idle_timeout
+    resource: checkmk-users
+    path: idle_timeout.**
+    severity: medium
+    rationale: How long an idle session of a user stays signed in changed.
+  - id: checkmk.users.fullname
+    resource: checkmk-users
+    path: fullname
+    severity: low
+    rationale: The full name of a user changed, which is a label only.
+  - id: checkmk.users.contact_options
+    resource: checkmk-users
+    path: contact_options.**
+    severity: low
+    rationale: The mail address of a user changed, which only changes where notifications are sent.
+  - id: checkmk.users.preferences
+    resource: checkmk-users
+    path: language
+    severity: low
+    rationale: The interface language of a user changed, which is a preference only.
+  - id: checkmk.users.temperature_unit
+    resource: checkmk-users
+    path: temperature_unit
+    severity: low
+    rationale: The temperature unit a user sees changed, which is a preference only.
+  - id: checkmk.users.pager_address
+    resource: checkmk-users
+    path: pager_address
+    severity: low
+    rationale: The pager address of a user changed, which only changes where notifications are sent.
+  - id: checkmk.contact_groups.any
+    resource: checkmk-contact-groups
+    path: "**"
+    severity: medium
+    rationale: A contact group was added, removed or changed, which changes who sees hosts and who is notified.
+  - id: checkmk.passwords.any
+    resource: checkmk-passwords
+    path: "**"
+    severity: high
+    rationale: An entry of the password store was added, removed or changed; checks and special agents use these credentials.
+  - id: checkmk.passwords.shared_with
+    resource: checkmk-passwords
+    path: shared_with
+    severity: high
+    rationale: The groups a stored password is shared with changed, so other users may now use it in their rules.
+  - id: checkmk.passwords.comment
+    resource: checkmk-passwords
+    path: comment
+    severity: low
+    rationale: The comment of a stored password changed, which is documentation only.
+  - id: checkmk.passwords.title
+    resource: checkmk-passwords
+    path: title
+    severity: low
+    rationale: The title of a stored password changed, which is a label only.
+  - id: checkmk.passwords.docu_url
+    resource: checkmk-passwords
+    path: docu_url
+    severity: low
+    rationale: The documentation link of a stored password changed, which is documentation only.
