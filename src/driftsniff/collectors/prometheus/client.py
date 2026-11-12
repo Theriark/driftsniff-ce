@@ -5,8 +5,9 @@ Prometheus (``/api/v1``). Paths and answer shapes were read from the Prometheus 
 2026-11-12 (docs/vendor-notes/prometheus.md); no lab Prometheus was used.
 
 * Prometheus itself has no token check: it is usually behind a reverse proxy that wants one, or
-  its web configuration asks for basic auth. The credential travels as ``Authorization: Bearer``
-  and nowhere else: never in a query string, a log line or an error text. A server without any
+  its web configuration asks for basic auth. Without a user name the credential travels as
+  ``Authorization: Bearer``; with one (``basic_auth_users``) as ``Authorization: Basic``, and
+  nowhere else: never in a query string, a log line or an error text. A server without any
   check ignores the header. This module logs nothing, and every error text is fixed.
 * ``probe()`` reads ``/api/v1/status/buildinfo``; a refused token (401 or 403 from the proxy)
   stops the run before anything else is read. It returns ``version`` when it looks like one.
@@ -18,6 +19,7 @@ Prometheus (``/api/v1``). Paths and answer shapes were read from the Prometheus 
 (``collectors/resolve.py``); TLS modes come from ``collectors/tls.py``. Redirects are refused.
 """
 
+import base64
 import re
 from collections.abc import Sequence
 from pathlib import Path
@@ -87,6 +89,7 @@ class PrometheusClient(Collector):
         base_url: str,
         token: str,
         *,
+        username: str | None = None,
         allow_plain_http: bool = False,
         transport: httpx.BaseTransport | None = None,
         request_timeout: float = REQUEST_TIMEOUT_SECONDS,
@@ -94,10 +97,20 @@ class PrometheusClient(Collector):
         tls: TlsSettings | None = None,
         data_dir: Path | str = DEFAULT_DATA_DIR,
     ) -> None:
-        if not token or any(ord(char) < 0x21 or ord(char) > 0x7E for char in token):
+        if username is not None:
+            # RFC 7617: the user name cannot hold a colon; the password may hold any printable text.
+            if not username or ":" in username or not username.isprintable():
+                raise ValueError("the user name is blank or has a colon or a control character")
+            if not token or not token.isprintable():
+                raise ValueError("the password is blank or has a control character")
+        elif not token or any(ord(char) < 0x21 or ord(char) > 0x7E for char in token):
             raise ValueError("the bearer token is blank or has characters a header cannot carry")
         self._base_url = validate_base_url(base_url, allow_plain_http=allow_plain_http)
-        self._headers = {"Authorization": f"Bearer {token}"}
+        if username is None:
+            self._headers = {"Authorization": f"Bearer {token}"}
+        else:
+            pair = base64.b64encode(f"{username}:{token}".encode()).decode("ascii")
+            self._headers = {"Authorization": f"Basic {pair}"}
         self._resolver = resolver or system_resolver
         self._address = AddressPin()
         self._client = make_client(

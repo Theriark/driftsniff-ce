@@ -81,7 +81,7 @@ CREDENTIAL_LABELS: Final = {
     "homeassistant": "Long-lived access token",
     "redfish": "Password",
     "grafana": "Service account token",
-    "prometheus": "Bearer token",
+    "prometheus": "Bearer token or password",
     "zabbix": "API token",
     "checkmk": "Automation secret",
     "unifi_protect": "API key",

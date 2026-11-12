@@ -230,8 +230,14 @@ def build_collector(
     elif source_type == "grafana":
         inner = GrafanaClient(base_url, secret, allow_plain_http=plain, tls=tls, data_dir=data_dir)
     elif source_type == "prometheus":
+        # With a user name the credential is the basic auth password, otherwise a bearer token.
         inner = PrometheusClient(
-            base_url, secret, allow_plain_http=plain, tls=tls, data_dir=data_dir
+            base_url,
+            secret,
+            username=str(options.get(OPTION_USERNAME, "")) or None,
+            allow_plain_http=plain,
+            tls=tls,
+            data_dir=data_dir,
         )
     elif source_type == "unifi_protect":
         inner = ProtectClient(base_url, secret, allow_plain_http=plain, tls=tls, data_dir=data_dir)

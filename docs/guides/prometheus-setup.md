@@ -14,15 +14,15 @@ flags and the alerting and recording rules it evaluates.
 
 ## How driftsniff signs in
 
-Prometheus has no token check of its own. driftsniff sends the credential you enter as
-`Authorization: Bearer <token>`, which suits the usual setup: Prometheus behind a reverse proxy
-(nginx, Traefik, an OAuth proxy) that checks that token.
+Prometheus has no token check of its own. With the **User name** field empty, driftsniff sends
+the credential you enter as `Authorization: Bearer <token>`, which suits Prometheus behind a
+reverse proxy (nginx, Traefik, an OAuth proxy) that checks that token.
 
 - **Prometheus without any sign in:** the form still asks for a credential. Enter any text, for
   example `none`; Prometheus ignores the header. Keep such a Prometheus off untrusted networks.
-- **Prometheus with its own basic auth** (`basic_auth_users` in its web configuration file) is
-  **not supported yet**: driftsniff sends no user name and password. Put a proxy in front, or wait
-  for basic auth support.
+- **Prometheus with its own basic auth** (`basic_auth_users` in its web configuration file): enter
+  the user name in **User name** and its password as the credential. driftsniff then sends
+  `Authorization: Basic`. A user name cannot contain a colon.
 
 ## What driftsniff reads
 
@@ -46,7 +46,8 @@ evaluation times, alert states and active alerts are ignored, so a firing alert 
    `/api/v1/status/*` and `/api/v1/rules` if the proxy can do that.
 2. In driftsniff, select **Add source**, choose **Prometheus**, and enter a name, the address of
    the Prometheus server (for example `https://prometheus.example.invalid:9090`; add the route
-   prefix if Prometheus runs under one), the bearer token, the interval, the resources and the TLS
+   prefix if Prometheus runs under one), the bearer token (or a user name and password for basic
+   auth), the interval, the resources and the TLS
    mode.
 3. Select **Test connection**. It reads the version and each resource once and stores nothing.
 
