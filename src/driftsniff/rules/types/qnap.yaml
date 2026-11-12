@@ -1,0 +1,117 @@
+# Type tables of the QNAP QTS / QuTS hero collector. Notes with sources and dates:
+# docs/vendor-notes/qnap.md.
+#
+# Every field name below is UNVERIFIED. QNAP publishes no reference for these configuration CGIs;
+# the names come from open source clients that read real systems (python-qnapstats and its
+# captured answers, the nmap script http-qnap-nas-info, the QNAP Go SDK of tmeckel). No lab QNAP
+# was used, so no name is lab verified.
+#
+# The collector takes only the fields named here from each XML answer (collectors/qnap/normalize.py)
+# and builds the objects itself, so volatile values (uptime, temperatures, fan speeds, CPU and
+# memory use, packet counters, free and used space, volume and app run states) are never read and
+# cannot raise changes. The resource names carry the prefix qnap- because a resource is defined only
+# once across all type files.
+#
+# Values are the texts QNAP sends ("1", "0", "TRUE", "STATIC"); the collector converts nothing.
+#
+# Not read, so not here: users, user groups and the network services (SSH, Telnet, SMB, NFS, FTP,
+# myQNAPcloud, UPnP port forwarding) and the guest access of a shared folder. No source names a
+# read-only call for them (notes, section "Not covered").
+#
+# No field is classed secret: none of these answers carries a credential. A value that looks like
+# one is still caught by the scanner of the pipeline.
+version: 1
+types:
+  - resource: qnap-system
+    key_field: id
+    name_field: hostname
+    fields:
+      id: config
+      hostname: config
+      model: config
+      firmware.version: config
+      firmware.build: config
+      firmware.patch: config
+      timezone: config
+      dnsServers: config
+    lists:
+      dnsServers: ordered-scalar
+  - resource: qnap-network-interfaces
+    key_field: ifname
+    name_field: dname
+    fields:
+      ifname: config
+      dname: config
+      eth_ip: config
+      eth_mask: config
+      eth_mac: config
+      eth_usage: config
+      eth_max_speed: config
+      eth_ipv6_enable: config
+      dns: config
+    lists:
+      dns: ordered-scalar
+  - resource: qnap-volumes
+    key_field: volumeValue
+    name_field: volumeLabel
+    floors:
+      removed: high
+    fields:
+      volumeValue: config
+      volumeLabel: config
+      volumeStat: config
+      volumeDisks: config
+      volumeType: config
+      encryptfs_bool: config
+      is_default_volume: config
+  - resource: qnap-shared-folders
+    key_field: sharename
+    name_field: sharename
+    floors:
+      added: medium
+      removed: high
+    fields:
+      sharename: config
+      volumeValue: config
+      type: config
+  - resource: qnap-web-services
+    key_field: id
+    fields:
+      id: config
+      forceSSL: config
+      stunnelPort: config
+      webFSEnabled: config
+      QMultimediaEnabled: config
+      MSV2WebEnabled: config
+      QDownloadEnabled: config
+      NVREnabled: config
+      WFM2: config
+      QMusicsEnabled: config
+      QVideosEnabled: config
+      QPhotosEnabled: config
+      QWebEnabled: config
+      QWebPort: config
+      QWebSSLEnabled: config
+      QWebSSLPort: config
+  - resource: qnap-apps
+    key_field: name
+    name_field: displayName
+    floors:
+      added: medium
+      removed: medium
+    fields:
+      name: config
+      displayName: config
+      version: config
+      build: config
+      enable: config
+      provider: config
+      author: config
+      class: config
+      store: config
+      unofficial: config
+      code_signing_status: config
+      installPath: config
+      servPort: config
+      webPort: config
+      webSSLPort: config

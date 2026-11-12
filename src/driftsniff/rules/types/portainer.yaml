@@ -1,0 +1,345 @@
+# Type tables of the Portainer collector. Notes with sources and dates:
+# docs/vendor-notes/portainer.md.
+#
+# The field names were read from the Portainer source (api/portainer.go and the HTTP handlers of
+# the develop branch) on 2026-11-12. No lab Portainer was used, so no name is lab verified. Names
+# marked UNVERIFIED below were not found in the source that was read (older versions, nested
+# structs that were not opened); they are listed so a value that arrives is classified, and a
+# field that is not listed is unclassified and shows as a fingerprint only.
+#
+# Access maps keyed by an id (UserAccessPolicies, TeamAccessPolicies, RegistryAccesses, the
+# Endpoints and EndpointGroups of a tag) are turned into lists by the collector
+# (collectors/portainer/normalize.py) and compared here as sets keyed by the id field.
+#
+# Secrets: the settings answer has the LDAP password, the OAuth client secret and the kube secret
+# key cleared by Portainer itself, and the registry list clears the registry password; they are
+# still classed secret in case a version returns them. Classed secret because Portainer does NOT
+# clear them: EdgeKey of an environment, AgentSecret of the settings, AccessToken of a registry,
+# the git password of a stack, the values of stack environment variables and the stack file (it
+# can hold credentials written inline). Users, teams, team memberships, registries and settings
+# have the object floor high.
+version: 1
+types:
+  - resource: portainer-environments
+    key_field: Id
+    name_field: Name
+    fields:
+      Id: config
+      Name: config
+      Type: config
+      ContainerEngine: config
+      URL: config
+      PublicURL: config
+      GroupId: config
+      TagIds: config
+      TLSConfig.TLS: config
+      TLSConfig.TLSSkipVerify: config
+      TLSConfig.TLSCACert: config
+      TLSConfig.TLSCert: config
+      TLSConfig.TLSKey: config
+      UserAccessPolicies: config
+      UserAccessPolicies.UserId: config
+      UserAccessPolicies.RoleId: config
+      UserAccessPolicies.Namespaces: config
+      TeamAccessPolicies: config
+      TeamAccessPolicies.TeamId: config
+      TeamAccessPolicies.RoleId: config
+      TeamAccessPolicies.Namespaces: config
+      EdgeID: config
+      EdgeKey: secret
+      EdgeCheckinInterval: config
+      UserTrusted: config
+      EnableGPUManagement: config
+      Gpus: config
+      ComposeSyntaxMaxVersion: config
+      SecuritySettings.allowBindMountsForRegularUsers: config
+      SecuritySettings.allowPrivilegedModeForRegularUsers: config
+      SecuritySettings.allowVolumeBrowserForRegularUsers: config
+      SecuritySettings.allowHostNamespaceForRegularUsers: config
+      SecuritySettings.allowDeviceMappingForRegularUsers: config
+      SecuritySettings.allowStackManagementForRegularUsers: config
+      SecuritySettings.allowContainerCapabilitiesForRegularUsers: config
+      SecuritySettings.allowSysctlSettingForRegularUsers: config
+      SecuritySettings.allowSecurityOptForRegularUsers: config
+      SecuritySettings.enableHostManagementFeatures: config
+      Edge.AsyncMode: config
+      Edge.PingInterval: config
+      Edge.SnapshotInterval: config
+      Edge.CommandInterval: config
+      Kubernetes.Configuration.UseLoadBalancer: config
+      Kubernetes.Configuration.UseServerMetrics: config
+      Kubernetes.Configuration.EnableResourceOverCommit: config
+      Kubernetes.Configuration.ResourceOverCommitPercentage: config
+      Kubernetes.Configuration.RestrictDefaultNamespace: config
+      Kubernetes.Configuration.AllowNoneIngressClass: config
+      Kubernetes.Snapshots: ignore
+      Kubernetes.Flags: ignore
+      AzureCredentials: secret
+      Status: ignore
+      Snapshots: ignore
+      Heartbeat: ignore
+      LastCheckInDate: ignore
+      QueryDate: ignore
+      Agent: ignore
+      PostInitMigrations: ignore
+      IsEdgeDevice: ignore
+      Tags: ignore
+      TLS: ignore
+      TLSCACert: ignore
+      TLSCert: ignore
+      TLSKey: ignore
+      AuthorizedUsers: ignore
+      AuthorizedTeams: ignore
+    lists:
+      TagIds: set
+      UserAccessPolicies: {mode: set, key_field: UserId}
+      TeamAccessPolicies: {mode: set, key_field: TeamId}
+  - resource: portainer-environment-groups
+    key_field: Id
+    name_field: Name
+    fields:
+      Id: config
+      Name: config
+      Description: config
+      TagIds: config
+      UserAccessPolicies: config
+      UserAccessPolicies.UserId: config
+      UserAccessPolicies.RoleId: config
+      UserAccessPolicies.Namespaces: config
+      TeamAccessPolicies: config
+      TeamAccessPolicies.TeamId: config
+      TeamAccessPolicies.RoleId: config
+      TeamAccessPolicies.Namespaces: config
+      Labels: ignore
+      AuthorizedUsers: ignore
+      AuthorizedTeams: ignore
+      Tags: ignore
+    lists:
+      TagIds: set
+      UserAccessPolicies: {mode: set, key_field: UserId}
+      TeamAccessPolicies: {mode: set, key_field: TeamId}
+  - resource: portainer-tags
+    key_field: ID
+    name_field: Name
+    fields:
+      ID: config
+      Name: config
+      Endpoints: config
+      EndpointGroups: config
+    lists:
+      Endpoints: set
+      EndpointGroups: set
+  # Admin only (coverage 403 for another token).
+  - resource: portainer-edge-groups
+    key_field: Id
+    name_field: Name
+    fields:
+      Id: config
+      Name: config
+      Dynamic: config
+      TagIds: config
+      PartialMatch: config
+      Endpoints: config
+      EndpointIds: ignore
+      HasEdgeStack: ignore
+      HasEdgeJob: ignore
+      EndpointTypes: ignore
+      TrustedEndpoints: ignore
+    lists:
+      TagIds: set
+      Endpoints: set
+  # The stack list holds only the stacks the token may see. ProjectPath, CreationDate, CreatedBy,
+  # UpdateDate and UpdatedBy have no json tag in the source and are bookkeeping: ignored.
+  - resource: portainer-stacks
+    key_field: Id
+    name_field: Name
+    fields:
+      Id: config
+      Name: config
+      Type: config
+      EndpointId: config
+      SwarmId: config
+      EntryPoint: config
+      Env: config
+      Env.name: config
+      Env.value: secret
+      AdditionalFiles: config
+      Namespace: config
+      FromAppTemplate: config
+      AutoUpdate.Interval: config
+      AutoUpdate.Webhook: secret
+      AutoUpdate.ForceUpdate: config
+      AutoUpdate.ForcePullImage: config
+      AutoUpdate.JobID: ignore
+      GitConfig.URL: config
+      GitConfig.ReferenceName: config
+      GitConfig.ConfigFilePath: config
+      GitConfig.TLSSkipVerify: config
+      GitConfig.ConfigHash: ignore
+      GitConfig.Authentication.Username: config
+      GitConfig.Authentication.Password: secret
+      GitConfig.Authentication.GitCredentialID: config
+      GitConfig.Authentication.Provider: config
+      GitConfig.Authentication.AuthorizationType: config
+      StackFileContent: secret
+      ResourceControl: ignore
+      Status: ignore
+      DeploymentStartStatus: ignore
+      DeploymentStatus: ignore
+      CurrentDeploymentInfo: ignore
+      WorkflowID: ignore
+      ProjectPath: ignore
+      CreationDate: ignore
+      CreatedBy: ignore
+      UpdateDate: ignore
+      UpdatedBy: ignore
+    lists:
+      Env: {mode: set, key_field: name}
+      AdditionalFiles: set
+  # Recent versions return only Id, Username and Role. The other names are those of the stored
+  # user and are listed for older versions that return the whole user.
+  - resource: portainer-users
+    key_field: Id
+    name_field: Username
+    floor: high
+    fields:
+      Id: config
+      Username: config
+      Role: config
+      Password: secret
+      TokenIssueAt: ignore
+      ThemeSettings: ignore
+      UseCache: ignore
+      UserTheme: ignore
+      PortainerAuthorizations: ignore
+      EndpointAuthorizations: ignore
+  - resource: portainer-teams
+    key_field: Id
+    name_field: Name
+    floor: high
+    fields:
+      Id: config
+      Name: config
+      DenyPortainerAccess: config
+  - resource: portainer-team-memberships
+    key_field: Id
+    floor: high
+    fields:
+      Id: config
+      UserID: config
+      TeamID: config
+      Role: config
+  # The sub-objects Gitlab, Github, Quay and Ecr are UNVERIFIED (their structs were not opened);
+  # their members are unclassified until checked.
+  - resource: portainer-registries
+    key_field: Id
+    name_field: Name
+    floor: high
+    fields:
+      Id: config
+      Type: config
+      Name: config
+      URL: config
+      BaseURL: config
+      Authentication: config
+      Username: config
+      Password: secret
+      AccessToken: secret
+      AccessTokenExpiry: ignore
+      ManagementConfiguration.TLSConfig.TLS: config
+      ManagementConfiguration.TLSConfig.TLSSkipVerify: config
+      ManagementConfiguration.TLSConfig.TLSCACert: config
+      ManagementConfiguration.TLSConfig.TLSCert: config
+      ManagementConfiguration.TLSConfig.TLSKey: config
+      ManagementConfiguration.Password: secret
+      ManagementConfiguration.AccessToken: secret
+      RegistryAccesses: config
+      RegistryAccesses.EnvironmentId: config
+      RegistryAccesses.Namespaces: config
+      RegistryAccesses.UserAccessPolicies: config
+      RegistryAccesses.UserAccessPolicies.UserId: config
+      RegistryAccesses.UserAccessPolicies.RoleId: config
+      RegistryAccesses.TeamAccessPolicies: config
+      RegistryAccesses.TeamAccessPolicies.TeamId: config
+      RegistryAccesses.TeamAccessPolicies.RoleId: config
+      UserAccessPolicies: ignore
+      TeamAccessPolicies: ignore
+      AuthorizedUsers: ignore
+      AuthorizedTeams: ignore
+    lists:
+      RegistryAccesses: {mode: set, key_field: EnvironmentId}
+      RegistryAccesses.UserAccessPolicies: {mode: set, key_field: UserId}
+      RegistryAccesses.TeamAccessPolicies: {mode: set, key_field: TeamId}
+      RegistryAccesses.Namespaces: set
+  # One object, keyed "settings" by the collector. Admin only. The members of Edge,
+  # FeatureFlagSettings and GlobalDeploymentOptions are UNVERIFIED and stay unclassified.
+  - resource: portainer-settings
+    key_field: Id
+    floor: high
+    fields:
+      Id: config
+      LogoURL: config
+      BlackListedLabels: config
+      AuthenticationMethod: config
+      InternalAuthSettings.RequiredPasswordLength: config
+      LDAPSettings.AnonymousMode: config
+      LDAPSettings.ReaderDN: config
+      LDAPSettings.Password: secret
+      LDAPSettings.URL: config
+      LDAPSettings.TLSConfig.TLS: config
+      LDAPSettings.TLSConfig.TLSSkipVerify: config
+      LDAPSettings.TLSConfig.TLSCACert: config
+      LDAPSettings.TLSConfig.TLSCert: config
+      LDAPSettings.TLSConfig.TLSKey: config
+      LDAPSettings.StartTLS: config
+      LDAPSettings.SearchSettings: config
+      LDAPSettings.SearchSettings.BaseDN: config
+      LDAPSettings.SearchSettings.Filter: config
+      LDAPSettings.SearchSettings.UserNameAttribute: config
+      LDAPSettings.GroupSearchSettings: config
+      LDAPSettings.GroupSearchSettings.GroupBaseDN: config
+      LDAPSettings.GroupSearchSettings.GroupFilter: config
+      LDAPSettings.GroupSearchSettings.GroupAttribute: config
+      LDAPSettings.AutoCreateUsers: config
+      OAuthSettings.ClientID: config
+      OAuthSettings.ClientSecret: secret
+      OAuthSettings.AccessTokenURI: config
+      OAuthSettings.AuthorizationURI: config
+      OAuthSettings.ResourceURI: config
+      OAuthSettings.RedirectURI: config
+      OAuthSettings.UserIdentifier: config
+      OAuthSettings.Scopes: config
+      OAuthSettings.OAuthAutoCreateUsers: config
+      OAuthSettings.DefaultTeamID: config
+      OAuthSettings.SSO: config
+      OAuthSettings.LogoutURI: config
+      OAuthSettings.KubeSecretKey: secret
+      OAuthSettings.AuthStyle: config
+      SnapshotInterval: config
+      TemplatesURL: config
+      EdgeAgentCheckinInterval: config
+      EnableEdgeComputeFeatures: config
+      UserSessionTimeout: config
+      KubeconfigExpiry: config
+      HelmRepositoryURL: config
+      KubectlShellImage: config
+      TrustOnFirstConnect: config
+      EnforceEdgeID: config
+      AgentSecret: secret
+      EdgePortainerUrl: config
+      DisplayDonationHeader: ignore
+      DisplayExternalContributors: ignore
+      EnableHostManagementFeatures: config
+      AllowVolumeBrowserForRegularUsers: config
+      AllowBindMountsForRegularUsers: config
+      AllowPrivilegedModeForRegularUsers: config
+      AllowHostNamespaceForRegularUsers: config
+      AllowStackManagementForRegularUsers: config
+      AllowDeviceMappingForRegularUsers: config
+      AllowContainerCapabilitiesForRegularUsers: config
+      IsDockerDesktopExtension: ignore
+      ForceSecureCookies: config
+    lists:
+      BlackListedLabels: set
+      LDAPSettings.SearchSettings: ordered-scalar
+      LDAPSettings.GroupSearchSettings: ordered-scalar

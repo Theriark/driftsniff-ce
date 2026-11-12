@@ -1,0 +1,61 @@
+# TrueNAS rules for sign in, privileges and services. Users, groups and the SSH service have the
+# object floor high in rules/types/truenas.yaml, so a rule on them only matters when it is critical.
+# Field names: docs/vendor-notes/truenas.md (API reference 25.10, not checked on a live system).
+version: 1
+rules:
+  - id: truenas.ssh.password_login
+    resource: truenas-ssh
+    path: passwordauth
+    when: {name: boolean_flips_to, value: true}
+    severity: critical
+    rationale: The SSH service now accepts passwords, so anyone who guesses or steals a password can open a shell.
+  - id: truenas.ssh.cipher_none
+    resource: truenas-ssh
+    path: weak_ciphers
+    when: {name: any_to_value, value: NONE}
+    severity: critical
+    rationale: The SSH service allows the cipher NONE, so sessions may travel without encryption.
+  - id: truenas.users.ssh_password
+    resource: truenas-users
+    path: ssh_password_enabled
+    when: {name: boolean_flips_to, value: true}
+    severity: critical
+    rationale: A user may now sign in over SSH with a password (for root this is a root login with a password).
+  - id: truenas.users.full_admin
+    resource: truenas-users
+    path: full_admin
+    when: {name: boolean_flips_to, value: true}
+    severity: critical
+    rationale: A user became a full administrator of TrueNAS, for example by joining builtin_administrators.
+  - id: truenas.users.ssh_key
+    resource: truenas-users
+    path: sshpubkey
+    severity: critical
+    rationale: The SSH keys a user accepts changed, so someone holding the new key can now sign in as that user.
+  - id: truenas.users.sudo_nopasswd
+    resource: truenas-users
+    path: sudo_commands_nopasswd
+    severity: critical
+    rationale: The commands a user may run as root without a password changed.
+  - id: truenas.groups.roles
+    resource: truenas-groups
+    path: roles
+    severity: critical
+    rationale: The administrative roles of a group changed, which changes what every member may do on TrueNAS.
+  - id: truenas.groups.sudo_nopasswd
+    resource: truenas-groups
+    path: sudo_commands_nopasswd
+    severity: critical
+    rationale: The commands the members of a group may run as root without a password changed.
+  - id: truenas.services.enabled
+    resource: truenas-services
+    path: enable
+    when: {name: boolean_flips_to, value: true}
+    severity: high
+    rationale: A service now starts with the system, which opens what it serves to the network.
+  - id: truenas.services.disabled
+    resource: truenas-services
+    path: enable
+    when: {name: boolean_flips_to, value: false}
+    severity: medium
+    rationale: A service no longer starts with the system, so what it serves stops after the next restart.

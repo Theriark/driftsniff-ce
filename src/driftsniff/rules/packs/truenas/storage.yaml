@@ -1,0 +1,124 @@
+# TrueNAS rules for datasets, data protection tasks, scheduled commands and the network.
+# ZFS property values are the text TrueNAS shows (ON, OFF, LZ4, STANDARD, DISABLED); the collector
+# keeps only that text. Values are from the API reference 25.10 and not checked on a live system.
+version: 1
+rules:
+  - id: truenas.datasets.readonly
+    resource: truenas-datasets
+    path: readonly
+    severity: high
+    rationale: A dataset was made read only or writable, which stops writes or allows them again.
+  - id: truenas.datasets.encryption_off
+    resource: truenas-datasets
+    path: encrypted
+    when: {name: boolean_flips_to, value: false}
+    severity: high
+    rationale: A dataset with this name is no longer encrypted, so its data is stored in clear.
+  - id: truenas.datasets.sync_disabled
+    resource: truenas-datasets
+    path: sync
+    when: {name: any_to_value, value: DISABLED}
+    severity: high
+    rationale: Synchronous writes are off, so data a client was told is saved can be lost in a power cut.
+  - id: truenas.datasets.acltype
+    resource: truenas-datasets
+    path: acltype
+    severity: high
+    rationale: The kind of access control list changed, which changes who may read and write the files.
+  - id: truenas.datasets.comments
+    resource: truenas-datasets
+    path: comments
+    severity: low
+    rationale: Only the description of a dataset changed.
+  - id: truenas.snapshot_tasks.disabled
+    resource: truenas-snapshot-tasks
+    path: enabled
+    when: {name: boolean_flips_to, value: false}
+    severity: high
+    rationale: A periodic snapshot task was turned off, so no new snapshots of its dataset are taken.
+  - id: truenas.replication.disabled
+    resource: truenas-replication-tasks
+    path: enabled
+    when: {name: boolean_flips_to, value: false}
+    severity: high
+    rationale: A replication task was turned off, so the copy of the data elsewhere stops being updated.
+  - id: truenas.replication.auto_off
+    resource: truenas-replication-tasks
+    path: auto
+    when: {name: boolean_flips_to, value: false}
+    severity: high
+    rationale: A replication task no longer runs on its own, so the copy only updates when someone starts it.
+  - id: truenas.replication.target
+    resource: truenas-replication-tasks
+    path: target_dataset
+    severity: high
+    rationale: A replication task now sends its data to a different place.
+  - id: truenas.replication.encryption_off
+    resource: truenas-replication-tasks
+    path: encryption
+    when: {name: boolean_flips_to, value: false}
+    severity: high
+    rationale: A replication task no longer encrypts the copy it writes.
+  - id: truenas.replication.name
+    resource: truenas-replication-tasks
+    path: name
+    severity: low
+    rationale: Only the name of a replication task changed.
+  - id: truenas.cloud_sync.disabled
+    resource: truenas-cloud-sync-tasks
+    path: enabled
+    when: {name: boolean_flips_to, value: false}
+    severity: high
+    rationale: A cloud sync task was turned off, so the cloud copy stops being updated.
+  - id: truenas.cloud_sync.encryption_off
+    resource: truenas-cloud-sync-tasks
+    path: encryption
+    when: {name: boolean_flips_to, value: false}
+    severity: high
+    rationale: A cloud sync task no longer encrypts what it stores at the provider.
+  - id: truenas.cloud_sync.credentials
+    resource: truenas-cloud-sync-tasks
+    path: credentials.id
+    severity: high
+    rationale: A cloud sync task now uses another cloud account.
+  - id: truenas.cloud_sync.description
+    resource: truenas-cloud-sync-tasks
+    path: description
+    severity: low
+    rationale: Only the description of a cloud sync task changed.
+  - id: truenas.cron.command
+    resource: truenas-cron-jobs
+    path: command
+    severity: high
+    rationale: The command of a scheduled job changed, and TrueNAS runs it unattended.
+  - id: truenas.cron.user_root
+    resource: truenas-cron-jobs
+    path: user
+    when: {name: any_to_value, value: root}
+    severity: high
+    rationale: A scheduled job now runs as root.
+  - id: truenas.cron.description
+    resource: truenas-cron-jobs
+    path: description
+    severity: low
+    rationale: Only the description of a scheduled job changed.
+  - id: truenas.network.gateway
+    resource: truenas-network-config
+    path: ipv4gateway
+    severity: high
+    rationale: The default gateway changed, so traffic to other networks takes another route.
+  - id: truenas.network.nameserver
+    resource: truenas-network-config
+    path: nameserver1
+    severity: high
+    rationale: The first name server changed, so names may now resolve to other addresses.
+  - id: truenas.network.http_proxy
+    resource: truenas-network-config
+    path: httpproxy
+    severity: high
+    rationale: The web proxy changed, so updates and cloud traffic take another route.
+  - id: truenas.interfaces.description
+    resource: truenas-interfaces
+    path: description
+    severity: low
+    rationale: Only the description of a network interface changed.

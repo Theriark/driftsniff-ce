@@ -43,6 +43,8 @@ Step by step, with a screenshot of each step. See the [tutorial index](tutorials
 
 - [Setting up a UniFi source](guides/unifi-setup.md)
 - [Setting up a Xen Orchestra source](guides/xo-setup.md)
+- [Setting up a QNAP source](guides/qnap-setup.md)
+- [Setting up a Synology DSM source](guides/synology-setup.md)
 
 Neither guide has been checked against a lab controller yet; each one marks the statements about
 the vendor side as NOT VERIFIED.
@@ -55,7 +57,7 @@ The engineering notes of each part. They describe how the code works and which t
 |---|---|
 | Web interface | [web-interface.md](web-interface.md), [design-direction.md](design-direction.md), [csrf-and-headers.md](csrf-and-headers.md) |
 | Sign-in and access | [auth.md](auth.md), [api-access.md](api-access.md), [security-model.md](security-model.md), [secrets-handling.md](secrets-handling.md), [key-management.md](key-management.md), [tls.md](tls.md) |
-| Sources and collection | [sources.md](sources.md), [collectors.md](collectors.md), [push.md](push.md), [scheduler.md](scheduler.md), [unifi-client.md](unifi-client.md), [unifi-pack.md](unifi-pack.md), [xo-client.md](xo-client.md), [xo-volatility.md](xo-volatility.md), [vendor-notes/unifi.md](vendor-notes/unifi.md), [vendor-notes/xo.md](vendor-notes/xo.md) |
+| Sources and collection | [sources.md](sources.md), [collectors.md](collectors.md), [push.md](push.md), [scheduler.md](scheduler.md), [unifi-client.md](unifi-client.md), [unifi-pack.md](unifi-pack.md), [xo-client.md](xo-client.md), [xo-volatility.md](xo-volatility.md), [vendor-notes/unifi.md](vendor-notes/unifi.md), [vendor-notes/xo.md](vendor-notes/xo.md), [vendor-notes/qnap.md](vendor-notes/qnap.md) |
 | Changes and rules | [normaliser.md](normaliser.md), [diff.md](diff.md), [order.md](order.md), [rules.md](rules.md), [snapshots.md](snapshots.md), [changes-service.md](changes-service.md), [history-service.md](history-service.md), [golden-table.md](golden-table.md) |
 | Integrations | [enrichment-api.md](enrichment-api.md), [notifications.md](notifications.md), [plugin-api.md](plugin-api.md) |
 | Storage and settings | [database.md](database.md), [retention-and-backup.md](retention-and-backup.md), [settings.md](settings.md) |

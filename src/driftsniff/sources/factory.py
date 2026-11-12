@@ -31,6 +31,9 @@ from pathlib import Path
 from typing import Final
 
 from driftsniff.collectors.base import Collector, CollectorError, FetchResult, ResourceSpec
+from driftsniff.collectors.portainer.client import PortainerClient
+from driftsniff.collectors.qnap.client import QnapClient
+from driftsniff.collectors.synology.client import SynologyClient
 from driftsniff.collectors.tls import (
     MODE_INSECURE,
     OPTION_INSECURE,
@@ -39,6 +42,7 @@ from driftsniff.collectors.tls import (
     TlsSettings,
     check_options,
 )
+from driftsniff.collectors.truenas.client import TruenasClient
 from driftsniff.collectors.unifi.client import UnifiClient
 from driftsniff.collectors.xo.client import XoClient
 from driftsniff.config import DEFAULT_DATA_DIR
@@ -48,6 +52,7 @@ from driftsniff.sources.service import (
     OPTION_ALLOW_PLAIN_HTTP,
     OPTION_CREDENTIAL_EXPIRES_ON,
     OPTION_RESOURCES_OFF,
+    OPTION_USERNAME,
     POLLED_TYPES,
     SourceService,
     SourceView,
@@ -159,13 +164,13 @@ def build_collector(
     *,
     data_dir: Path | str = DEFAULT_DATA_DIR,
 ) -> Collector:
-    """The collector of a ``unifi`` or ``xo`` source, with its resources turned off removed.
+    """The collector of a polled source (``POLLED_TYPES``), with its resources turned off removed.
 
     Raises ``ValueError`` (fixed texts) for an address, credential or TLS setting the collector
     refuses.
     """
     if source_type not in POLLED_TYPES:
-        raise ValueError("only a unifi or xo source is read from a controller")
+        raise ValueError("only a polled source is read from a controller")
     if base_url is None:
         raise ValueError("the source has no address")
     secret = _secret(credential)
@@ -174,7 +179,7 @@ def build_collector(
     inner: Collector
     if source_type == "unifi":
         inner = UnifiClient(base_url, secret, allow_plain_http=plain, tls=tls, data_dir=data_dir)
-    else:
+    elif source_type == "xo":
         inner = XoClient(
             base_url,
             secret,
@@ -183,6 +188,39 @@ def build_collector(
             data_dir=data_dir,
             expires_on=_expiry(options),
         )
+    elif source_type == "portainer":
+        inner = PortainerClient(
+            base_url, secret, allow_plain_http=plain, tls=tls, data_dir=data_dir
+        )
+    elif source_type == "qnap":
+        inner = QnapClient(
+            base_url,
+            str(options.get(OPTION_USERNAME, "")),
+            secret,
+            allow_plain_http=plain,
+            tls=tls,
+            data_dir=data_dir,
+        )
+    elif source_type == "synology":
+        # The client takes "user:password"; DSM user names cannot contain a colon.
+        inner = SynologyClient(
+            base_url,
+            f"{options.get(OPTION_USERNAME, '')}:{secret}",
+            allow_plain_http=plain,
+            tls=tls,
+            data_dir=data_dir,
+        )
+    elif source_type == "truenas":
+        # The client takes "username:API key" (API_KEY_PLAIN needs both).
+        inner = TruenasClient(
+            base_url,
+            f"{options.get(OPTION_USERNAME, '')}:{secret}",
+            allow_plain_http=plain,
+            tls=tls,
+            data_dir=data_dir,
+        )
+    else:
+        raise ValueError("this source type has no collector yet")
     off = resources_turned_off(options)
     return ResourceFilter(inner, off) if off else inner
 

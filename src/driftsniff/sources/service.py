@@ -79,6 +79,10 @@ OPTION_INTERVAL_SECONDS = "interval_seconds"
 OPTION_PUSH_FIELDS = "push_fields"
 OPTION_RESOURCES_OFF = "resources_off"
 OPTION_CREDENTIAL_EXPIRES_ON = "credential_expires_on"
+OPTION_USERNAME = "username"
+MAX_USERNAME_CHARS = 128
+# Source types that sign in with a user name (option username) and a password (the credential).
+USERNAME_TYPES = ("synology", "qnap", "truenas")
 DEFAULT_INTERVAL_SECONDS = 300
 MIN_INTERVAL_SECONDS = 60
 MAX_INTERVAL_SECONDS = 3600
@@ -93,6 +97,7 @@ ALLOWED_OPTIONS: Mapping[str, type] = {
     OPTION_INSECURE: bool,
     OPTION_RESOURCES_OFF: list,
     OPTION_CREDENTIAL_EXPIRES_ON: str,
+    OPTION_USERNAME: str,
 }
 MAX_RESOURCES_OFF = 100
 MAX_RESOURCE_NAME_CHARS = 100
@@ -105,7 +110,7 @@ PUSH_KEY_BYTES = 32
 # source takes as long as one for a source with a key.
 _ABSENT_HASH = hashlib.sha256(b"driftsniff: no push key").hexdigest()
 # Source types that read a controller and therefore need an address and a credential.
-POLLED_TYPES = ("unifi", "xo")
+POLLED_TYPES = ("unifi", "xo", "portainer", "truenas", "synology", "qnap")
 
 ACTION_CREATE = "source.create"
 ACTION_UPDATE = "source.update"
@@ -210,6 +215,8 @@ def _check_options(options: Mapping[str, object]) -> dict[str, object]:
             value = _check_resources_off(value)
         elif key == OPTION_CREDENTIAL_EXPIRES_ON:
             value = _check_expiry_date(value)
+        elif key == OPTION_USERNAME:
+            value = _check_username(value)
         checked[key] = value
     return _check_tls_options(checked)
 
@@ -252,19 +259,32 @@ def _check_expiry_date(value: object) -> str:
     return text
 
 
+def _check_username(value: object) -> str:
+    """The user name a source signs in with: printable, 1 to 128 characters, no outer spaces."""
+    text = value.strip() if isinstance(value, str) else ""
+    if not text or len(text) > MAX_USERNAME_CHARS or not text.isprintable():
+        raise SourceValidationError(
+            f"the source option {OPTION_USERNAME} is a user name of 1 to {MAX_USERNAME_CHARS} "
+            "printable characters"
+        )
+    return text
+
+
 def _check_type_options(source_type: str, options: Mapping[str, object]) -> None:
     """Refuse an option that the type of the source has no use for."""
     if OPTION_PUSH_FIELDS in options and source_type != "push":
         raise SourceValidationError(f"only a push source has the option {OPTION_PUSH_FIELDS}")
     if source_type not in POLLED_TYPES and any(key in options for key in TLS_OPTIONS):
-        raise SourceValidationError("only a unifi or xo source has TLS options")
+        raise SourceValidationError("only a polled source has TLS options")
     if OPTION_RESOURCES_OFF in options and source_type not in POLLED_TYPES:
-        raise SourceValidationError(
-            f"only a unifi or xo source has the option {OPTION_RESOURCES_OFF}"
-        )
+        raise SourceValidationError(f"only a polled source has the option {OPTION_RESOURCES_OFF}")
     if OPTION_CREDENTIAL_EXPIRES_ON in options and source_type != "xo":
         raise SourceValidationError(
             f"only an xo source has the option {OPTION_CREDENTIAL_EXPIRES_ON}"
+        )
+    if OPTION_USERNAME in options and source_type not in USERNAME_TYPES:
+        raise SourceValidationError(
+            f"only a {' or '.join(USERNAME_TYPES)} source has the option {OPTION_USERNAME}"
         )
 
 

@@ -1,0 +1,82 @@
+# QNAP QTS / QuTS hero rules. Every field name is unverified (docs/vendor-notes/qnap.md). Values are
+# the texts QNAP sends ("1"/"0", "TRUE"/"FALSE"), so the rules compare texts, not booleans.
+#
+# The rules the plan asked for on users, groups, SSH, Telnet, myQNAPcloud, UPnP and guest access of
+# a shared folder are not here: the collector does not read those settings (no sourced read-only
+# call), and a rule on a field that is never read would only look like coverage.
+version: 1
+rules:
+  - id: qnap.web_services.force_ssl_off
+    resource: qnap-web-services
+    path: forceSSL
+    when: {name: any_to_value, value: "0"}
+    severity: high
+    rationale: The web interface no longer forces HTTPS, so sign-ins may now travel unencrypted.
+  - id: qnap.web_services.ssl_port
+    resource: qnap-web-services
+    path: stunnelPort
+    severity: medium
+    rationale: The HTTPS port of the web interface changed, so firewall rules and bookmarks may no longer match.
+  - id: qnap.web_services.web_server_on
+    resource: qnap-web-services
+    path: QWebEnabled
+    when: {name: any_to_value, value: "1"}
+    severity: medium
+    rationale: The Web Server was switched on, so the NAS now publishes web content.
+  - id: qnap.system.dns_servers
+    resource: qnap-system
+    path: dnsServers.**
+    severity: high
+    rationale: The DNS servers of the NAS changed, so its names (updates, cloud links) resolve elsewhere.
+  - id: qnap.system.firmware
+    resource: qnap-system
+    path: firmware.version
+    severity: medium
+    rationale: The firmware version changed; check that it was a planned update.
+  - id: qnap.system.hostname
+    resource: qnap-system
+    path: hostname
+    severity: low
+    rationale: The name of the NAS changed, which is cosmetic unless something addresses it by name.
+  - id: qnap.network_interfaces.addressing
+    resource: qnap-network-interfaces
+    path: eth_usage
+    severity: medium
+    rationale: An adapter switched between a fixed address and DHCP.
+  - id: qnap.network_interfaces.dns
+    resource: qnap-network-interfaces
+    path: dns.**
+    severity: high
+    rationale: The DNS servers of an adapter changed, so names resolve elsewhere.
+  - id: qnap.shared_folders.volume
+    resource: qnap-shared-folders
+    path: volumeValue
+    severity: medium
+    rationale: A shared folder now lives on another volume.
+  - id: qnap.volumes.encryption_off
+    resource: qnap-volumes
+    path: encryptfs_bool
+    when: {name: any_to_value, value: "0"}
+    severity: high
+    rationale: A volume is no longer reported as encrypted.
+  - id: qnap.apps.enabled
+    resource: qnap-apps
+    path: enable
+    when: {name: any_to_value, value: "TRUE"}
+    severity: medium
+    rationale: An app was switched on, so its services may now listen on the network.
+  - id: qnap.apps.unofficial
+    resource: qnap-apps
+    path: unofficial
+    severity: high
+    rationale: The unofficial marker of an app changed; an app from outside the App Center runs without QNAP's review.
+  - id: qnap.apps.code_signing
+    resource: qnap-apps
+    path: code_signing_status
+    severity: high
+    rationale: The code signing status of an app changed, so its origin may no longer be verified.
+  - id: qnap.apps.display_name
+    resource: qnap-apps
+    path: displayName
+    severity: low
+    rationale: The shown name of an app changed, which is cosmetic.

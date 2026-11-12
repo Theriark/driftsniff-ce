@@ -23,7 +23,11 @@ from typing import Any, Final
 
 import sqlalchemy as sa
 
+from driftsniff.collectors.portainer.resources import RESOURCES as PORTAINER_RESOURCES
+from driftsniff.collectors.qnap.resources import RESOURCES as QNAP_RESOURCES
+from driftsniff.collectors.synology.resources import RESOURCES as SYNOLOGY_RESOURCES
 from driftsniff.collectors.tls import MODE_VERIFY, OPTION_TLS_MODE
+from driftsniff.collectors.truenas.resources import RESOURCES as TRUENAS_RESOURCES
 from driftsniff.collectors.unifi.resources import RESOURCES as UNIFI_RESOURCES
 from driftsniff.collectors.xo.client import entered_expiry, expiry_is_near
 from driftsniff.collectors.xo.resources import COLLECTIONS as XO_COLLECTIONS
@@ -58,7 +62,14 @@ TLS_MODE_LABELS: Final = {
     "pinned": "Pinned certificate",
     "insecure": "Insecure, certificate checks off",
 }
-CREDENTIAL_LABELS: Final = {"unifi": "API key", "xo": "Authentication token"}
+CREDENTIAL_LABELS: Final = {
+    "unifi": "API key",
+    "xo": "Authentication token",
+    "portainer": "Access token",
+    "qnap": "Password",
+    "synology": "Password",
+    "truenas": "API key",
+}
 STATUS_OK: Final = "200"
 STATUS_FORBIDDEN: Final = "403"
 STATUS_NOT_FOUND: Final = "404"
@@ -79,6 +90,14 @@ def resources_of(source_type: str, options: Mapping[str, object]) -> tuple[str, 
         return tuple(resource.name for resource in UNIFI_RESOURCES)
     if source_type == "xo":
         return tuple(XO_COLLECTIONS)
+    if source_type == "portainer":
+        return tuple(resource.name for resource in PORTAINER_RESOURCES)
+    if source_type == "qnap":
+        return QNAP_RESOURCES
+    if source_type == "synology":
+        return tuple(resource.name for resource in SYNOLOGY_RESOURCES)
+    if source_type == "truenas":
+        return tuple(resource.name for resource in TRUENAS_RESOURCES)
     declared = options.get(OPTION_PUSH_FIELDS)
     return tuple(sorted(declared)) if isinstance(declared, dict) else ()
 

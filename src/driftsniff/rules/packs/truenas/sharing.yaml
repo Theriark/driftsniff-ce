@@ -1,0 +1,28 @@
+# TrueNAS rules for SMB and NFS shares. Shares have the object floor high in
+# rules/types/truenas.yaml, so a rule here only matters when it is critical.
+version: 1
+rules:
+  - id: truenas.smb.guest_access
+    resource: truenas-smb-shares
+    path: options.guestok
+    when: {name: boolean_flips_to, value: true}
+    severity: critical
+    rationale: The SMB share now admits guests, so anyone on the network can open it without a password.
+  - id: truenas.nfs.open_to_all
+    resource: truenas-nfs-shares
+    path: open_to_all
+    when: {name: boolean_flips_to, value: true}
+    severity: critical
+    rationale: The NFS share no longer names any network or host, so TrueNAS exports it to every client.
+  - id: truenas.nfs.maproot_root
+    resource: truenas-nfs-shares
+    path: maproot_user
+    when: {name: any_to_value, value: root}
+    severity: critical
+    rationale: Clients that are root now act as root on the share, so they can change every file in it.
+  - id: truenas.nfs.mapall_root
+    resource: truenas-nfs-shares
+    path: mapall_user
+    when: {name: any_to_value, value: root}
+    severity: critical
+    rationale: Every client user now acts as root on the share, so anyone who can mount it can change every file.

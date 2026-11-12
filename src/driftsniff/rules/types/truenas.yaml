@@ -1,0 +1,563 @@
+# Type tables of the TrueNAS collector. Notes with sources and dates: docs/vendor-notes/truenas.md.
+#
+# Field names are taken from the published API reference of TrueNAS 25.10 (api.truenas.com,
+# read 2026-11-12, the *.query result schemas). They are checked against the documentation ONLY:
+# no lab TrueNAS was read, so every name is UNVERIFIED against a live system. A field that is not
+# listed here is unclassified and shows as a fingerprint only, never as a value.
+#
+# Names that are not in the reference at all and come from this collector:
+#   truenas-nfs-shares.open_to_all   derived: true when the share names no network and no host
+#   truenas-users.full_admin         derived: true when roles holds FULL_ADMIN (the role name
+#                                    FULL_ADMIN itself is UNVERIFIED against a live system)
+# The ZFS properties of pools and datasets arrive as {value, rawvalue, parsed, source, ...}; the
+# collector keeps only value, so the property is named directly (compression, not
+# compression.value). Snapshot tasks inside a replication task are reduced to their ids.
+#
+# Volatile and run state fields are ignore class so that reading an unchanged system twice gives no
+# change: pool health, scan and usage numbers, the vdev topology (it carries per disk state and
+# counters), dataset space numbers, share lock state, service state and pids, interface link state,
+# the live network state, task state and job, password age and certificate expiry flags.
+#
+# Private keys never reach the pipeline (the collector drops them, the table ignores them too).
+# Password hashes, cloud provider secrets and encryption passwords are secret class: a change is
+# shown as a keyed fingerprint only.
+#
+# Users, groups, the SSH service, SMB, NFS and iSCSI shares and cloud credentials have the object
+# floor high. Pools, datasets and the data protection tasks have floor high for a removal.
+version: 1
+types:
+  - resource: truenas-pools
+    key_field: id
+    name_field: name
+    floors: {removed: high}
+    fields:
+      id: config
+      name: config
+      guid: config
+      path: config
+      autotrim: config
+      dedup_table_quota: config
+      status: ignore
+      status_code: ignore
+      status_detail: ignore
+      healthy: ignore
+      warning: ignore
+      scan: ignore
+      expand: ignore
+      is_upgraded: ignore
+      size: ignore
+      allocated: ignore
+      free: ignore
+      freeing: ignore
+      size_str: ignore
+      allocated_str: ignore
+      free_str: ignore
+      freeing_str: ignore
+      fragmentation: ignore
+      dedup_table_size: ignore
+      topology: ignore
+  - resource: truenas-datasets
+    key_field: id
+    name_field: name
+    floors: {removed: high}
+    fields:
+      id: config
+      name: config
+      type: config
+      pool: config
+      mountpoint: config
+      encrypted: config
+      encryption_root: config
+      encryption_algorithm: config
+      key_format: config
+      pbkdf2iters: config
+      comments: config
+      managedby: config
+      deduplication: config
+      aclmode: config
+      acltype: config
+      xattr: config
+      atime: config
+      casesensitivity: config
+      checksum: config
+      exec: config
+      sync: config
+      compression: config
+      quota: config
+      refquota: config
+      quota_warning: config
+      quota_critical: config
+      refquota_warning: config
+      refquota_critical: config
+      reservation: config
+      refreservation: config
+      copies: config
+      snapdir: config
+      snapdev: config
+      readonly: config
+      recordsize: config
+      sparse: config
+      volsize: config
+      volblocksize: config
+      special_small_block_size: config
+      origin: config
+      user_properties: config
+      key_loaded: ignore
+      locked: ignore
+      children: ignore
+      compressratio: ignore
+      used: ignore
+      usedbychildren: ignore
+      usedbydataset: ignore
+      usedbyrefreservation: ignore
+      usedbysnapshots: ignore
+      available: ignore
+      creation: ignore
+  - resource: truenas-smb-shares
+    key_field: id
+    name_field: name
+    floor: high
+    fields:
+      id: config
+      name: config
+      purpose: config
+      path: config
+      enabled: config
+      comment: config
+      readonly: config
+      browsable: config
+      access_based_share_enumeration: config
+      audit.enable: config
+      audit.watch_list: config
+      audit.ignore_list: config
+      options.guestok: config
+      options.recyclebin: config
+      options.path_suffix: config
+      options.hostsallow: config
+      options.hostsdeny: config
+      options.streams: config
+      options.durablehandle: config
+      options.shadowcopy: config
+      options.fsrvp: config
+      options.home: config
+      options.acl: config
+      options.afp: config
+      options.timemachine: config
+      options.timemachine_quota: config
+      options.aapl_name_mangling: config
+      options.vuid: config
+      options.auxsmbconf: config
+      locked: ignore
+    lists:
+      audit.watch_list: set
+      audit.ignore_list: set
+      options.hostsallow: set
+      options.hostsdeny: set
+  - resource: truenas-nfs-shares
+    key_field: id
+    name_field: path
+    floor: high
+    fields:
+      id: config
+      path: config
+      comment: config
+      networks: config
+      hosts: config
+      ro: config
+      maproot_user: config
+      maproot_group: config
+      mapall_user: config
+      mapall_group: config
+      security: config
+      enabled: config
+      expose_snapshots: config
+      open_to_all: config
+      aliases: ignore
+      locked: ignore
+    lists:
+      networks: set
+      hosts: set
+      security: set
+  - resource: truenas-iscsi-targets
+    key_field: id
+    name_field: name
+    floor: high
+    fields:
+      id: config
+      name: config
+      alias: config
+      mode: config
+      groups: config
+      auth_networks: config
+      iscsi_parameters: config
+      rel_tgt_id: ignore
+    lists:
+      groups: set
+      auth_networks: set
+  - resource: truenas-iscsi-extents
+    key_field: id
+    name_field: name
+    floor: high
+    fields:
+      id: config
+      name: config
+      type: config
+      disk: config
+      serial: config
+      path: config
+      filesize: config
+      blocksize: config
+      pblocksize: config
+      avail_threshold: config
+      comment: config
+      naa: config
+      insecure_tpc: config
+      xen: config
+      rpm: config
+      ro: config
+      enabled: config
+      vendor: config
+      product_id: config
+      locked: ignore
+  - resource: truenas-users
+    key_field: id
+    name_field: username
+    floor: high
+    fields:
+      id: config
+      uid: config
+      username: config
+      home: config
+      shell: config
+      full_name: config
+      builtin: config
+      smb: config
+      userns_idmap: config
+      group: config
+      groups: config
+      password_disabled: config
+      ssh_password_enabled: config
+      sshpubkey: config
+      locked: config
+      sudo_commands: config
+      sudo_commands_nopasswd: config
+      email: config
+      local: config
+      immutable: config
+      twofactor_auth_configured: config
+      sid: config
+      roles: config
+      api_keys: config
+      password_change_required: config
+      full_admin: config
+      unixhash: secret
+      smbhash: secret
+      password_history: secret
+      last_password_change: ignore
+      password_age: ignore
+    lists:
+      groups: set
+      sudo_commands: set
+      sudo_commands_nopasswd: set
+      roles: set
+      api_keys: set
+  - resource: truenas-groups
+    key_field: id
+    name_field: name
+    floor: high
+    fields:
+      id: config
+      gid: config
+      name: config
+      group: config
+      builtin: config
+      sudo_commands: config
+      sudo_commands_nopasswd: config
+      smb: config
+      userns_idmap: config
+      local: config
+      sid: config
+      roles: config
+      users: config
+      immutable: config
+    lists:
+      sudo_commands: set
+      sudo_commands_nopasswd: set
+      roles: set
+      users: set
+  - resource: truenas-ssh
+    key_field: id
+    floor: high
+    fields:
+      id: config
+      bindiface: config
+      tcpport: config
+      password_login_groups: config
+      passwordauth: config
+      kerberosauth: config
+      tcpfwd: config
+      compression: config
+      sftp_log_level: config
+      sftp_log_facility: config
+      weak_ciphers: config
+      options: config
+      host_key_pub: config
+      host_dsa_key_pub: config
+      host_dsa_key_cert_pub: config
+      host_ecdsa_key_pub: config
+      host_ecdsa_key_cert_pub: config
+      host_ed25519_key_pub: config
+      host_ed25519_key_cert_pub: config
+      host_rsa_key_pub: config
+      host_rsa_key_cert_pub: config
+      privatekey: ignore
+      host_key: ignore
+      host_dsa_key: ignore
+      host_ecdsa_key: ignore
+      host_ed25519_key: ignore
+      host_rsa_key: ignore
+    lists:
+      bindiface: set
+      password_login_groups: set
+      weak_ciphers: set
+  - resource: truenas-services
+    key_field: service
+    name_field: service
+    fields:
+      id: config
+      service: config
+      enable: config
+      state: ignore
+      pids: ignore
+  - resource: truenas-interfaces
+    key_field: id
+    name_field: name
+    fields:
+      id: config
+      name: config
+      fake: config
+      type: config
+      aliases: config
+      ipv4_dhcp: config
+      ipv6_auto: config
+      description: config
+      mtu: config
+      vlan_parent_interface: config
+      vlan_tag: config
+      vlan_pcp: config
+      lag_protocol: config
+      lag_ports: config
+      bridge_members: config
+      enable_learning: config
+      state: ignore
+    lists:
+      aliases: set
+      lag_ports: set
+      bridge_members: set
+  - resource: truenas-network-config
+    key_field: id
+    name_field: hostname
+    fields:
+      id: config
+      hostname: config
+      domain: config
+      ipv4gateway: config
+      ipv6gateway: config
+      nameserver1: config
+      nameserver2: config
+      nameserver3: config
+      httpproxy: config
+      hosts: config
+      domains: config
+      service_announcement: config
+      activity: config
+      hostname_local: config
+      hostname_b: config
+      hostname_virtual: config
+      state: ignore
+    lists:
+      hosts: set
+      domains: set
+  - resource: truenas-snapshot-tasks
+    key_field: id
+    name_field: dataset
+    floors: {removed: high}
+    fields:
+      id: config
+      dataset: config
+      recursive: config
+      lifetime_value: config
+      lifetime_unit: config
+      enabled: config
+      exclude: config
+      naming_schema: config
+      allow_empty: config
+      schedule: config
+      vmware_sync: config
+      state: ignore
+    lists:
+      exclude: set
+  - resource: truenas-replication-tasks
+    key_field: id
+    name_field: name
+    floors: {removed: high}
+    fields:
+      id: config
+      name: config
+      direction: config
+      transport: config
+      ssh_credentials.id: config
+      ssh_credentials.name: config
+      ssh_credentials.type: config
+      sudo: config
+      netcat_active_side: config
+      netcat_active_side_listen_address: config
+      netcat_active_side_port_min: config
+      netcat_active_side_port_max: config
+      netcat_passive_side_connect_address: config
+      source_datasets: config
+      target_dataset: config
+      recursive: config
+      exclude: config
+      properties: config
+      properties_exclude: config
+      properties_override: config
+      replicate: config
+      encryption: config
+      encryption_inherit: config
+      encryption_key_format: config
+      encryption_key_location: config
+      periodic_snapshot_tasks: config
+      naming_schema: config
+      also_include_naming_schema: config
+      name_regex: config
+      auto: config
+      schedule: config
+      restrict_schedule: config
+      only_matching_schedule: config
+      allow_from_scratch: config
+      readonly: config
+      hold_pending_snapshots: config
+      retention_policy: config
+      lifetime_value: config
+      lifetime_unit: config
+      lifetimes: config
+      compression: config
+      speed_limit: config
+      large_block: config
+      embed: config
+      compressed: config
+      retries: config
+      logging_level: config
+      enabled: config
+      encryption_key: secret
+      ssh_credentials.attributes: ignore
+      state: ignore
+      job: ignore
+      has_encrypted_dataset_keys: ignore
+    lists:
+      source_datasets: set
+      exclude: set
+      properties_exclude: set
+      periodic_snapshot_tasks: set
+  - resource: truenas-cloud-sync-tasks
+    key_field: id
+    name_field: description
+    floors: {removed: high}
+    fields:
+      id: config
+      description: config
+      path: config
+      credentials.id: config
+      credentials.name: config
+      attributes: config
+      schedule: config
+      pre_script: config
+      post_script: config
+      snapshot: config
+      include: config
+      exclude: config
+      args: config
+      enabled: config
+      bwlimit: config
+      transfers: config
+      direction: config
+      transfer_mode: config
+      encryption: config
+      filename_encryption: config
+      create_empty_src_dirs: config
+      follow_symlinks: config
+      encryption_password: secret
+      encryption_salt: secret
+      credentials.provider: ignore
+      job: ignore
+      locked: ignore
+    lists:
+      include: set
+      exclude: set
+  - resource: truenas-cloud-credentials
+    key_field: id
+    name_field: name
+    floor: high
+    fields:
+      id: config
+      name: config
+      provider.type: config
+      provider.endpoint: config
+      provider.region: config
+      provider.host: config
+      provider.port: config
+      provider.user: config
+      provider.account: config
+      provider.access_key_id: secret
+      provider.secret_access_key: secret
+      provider.key: secret
+      provider.pass: secret
+      provider.token: secret
+      provider.client_secret: secret
+      provider.service_account_credentials: secret
+  - resource: truenas-cron-jobs
+    key_field: id
+    name_field: description
+    fields:
+      id: config
+      enabled: config
+      stderr: config
+      stdout: config
+      schedule: config
+      command: config
+      description: config
+      user: config
+  - resource: truenas-certificates
+    key_field: id
+    name_field: name
+    fields:
+      id: config
+      name: config
+      type: config
+      cert_type: config
+      certificate: config
+      CSR: config
+      acme_uri: config
+      renew_days: config
+      add_to_trusted_store: config
+      key_length: config
+      key_type: config
+      common: config
+      san: config
+      DN: config
+      digest_algorithm: config
+      from: config
+      until: config
+      serial: config
+      fingerprint: config
+      chain: config
+      privatekey: ignore
+      expired: ignore
+      parsed: ignore
+      root_path: ignore
+      certificate_path: ignore
+      privatekey_path: ignore
+      csr_path: ignore
+    lists:
+      san: set
