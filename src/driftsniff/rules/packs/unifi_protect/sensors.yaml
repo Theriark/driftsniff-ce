@@ -1,0 +1,117 @@
+# UniFi Protect rules for sensors. Switching a detection off is the serious change: smoke and
+# carbon monoxide alarm detection is critical, leak, motion and glass break detection high. The
+# removal of a sensor is high by the object floor of the type table; that floor also makes the
+# removal of a sensor from an arm profile high. A field that has no rule here is MEDIUM,
+# unclassified, until it is reviewed.
+version: 1
+rules:
+  - id: protect.sensors.alarm_off
+    resource: protect-sensors
+    path: alarmSettings.isEnabled
+    when: {name: boolean_flips_to, value: false}
+    severity: critical
+    rationale: Smoke and carbon monoxide alarm detection of a sensor was switched off, so a fire or gas alarm is no longer reported.
+  - id: protect.sensors.alarm
+    resource: protect-sensors
+    path: alarmSettings.isEnabled
+    severity: low
+    rationale: Smoke and carbon monoxide alarm detection of a sensor was switched on.
+  - id: protect.sensors.leak_off
+    resource: protect-sensors
+    path: leakSettings.*
+    when: {name: boolean_flips_to, value: false}
+    severity: high
+    rationale: Leak detection of a sensor was switched off, so a leak is no longer reported.
+  - id: protect.sensors.leak
+    resource: protect-sensors
+    path: leakSettings.*
+    severity: low
+    rationale: Leak detection of a sensor was switched on.
+  - id: protect.sensors.motion_off
+    resource: protect-sensors
+    path: motionSettings.isEnabled
+    when: {name: boolean_flips_to, value: false}
+    severity: high
+    rationale: Motion detection of a sensor was switched off, so an intrusion it covers is no longer reported.
+  - id: protect.sensors.motion
+    resource: protect-sensors
+    path: motionSettings.**
+    severity: low
+    rationale: A motion detection setting of a sensor changed.
+  - id: protect.sensors.glass_break_off
+    resource: protect-sensors
+    path: glassBreakSettings.isEnabled
+    when: {name: boolean_flips_to, value: false}
+    severity: high
+    rationale: Glass break detection of a sensor was switched off, so a broken window is no longer reported.
+  - id: protect.sensors.glass_break
+    resource: protect-sensors
+    path: glassBreakSettings.**
+    severity: low
+    rationale: A glass break detection setting of a sensor changed.
+  - id: protect.sensors.schedule_when_armed
+    resource: protect-sensors
+    path: scheduleMode
+    when: {name: enum_transition, from: [always], to: [when_armed]}
+    severity: medium
+    rationale: Motion and glass break detection of a sensor now run only while the system is armed.
+  - id: protect.sensors.schedule
+    resource: protect-sensors
+    path: scheduleMode
+    severity: low
+    rationale: When motion and glass break detection of a sensor run changed.
+  - id: protect.sensors.arm_profiles
+    resource: protect-sensors
+    path: armProfileIds
+    severity: medium
+    rationale: The arm profiles a sensor belongs to changed, which changes when it raises the alarm.
+  - id: protect.sensors.custom_sensitivity_when_armed
+    resource: protect-sensors
+    path: hasCustomSensitivityWhenArmed
+    severity: low
+    rationale: Whether a sensor uses its own sensitivity while armed changed.
+  - id: protect.sensors.light_thresholds
+    resource: protect-sensors
+    path: lightSettings.**
+    severity: low
+    rationale: A light level alert setting of a sensor changed.
+  - id: protect.sensors.humidity_thresholds
+    resource: protect-sensors
+    path: humiditySettings.**
+    severity: low
+    rationale: A humidity alert setting of a sensor changed.
+  - id: protect.sensors.temperature_thresholds
+    resource: protect-sensors
+    path: temperatureSettings.**
+    severity: low
+    rationale: A temperature alert setting of a sensor changed.
+  - id: protect.sensors.mount_type
+    resource: protect-sensors
+    path: mountType
+    severity: low
+    rationale: What a sensor is mounted on (door, window, garage, leak) changed.
+  - id: protect.sensors.name
+    resource: protect-sensors
+    path: name
+    severity: low
+    rationale: A sensor was renamed.
+  - id: protect.sensors.mac
+    resource: protect-sensors
+    path: mac
+    severity: medium
+    rationale: A sensor now reports another MAC address, so a different device may stand behind it.
+  - id: protect.sensors.type
+    resource: protect-sensors
+    path: type
+    severity: low
+    rationale: The model a sensor reports changed.
+  - id: protect.sensors.guid
+    resource: protect-sensors
+    path: guid
+    severity: low
+    rationale: The device identifier of a sensor changed.
+  - id: protect.sensors.model_key
+    resource: protect-sensors
+    path: modelKey
+    severity: low
+    rationale: The kind of device the API reports changed.

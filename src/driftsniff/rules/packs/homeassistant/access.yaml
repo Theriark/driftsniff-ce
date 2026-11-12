@@ -1,0 +1,113 @@
+# Home Assistant rules for users and how the instance is reached. A user that is added or removed
+# is critical by the ** rule of homeassistant-users: an added object carries no field values a
+# rule could test, so a new administrator cannot be told apart from a new user. Field names:
+# docs/vendor-notes/homeassistant.md (core source, not checked on a live system).
+version: 1
+rules:
+  - id: homeassistant.users.made_admin
+    resource: homeassistant-users
+    path: is_admin
+    when: {name: boolean_flips_to, value: true}
+    severity: critical
+    rationale: A user became an administrator of Home Assistant and can now change every setting, user and integration.
+  - id: homeassistant.users.admin_removed
+    resource: homeassistant-users
+    path: is_admin
+    when: {name: boolean_flips_to, value: false}
+    severity: medium
+    rationale: A user is no longer an administrator of Home Assistant.
+  - id: homeassistant.users.made_owner
+    resource: homeassistant-users
+    path: is_owner
+    when: {name: boolean_flips_to, value: true}
+    severity: critical
+    rationale: A user became the owner of Home Assistant, which no group can limit.
+  - id: homeassistant.users.activated
+    resource: homeassistant-users
+    path: is_active
+    when: {name: boolean_flips_to, value: true}
+    severity: high
+    rationale: A user account that was turned off can sign in again.
+  - id: homeassistant.users.deactivated
+    resource: homeassistant-users
+    path: is_active
+    when: {name: boolean_flips_to, value: false}
+    severity: low
+    rationale: A user account was turned off and can no longer sign in.
+  - id: homeassistant.users.remote_login
+    resource: homeassistant-users
+    path: local_only
+    when: {name: boolean_flips_to, value: false}
+    severity: high
+    rationale: A user may now sign in from outside the local network.
+  - id: homeassistant.users.local_only
+    resource: homeassistant-users
+    path: local_only
+    when: {name: boolean_flips_to, value: true}
+    severity: low
+    rationale: A user may now sign in from the local network only.
+  - id: homeassistant.users.groups
+    resource: homeassistant-users
+    path: group_ids
+    severity: high
+    rationale: The groups of a user changed, which changes what that user may read and control.
+  - id: homeassistant.users.credentials
+    resource: homeassistant-users
+    path: credentials
+    severity: high
+    rationale: The ways a user can sign in changed, for example a new authentication provider.
+  - id: homeassistant.users.username
+    resource: homeassistant-users
+    path: username
+    severity: medium
+    rationale: The sign in name of a user changed.
+  - id: homeassistant.users.system_generated
+    resource: homeassistant-users
+    path: system_generated
+    severity: medium
+    rationale: Whether Home Assistant itself manages a user account changed.
+  - id: homeassistant.users.added_or_removed
+    resource: homeassistant-users
+    path: "**"
+    severity: critical
+    rationale: A user account was added or removed, and a new one may be an administrator.
+  - id: homeassistant.users.name
+    resource: homeassistant-users
+    path: name
+    severity: low
+    rationale: The display name of a user changed.
+  - id: homeassistant.core.external_url
+    resource: homeassistant-core-config
+    path: external_url
+    severity: high
+    rationale: The address Home Assistant is reached at from the internet changed, so apps and links now go to a new place.
+  - id: homeassistant.core.internal_url
+    resource: homeassistant-core-config
+    path: internal_url
+    severity: medium
+    rationale: The address Home Assistant is reached at on the local network changed.
+  - id: homeassistant.core.allowlist_dirs
+    resource: homeassistant-core-config
+    path: allowlist_external_dirs
+    severity: high
+    rationale: The folders integrations may read and send files from changed.
+  - id: homeassistant.core.allowlist_urls
+    resource: homeassistant-core-config
+    path: allowlist_external_urls
+    severity: medium
+    rationale: The addresses integrations may fetch files from changed.
+  - id: homeassistant.core.latitude
+    resource: homeassistant-core-config
+    path: latitude
+    severity: medium
+    rationale: The home location moved, which changes sun, zone and presence based automations.
+  - id: homeassistant.core.longitude
+    resource: homeassistant-core-config
+    path: longitude
+    severity: medium
+    rationale: The home location moved, which changes sun, zone and presence based automations.
+  - id: homeassistant.core.general
+    resource: homeassistant-core-config
+    path: "**"
+    severity: low
+    rationale: A general setting changed, such as the name, time zone, units, country, currency, language or debug mode.

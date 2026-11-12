@@ -1,0 +1,112 @@
+# Grafana rules for data sources, folders, dashboards and alerting. Contact points and the
+# notification policy tree have the object floor high in rules/types/grafana.yaml; a field that
+# has no rule here is MEDIUM, unclassified, until it is reviewed.
+version: 1
+rules:
+  - id: grafana.datasources.url
+    resource: grafana-datasources
+    path: url
+    severity: high
+    rationale: A data source points to another address, so dashboards and alerts now read other data.
+  - id: grafana.datasources.type
+    resource: grafana-datasources
+    path: type
+    severity: high
+    rationale: The plugin type of a data source changed.
+  - id: grafana.datasources.user
+    resource: grafana-datasources
+    path: user
+    severity: high
+    rationale: The account a data source signs in with changed.
+  - id: grafana.datasources.basic_auth_user
+    resource: grafana-datasources
+    path: basicAuthUser
+    severity: high
+    rationale: The basic authentication user of a data source changed.
+  - id: grafana.datasources.secure_fields
+    resource: grafana-datasources
+    path: secureJsonFields.**
+    severity: high
+    rationale: A stored credential of a data source was added or removed.
+  - id: grafana.datasources.tls_skip_verify
+    resource: grafana-datasources
+    path: jsonData.tlsSkipVerify
+    when: {name: boolean_flips_to, value: true}
+    severity: critical
+    rationale: Certificate checks of a data source were switched off, so anyone on the path can pose as it.
+  - id: grafana.datasources.access
+    resource: grafana-datasources
+    path: access
+    severity: medium
+    rationale: Whether the server or the browser reaches the data source changed.
+  - id: grafana.datasources.default
+    resource: grafana-datasources
+    path: isDefault
+    severity: medium
+    rationale: The default data source of new panels changed.
+  - id: grafana.datasources.name
+    resource: grafana-datasources
+    path: name
+    severity: low
+    rationale: A data source was renamed, which changes only how people find it.
+  - id: grafana.folders.parent
+    resource: grafana-folders
+    path: folderUid
+    severity: medium
+    rationale: A folder moved under another folder and takes the permissions of its new parent.
+  - id: grafana.folders.title
+    resource: grafana-folders
+    path: title
+    severity: low
+    rationale: A folder was renamed, which changes only how people find it.
+  - id: grafana.dashboards.any
+    resource: grafana-dashboards
+    path: '**'
+    severity: low
+    rationale: A dashboard was added or its content changed, which changes what people see but no access.
+  - id: grafana.dashboards.folder
+    resource: grafana-dashboards
+    path: folderUid
+    severity: medium
+    rationale: A dashboard moved to another folder and now has that folder's permissions.
+  - id: grafana.alert_rules.paused
+    resource: grafana-alert-rules
+    path: isPaused
+    when: {name: boolean_flips_to, value: true}
+    severity: high
+    rationale: An alert rule was paused, so it no longer fires.
+  - id: grafana.alert_rules.condition
+    resource: grafana-alert-rules
+    path: condition
+    severity: medium
+    rationale: The query whose result decides whether an alert rule fires changed.
+  - id: grafana.alert_rules.queries
+    resource: grafana-alert-rules
+    path: data
+    severity: medium
+    rationale: A query of an alert rule changed, so it may fire on other data or not at all.
+  - id: grafana.alert_rules.no_data_state
+    resource: grafana-alert-rules
+    path: noDataState
+    severity: medium
+    rationale: What an alert rule does when its query returns no data changed.
+  - id: grafana.alert_rules.notification_settings
+    resource: grafana-alert-rules
+    path: notification_settings.**
+    severity: high
+    rationale: Where the notifications of an alert rule are sent changed.
+  - id: grafana.alert_rules.title
+    resource: grafana-alert-rules
+    path: title
+    severity: low
+    rationale: An alert rule was renamed.
+  - id: grafana.contact_points.type
+    resource: grafana-contact-points
+    path: type
+    severity: critical
+    rationale: A contact point now delivers alerts through another kind of integration.
+  - id: grafana.notification_policies.receiver
+    resource: grafana-notification-policies
+    path: receiver
+    severity: critical
+    rationale: The default contact point of every alert that no other policy matches changed.

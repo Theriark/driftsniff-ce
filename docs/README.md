@@ -45,6 +45,14 @@ Step by step, with a screenshot of each step. See the [tutorial index](tutorials
 - [Setting up a Xen Orchestra source](guides/xo-setup.md)
 - [Setting up a QNAP source](guides/qnap-setup.md)
 - [Setting up a Synology DSM source](guides/synology-setup.md)
+- [Setting up a Grafana source](guides/grafana-setup.md)
+- [Setting up a Prometheus source](guides/prometheus-setup.md)
+- [Setting up a UniFi Protect source](guides/unifi-protect-setup.md)
+- [Setting up a Checkmk source](guides/checkmk-setup.md)
+- [Setting up a Home Assistant source](guides/homeassistant-setup.md)
+- [Setting up a Proxmox VE source](guides/proxmox-setup.md)
+- [Setting up a Redfish source (iDRAC, iLO, Supermicro)](guides/redfish-setup.md)
+- [Setting up a Zabbix source](guides/zabbix-setup.md)
 
 Neither guide has been checked against a lab controller yet; each one marks the statements about
 the vendor side as NOT VERIFIED.

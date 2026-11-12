@@ -1,0 +1,135 @@
+# Redfish rules for the server and its BMC: systems (boot and secure boot), BIOS attributes,
+# managers, the network services of the BMC, its Ethernet interfaces and the firmware inventory.
+# A field that has no rule here is MEDIUM, unclassified, until it is reviewed. Ordered lists
+# (boot order, NTP and DNS servers) add the position to the path, hence the "**" endings.
+version: 1
+rules:
+  - id: redfish.network.ipmi_on
+    resource: redfish-network-protocol
+    path: IPMI.ProtocolEnabled
+    when: {name: boolean_flips_to, value: true}
+    severity: critical
+    rationale: IPMI over LAN was switched on, whose weak sign in lets the password hash be read.
+  - id: redfish.network.telnet_on
+    resource: redfish-network-protocol
+    path: Telnet.ProtocolEnabled
+    when: {name: boolean_flips_to, value: true}
+    severity: critical
+    rationale: Telnet to the BMC was switched on, which sends passwords in clear.
+  - id: redfish.network.ssh_on
+    resource: redfish-network-protocol
+    path: SSH.ProtocolEnabled
+    when: {name: boolean_flips_to, value: true}
+    severity: high
+    rationale: SSH to the BMC was switched on, which opens another way to sign in.
+  - id: redfish.network.http_on
+    resource: redfish-network-protocol
+    path: HTTP.ProtocolEnabled
+    when: {name: boolean_flips_to, value: true}
+    severity: high
+    rationale: Plain HTTP to the BMC was switched on.
+  - id: redfish.network.snmp_v1
+    resource: redfish-network-protocol
+    path: SNMP.EnableSNMPv1
+    when: {name: boolean_flips_to, value: true}
+    severity: high
+    rationale: SNMP version 1 was switched on, which has only a community string in clear.
+  - id: redfish.network.snmp_v2c
+    resource: redfish-network-protocol
+    path: SNMP.EnableSNMPv2c
+    when: {name: boolean_flips_to, value: true}
+    severity: high
+    rationale: SNMP version 2c was switched on, which has only a community string in clear.
+  - id: redfish.network.snmp_communities
+    resource: redfish-network-protocol
+    path: SNMP.CommunityStrings.**
+    severity: high
+    rationale: The SNMP communities of the BMC, or what they may do, changed.
+  - id: redfish.network.protocol_enabled
+    resource: redfish-network-protocol
+    path: "*.ProtocolEnabled"
+    severity: medium
+    rationale: A network service of the BMC was switched on or off.
+  - id: redfish.network.port
+    resource: redfish-network-protocol
+    path: "*.Port"
+    severity: medium
+    rationale: A network service of the BMC listens on another port.
+  - id: redfish.network.ntp_servers
+    resource: redfish-network-protocol
+    path: NTP.NTPServers.**
+    severity: medium
+    rationale: The BMC takes its time from other NTP servers, which changes the time of its logs.
+  - id: redfish.network.host_name
+    resource: redfish-network-protocol
+    path: HostName
+    severity: low
+    rationale: The host name of the BMC changed, which changes only how people find it.
+  - id: redfish.interfaces.dns
+    resource: redfish-manager-interfaces
+    path: NameServers.**
+    severity: medium
+    rationale: The DNS servers the BMC uses changed.
+  - id: redfish.interfaces.static_dns
+    resource: redfish-manager-interfaces
+    path: StaticNameServers.**
+    severity: medium
+    rationale: The DNS servers set by hand on the BMC changed.
+  - id: redfish.systems.boot_order
+    resource: redfish-systems
+    path: Boot.BootOrder.**
+    severity: high
+    rationale: The boot order changed, so the server may start from another device.
+  - id: redfish.systems.boot_override_continuous
+    resource: redfish-systems
+    path: Boot.BootSourceOverrideEnabled
+    when: {name: any_to_value, value: Continuous}
+    severity: high
+    rationale: Every boot now goes to the override device instead of the boot order.
+  - id: redfish.systems.boot_override_target
+    resource: redfish-systems
+    path: Boot.BootSourceOverrideTarget
+    severity: medium
+    rationale: The device of the boot override changed.
+  - id: redfish.systems.secure_boot_off
+    resource: redfish-systems
+    path: SecureBoot.SecureBootEnable
+    when: {name: boolean_flips_to, value: false}
+    severity: critical
+    rationale: UEFI Secure Boot was switched off, so unsigned boot loaders and kernels can start.
+  - id: redfish.systems.secure_boot_setup_mode
+    resource: redfish-systems
+    path: SecureBoot.SecureBootMode
+    when: {name: any_to_value, value: SetupMode}
+    severity: high
+    rationale: Secure Boot is in setup mode, so its keys can be replaced without a signature.
+  - id: redfish.systems.bios_version
+    resource: redfish-systems
+    path: BiosVersion
+    severity: medium
+    rationale: The BIOS firmware of the server was updated or rolled back.
+  - id: redfish.systems.description
+    resource: redfish-systems
+    path: Description
+    severity: low
+    rationale: The description of the server changed, which changes only how people find it.
+  - id: redfish.bios.value
+    resource: redfish-bios
+    path: value
+    severity: medium
+    rationale: A BIOS setting of the server changed.
+  - id: redfish.managers.firmware
+    resource: redfish-managers
+    path: FirmwareVersion
+    severity: medium
+    rationale: The firmware of the BMC was updated or rolled back.
+  - id: redfish.managers.description
+    resource: redfish-managers
+    path: Description
+    severity: low
+    rationale: The description of the BMC changed, which changes only how people find it.
+  - id: redfish.firmware.version
+    resource: redfish-firmware
+    path: Version
+    severity: medium
+    rationale: The version of a firmware component changed.

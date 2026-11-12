@@ -1,0 +1,74 @@
+# Home Assistant rules for integrations, entities, areas and dashboards. An object that is added
+# or removed has the empty path, which only a ** rule matches.
+version: 1
+rules:
+  - id: homeassistant.integrations.added_or_removed
+    resource: homeassistant-integrations
+    path: "**"
+    severity: medium
+    rationale: An integration was added or removed, so devices, entities and data flows appear or go.
+  - id: homeassistant.integrations.disabled
+    resource: homeassistant-integrations
+    path: disabled_by
+    severity: medium
+    rationale: An integration was turned off or on, which stops or starts all of its devices and entities.
+  - id: homeassistant.integrations.title
+    resource: homeassistant-integrations
+    path: title
+    severity: low
+    rationale: The name of an integration changed.
+  - id: homeassistant.integrations.polling
+    resource: homeassistant-integrations
+    path: pref_disable_polling
+    severity: low
+    rationale: Whether an integration polls its devices changed.
+  - id: homeassistant.integrations.new_entities
+    resource: homeassistant-integrations
+    path: pref_disable_new_entities
+    severity: low
+    rationale: Whether an integration adds new entities by itself changed.
+  - id: homeassistant.entities.disabled_by_user
+    resource: homeassistant-entities
+    path: disabled_by
+    when: {name: any_to_value, value: user}
+    severity: medium
+    rationale: A person turned an entity off, so automations and dashboards that use it see nothing.
+  - id: homeassistant.entities.alexa
+    resource: homeassistant-entities
+    path: options.cloud.alexa.should_expose
+    when: {name: boolean_flips_to, value: true}
+    severity: medium
+    rationale: An entity is now exposed to Amazon Alexa through Home Assistant Cloud.
+  - id: homeassistant.entities.google
+    resource: homeassistant-entities
+    path: options.cloud.google_assistant.should_expose
+    when: {name: boolean_flips_to, value: true}
+    severity: medium
+    rationale: An entity is now exposed to Google Assistant through Home Assistant Cloud.
+  - id: homeassistant.entities.google_2fa
+    resource: homeassistant-entities
+    path: options.cloud.google_assistant.disable_2fa
+    when: {name: boolean_flips_to, value: true}
+    severity: high
+    rationale: Google Assistant may now open or unlock this entity without asking for the PIN.
+  - id: homeassistant.entities.general
+    resource: homeassistant-entities
+    path: "**"
+    severity: low
+    rationale: An entity was added, removed, renamed, moved to another area or hidden.
+  - id: homeassistant.areas.general
+    resource: homeassistant-areas
+    path: "**"
+    severity: low
+    rationale: An area was added, removed or renamed, or its icon, floor or labels changed.
+  - id: homeassistant.dashboards.require_admin
+    resource: homeassistant-dashboards
+    path: require_admin
+    when: {name: boolean_flips_to, value: false}
+    severity: medium
+    rationale: A dashboard is now shown to every user, not only to administrators.
+  - id: homeassistant.dashboards.general
+    resource: homeassistant-dashboards
+    path: "**"
+    severity: low
+    rationale: A dashboard was added, removed, renamed or moved in the sidebar.

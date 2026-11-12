@@ -1,0 +1,110 @@
+# Proxmox VE rules for who may sign in and what they may do: users, API tokens, groups, roles,
+# ACL entries and realms. Proxmox answers booleans as 0 and 1. A new user, token or ACL entry is
+# high by the object floor of its type table, a new Administrator ACL entry critical.
+version: 1
+rules:
+  - id: proxmox.users.enable
+    resource: proxmox-users
+    path: enable
+    severity: high
+    rationale: A user account was enabled or disabled, which changes who can sign in.
+  - id: proxmox.users.expire
+    resource: proxmox-users
+    path: expire
+    severity: high
+    rationale: The expiry date of a user account changed, so it may now stay valid longer.
+  - id: proxmox.users.groups
+    resource: proxmox-users
+    path: groups
+    severity: high
+    rationale: The groups of a user changed, and with them the rights the user inherits.
+  - id: proxmox.users.keys
+    resource: proxmox-users
+    path: keys
+    severity: high
+    rationale: The second factor keys of a user changed.
+  - id: proxmox.users.comment
+    resource: proxmox-users
+    path: comment
+    severity: low
+    rationale: The comment of a user changed, which changes only how people read the account.
+  - id: proxmox.tokens.privsep_off
+    resource: proxmox-tokens
+    path: privsep
+    when: {name: any_to_value, value: 0}
+    severity: critical
+    rationale: Privilege separation of an API token was switched off, so the token now has every right of its user.
+  - id: proxmox.tokens.privsep
+    resource: proxmox-tokens
+    path: privsep
+    severity: high
+    rationale: Whether an API token has its own rights or those of its user changed.
+  - id: proxmox.tokens.expire
+    resource: proxmox-tokens
+    path: expire
+    severity: high
+    rationale: The expiry date of an API token changed, so it may now stay valid longer.
+  - id: proxmox.tokens.comment
+    resource: proxmox-tokens
+    path: comment
+    severity: low
+    rationale: The comment of an API token changed.
+  - id: proxmox.groups.users
+    resource: proxmox-groups
+    path: users
+    severity: high
+    rationale: The members of a group changed, so other users now hold the rights of that group.
+  - id: proxmox.groups.comment
+    resource: proxmox-groups
+    path: comment
+    severity: low
+    rationale: The comment of a group changed.
+  - id: proxmox.roles.permissions_modify
+    resource: proxmox-roles
+    path: privs
+    when: {name: any_to_value, value: Permissions.Modify}
+    severity: critical
+    rationale: A role gained Permissions.Modify, so whoever holds it can grant any right to anyone.
+  - id: proxmox.roles.privs
+    resource: proxmox-roles
+    path: privs
+    severity: high
+    rationale: The privileges of a role changed, and with them what everyone holding the role may do.
+  - id: proxmox.acl.propagate
+    resource: proxmox-acl
+    path: propagate
+    severity: high
+    rationale: Whether an ACL entry also applies below its path changed.
+  - id: proxmox.admin_acl.propagate_on
+    resource: proxmox-admin-acl
+    path: propagate
+    when: {name: any_to_value, value: 1}
+    severity: critical
+    rationale: An Administrator ACL entry now applies to everything below its path as well.
+  - id: proxmox.realms.verify_off
+    resource: proxmox-realms
+    path: verify
+    when: {name: any_to_value, value: 0}
+    severity: critical
+    rationale: Certificate checks of a directory realm were switched off, so sign in can be intercepted.
+  - id: proxmox.realms.issuer
+    resource: proxmox-realms
+    path: issuer-url
+    severity: critical
+    rationale: Sign in through an OpenID realm is now sent to another issuer.
+  - id: proxmox.realms.autocreate_on
+    resource: proxmox-realms
+    path: autocreate
+    when: {name: any_to_value, value: 1}
+    severity: critical
+    rationale: Anyone the realm accepts now gets a Proxmox VE account automatically.
+  - id: proxmox.realms.settings
+    resource: proxmox-realms
+    path: "**"
+    severity: high
+    rationale: A setting of a realm used for sign in changed.
+  - id: proxmox.realms.comment
+    resource: proxmox-realms
+    path: comment
+    severity: low
+    rationale: The comment of a realm changed, which changes only how it is shown on the login page.

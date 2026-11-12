@@ -1,0 +1,309 @@
+# Type tables of the Checkmk collector. Notes with sources and dates: docs/vendor-notes/checkmk.md.
+#
+# The field names were read from the Checkmk source of the REST API (tag 2.4.0,
+# cmk/gui/openapi/endpoints/ and cmk/gui/watolib/builtin_attributes.py) and from the Checkmk REST
+# API documentation on 2026-11-12. No lab Checkmk site was used, so no name is lab verified.
+# Names marked UNVERIFIED were found only in a response schema, not in the code that builds the
+# answer (the collection answers are served without a schema dump), or not at all; they are listed
+# so a value that arrives is classified. A field that is not listed is unclassified and shows as a
+# fingerprint only (custom host and user attributes, the members of a network scan, most
+# notification conditions).
+#
+# The collector lifts the members of "extensions" to the top of each object and keeps "id" and
+# "title"; host and folder labels and tag_* attributes become the keyed lists attributes.labels
+# and attributes.tags (collectors/checkmk/normalize.py).
+#
+# Secrets: Checkmk never returns user passwords, automation secrets or the passwords of the
+# password store in these collections. Host and folder attributes are served as stored, so the
+# SNMP communities (v1/v2c strings or v3 tuples with passwords) and the IPMI credentials of a
+# management board are classed secret, and so are the notification plugin parameters as a whole
+# (webhook URLs, API keys and passwords of the notification methods live there).
+#
+# No floors: an object floor would also apply to a member added to or removed from a list inside
+# an object (a label, a role), so the packs grade whole objects with a "**" rule instead.
+#
+# Volatile: meta_data (created_at, updated_at, created_by), network_scan_result,
+# inventory_failed and waiting_for_discovery are written by Checkmk itself and ignored.
+version: 1
+types:
+  - resource: checkmk-hosts
+    key_field: id
+    name_field: id
+    fields:
+      id: config
+      title: ignore  # the alias, or the host name when there is none
+      folder: config
+      is_cluster: config
+      is_offline: ignore  # derived from the criticality tag, which is compared itself
+      cluster_nodes: config
+      effective_attributes: ignore  # not asked for (effective_attributes=false)
+      attributes.alias: config
+      attributes.ipaddress: config
+      attributes.ipv6address: config
+      attributes.additional_ipv4addresses: config
+      attributes.additional_ipv6addresses: config
+      attributes.parents: config
+      attributes.site: config
+      attributes.contactgroups: config
+      attributes.contactgroups.groups: config
+      attributes.contactgroups.use: config
+      attributes.contactgroups.use_for_services: config
+      attributes.contactgroups.recurse_use: config
+      attributes.contactgroups.recurse_perms: config
+      attributes.snmp_community: secret
+      attributes.management_address: config
+      attributes.management_protocol: config
+      attributes.management_snmp_community: secret
+      attributes.management_ipmi_credentials: secret
+      attributes.locked_by: config
+      attributes.locked_attributes: config
+      attributes.labels: config
+      attributes.labels.key: config
+      attributes.labels.value: config
+      attributes.tags: config
+      attributes.tags.group: config
+      attributes.tags.value: config
+      attributes.meta_data: ignore
+      attributes.network_scan_result: ignore
+      attributes.inventory_failed: ignore
+      attributes.waiting_for_discovery: ignore
+    lists:
+      cluster_nodes: set
+      attributes.additional_ipv4addresses: set
+      attributes.additional_ipv6addresses: set
+      attributes.parents: set
+      attributes.contactgroups.groups: set
+      attributes.locked_attributes: set
+      attributes.labels: {mode: set, key_field: key}
+      attributes.tags: {mode: set, key_field: group}
+  # Keyed by the folder slug ("~" is the root folder, "~servers~linux" a subfolder). Hosts inherit
+  # these attributes. The members of network_scan are unclassified (not opened here).
+  - resource: checkmk-folders
+    key_field: id
+    name_field: path
+    fields:
+      id: config
+      title: config
+      path: config
+      attributes.ipaddress: config
+      attributes.ipv6address: config
+      attributes.parents: config
+      attributes.site: config
+      attributes.contactgroups: config
+      attributes.contactgroups.groups: config
+      attributes.contactgroups.use: config
+      attributes.contactgroups.use_for_services: config
+      attributes.contactgroups.recurse_use: config
+      attributes.contactgroups.recurse_perms: config
+      attributes.snmp_community: secret
+      attributes.management_address: config
+      attributes.management_protocol: config
+      attributes.management_snmp_community: secret
+      attributes.management_ipmi_credentials: secret
+      attributes.network_scan: config
+      attributes.locked_by: config
+      attributes.locked_attributes: config
+      attributes.labels: config
+      attributes.labels.key: config
+      attributes.labels.value: config
+      attributes.tags: config
+      attributes.tags.group: config
+      attributes.tags.value: config
+      attributes.meta_data: ignore
+      attributes.network_scan_result: ignore
+    lists:
+      attributes.parents: set
+      attributes.contactgroups.groups: set
+      attributes.locked_attributes: set
+      attributes.labels: {mode: set, key_field: key}
+      attributes.tags: {mode: set, key_field: group}
+  - resource: checkmk-host-groups
+    key_field: id
+    name_field: title
+    fields:
+      id: config
+      title: config  # the alias
+      customer: config  # managed services edition only
+  - resource: checkmk-service-groups
+    key_field: id
+    name_field: title
+    fields:
+      id: config
+      title: config
+      customer: config
+  # inventory_paths: "allow_all", "forbid_all" or specific paths with restrictions (UNVERIFIED
+  # beyond the response schema).
+  - resource: checkmk-contact-groups
+    key_field: id
+    name_field: title
+    fields:
+      id: config
+      title: config
+      customer: config
+      inventory_paths: config
+      inventory_paths.type: config
+      inventory_paths.paths: config
+      inventory_paths.paths.path: config
+      inventory_paths.paths.attributes: config
+      inventory_paths.paths.attributes.type: config
+      inventory_paths.paths.attributes.values: config
+      inventory_paths.paths.columns: config
+      inventory_paths.paths.columns.type: config
+      inventory_paths.paths.columns.values: config
+      inventory_paths.paths.nodes: config
+      inventory_paths.paths.nodes.type: config
+      inventory_paths.paths.nodes.values: config
+    lists:
+      inventory_paths.paths: {mode: set, key_field: path}
+      inventory_paths.paths.attributes.values: set
+      inventory_paths.paths.columns.values: set
+      inventory_paths.paths.nodes.values: set
+  # No password, password hash or automation secret is ever in this answer. authorized_sites is in
+  # the response schema but not in the code that builds the answer (UNVERIFIED).
+  - resource: checkmk-users
+    key_field: id
+    name_field: id
+    fields:
+      id: config
+      title: ignore  # the full name, compared as fullname
+      fullname: config
+      customer: config
+      disable_login: config
+      roles: config
+      contactgroups: config
+      authorized_sites: config
+      pager_address: config
+      language: config
+      temperature_unit: config
+      contact_options: config
+      contact_options.email: config
+      contact_options.fallback_contact: config
+      idle_timeout: config
+      idle_timeout.option: config
+      idle_timeout.duration: config
+      auth_option: config
+      auth_option.auth_type: config
+      auth_option.store_automation_secret: config
+      auth_option.enforce_password_change: config
+      disable_notifications: config
+      disable_notifications.disable: config
+      disable_notifications.timerange: config
+      disable_notifications.timerange.start_time: config
+      disable_notifications.timerange.end_time: config
+      interface_options: ignore  # theme, sidebar and menu preferences of the user
+      password: secret  # never served; listed in case a version does
+      automation_secret: secret  # never served; listed in case a version does
+    lists:
+      roles: set
+      contactgroups: set
+      authorized_sites: set
+  - resource: checkmk-time-periods
+    key_field: id
+    name_field: title
+    fields:
+      id: config
+      title: ignore  # the alias, compared as alias
+      alias: config
+      exclude: config
+      active_time_ranges: config
+      active_time_ranges.day: config
+      active_time_ranges.time_ranges: config
+      active_time_ranges.time_ranges.start: config
+      active_time_ranges.time_ranges.end: config
+      exceptions: config
+      exceptions.date: config
+      exceptions.time_ranges: config
+      exceptions.time_ranges.start: config
+      exceptions.time_ranges.end: config
+    lists:
+      exclude: set
+      active_time_ranges: {mode: set, key_field: day}
+      active_time_ranges.time_ranges: set
+      exceptions: {mode: set, key_field: date}
+      exceptions.time_ranges: set
+  # Metadata only: the stored password is never in the answer. The answer uses the stored names
+  # docu_url and shared_with; the response schema names documentation_url, editable_by and shared
+  # (UNVERIFIED as served) are listed too.
+  - resource: checkmk-passwords
+    key_field: id
+    name_field: title
+    fields:
+      id: config
+      title: config
+      comment: config
+      docu_url: config
+      documentation_url: config
+      owned_by: config
+      editable_by: config
+      shared_with: config
+      shared: config
+      customer: config
+      password: secret  # never served; listed in case a version does
+    lists:
+      shared_with: set
+      shared: set
+  # Checkmk 2.3 and later. The members of most conditions are {state, value}; those listed here
+  # were read from the response schema, the rest stay unclassified. plugin_params is secret as a
+  # whole; notify_plugin.plugin_name is the collector's copy of its plugin_name.
+  - resource: checkmk-notification-rules
+    key_field: id
+    name_field: title
+    fields:
+      id: config
+      title: ignore  # the description, compared in rule_properties
+      rule_config.rule_properties.description: config
+      rule_config.rule_properties.comment: config
+      rule_config.rule_properties.documentation_url: config
+      rule_config.rule_properties.do_not_apply_this_rule.state: config
+      rule_config.rule_properties.allow_users_to_deactivate.state: config
+      rule_config.notification_method.notify_plugin.option: config
+      rule_config.notification_method.notify_plugin.plugin_name: config
+      rule_config.notification_method.notify_plugin.plugin_params: secret
+      rule_config.notification_method.notification_bulking.state: config
+      rule_config.contact_selection.all_contacts_of_the_notified_object.state: config
+      rule_config.contact_selection.all_users.state: config
+      rule_config.contact_selection.all_users_with_an_email_address.state: config
+      rule_config.contact_selection.the_following_users.state: config
+      rule_config.contact_selection.the_following_users.value: config
+      rule_config.contact_selection.members_of_contact_groups.state: config
+      rule_config.contact_selection.members_of_contact_groups.value: config
+      rule_config.contact_selection.explicit_email_addresses.state: config
+      rule_config.contact_selection.explicit_email_addresses.value: config
+      rule_config.contact_selection.restrict_by_contact_groups.state: config
+      rule_config.contact_selection.restrict_by_contact_groups.value: config
+      rule_config.conditions.match_sites.state: config
+      rule_config.conditions.match_sites.value: config
+      rule_config.conditions.match_folder.state: config
+      rule_config.conditions.match_folder.value: config
+      rule_config.conditions.match_host_groups.state: config
+      rule_config.conditions.match_host_groups.value: config
+      rule_config.conditions.match_hosts.state: config
+      rule_config.conditions.match_hosts.value: config
+      rule_config.conditions.match_exclude_hosts.state: config
+      rule_config.conditions.match_exclude_hosts.value: config
+      rule_config.conditions.match_service_groups.state: config
+      rule_config.conditions.match_service_groups.value: config
+      rule_config.conditions.match_services.state: config
+      rule_config.conditions.match_services.value: config
+      rule_config.conditions.match_exclude_services.state: config
+      rule_config.conditions.match_exclude_services.value: config
+      rule_config.conditions.match_check_types.state: config
+      rule_config.conditions.match_check_types.value: config
+      rule_config.conditions.match_contact_groups.state: config
+      rule_config.conditions.match_contact_groups.value: config
+      rule_config.conditions.match_only_during_time_period.state: config
+      rule_config.conditions.match_only_during_time_period.value: config
+    lists:
+      rule_config.contact_selection.the_following_users.value: set
+      rule_config.contact_selection.members_of_contact_groups.value: set
+      rule_config.contact_selection.explicit_email_addresses.value: set
+      rule_config.contact_selection.restrict_by_contact_groups.value: set
+      rule_config.conditions.match_sites.value: set
+      rule_config.conditions.match_host_groups.value: set
+      rule_config.conditions.match_hosts.value: set
+      rule_config.conditions.match_exclude_hosts.value: set
+      rule_config.conditions.match_service_groups.value: set
+      rule_config.conditions.match_services.value: set
+      rule_config.conditions.match_exclude_services.value: set
+      rule_config.conditions.match_check_types.value: set
+      rule_config.conditions.match_contact_groups.value: set

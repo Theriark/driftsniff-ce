@@ -1,0 +1,48 @@
+# Home Assistant rules for automations and scripts. Their triggers, conditions, actions and
+# sequences are secret class (they can carry credentials written inline), so a change there is seen
+# as a changed fingerprint. Whether an automation guards security (an alarm, a lock) cannot be told
+# from its configuration, so turning one off is medium, not high.
+version: 1
+rules:
+  - id: homeassistant.automations.disabled
+    resource: homeassistant-automations
+    path: enabled
+    when: {name: boolean_flips_to, value: false}
+    severity: medium
+    rationale: An automation was turned off and no longer runs.
+  - id: homeassistant.automations.enabled
+    resource: homeassistant-automations
+    path: enabled
+    when: {name: boolean_flips_to, value: true}
+    severity: low
+    rationale: An automation was turned on again.
+  - id: homeassistant.automations.alias
+    resource: homeassistant-automations
+    path: config.alias
+    severity: low
+    rationale: The name of an automation changed.
+  - id: homeassistant.automations.description
+    resource: homeassistant-automations
+    path: config.description
+    severity: low
+    rationale: The description of an automation changed.
+  - id: homeassistant.automations.config
+    resource: homeassistant-automations
+    path: "**"
+    severity: medium
+    rationale: An automation was added or removed, or what it reacts to or does changed.
+  - id: homeassistant.scripts.alias
+    resource: homeassistant-scripts
+    path: config.alias
+    severity: low
+    rationale: The name of a script changed.
+  - id: homeassistant.scripts.description
+    resource: homeassistant-scripts
+    path: config.description
+    severity: low
+    rationale: The description of a script changed.
+  - id: homeassistant.scripts.config
+    resource: homeassistant-scripts
+    path: "**"
+    severity: medium
+    rationale: A script was added or removed, or what it does changed.

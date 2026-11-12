@@ -1,0 +1,109 @@
+# UniFi Protect rules for the NVR, viewers, live views, chimes and lights. Most of these settings
+# change what people see or hear, not what is recorded or detected, so they are low; a live view
+# shared with every user and a light switched off are medium. Viewers, live views and chimes have
+# a catch-all low rule, so even the addition or removal of one is low. On the NVR and on lights a
+# field that has no rule here is MEDIUM, unclassified, until it is reviewed.
+version: 1
+rules:
+  - id: protect.nvr.name
+    resource: protect-nvr
+    path: name
+    severity: low
+    rationale: The NVR was renamed.
+  - id: protect.nvr.doorbell
+    resource: protect-nvr
+    path: doorbellSettings.**
+    severity: low
+    rationale: A doorbell message or image the NVR offers changed.
+  - id: protect.nvr.mac
+    resource: protect-nvr
+    path: mac
+    severity: medium
+    rationale: The NVR now reports another MAC address, so a different console may answer at this address.
+  - id: protect.nvr.type
+    resource: protect-nvr
+    path: type
+    severity: medium
+    rationale: The NVR now reports another model, so a different console may answer at this address.
+  - id: protect.nvr.guid
+    resource: protect-nvr
+    path: guid
+    severity: low
+    rationale: The device identifier of the NVR changed.
+  - id: protect.nvr.model_key
+    resource: protect-nvr
+    path: modelKey
+    severity: low
+    rationale: The kind of device the API reports changed.
+  - id: protect.viewers.any
+    resource: protect-viewers
+    path: "**"
+    severity: low
+    rationale: A viewer, its name or the live view it shows changed.
+  - id: protect.liveviews.any
+    resource: protect-liveviews
+    path: "**"
+    severity: low
+    rationale: A live view, its layout or the cameras it shows changed.
+  - id: protect.liveviews.global
+    resource: protect-liveviews
+    path: isGlobal
+    when: {name: boolean_flips_to, value: true}
+    severity: medium
+    rationale: A live view is now shared with every user of the console, so they all see its cameras.
+  - id: protect.liveviews.owner
+    resource: protect-liveviews
+    path: owner
+    severity: medium
+    rationale: A live view now belongs to another user.
+  - id: protect.chimes.any
+    resource: protect-chimes
+    path: "**"
+    severity: low
+    rationale: A chime, the doorbells it rings for or how it rings changed.
+  - id: protect.lights.mode_off
+    resource: protect-lights
+    path: lightModeSettings.mode
+    when: {name: enum_transition, from: [always, motion], to: ["off"]}
+    severity: medium
+    rationale: A floodlight no longer switches on, neither always nor on motion.
+  - id: protect.lights.mode
+    resource: protect-lights
+    path: lightModeSettings.**
+    severity: low
+    rationale: When a floodlight switches on changed.
+  - id: protect.lights.device
+    resource: protect-lights
+    path: lightDeviceSettings.**
+    severity: low
+    rationale: A device setting of a floodlight (indicator, motion duration, sensitivity, brightness) changed.
+  - id: protect.lights.camera
+    resource: protect-lights
+    path: camera
+    severity: low
+    rationale: The camera a floodlight is paired with changed.
+  - id: protect.lights.name
+    resource: protect-lights
+    path: name
+    severity: low
+    rationale: A floodlight was renamed.
+  - id: protect.lights.mac
+    resource: protect-lights
+    path: mac
+    severity: medium
+    rationale: A floodlight now reports another MAC address, so a different device may stand behind it.
+  - id: protect.lights.type
+    resource: protect-lights
+    path: type
+    severity: low
+    rationale: The model a floodlight reports changed.
+  - id: protect.lights.guid
+    resource: protect-lights
+    path: guid
+    severity: low
+    rationale: The device identifier of a floodlight changed.
+  - id: protect.lights.model_key
+    resource: protect-lights
+    path: modelKey
+    severity: low
+    rationale: The kind of device the API reports changed.

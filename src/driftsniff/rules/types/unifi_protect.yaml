@@ -1,0 +1,198 @@
+# Type tables of the UniFi Protect collector. Notes with sources and dates:
+# docs/vendor-notes/unifi_protect.md.
+#
+# The field names were read from Ubiquiti's OpenAPI document of the UniFi Protect integration API
+# (developer.ui.com, Protect 7.2.105) on 2026-11-12. No lab console was used, so no name is lab
+# verified. UNVERIFIED: the API key header (the document declares no security scheme; X-API-KEY is
+# the header of the UniFi Network integration API and of third party Protect clients), and whether
+# a console really omits a field the document marks required.
+#
+# What the integration API does NOT expose, so driftsniff cannot report it: recording settings
+# (mode, retention), motion zones, privacy zones, camera uptime and statistics, connection details.
+# A change to those is invisible to this source. Sirens, speakers, bridges, relays, fobs, link
+# stations, alarm hubs, arm profiles and users are in the API but not read (vendor notes).
+#
+# The removed floor of cameras and sensors also applies to a removed list member (a smart
+# detection type, an arm profile id), so such a removal is at least high.
+#
+# Volatile fields (device state, detections, sensor readings, battery and signal, light status,
+# the arm state of the NVR, the doorbell message on show) and hardware capabilities (feature
+# flags, stream limit, package camera) are ignore class, so reads do not create noise. No field
+# of these resources is a credential; none is classed secret.
+version: 1
+types:
+  - resource: protect-nvr
+    key_field: id
+    name_field: name
+    fields:
+      id: config
+      modelKey: config
+      name: config
+      type: config
+      guid: config
+      mac: config
+      doorbellSettings.defaultMessageText: config
+      doorbellSettings.defaultMessageResetTimeoutMs: config
+      doorbellSettings.customMessages: config
+      doorbellSettings.customImages: config
+      doorbellSettings.customImages.preview: config
+      doorbellSettings.customImages.sprite: config
+      armMode: ignore
+    lists:
+      doorbellSettings.customMessages: set
+      doorbellSettings.customImages: set
+  - resource: protect-cameras
+    key_field: id
+    name_field: name
+    floors: {removed: high}
+    fields:
+      id: config
+      modelKey: config
+      name: config
+      type: config
+      guid: config
+      mac: config
+      isMicEnabled: config
+      micVolume: config
+      osdSettings.isNameEnabled: config
+      osdSettings.isDateEnabled: config
+      osdSettings.isLogoEnabled: config
+      osdSettings.isDebugEnabled: config
+      osdSettings.overlayLocation: config
+      ledSettings.isEnabled: config
+      ledSettings.welcomeLed: config
+      ledSettings.floodLed: config
+      videoMode: config
+      hdrType: config
+      smartDetectSettings.objectTypes: config
+      smartDetectSettings.audioTypes: config
+      state: ignore
+      lcdMessage: ignore
+      activePatrolSlot: ignore
+      featureFlags: ignore
+      hasPackageCamera: ignore
+    lists:
+      smartDetectSettings.objectTypes: set
+      smartDetectSettings.audioTypes: set
+  - resource: protect-viewers
+    key_field: id
+    name_field: name
+    fields:
+      id: config
+      modelKey: config
+      name: config
+      type: config
+      guid: config
+      mac: config
+      liveview: config
+      state: ignore
+      streamLimit: ignore
+  - resource: protect-liveviews
+    key_field: id
+    name_field: name
+    fields:
+      id: config
+      modelKey: config
+      name: config
+      isDefault: config
+      isGlobal: config
+      owner: config
+      layout: config
+      slots: config
+      slots.cameras: config
+      slots.cycleMode: config
+      slots.cycleInterval: config
+  - resource: protect-chimes
+    key_field: id
+    name_field: name
+    fields:
+      id: config
+      modelKey: config
+      name: config
+      type: config
+      guid: config
+      mac: config
+      cameraIds: config
+      ringSettings: config
+      ringSettings.cameraId: config
+      ringSettings.repeatTimes: config
+      ringSettings.ringtoneId: config
+      ringSettings.volume: config
+      state: ignore
+    lists:
+      cameraIds: set
+      ringSettings: {mode: set, key_field: cameraId}
+  - resource: protect-lights
+    key_field: id
+    name_field: name
+    fields:
+      id: config
+      modelKey: config
+      name: config
+      type: config
+      guid: config
+      mac: config
+      camera: config
+      lightModeSettings.mode: config
+      lightModeSettings.enableAt: config
+      lightDeviceSettings.isIndicatorEnabled: config
+      lightDeviceSettings.pirDuration: config
+      lightDeviceSettings.pirSensitivity: config
+      lightDeviceSettings.ledLevel: config
+      state: ignore
+      isDark: ignore
+      isLightOn: ignore
+      isLightForceEnabled: ignore
+      lastMotion: ignore
+      isPirMotionDetected: ignore
+  - resource: protect-sensors
+    key_field: id
+    name_field: name
+    floors: {removed: high}
+    fields:
+      id: config
+      modelKey: config
+      name: config
+      type: config
+      guid: config
+      mac: config
+      mountType: config
+      scheduleMode: config
+      armProfileIds: config
+      hasCustomSensitivityWhenArmed: config
+      alarmSettings.isEnabled: config
+      leakSettings.isInternalEnabled: config
+      leakSettings.isExternalEnabled: config
+      motionSettings.isEnabled: config
+      motionSettings.sensitivity: config
+      motionSettings.sensitivityWhenArmed: config
+      glassBreakSettings.isEnabled: config
+      glassBreakSettings.sensitivity: config
+      glassBreakSettings.sensitivityWhenArmed: config
+      lightSettings.isEnabled: config
+      lightSettings.margin: config
+      lightSettings.lowThreshold: config
+      lightSettings.highThreshold: config
+      humiditySettings.isEnabled: config
+      humiditySettings.margin: config
+      humiditySettings.lowThreshold: config
+      humiditySettings.highThreshold: config
+      temperatureSettings.isEnabled: config
+      temperatureSettings.margin: config
+      temperatureSettings.lowThreshold: config
+      temperatureSettings.highThreshold: config
+      state: ignore
+      featureFlags: ignore
+      batteryStatus: ignore
+      stats: ignore
+      isOpened: ignore
+      openStatusChangedAt: ignore
+      isMotionDetected: ignore
+      motionDetectedAt: ignore
+      alarmTriggeredAt: ignore
+      leakDetectedAt: ignore
+      externalLeakDetectedAt: ignore
+      tamperingDetectedAt: ignore
+      wirelessConnectionState: ignore
+    lists:
+      armProfileIds: set

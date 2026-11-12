@@ -1,0 +1,71 @@
+# Redfish rules for who may sign in to the BMC and where it sends events: accounts, the account
+# service, event subscriptions and certificates. Accounts and the account service have floors in
+# rules/types/redfish.yaml (a new account is critical by its floor), so a rule here matters when
+# it is critical or explains why. RoleId values Administrator, Operator and ReadOnly are the
+# predefined Redfish roles; a BMC may add its own (docs/vendor-notes/redfish.md).
+version: 1
+rules:
+  - id: redfish.accounts.role_to_admin
+    resource: redfish-accounts
+    path: RoleId
+    when: {name: any_to_value, value: Administrator}
+    severity: critical
+    rationale: A BMC account became an Administrator, which gives full control of the server and its firmware.
+  - id: redfish.accounts.role
+    resource: redfish-accounts
+    path: RoleId
+    severity: high
+    rationale: The role of a BMC account changed, which changes what it may do on the server.
+  - id: redfish.accounts.enabled
+    resource: redfish-accounts
+    path: Enabled
+    when: {name: boolean_flips_to, value: true}
+    severity: high
+    rationale: A BMC account that was switched off can sign in again.
+  - id: redfish.account_service.lockout_off
+    resource: redfish-account-service
+    path: AccountLockoutThreshold
+    when: {name: any_to_value, value: 0}
+    severity: critical
+    rationale: Accounts are never locked now, so passwords can be guessed without limit.
+  - id: redfish.account_service.min_password_length
+    resource: redfish-account-service
+    path: MinPasswordLength
+    severity: high
+    rationale: The minimum length of BMC passwords changed.
+  - id: redfish.account_service.local_auth
+    resource: redfish-account-service
+    path: LocalAccountAuth
+    severity: high
+    rationale: Whether local BMC accounts may sign in, or only after the directory, changed.
+  - id: redfish.account_service.basic_auth
+    resource: redfish-account-service
+    path: HTTPBasicAuth
+    when: {name: any_to_value, value: Enabled}
+    severity: high
+    rationale: The BMC now offers HTTP Basic sign in, which sends the password with every request.
+  - id: redfish.account_service.ldap
+    resource: redfish-account-service
+    path: LDAP.**
+    severity: high
+    rationale: A setting of the LDAP directory used to sign in to the BMC changed.
+  - id: redfish.account_service.active_directory
+    resource: redfish-account-service
+    path: ActiveDirectory.**
+    severity: high
+    rationale: A setting of the Active Directory used to sign in to the BMC changed.
+  - id: redfish.subscriptions.destination
+    resource: redfish-event-subscriptions
+    path: Destination
+    severity: high
+    rationale: The BMC now sends its events to another address.
+  - id: redfish.certificates.fingerprint
+    resource: redfish-certificates
+    path: Fingerprint
+    severity: medium
+    rationale: A certificate of the BMC was replaced.
+  - id: redfish.certificates.issuer
+    resource: redfish-certificates
+    path: Issuer.**
+    severity: high
+    rationale: A certificate of the BMC is now issued by another authority.

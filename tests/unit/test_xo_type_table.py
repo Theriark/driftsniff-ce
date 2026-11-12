@@ -115,6 +115,23 @@ SETS = {
     "groups": ["users", "aclRoleIds"],
 }
 
+# Tables and resources of the other collectors (each prefixes its names with its own word).
+NON_XO_PREFIXES = (
+    "unifi-",
+    "portainer-",
+    "qnap-",
+    "truenas-",
+    "synology-",
+    "proxmox-",
+    "homeassistant-",
+    "redfish-",
+    "grafana-",
+    "prometheus-",
+    "zabbix-",
+    "checkmk-",
+    "protect-",
+)
+
 
 @pytest.fixture(scope="module")
 def index() -> RuleIndex:
@@ -126,11 +143,7 @@ def table(index: RuleIndex, resource: str) -> ResourceTable:
 
 
 def xo_resources(index: RuleIndex) -> list[str]:
-    return sorted(
-        n
-        for n in index.type_tables
-        if not n.startswith(("unifi-", "portainer-", "qnap-", "truenas-", "synology-"))
-    )
+    return sorted(n for n in index.type_tables if not n.startswith(NON_XO_PREFIXES))
 
 
 def test_the_xo_resources_are_the_collections_of_the_plan(index: RuleIndex) -> None:

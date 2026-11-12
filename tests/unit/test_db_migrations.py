@@ -180,10 +180,10 @@ def test_the_report_indexes_exist(migrated: Database) -> None:
 
 
 def test_migrate_records_the_head_revision_and_is_repeatable(migrated: Database) -> None:
-    assert head_revision() == "0005"
-    assert current_revisions(migrated) == ("0005",)
-    assert upgrade_to_head(migrated) == "0005"
-    assert current_revisions(migrated) == ("0005",)
+    assert head_revision() == "0006"
+    assert current_revisions(migrated) == ("0006",)
+    assert upgrade_to_head(migrated) == "0006"
+    assert current_revisions(migrated) == ("0006",)
 
 
 def test_migration_0002_adds_the_size_columns_to_existing_runs(database: Database) -> None:
@@ -198,7 +198,7 @@ def test_migration_0002_adds_the_size_columns_to_existing_runs(database: Databas
             "VALUES (1, '2026-10-20T00:00:00Z', 7)"
         )
     assert current_revisions(database) == ("0001",)
-    assert upgrade_to_head(database) == "0005"
+    assert upgrade_to_head(database) == "0006"
     with database.read() as connection:
         row = connection.exec_driver_sql(
             "SELECT bytes_fetched, new_state_bytes, manifest_bytes FROM runs"
@@ -216,7 +216,7 @@ def test_migration_0003_adds_sessions_and_keeps_existing_users(database: Databas
             "INSERT INTO users (id, username, password_hash, role, created_at) "
             "VALUES (1, 'ada', 'x', 'admin', '2026-10-22T00:00:00Z')"
         )
-    assert upgrade_to_head(database) == "0005"
+    assert upgrade_to_head(database) == "0006"
     with database.write() as connection:
         connection.exec_driver_sql(
             "INSERT INTO sessions (user_id, token_hash, csrf_token, created_at, last_seen_at, "
@@ -243,7 +243,7 @@ def test_migration_0004_adds_the_notification_columns_and_keeps_existing_rows(
             "INSERT INTO notification_channel (id, type, config_ciphertext) "
             "VALUES (1, 'webhook', 'x')"
         )
-    assert upgrade_to_head(database) == "0005"
+    assert upgrade_to_head(database) == "0006"
     with database.read() as connection:
         row = connection.exec_driver_sql(
             "SELECT type, config_ciphertext, key_id, min_severity FROM notification_channel"
@@ -383,7 +383,7 @@ def test_migrate_command_creates_the_database_and_can_run_twice(
     monkeypatch.setenv("DRIFTSNIFF_DATA_DIR", str(data_dir))
     assert main(["migrate"]) == 0
     assert main(["migrate"]) == 0
-    assert "revision 0005" in capsys.readouterr().out
+    assert "revision 0006" in capsys.readouterr().out
     assert database_path(data_dir).is_file()
 
 
@@ -397,14 +397,32 @@ def test_migrate_command_reports_an_unusable_data_dir(
     assert "database error" in capsys.readouterr().err
 
 
-@pytest.mark.parametrize("source_type", ["portainer", "truenas", "synology", "qnap"])
-def test_migration_0005_accepts_the_new_source_types(migrated: Database, source_type: str) -> None:
+@pytest.mark.parametrize(
+    "source_type",
+    [
+        "portainer",
+        "truenas",
+        "synology",
+        "qnap",
+        "proxmox",
+        "homeassistant",
+        "redfish",
+        "grafana",
+        "prometheus",
+        "zabbix",
+        "checkmk",
+        "unifi_protect",
+    ],
+)
+def test_migrations_0005_0006_accepts_the_new_source_types(
+    migrated: Database, source_type: str
+) -> None:
     with migrated.write() as connection:
         connection.exec_driver_sql(
             "INSERT INTO sources (name, type) VALUES (?, ?)", (source_type, source_type)
         )
 
 
-def test_migration_0005_still_refuses_an_unknown_source_type(migrated: Database) -> None:
+def test_migrations_0005_0006_still_refuses_an_unknown_source_type(migrated: Database) -> None:
     with pytest.raises(IntegrityError, match="CHECK"), migrated.write() as connection:
         connection.exec_driver_sql("INSERT INTO sources (name, type) VALUES ('x', 'vmware')")

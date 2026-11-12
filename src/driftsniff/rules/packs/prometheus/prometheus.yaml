@@ -1,0 +1,162 @@
+# Prometheus rules: runtime flags, the running configuration (global settings, scrape jobs,
+# Alertmanagers, remote write targets) and the rules Prometheus evaluates. Object floors in
+# rules/types/prometheus.yaml: a removed scrape job or alerting rule, and an added or removed
+# remote write target, are high.
+# Flag values are text, so a flag that is switched on becomes "true".
+# A field that has no rule here is MEDIUM, unclassified, until it is reviewed.
+version: 1
+rules:
+  - id: prometheus.flags.admin_api
+    resource: prometheus-flags
+    path: web_enable_admin_api
+    when: {name: any_to_value, value: "true"}
+    severity: critical
+    rationale: The admin API was switched on, so anyone who reaches Prometheus can delete series or snapshot the data.
+  - id: prometheus.flags.lifecycle
+    resource: prometheus-flags
+    path: web_enable_lifecycle
+    when: {name: any_to_value, value: "true"}
+    severity: high
+    rationale: Prometheus can now be reloaded or shut down over HTTP by anyone who reaches it.
+  - id: prometheus.flags.remote_write_receiver
+    resource: prometheus-flags
+    path: web_enable_remote_write_receiver
+    when: {name: any_to_value, value: "true"}
+    severity: high
+    rationale: Prometheus now accepts samples pushed over HTTP, so anyone who reaches it can write fake metrics.
+  - id: prometheus.flags.web_config_file
+    resource: prometheus-flags
+    path: web_config_file
+    severity: high
+    rationale: The file that sets TLS and sign in for the Prometheus web server changed.
+  - id: prometheus.flags.retention_time
+    resource: prometheus-flags
+    path: storage_tsdb_retention_time
+    severity: medium
+    rationale: How long Prometheus keeps its data changed.
+  - id: prometheus.flags.retention_size
+    resource: prometheus-flags
+    path: storage_tsdb_retention_size
+    severity: medium
+    rationale: How much data Prometheus keeps changed.
+  - id: prometheus.global.scrape_interval
+    resource: prometheus-global
+    path: global.scrape_interval
+    severity: low
+    rationale: The default time between scrapes changed, which only changes the resolution of the data.
+  - id: prometheus.global.scrape_timeout
+    resource: prometheus-global
+    path: global.scrape_timeout
+    severity: low
+    rationale: The default scrape timeout changed.
+  - id: prometheus.global.evaluation_interval
+    resource: prometheus-global
+    path: global.evaluation_interval
+    severity: low
+    rationale: The default time between rule evaluations changed.
+  - id: prometheus.global.external_labels
+    resource: prometheus-global
+    path: global.external_labels
+    severity: medium
+    rationale: The labels added to every alert and remote write sample changed, which can break alert routing.
+  - id: prometheus.global.rule_files
+    resource: prometheus-global
+    path: rule_files
+    severity: high
+    rationale: The rule files Prometheus loads changed, so whole sets of alerts can appear or vanish.
+  - id: prometheus.global.retention_time
+    resource: prometheus-global
+    path: storage.tsdb.retention.time
+    severity: medium
+    rationale: How long Prometheus keeps its data changed.
+  - id: prometheus.global.retention_size
+    resource: prometheus-global
+    path: storage.tsdb.retention.size
+    severity: medium
+    rationale: How much data Prometheus keeps changed.
+  - id: prometheus.scrape_jobs.scrape_interval
+    resource: prometheus-scrape-jobs
+    path: scrape_interval
+    severity: low
+    rationale: The time between scrapes of a job changed, which only changes the resolution of its data.
+  - id: prometheus.scrape_jobs.scrape_timeout
+    resource: prometheus-scrape-jobs
+    path: scrape_timeout
+    severity: low
+    rationale: The scrape timeout of a job changed.
+  - id: prometheus.scrape_jobs.targets
+    resource: prometheus-scrape-jobs
+    path: static_configs
+    severity: medium
+    rationale: The targets or target labels of a job changed, so other hosts are watched.
+  - id: prometheus.scrape_jobs.tls_skip_verify
+    resource: prometheus-scrape-jobs
+    path: tls_config.insecure_skip_verify
+    when: {name: boolean_flips_to, value: true}
+    severity: high
+    rationale: Certificate checks of a scrape job were switched off, so anyone on the path can feed it fake metrics.
+  - id: prometheus.scrape_jobs.password
+    resource: prometheus-scrape-jobs
+    path: basic_auth.password
+    severity: high
+    rationale: The password a job uses to scrape its targets changed.
+  - id: prometheus.scrape_jobs.credentials
+    resource: prometheus-scrape-jobs
+    path: authorization.credentials
+    severity: high
+    rationale: The credential a job uses to scrape its targets changed.
+  - id: prometheus.alerting.alertmanagers
+    resource: prometheus-alerting
+    path: alertmanagers.**
+    severity: high
+    rationale: Where Prometheus sends its alerts changed, so alerts can go missing or reach someone else.
+  - id: prometheus.alerting.relabel
+    resource: prometheus-alerting
+    path: alert_relabel_configs.**
+    severity: medium
+    rationale: The relabelling of alerts changed, which can drop alerts or change how they are routed.
+  - id: prometheus.remote_write.url
+    resource: prometheus-remote-write
+    path: url
+    severity: high
+    rationale: A remote write target sends samples to another address, which can leak every metric.
+  - id: prometheus.remote_write.headers
+    resource: prometheus-remote-write
+    path: headers
+    severity: high
+    rationale: The headers sent to a remote write target changed, often its tenant or its token.
+  - id: prometheus.remote_write.relabel
+    resource: prometheus-remote-write
+    path: write_relabel_configs.**
+    severity: medium
+    rationale: Which samples are sent to a remote write target changed.
+  - id: prometheus.rule_groups.interval
+    resource: prometheus-rule-groups
+    path: interval
+    severity: low
+    rationale: How often a rule group is evaluated changed.
+  - id: prometheus.alerting_rules.query
+    resource: prometheus-alerting-rules
+    path: query
+    severity: medium
+    rationale: The expression of an alerting rule changed, so it can fire at other times or never.
+  - id: prometheus.alerting_rules.duration
+    resource: prometheus-alerting-rules
+    path: duration
+    severity: medium
+    rationale: How long a condition must hold before the alert fires changed.
+  - id: prometheus.alerting_rules.labels
+    resource: prometheus-alerting-rules
+    path: labels
+    severity: medium
+    rationale: The labels of an alert changed, which can change its severity or where it is routed.
+  - id: prometheus.alerting_rules.annotations
+    resource: prometheus-alerting-rules
+    path: annotations
+    severity: low
+    rationale: The text of an alert changed, which only changes what the people paged read.
+  - id: prometheus.recording_rules.query
+    resource: prometheus-recording-rules
+    path: query
+    severity: medium
+    rationale: The expression of a recording rule changed, so every alert and dashboard that reads its series changes too.

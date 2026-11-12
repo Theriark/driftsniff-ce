@@ -31,8 +31,14 @@ from pathlib import Path
 from typing import Final
 
 from driftsniff.collectors.base import Collector, CollectorError, FetchResult, ResourceSpec
+from driftsniff.collectors.checkmk.client import CheckmkClient
+from driftsniff.collectors.grafana.client import GrafanaClient
+from driftsniff.collectors.homeassistant.client import HomeAssistantClient
 from driftsniff.collectors.portainer.client import PortainerClient
+from driftsniff.collectors.prometheus.client import PrometheusClient
+from driftsniff.collectors.proxmox.client import ProxmoxClient
 from driftsniff.collectors.qnap.client import QnapClient
+from driftsniff.collectors.redfish.client import RedfishClient
 from driftsniff.collectors.synology.client import SynologyClient
 from driftsniff.collectors.tls import (
     MODE_INSECURE,
@@ -44,7 +50,9 @@ from driftsniff.collectors.tls import (
 )
 from driftsniff.collectors.truenas.client import TruenasClient
 from driftsniff.collectors.unifi.client import UnifiClient
+from driftsniff.collectors.unifi_protect.client import ProtectClient
 from driftsniff.collectors.xo.client import XoClient
+from driftsniff.collectors.zabbix.client import ZabbixClient
 from driftsniff.config import DEFAULT_DATA_DIR
 from driftsniff.secrets.crypto import CredentialCryptoError
 from driftsniff.sources.probe import ProbeTarget
@@ -219,6 +227,41 @@ def build_collector(
             tls=tls,
             data_dir=data_dir,
         )
+    elif source_type == "grafana":
+        inner = GrafanaClient(base_url, secret, allow_plain_http=plain, tls=tls, data_dir=data_dir)
+    elif source_type == "prometheus":
+        inner = PrometheusClient(
+            base_url, secret, allow_plain_http=plain, tls=tls, data_dir=data_dir
+        )
+    elif source_type == "unifi_protect":
+        inner = ProtectClient(base_url, secret, allow_plain_http=plain, tls=tls, data_dir=data_dir)
+    elif source_type == "checkmk":
+        inner = CheckmkClient(
+            base_url,
+            str(options.get(OPTION_USERNAME, "")),
+            secret,
+            allow_plain_http=plain,
+            tls=tls,
+            data_dir=data_dir,
+        )
+    elif source_type == "redfish":
+        inner = RedfishClient(
+            base_url,
+            str(options.get(OPTION_USERNAME, "")),
+            secret,
+            allow_plain_http=plain,
+            tls=tls,
+            data_dir=data_dir,
+        )
+    elif source_type == "homeassistant":
+        inner = HomeAssistantClient(
+            base_url, secret, allow_plain_http=plain, tls=tls, data_dir=data_dir
+        )
+    elif source_type == "proxmox":
+        # The credential is the whole API token, user@realm!tokenid=secret.
+        inner = ProxmoxClient(base_url, secret, allow_plain_http=plain, tls=tls, data_dir=data_dir)
+    elif source_type == "zabbix":
+        inner = ZabbixClient(base_url, secret, allow_plain_http=plain, tls=tls, data_dir=data_dir)
     else:
         raise ValueError("this source type has no collector yet")
     off = resources_turned_off(options)

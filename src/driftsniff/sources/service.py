@@ -82,7 +82,7 @@ OPTION_CREDENTIAL_EXPIRES_ON = "credential_expires_on"
 OPTION_USERNAME = "username"
 MAX_USERNAME_CHARS = 128
 # Source types that sign in with a user name (option username) and a password (the credential).
-USERNAME_TYPES = ("synology", "qnap", "truenas")
+USERNAME_TYPES = ("synology", "qnap", "truenas", "redfish", "checkmk")
 DEFAULT_INTERVAL_SECONDS = 300
 MIN_INTERVAL_SECONDS = 60
 MAX_INTERVAL_SECONDS = 3600
@@ -110,7 +110,22 @@ PUSH_KEY_BYTES = 32
 # source takes as long as one for a source with a key.
 _ABSENT_HASH = hashlib.sha256(b"driftsniff: no push key").hexdigest()
 # Source types that read a controller and therefore need an address and a credential.
-POLLED_TYPES = ("unifi", "xo", "portainer", "truenas", "synology", "qnap")
+POLLED_TYPES = (
+    "unifi",
+    "xo",
+    "portainer",
+    "truenas",
+    "synology",
+    "qnap",
+    "proxmox",
+    "homeassistant",
+    "redfish",
+    "grafana",
+    "prometheus",
+    "zabbix",
+    "checkmk",
+    "unifi_protect",
+)
 
 ACTION_CREATE = "source.create"
 ACTION_UPDATE = "source.update"

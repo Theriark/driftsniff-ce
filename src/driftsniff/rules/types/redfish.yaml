@@ -1,0 +1,508 @@
+# Type tables of the Redfish collector. Notes with sources and dates:
+# docs/vendor-notes/redfish.md.
+#
+# The property names are those of the DMTF Redfish schemas (redfish.dmtf.org/schemas/v1, read on
+# 2026-11-12: ServiceRoot 1.17, ComputerSystem 1.23, SecureBoot 1.1, Bios 1.2, Manager,
+# ManagerNetworkProtocol 1.10, EthernetInterface 1.12, AccountService 1.16, ManagerAccount 1.13,
+# EventDestination 1.15, CertificateService 1.1, CertificateLocations 1.0, Certificate 1.9,
+# SoftwareInventory 1.11). No lab BMC was used. What a given vendor and firmware actually returns
+# is UNVERIFIED: a BMC implements a subset, and a property it does not send is simply absent.
+# UNVERIFIED in particular: the Manager members (the Manager schema was not reread; the names are
+# the long-standing ones), the members of VLAN (VLanNetworkInterface), the SNMP members of a
+# ManagerAccount, and the RoleId values other than Administrator, Operator and ReadOnly.
+#
+# The collector drops every annotation (any key holding "@", such as @odata.etag, which changes on
+# every write) and every value that is only a link, before the pipeline sees the object
+# (collectors/redfish/normalize.py). Oem, Links and Actions are ignored here: vendor extensions
+# are not read, so vendor differences stay in this table as data. A property that is not listed
+# is unclassified: it still raises a change (medium) but only its fingerprint is stored.
+#
+# Secrets: the schemas say Password, Authentication.Password, HttpHeaders and the SNMP keys are
+# null in responses; they are classed secret anyway, in case a firmware returns them. Classed
+# secret because a BMC may return them: SNMP community strings, the Context of an event
+# subscription (some tools put a token in it), a BIOS attribute whose name says password
+# (secret_value, set by the collector).
+#
+# Volatile (ignore): power state, Status/health, readings, link state and speed, the BMC clock,
+# account Locked, last reset time, password expiration time, secure boot state of the current boot.
+#
+# Floors: a new account is critical, a removed or changed account is high; the account service
+# (password and lockout policy, LDAP, Active Directory) is high; a new or removed event
+# subscription is high; firmware added or removed is medium (iDRAC puts the version into the id of
+# a firmware entry, so an update shows as one removed and one added entry).
+version: 1
+types:
+  - resource: redfish-systems
+    key_field: Id
+    name_field: Id
+    fields:
+      Id: config
+      Name: config
+      Description: config
+      HostName: config
+      Manufacturer: config
+      Model: config
+      SubModel: config
+      SKU: config
+      SerialNumber: config
+      PartNumber: config
+      UUID: config
+      AssetTag: config
+      SystemType: config
+      BiosVersion: config
+      PowerRestorePolicy: config
+      PowerOnDelaySeconds: config
+      PowerOffDelaySeconds: config
+      PowerCycleDelaySeconds: config
+      PowerMode: config
+      Boot.BootSourceOverrideEnabled: config
+      Boot.BootSourceOverrideMode: config
+      Boot.BootSourceOverrideTarget: config
+      Boot.UefiTargetBootSourceOverride: config
+      Boot.BootOrder: config
+      Boot.AliasBootOrder: config
+      Boot.BootNext: config
+      Boot.BootOrderPropertySelection: config
+      Boot.AutomaticRetryConfig: config
+      Boot.AutomaticRetryAttempts: config
+      Boot.HttpBootUri: config
+      Boot.StopBootOnFault: config
+      Boot.TrustedModuleRequiredToBoot: config
+      Boot.RemainingAutomaticRetryAttempts: ignore
+      SecureBoot.SecureBootEnable: config
+      SecureBoot.SecureBootMode: config
+      SecureBoot.SecureBootCurrentBoot: ignore
+      SecureBoot.Id: ignore
+      SecureBoot.Name: ignore
+      SecureBoot.Description: ignore
+      SecureBoot.Oem: ignore
+      SecureBoot.Actions: ignore
+      TrustedModules.FirmwareVersion: config
+      TrustedModules.InterfaceType: config
+      TrustedModules.Status: ignore
+      ProcessorSummary.Count: config
+      ProcessorSummary.CoreCount: config
+      ProcessorSummary.LogicalProcessorCount: config
+      ProcessorSummary.Model: config
+      ProcessorSummary.ThreadingEnabled: config
+      ProcessorSummary.Status: ignore
+      MemorySummary.TotalSystemMemoryGiB: config
+      MemorySummary.TotalSystemPersistentMemoryGiB: config
+      MemorySummary.MemoryMirroring: config
+      MemorySummary.Status: ignore
+      HostWatchdogTimer.FunctionEnabled: config
+      HostWatchdogTimer.TimeoutAction: config
+      HostWatchdogTimer.WarningAction: config
+      HostWatchdogTimer.Status: ignore
+      GraphicalConsole.ServiceEnabled: config
+      SerialConsole.MaxConcurrentSessions: config
+      PowerState: ignore
+      Status: ignore
+      IndicatorLED: ignore
+      LocationIndicatorActive: ignore
+      LastResetTime: ignore
+      LastResetCause: ignore
+      BootProgress: ignore
+      Oem: ignore
+      Links: ignore
+      Actions: ignore
+    lists:
+      TrustedModules: set
+  # One object per BIOS attribute, built by the collector: key "<system id>/<attribute>".
+  - resource: redfish-bios
+    key_field: ObjectKey
+    name_field: Attribute
+    fields:
+      ObjectKey: config
+      System: config
+      Attribute: config
+      value: config
+      secret_value: secret
+  - resource: redfish-managers
+    key_field: Id
+    name_field: Id
+    fields:
+      Id: config
+      Name: config
+      Description: config
+      ManagerType: config
+      Model: config
+      FirmwareVersion: config
+      UUID: config
+      ServiceEntryPointUUID: config
+      DateTimeLocalOffset: config
+      TimeZoneName: config
+      AutoDSTEnabled: config
+      GraphicalConsole.ServiceEnabled: config
+      GraphicalConsole.MaxConcurrentSessions: config
+      GraphicalConsole.ConnectTypesSupported: config
+      SerialConsole.ServiceEnabled: config
+      SerialConsole.MaxConcurrentSessions: config
+      SerialConsole.ConnectTypesSupported: config
+      CommandShell.ServiceEnabled: config
+      CommandShell.MaxConcurrentSessions: config
+      CommandShell.ConnectTypesSupported: config
+      DateTime: ignore
+      LastResetTime: ignore
+      PowerState: ignore
+      Status: ignore
+      Oem: ignore
+      Links: ignore
+      Actions: ignore
+    lists:
+      GraphicalConsole.ConnectTypesSupported: set
+      SerialConsole.ConnectTypesSupported: set
+      CommandShell.ConnectTypesSupported: set
+  # One object per manager, keyed by the manager id the collector adds (Manager).
+  - resource: redfish-network-protocol
+    key_field: Manager
+    name_field: Manager
+    fields:
+      Manager: config
+      Id: config
+      Name: config
+      Description: config
+      HostName: config
+      FQDN: config
+      HTTP.ProtocolEnabled: config
+      HTTP.Port: config
+      HTTPS.ProtocolEnabled: config
+      HTTPS.Port: config
+      SSH.ProtocolEnabled: config
+      SSH.Port: config
+      IPMI.ProtocolEnabled: config
+      IPMI.Port: config
+      Telnet.ProtocolEnabled: config
+      Telnet.Port: config
+      SSDP.ProtocolEnabled: config
+      SSDP.Port: config
+      SSDP.NotifyMulticastIntervalSeconds: config
+      SSDP.NotifyTTL: config
+      SSDP.NotifyIPv6Scope: config
+      KVMIP.ProtocolEnabled: config
+      KVMIP.Port: config
+      VirtualMedia.ProtocolEnabled: config
+      VirtualMedia.Port: config
+      RDP.ProtocolEnabled: config
+      RDP.Port: config
+      RFB.ProtocolEnabled: config
+      RFB.Port: config
+      FTP.ProtocolEnabled: config
+      FTP.Port: config
+      FTPS.ProtocolEnabled: config
+      FTPS.Port: config
+      SFTP.ProtocolEnabled: config
+      SFTP.Port: config
+      DHCP.ProtocolEnabled: config
+      DHCP.Port: config
+      DHCPv6.ProtocolEnabled: config
+      DHCPv6.Port: config
+      NTP.ProtocolEnabled: config
+      NTP.Port: config
+      NTP.NTPServers: config
+      NTP.NetworkSuppliedServers: config
+      SNMP.ProtocolEnabled: config
+      SNMP.Port: config
+      SNMP.TrapPort: config
+      SNMP.EnableSNMPv1: config
+      SNMP.EnableSNMPv2c: config
+      SNMP.EnableSNMPv3: config
+      SNMP.AuthenticationProtocol: config
+      SNMP.EncryptionProtocol: config
+      SNMP.EngineId: config
+      SNMP.HideCommunityStrings: config
+      SNMP.CommunityAccessMode: config
+      SNMP.CommunityStrings: config
+      SNMP.CommunityStrings.Name: config
+      SNMP.CommunityStrings.AccessMode: config
+      SNMP.CommunityStrings.CommunityString: secret
+      SNMP.CommunityStrings.RestrictCommunityToIPv4AddressRange: config
+      SNMP.CommunityStrings.IPv4AddressRangeLower: config
+      SNMP.CommunityStrings.IPv4AddressRangeUpper: config
+      Status: ignore
+      Oem: ignore
+      Actions: ignore
+    lists:
+      NTP.NetworkSuppliedServers: set
+      SNMP.CommunityStrings: {mode: set, key_field: Name}
+  # The Ethernet interfaces of each BMC: key "<manager id>/<interface id>".
+  - resource: redfish-manager-interfaces
+    key_field: ObjectKey
+    name_field: ObjectKey
+    fields:
+      ObjectKey: config
+      Manager: config
+      Id: config
+      Name: config
+      Description: config
+      InterfaceEnabled: config
+      MACAddress: config
+      PermanentMACAddress: config
+      HostName: config
+      FQDN: config
+      MTUSize: config
+      AutoNeg: config
+      FullDuplex: config
+      EthernetInterfaceType: config
+      IPv4Addresses: config
+      IPv4Addresses.Address: config
+      IPv4Addresses.SubnetMask: config
+      IPv4Addresses.AddressOrigin: config
+      IPv4Addresses.Gateway: config
+      IPv4StaticAddresses: config
+      IPv4StaticAddresses.Address: config
+      IPv4StaticAddresses.SubnetMask: config
+      IPv4StaticAddresses.Gateway: config
+      IPv6Enabled: config
+      IPv6Addresses: config
+      IPv6Addresses.Address: config
+      IPv6Addresses.PrefixLength: config
+      IPv6Addresses.AddressOrigin: config
+      IPv6Addresses.AddressState: ignore
+      IPv6StaticAddresses: config
+      IPv6StaticAddresses.Address: config
+      IPv6StaticAddresses.PrefixLength: config
+      IPv6DefaultGateway: config
+      IPv6StaticDefaultGateways: config
+      IPv6StaticDefaultGateways.Address: config
+      IPv6StaticDefaultGateways.PrefixLength: config
+      StatelessAddressAutoConfig.IPv4AutoConfigEnabled: config
+      StatelessAddressAutoConfig.IPv6AutoConfigEnabled: config
+      NameServers: config
+      StaticNameServers: config
+      DHCPv4.DHCPEnabled: config
+      DHCPv4.UseDNSServers: config
+      DHCPv4.UseDomainName: config
+      DHCPv4.UseGateway: config
+      DHCPv4.UseNTPServers: config
+      DHCPv4.UseStaticRoutes: config
+      DHCPv4.FallbackAddress: config
+      DHCPv6.OperatingMode: config
+      DHCPv6.UseDNSServers: config
+      DHCPv6.UseDomainName: config
+      DHCPv6.UseNTPServers: config
+      DHCPv6.UseRapidCommit: config
+      VLAN.VLANEnable: config
+      VLAN.VLANId: config
+      VLAN.VLANPriority: config
+      LinkStatus: ignore
+      SpeedMbps: ignore
+      Status: ignore
+      Oem: ignore
+      Links: ignore
+      Actions: ignore
+    lists:
+      IPv4Addresses: {mode: set, key_field: Address}
+      IPv4StaticAddresses: {mode: set, key_field: Address}
+      IPv6Addresses: {mode: set, key_field: Address}
+      IPv6StaticAddresses: {mode: set, key_field: Address}
+      IPv6StaticDefaultGateways: {mode: set, key_field: Address}
+  # Keyed by user name: a fixed slot without a user name is left out by the collector, so a new
+  # account in a slot shows as an added account.
+  - resource: redfish-accounts
+    key_field: UserName
+    name_field: UserName
+    floors: {added: critical, removed: high, modified: high}
+    fields:
+      UserName: config
+      Id: config
+      Name: config
+      Description: config
+      RoleId: config
+      Enabled: config
+      AccountTypes: config
+      OEMAccountTypes: config
+      StrictAccountTypes: config
+      PasswordChangeRequired: config
+      AccountExpiration: config
+      EmailAddress: config
+      HostBootstrapAccount: config
+      MFABypass: config
+      Password: secret
+      SNMP.AuthenticationProtocol: config
+      SNMP.EncryptionProtocol: config
+      SNMP.AuthenticationKey: secret
+      SNMP.EncryptionKey: secret
+      SNMP.AuthenticationKeySet: config
+      SNMP.EncryptionKeySet: config
+      Locked: ignore
+      PasswordExpiration: ignore
+      Oem: ignore
+      Links: ignore
+      Actions: ignore
+    lists:
+      AccountTypes: set
+      OEMAccountTypes: set
+  - resource: redfish-account-service
+    key_field: Id
+    floor: high
+    fields:
+      Id: config
+      Name: config
+      Description: config
+      ServiceEnabled: config
+      LocalAccountAuth: config
+      HTTPBasicAuth: config
+      MinPasswordLength: config
+      MaxPasswordLength: config
+      PasswordExpirationDays: config
+      RequireChangePasswordAction: config
+      AuthFailureLoggingThreshold: config
+      AccountLockoutThreshold: config
+      AccountLockoutDuration: config
+      AccountLockoutCounterResetAfter: config
+      AccountLockoutCounterResetEnabled: config
+      SupportedAccountTypes: config
+      RestrictedPrivileges: config
+      LDAP.ServiceEnabled: config
+      LDAP.ServiceAddresses: config
+      LDAP.PasswordSet: config
+      LDAP.Authentication.AuthenticationType: config
+      LDAP.Authentication.Username: config
+      LDAP.Authentication.Password: secret
+      LDAP.Authentication.Token: secret
+      LDAP.Authentication.KerberosKeytab: secret
+      LDAP.Authentication.EncryptionKey: secret
+      LDAP.LDAPService.SearchSettings.BaseDistinguishedNames: config
+      LDAP.LDAPService.SearchSettings.UsernameAttribute: config
+      LDAP.LDAPService.SearchSettings.GroupsAttribute: config
+      LDAP.LDAPService.SearchSettings.GroupNameAttribute: config
+      LDAP.LDAPService.SearchSettings.EmailAttribute: config
+      LDAP.LDAPService.SearchSettings.SSHKeyAttribute: config
+      LDAP.RemoteRoleMapping: config
+      LDAP.RemoteRoleMapping.RemoteGroup: config
+      LDAP.RemoteRoleMapping.RemoteUser: config
+      LDAP.RemoteRoleMapping.LocalRole: config
+      LDAP.TimeoutSeconds: config
+      LDAP.Retries: config
+      ActiveDirectory.ServiceEnabled: config
+      ActiveDirectory.ServiceAddresses: config
+      ActiveDirectory.PasswordSet: config
+      ActiveDirectory.Authentication.AuthenticationType: config
+      ActiveDirectory.Authentication.Username: config
+      ActiveDirectory.Authentication.Password: secret
+      ActiveDirectory.Authentication.Token: secret
+      ActiveDirectory.Authentication.KerberosKeytab: secret
+      ActiveDirectory.Authentication.EncryptionKey: secret
+      ActiveDirectory.RemoteRoleMapping: config
+      ActiveDirectory.RemoteRoleMapping.RemoteGroup: config
+      ActiveDirectory.RemoteRoleMapping.RemoteUser: config
+      ActiveDirectory.RemoteRoleMapping.LocalRole: config
+      ActiveDirectory.TimeoutSeconds: config
+      ActiveDirectory.Retries: config
+      Status: ignore
+      Oem: ignore
+      Links: ignore
+      Actions: ignore
+    lists:
+      SupportedAccountTypes: set
+      RestrictedPrivileges: set
+      LDAP.ServiceAddresses: set
+      LDAP.RemoteRoleMapping: {mode: set, key_field: RemoteGroup}
+      ActiveDirectory.ServiceAddresses: set
+      ActiveDirectory.RemoteRoleMapping: {mode: set, key_field: RemoteGroup}
+  - resource: redfish-event-subscriptions
+    key_field: Id
+    name_field: Destination
+    floors: {added: high, removed: high}
+    fields:
+      Id: config
+      Name: config
+      Description: config
+      Destination: config
+      Protocol: config
+      SubscriptionType: config
+      EventFormatType: config
+      EventTypes: config
+      RegistryPrefixes: config
+      ExcludeRegistryPrefixes: config
+      MessageIds: config
+      ExcludeMessageIds: config
+      ResourceTypes: config
+      Severities: config
+      IncludeOriginOfCondition: config
+      DeliveryRetryPolicy: config
+      VerifyCertificate: config
+      SendHeartbeat: config
+      HeartbeatIntervalMinutes: config
+      Context: secret
+      HttpHeaders: secret
+      SNMP.AuthenticationProtocol: config
+      SNMP.EncryptionProtocol: config
+      SNMP.TrapCommunity: secret
+      SNMP.AuthenticationKey: secret
+      SNMP.EncryptionKey: secret
+      Status: ignore
+      Oem: ignore
+      Links: ignore
+      Actions: ignore
+    lists:
+      EventTypes: set
+      RegistryPrefixes: set
+      ExcludeRegistryPrefixes: set
+      MessageIds: set
+      ExcludeMessageIds: set
+      ResourceTypes: set
+      Severities: set
+  # Keyed by the path of the certificate, which the collector adds (Uri).
+  - resource: redfish-certificates
+    key_field: Uri
+    name_field: Uri
+    fields:
+      Uri: config
+      Id: config
+      Name: config
+      Description: config
+      CertificateType: config
+      CertificateUsageTypes: config
+      Subject.CommonName: config
+      Subject.Organization: config
+      Subject.OrganizationalUnit: config
+      Subject.City: config
+      Subject.State: config
+      Subject.Country: config
+      Subject.Email: config
+      Subject.AlternativeNames: config
+      Issuer.CommonName: config
+      Issuer.Organization: config
+      Issuer.OrganizationalUnit: config
+      Issuer.City: config
+      Issuer.State: config
+      Issuer.Country: config
+      Issuer.Email: config
+      ValidNotBefore: config
+      ValidNotAfter: config
+      SerialNumber: config
+      Fingerprint: config
+      FingerprintHashAlgorithm: config
+      SignatureAlgorithm: config
+      KeyUsage: config
+      CertificateString: ignore
+      Oem: ignore
+      Links: ignore
+      Actions: ignore
+    lists:
+      CertificateUsageTypes: set
+      KeyUsage: set
+      Subject.AlternativeNames: set
+  - resource: redfish-firmware
+    key_field: Id
+    name_field: Name
+    floors: {added: medium, removed: medium}
+    fields:
+      Id: config
+      Name: config
+      Description: config
+      Version: config
+      SoftwareId: config
+      Manufacturer: config
+      ReleaseDate: config
+      LowestSupportedVersion: config
+      Updateable: config
+      WriteProtected: config
+      VersionScheme: config
+      ReleaseType: config
+      Status: ignore
+      Oem: ignore
+      Links: ignore
+      Actions: ignore
