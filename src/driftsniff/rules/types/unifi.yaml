@@ -101,6 +101,9 @@ types:
       enabled: config
       actionType: config
       action.type: ignore
+      # The position number the controller returns (verified on 10.6.109); the order is tracked
+      # by the ordering lists instead, so a renumbering is not a change.
+      index: ignore
       action.allowReturnTraffic: config
       connectionStateFilter: config
       ipsecFilter: config

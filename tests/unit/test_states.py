@@ -8,6 +8,7 @@ import zstandard
 
 from driftsniff.core import states
 from driftsniff.core.canonical import JsonValue, canonical_dumps
+from driftsniff.core.normalize import NORMALISER_VERSION
 from driftsniff.core.states import (
     StateCorruptError,
     StateMissingError,
@@ -57,7 +58,7 @@ def test_the_body_is_zstd_compressed_canonical_json(store: Database) -> None:
     body = zstandard.ZstdDecompressor().decompress(body_zstd)
     assert body == canonical_dumps(STATE)
     assert size_bytes == len(body)
-    assert version == 1
+    assert version == NORMALISER_VERSION
     assert state_hash == sha256(body).hexdigest()
 
 
