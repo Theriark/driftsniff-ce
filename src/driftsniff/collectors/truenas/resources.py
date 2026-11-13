@@ -6,8 +6,8 @@ TrueNAS 25.04 and later expose a versioned JSON-RPC 2.0 API over one WebSocket; 
 from the published API reference for 25.10 (api.truenas.com, read 2026-11-12); no lab TrueNAS was
 used, so they are checked against the documentation only.
 
-``pool.dataset.query`` takes query options that keep the answer flat and leave out snapshots, child
-lists and user properties; those option names are from the same reference.
+``pool.dataset.query`` takes query options that keep the answer flat and leave out user
+properties; those option names are from the same reference.
 
 A resource that is not listed keeps its previous state in the run pipeline, so leaving one out can
 never report an object as removed.
@@ -39,7 +39,9 @@ class TruenasResource:
 
 _DATASET_OPTIONS: Final[list[JsonValue]] = [
     [],
-    {"extra": {"flat": True, "retrieve_children": False, "retrieve_user_props": False}},
+    # retrieve_children must stay on: TrueNAS 25.04.2.6 answered only the pool root datasets with
+    # it off (lab DELTA, 2026-11-13). flat keeps every dataset a top-level object of its own.
+    {"extra": {"flat": True, "retrieve_user_props": False}},
 ]
 
 RESOURCES: Final = (
