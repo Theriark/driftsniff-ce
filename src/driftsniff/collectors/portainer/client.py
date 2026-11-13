@@ -12,6 +12,9 @@ Portainer source on 2026-11-12 (docs/vendor-notes/portainer.md); no lab Portaine
 * Every resource is one GET of a JSON list (the settings: one object). Coverage: 404 is
   ``not_available`` and 403 ``forbidden`` (a non-admin token gets 403 on the admin-only
   resources); both keep the previous state of the resource, so nothing is reported as removed.
+* Edge groups answer 503 while the Edge compute features are turned off (Portainer BE 2.45.3,
+  2026-11-13). When the settings confirm that, the resource is read as empty: no Edge group is in
+  effect, and the run is not partial on every check. Any other 503 stays a failure.
 * Stacks: the content of each stack file is read from ``/api/stacks/{id}/file`` and stored in the
   stack as ``StackFileContent`` (a secret field: only its fingerprint is kept). A file that cannot
   be read fails the stacks resource, so its previous state stays rather than a false change.
@@ -41,7 +44,9 @@ from driftsniff.collectors.base import (
 from driftsniff.collectors.portainer.normalize import prepare_objects
 from driftsniff.collectors.portainer.resources import (
     API_KEY_HEADER,
+    RESOURCE_EDGE_GROUPS,
     RESOURCE_PATHS,
+    RESOURCE_SETTINGS,
     RESOURCE_STACKS,
     RESOURCES,
     STACK_FILE_FIELD,
@@ -66,6 +71,8 @@ ERROR_UNKNOWN_RESOURCE: Final = "unknown_resource"
 STATUS_FORBIDDEN: Final = "403"
 STATUS_NOT_FOUND: Final = "404"
 STATUS_UNAUTHORIZED: Final = "401"
+STATUS_UNAVAILABLE: Final = "503"
+EDGE_COMPUTE_SETTING: Final = "EnableEdgeComputeFeatures"
 
 _VERSION = re.compile(r"\d{1,4}\.\d{1,4}(?:\.\d{1,6})?(?:[.+-][0-9A-Za-z.+-]{0,32})?")
 
@@ -150,6 +157,12 @@ class PortainerClient(Collector):
                 for stack in objects:
                     stack[STACK_FILE_FIELD] = self._stack_file(stack[resource.key_field])
         except CollectorError as error:
+            if (
+                resource.name == RESOURCE_EDGE_GROUPS
+                and error.status == STATUS_UNAVAILABLE
+                and self._edge_compute_off()
+            ):
+                return FetchResult.success([], bytes_fetched=self._bytes)
             return self._failure(error)
         return FetchResult.success(objects, bytes_fetched=self._bytes)
 
@@ -163,6 +176,14 @@ class PortainerClient(Collector):
         parsed, size = fetch_json(self._client, f"{self._base_url}{path}", headers=self._headers)
         self._bytes += size
         return parsed
+
+    def _edge_compute_off(self) -> bool:
+        """True only when the settings say the Edge compute features are turned off."""
+        try:
+            settings = self._get(RESOURCE_PATHS[RESOURCE_SETTINGS].path)
+        except CollectorError:
+            return False
+        return isinstance(settings, dict) and settings.get(EDGE_COMPUTE_SETTING) is False
 
     def _stack_file(self, stack_id: JsonValue) -> JsonValue:
         if not isinstance(stack_id, int) or isinstance(stack_id, bool):
