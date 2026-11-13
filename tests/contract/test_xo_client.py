@@ -82,7 +82,7 @@ def test_a_probe_succeeds_and_reports_no_version() -> None:
     with connected() as (server, client):
         assert client.probe() is None
         assert [request.path for request in server.requests] == [
-            "/rest/v0",
+            "/rest/v0/pools",
             "/rest/v0/users/me/authentication_tokens",
         ]
 
@@ -103,7 +103,7 @@ def test_the_credential_travels_only_in_the_cookie() -> None:
     ("status", "error_class"), [(401, ERROR_UNAUTHORIZED), (403, ERROR_FORBIDDEN)]
 )
 def test_a_refused_credential_stops_the_probe(status: int, error_class: str) -> None:
-    scenario = Scenario(status={"root": status}, echo_cookie=True)
+    scenario = Scenario(status={"pools": status}, echo_cookie=True)
     with connected(scenario) as (_, client), pytest.raises(CollectorError) as caught:
         client.probe()
     assert caught.value.error_class == error_class
@@ -119,7 +119,10 @@ def test_a_wrong_credential_is_unauthorized() -> None:
         assert caught.value.error_class == ERROR_UNAUTHORIZED
 
 
-@pytest.mark.parametrize("scenario", [Scenario(status={"root": 404}), Scenario(html_root=True)])
+@pytest.mark.parametrize(
+    "scenario",
+    [Scenario(status={"pools": 404}), Scenario(raw={"pools": b"<html>not the api</html>"})],
+)
 def test_a_server_without_the_rest_interface_is_no_api(scenario: Scenario) -> None:
     with connected(scenario) as (_, client), pytest.raises(CollectorError) as caught:
         client.probe()
@@ -367,7 +370,7 @@ def test_the_credential_never_appears_in_logs_errors_or_results(
     with caplog.at_level(logging.DEBUG):
         with probed(scenario) as (_, client):
             outputs = [repr(client.fetch(spec)) for spec in client.resources()]
-        with connected(Scenario(status={"root": 401}, echo_cookie=True)) as (_, other):
+        with connected(Scenario(status={"pools": 401}, echo_cookie=True)) as (_, other):
             with pytest.raises(CollectorError) as caught:
                 other.probe()
             outputs.append(str(caught.value))

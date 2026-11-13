@@ -28,6 +28,7 @@ import sqlalchemy as sa
 from fastapi.testclient import TestClient
 from httpx import Response
 
+from driftsniff.collectors.xo.resources import PROBE_PATH
 from driftsniff.config import Settings
 from driftsniff.db import tables
 from driftsniff.db.engine import Database, database_path
@@ -138,8 +139,13 @@ def covered(store: Database, source_id: int) -> set[str]:
 
 
 def xo_collections_requested(server: fake_xo.FakeXo) -> set[str]:
-    """The collections the fake Xen Orchestra was asked for (not the root, not the credential)."""
-    names = {request.path[len(fake_xo.PREFIX) :].strip("/") for request in server.requests}
+    """The collections the fake Xen Orchestra was asked for (not the probe, not the credential)."""
+    probe_query = PROBE_PATH.partition("?")[2]
+    names = {
+        request.path[len(fake_xo.PREFIX) :].strip("/")
+        for request in server.requests
+        if request.query != probe_query
+    }
     return names - {"", fake_xo.TOKENS}
 
 

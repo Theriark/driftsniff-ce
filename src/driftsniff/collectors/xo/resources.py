@@ -23,6 +23,9 @@ from driftsniff.rules.schema import ResourceTable
 REST_PREFIX: Final = "/rest/v0"
 COOKIE_NAME: Final = "authenticationToken"
 # The credential in use, as the REST interface lists the credentials of the signed in user.
+# The probe reads one small collection: the REST root itself redirects to the API documentation
+# (an HTML page) on Xen Orchestra 5 builds of 2026, and redirects are never followed.
+PROBE_PATH: Final = "/pools?fields=id&ndjson=true"
 TOKEN_PATH: Final = "/users/me/authentication_tokens"  # noqa: S105 - a URL path, not a password
 
 # Collections the plan never requests (P8-T1). None of them has a type table.

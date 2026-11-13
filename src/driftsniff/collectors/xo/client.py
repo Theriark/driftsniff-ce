@@ -18,7 +18,8 @@ The behaviour below is the plan's and does not depend on them.
   resource is coverage ``404`` and a 403 coverage ``403`` (class ``not_available`` and
   ``forbidden``), never a failure of the run, as for UniFi (plan P7-T2). Both keep the previous
   state of the resource, so nothing is reported as removed.
-* ``probe()`` asks the REST root once. XO reports no version through it, so it returns None. After
+* ``probe()`` reads the ids of the pools once (the REST root itself redirects to the API
+  documentation on recent XO builds). XO reports no version there, so it returns None. After
   a good probe the client tries once to read the expiry of the credential in use; 403, 404 or any
   other failure of that one read is tolerated and the expiry the administrator entered is used. A
   credential that expires within :data:`EXPIRY_WARNING_DAYS` days, or has expired, makes
@@ -46,6 +47,7 @@ import httpx
 
 from driftsniff.collectors.base import (
     ERROR_BAD_JSON,
+    ERROR_BAD_PAYLOAD,
     REQUEST_TIMEOUT_SECONDS,
     STATUS_ERROR,
     Collector,
@@ -62,6 +64,7 @@ from driftsniff.collectors.xo.normalize import prepare_objects
 from driftsniff.collectors.xo.resources import (
     COLLECTIONS,
     COOKIE_NAME,
+    PROBE_PATH,
     REST_PREFIX,
     TOKEN_PATH,
     collection_path,
@@ -196,11 +199,16 @@ class XoClient(Collector):
         self._address.clear()
         self._address.set(pin_address(self._base_url, self._resolver))
         try:
-            fetch_json(self._client, f"{self._base_url}{REST_PREFIX}", headers=self._headers)
+            fetch_ndjson(
+                self._client, f"{self._base_url}{REST_PREFIX}{PROBE_PATH}", headers=self._headers
+            )
         except CollectorError as error:
             if error.status in (STATUS_UNAUTHORIZED, STATUS_FORBIDDEN):
                 raise self._refused(error.status) from None
-            if error.status == STATUS_NOT_FOUND or error.error_class == ERROR_BAD_JSON:
+            if error.status == STATUS_NOT_FOUND or error.error_class in (
+                ERROR_BAD_JSON,
+                ERROR_BAD_PAYLOAD,
+            ):
                 raise CollectorError(
                     ERROR_NO_API, "the Xen Orchestra REST interface did not answer"
                 ) from None

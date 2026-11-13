@@ -5,6 +5,21 @@ read (P8). They are written for the people who build and review the collector an
 `src/driftsniff/rules/types/xo.yaml`. Nothing here is copied or vendored from the vendor; every
 statement is in our own words, with its source and the date it was read.
 
+## Lab check: two Xen Orchestra 5 servers (2026-11-13)
+
+Two local Xen Orchestra servers (XO-01, XO-02) were read with an administrator's authentication
+token in the `authenticationToken` cookie.
+
+- `GET /rest/v0` no longer answers JSON: it redirects to the API documentation (`/rest/v0/docs/`,
+  an HTML page). Redirects are never followed, so every probe failed with "the controller
+  answered with a redirect". The probe now reads `/rest/v0/pools?fields=id&ndjson=true`, a small
+  collection that answers directly.
+- `GET /rest/v0/users/me/authentication_tokens` redirects to `/rest/v0/users/<user id>/...`, so the
+  expiry of the credential in use is not read from XO (statement 16); that read was already
+  tolerated, and the expiry date the administrator enters on the source is used.
+- The collections themselves (`/rest/v0/<collection>?fields=...&ndjson=true`) answer without a
+  redirect.
+
 ## Status in one paragraph
 
 **Nothing in this file is lab-verified, and the vendor's own reference was not read for this
