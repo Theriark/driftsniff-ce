@@ -240,6 +240,10 @@ class _Walker:
         field_class = self._leaf_class(cls_path, before, after)
         before_value, before_fp = self._render(field_class, cls_path, before)
         after_value, after_fp = self._render(field_class, cls_path, after)
+        if kind == "modified" and before_fp is not None and before_fp == after_fp:
+            # The same value, stored once in clear and once as its fingerprint: a field whose
+            # class became secret (or stopped being secret) between the two readings.
+            return
         self.fields.append(
             _Field(
                 kind,
