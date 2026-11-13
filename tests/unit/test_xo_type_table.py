@@ -294,8 +294,9 @@ def test_there_is_no_derived_resource_for_the_backup_job_settings(index: RuleInd
     # Decision of Core on THE-359: the settings are nested fields of the backup job.
     assert "backup-job-settings" not in index.type_tables
     jobs = table(index, "backup-jobs")
-    assert jobs.field_class("settings") is FieldClass.UNCLASSIFIED
-    assert jobs.field_class("settings.someScheduleId.exportRetention") is FieldClass.UNCLASSIFIED
+    # Settings keyed by schedule id, seen on two real XO 5 servers (2026-11-13), are a subtree.
+    assert jobs.field_class("settings") is FieldClass.CONFIG
+    assert jobs.field_class("settings.someScheduleId.exportRetention") is FieldClass.CONFIG
 
 
 def test_the_built_in_template_marker_is_ignore_class(index: RuleIndex) -> None:
