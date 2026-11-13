@@ -389,6 +389,32 @@ def test_a_value_stored_in_clear_then_as_its_fingerprint_is_no_change() -> None:
     assert diff_one({"wifi": {"passphrase": marker}}, {"wifi": {"passphrase": CANARY}}) == []
 
 
+def key_marker(value: str) -> str:
+    return FINGERPRINTER.fingerprint("network", "_id", value).marker()
+
+
+@pytest.mark.parametrize(("before", "after"), [("masked", "clear"), ("clear", "masked")])
+def test_a_key_that_moved_between_clear_and_fingerprint_is_the_same_object(
+    before: str, after: str
+) -> None:
+    # A Home Assistant integration keyed by an entry_id the scanner once took for a secret.
+    forms = {"clear": "01JZQ8RK4N7XW2M5", "masked": key_marker("01JZQ8RK4N7XW2M5")}
+    old = build({"network": [obj(forms[before], vlan=10)]})
+    unchanged = build({"network": [obj(forms[after], vlan=10)]})
+    changed = build({"network": [obj(forms[after], vlan=20)]})
+    assert all(item.change_kind not in ("added", "removed") for item in run(old, unchanged))
+    item = one([item for item in run(old, changed) if item.path == "vlan"])
+    assert (item.change_kind, item.before_value, item.after_value) == ("modified", "10", "20")
+    assert item.object_key == forms[after]
+
+
+def test_a_new_key_that_only_looks_like_an_old_fingerprint_is_still_added() -> None:
+    old = build({"network": [obj(key_marker("one"), vlan=10)]})
+    new = build({"network": [obj("two", vlan=10)]})
+    kinds = sorted(item.change_kind for item in run(old, new))
+    assert kinds == ["added", "removed"]
+
+
 def test_a_secret_that_appears_has_only_an_after_fingerprint() -> None:
     marker = secret_marker(CANARY)
     item = one(diff_one({}, {"wifi": {"passphrase": marker}}))

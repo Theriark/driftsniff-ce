@@ -10,7 +10,9 @@ What is compared
 ----------------
 - Objects are matched by key inside a resource. A key only in the new manifest is ``added``, a key
   only in the previous one is ``removed``; each gives one item with an empty path. A key in both
-  is compared field by field, but only when the two state hashes differ.
+  is compared field by field, but only when the two state hashes differ. A key that is a
+  fingerprint and a key in clear whose fingerprint it is are the same object (the secret scanner's
+  decision about the key value changed between the readings), never one removed and one added.
 - A resource that is in the previous manifest but not in the new one is left alone, never reported
   as removed: the collection could not read it. A resource only in the new manifest is all added.
 - Fields of the ``ignore`` class are skipped. Null and a missing field are the same state, so
@@ -393,19 +395,24 @@ def _compare_resource(
     new = context.new.objects[resource]
     old: Mapping[str, str] = previous if previous is not None else {}
     items: list[ChangeItem] = []
-    for key in sorted(new.keys() - old.keys()):
+    added = new.keys() - old.keys()
+    removed = old.keys() - new.keys()
+    # New key -> old key: the same object, its key stored once in clear and once as a fingerprint.
+    same = _same_key_pairs(context, resource, table, added, removed)
+    for key in sorted(added - same.keys()):
         name = context.name_of(table, resource, key, new[key])
         items.append(context.item(resource, key, name, _whole_object("added")))
-    for key in sorted(old.keys() - new.keys()):
+    for key in sorted(removed - set(same.values())):
         name = context.name_of(table, resource, key, old[key])
         items.append(context.item(resource, key, name, _whole_object("removed")))
-    changed = sorted(key for key in new.keys() & old.keys() if new[key] != old[key])
+    old_key_of = {key: key for key in new.keys() & old.keys()} | same
+    changed = sorted(key for key, before in old_key_of.items() if new[key] != old[before])
     fields_by_key: dict[str, list[_Field]] = {}
     for key in changed:
         walker = _Walker(resource, table, context.fingerprinter)
-        walker.walk("", "", context.load(old[key]), context.load(new[key]))
+        walker.walk("", "", context.load(old[old_key_of[key]]), context.load(new[key]))
         fields_by_key[key] = walker.fields
-    drift = _drift_paths(context, old, new, fields_by_key)
+    drift = _drift_paths(context, len(old_key_of), fields_by_key)
     for key in changed:
         name = context.name_of(table, resource, key, new[key])
         for field in fields_by_key[key]:
@@ -417,21 +424,45 @@ def _compare_resource(
     return items
 
 
+def _same_key_pairs(
+    context: _Context, resource: str, table: TypeTable, added: set[str], removed: set[str]
+) -> dict[str, str]:
+    """Pair a key that is a fingerprint with the key in clear that it is the fingerprint of.
+
+    The secret scanner can fingerprint a key value; when its decision changes between two
+    readings (an override, a reclassification), the same object comes back under the other form
+    of its key and must not be reported as removed and added.
+    """
+    key_field = table.object_key_field
+    if key_field is None or not added or not removed:
+        return {}
+
+    def marker(key: str) -> str:
+        if Fingerprint.parse(key) is not None:
+            return key
+        return context.fingerprinter.fingerprint(resource, key_field, key).marker()
+
+    old_by_marker = {marker(key): key for key in removed}
+    pairs: dict[str, str] = {}
+    for key in added:
+        before = old_by_marker.get(marker(key))
+        if before is not None and before not in pairs.values():
+            pairs[key] = before
+    return pairs
+
+
 def _is_new_path(field: _Field) -> bool:
     """A field that appeared. A member added to a list is a value, not a new field path."""
     return field.change_kind == "added" and not field.list_member
 
 
 def _drift_paths(
-    context: _Context,
-    old: Mapping[str, str],
-    new: Mapping[str, str],
-    fields_by_key: Mapping[str, list[_Field]],
+    context: _Context, matched: int, fields_by_key: Mapping[str, list[_Field]]
 ) -> set[str]:
     """The new field paths that appeared on every matched object at once, or an empty set."""
     if not context.controller_changed or len(fields_by_key) < MIN_DRIFT_OBJECTS:
         return set()
-    if len(fields_by_key) != len(new.keys() & old.keys()):
+    if len(fields_by_key) != matched:
         return set()
     appeared = [
         {field.path for field in fields if _is_new_path(field)} for fields in fields_by_key.values()
