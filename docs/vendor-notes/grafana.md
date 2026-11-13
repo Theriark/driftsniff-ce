@@ -26,7 +26,10 @@ holds for the Admin role). Two readings in a row gave no change.
   `keepFiringFor`), the common members of `data.model` and `data.relativeTimeRange`, the standard
   annotations, eight dashboard settings, thirteen data source `jsonData` members, `isDeleted` on
   folders, and `uid`, `isExternallySynced`, `isProvisioned`, `created` on organisation users.
-- Still unclassified, because their paths depend on the panel plugin, the rule or the data source
+- Since the type tables have subtrees (2026-11-13), `dashboard.panels`, `dashboard.templating`,
+  `dashboard.annotations`, `dashboard.links`, alert rule `labels`, `annotations` and `data.model`, and
+  data source `jsonData` are subtrees of the class config: the paths below them are shown in clear.
+- Before that, still unclassified, because their paths depend on the panel plugin, the rule or the data source
   plugin: the internals of dashboard panels (`fieldConfig`, `options`, `transformations`,
   `targets`, about 160 paths on the lab server), alert rule labels with names of the user's choice,
   and plugin specific `jsonData` members. A change there is still detected and shown as a

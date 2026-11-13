@@ -258,6 +258,7 @@ class TypeSpec(BaseModel):
     floor: Severity | None = None
     floors: dict[FloorKind, Severity] = Field(default_factory=dict)
     fields: dict[str, FieldClass]
+    subtrees: dict[str, FieldClass] = Field(default_factory=dict)
     lists: dict[str, ListSpec] = Field(default_factory=dict)
     action_field: str | None = Field(default=None, min_length=1)
     blocking_actions: list[str] | None = None
@@ -274,7 +275,7 @@ class TypeSpec(BaseModel):
             raise ValueError("blocking_actions is a list of one or more non-empty texts")
         return sorted(set(cleaned))
 
-    @field_validator("fields", "lists")
+    @field_validator("fields", "subtrees", "lists")
     @classmethod
     def _paths_are_valid(cls, value: Mapping[str, object]) -> Mapping[str, object]:
         for path in value:
@@ -334,6 +335,7 @@ class TypeSpec(BaseModel):
             object_key_field=self.key_field,
             name_field=self.name_field,
             field_classes=dict(self.fields),
+            subtree_classes=dict(self.subtrees),
             collection_modes={path: spec.mode for path, spec in self.lists.items()},
             item_key_fields={
                 path: spec.key_field for path, spec in self.lists.items() if spec.key_field

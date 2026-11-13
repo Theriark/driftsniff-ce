@@ -82,6 +82,11 @@ class StaticTypeTable:
     jumped over into the order detail, so that the rule engine can tell a harmless move from one
     that lets traffic past a deny rule. It is not part of the ``TypeTable`` protocol: a table
     that has no such attribute simply has no actions.
+
+    ``subtree_classes`` gives a class to every undeclared path below a path, for objects whose
+    inner shape depends on a plugin or on the user (a dashboard panel, a label map). A path named
+    in ``field_classes`` keeps its own class; otherwise the nearest subtree above it (or the path
+    itself) decides.
     """
 
     object_key_field: str | None = None
@@ -90,9 +95,20 @@ class StaticTypeTable:
     collection_modes: Mapping[str, CollectionMode] = field(default_factory=dict)
     item_key_fields: Mapping[str, str] = field(default_factory=dict)
     action_field: str | None = None
+    subtree_classes: Mapping[str, FieldClass] = field(default_factory=dict)
 
     def field_class(self, path: str) -> FieldClass:
-        return self.field_classes.get(path, FieldClass.UNCLASSIFIED)
+        declared = self.field_classes.get(path)
+        if declared is not None:
+            return declared
+        if self.subtree_classes:
+            prefix = path
+            while prefix:
+                inherited = self.subtree_classes.get(prefix)
+                if inherited is not None:
+                    return inherited
+                prefix = prefix.rpartition(".")[0]
+        return FieldClass.UNCLASSIFIED
 
     def collection_mode(self, path: str) -> CollectionMode:
         return self.collection_modes.get(path, CollectionMode.ORDERED_SCALAR)

@@ -362,6 +362,10 @@ types:
       rule_config.conditions.throttle_periodic_notifications.value: config
       rule_config.contact_selection.restrict_by_custom_macros.state: config
       rule_config.contact_selection.restrict_by_custom_macros.value: config
+    # Condition and contact selection values vary per option; plugin_params stays secret.
+    subtrees:
+      rule_config.conditions: config
+      rule_config.contact_selection: config
     lists:
       rule_config.contact_selection.the_following_users.value: set
       rule_config.contact_selection.members_of_contact_groups.value: set

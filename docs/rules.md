@@ -147,6 +147,7 @@ types:
 | `collection` | How the objects of this resource are compared: `set` (default), `ordered-keyed`, `ordered-scalar` or `vendor-index`. `ordered-keyed` needs `key_field`. |
 | `key_field`, `name_field` | The field that identifies an object, and the one that names it. |
 | `fields` | The class of each field path: `config`, `secret`, `ignore` or `unclassified`. A field that is not listed is `unclassified`. |
+| `subtrees` | A class for every path below a path (and the path itself) that `fields` does not name, for objects whose inner shape depends on a plugin or on the user: dashboard panels, label maps, integration options. A path listed under `fields` keeps its own class, and the nearest subtree above a path decides. The secret scanner still applies to every value. Default: none. |
 | `lists` | The mode of each list inside an object, and optionally the field that keys its members (`mode` and `key_field`), and `first_match: true` for an `ordered-keyed` list where the first matching entry wins. A list that is not listed keeps its order (`ordered-scalar`). |
 | `floor` | The lowest severity of an added, removed, modified or moved object of this type. |
 | `floors` | The same per kind of change (`added`, `removed`, `modified`, `moved`). Use `floor` or `floors`, not both. |

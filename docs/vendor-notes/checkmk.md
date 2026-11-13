@@ -32,6 +32,9 @@ actions"). That role is enough: all nine collections answered 200 (statement 14 
   contact selection `restrict_by_custom_macros`. Users carry `start_url`. They are classified now
   (`tests/unit/test_checkmk_real_shapes.py`); the members of condition values the lab site did not
   fill in (labels, tags, levels, numbers) stay unclassified until a site shows them.
+- Since the type tables have subtrees (2026-11-13), `rule_config.conditions` and
+  `rule_config.contact_selection` are subtrees of the class config, so filled-in label, tag and
+  level conditions are classified too; `plugin_params` stays secret.
 - Not seen on the lab site: host and service groups (none defined), and filled-in label, tag and
   level conditions.
 

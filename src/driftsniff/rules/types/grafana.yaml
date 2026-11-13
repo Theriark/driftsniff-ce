@@ -66,6 +66,9 @@ types:
       typeLogoUrl: ignore
       typeName: ignore
       version: ignore
+    # jsonData members depend on the data source plugin; its secrets are in secureJsonData.
+    subtrees:
+      jsonData: config
   # From /api/search?type=dash-folder. folderUid is the parent of a nested folder (UNVERIFIED
   # that search lists nested folders; the folder list documentation says /api/folders does not).
   - resource: grafana-folders
@@ -137,6 +140,12 @@ types:
       dashboard.time.to: config
       dashboard.timepicker.refresh_intervals: config
       dashboard.timepicker.time_options: config
+    # Panel, variable and link settings depend on the panel plugin: every member is config.
+    subtrees:
+      dashboard.panels: config
+      dashboard.templating: config
+      dashboard.annotations: config
+      dashboard.links: config
     lists:
       dashboard.tags: set
   # Admin only (alert.provisioning:read). The members of notification_settings and record are
@@ -187,6 +196,11 @@ types:
       data.model.maxDataPoints: config
       id: ignore
       updated: ignore
+    # Label and annotation names are the user's; the query model depends on the data source.
+    subtrees:
+      labels: config
+      annotations: config
+      data.model: config
     lists:
       data: {mode: set, key_field: refId}
   # Admin only. settings is secret as a whole (see the header).
