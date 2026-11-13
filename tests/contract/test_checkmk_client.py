@@ -162,6 +162,13 @@ def test_a_wrong_site_name_is_no_api() -> None:
     assert caught.value.error_class == ERROR_NO_API
 
 
+def test_a_2_5_community_version_is_read() -> None:
+    # Checkmk 2.5.0p14 names its edition in full (lab site, 2026-11-13).
+    body = b'{"versions": {"checkmk": "2.5.0p14.community"}, "edition": "community"}'
+    with connected(Scenario(raw={"version": body})) as (_, client):
+        assert client.probe() == "2.5.0p14.community"
+
+
 def test_an_unreadable_version_text_is_reported_as_none() -> None:
     body = b'{"versions": {"checkmk": "<b>"}}'
     with connected(Scenario(raw={"version": body})) as (_, client):

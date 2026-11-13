@@ -64,7 +64,8 @@ STATUS_NOT_FOUND: Final = "404"
 STATUS_UNAUTHORIZED: Final = "401"
 
 # 2.4.0, 2.4.0p2, 2.4.0p2.cre, 2.3.0b4.cee, 2024.11.12 (a daily build).
-_VERSION = re.compile(r"\d{1,4}\.\d{1,4}\.\d{1,4}(?:[a-z]{1,2}\d{1,4})?(?:\.[a-z]{2,8})?")
+# The edition suffix is a short name (cre) or, since 2.5, a word such as community.
+_VERSION = re.compile(r"\d{1,4}\.\d{1,4}\.\d{1,4}(?:[a-z]{1,2}\d{1,4})?(?:\.[a-z]{2,16})?")
 
 
 def _header_safe(value: str) -> bool:

@@ -14,6 +14,27 @@ tests run against `tests/contract/fake_checkmk.py`, which follows these notes. T
 document of a site (`/check_mk/api/1.0/openapi-swagger-ui.json`) was not read, since no site was
 available. Names marked **UNVERIFIED** were not found in the code that builds the answers.
 
+## Lab check: Checkmk 2.5.0p14 Community (2026-11-13)
+
+A local site `fortpt` running Checkmk 2.5.0p14 Community was read by a driftsniff source with an
+automation user whose only role is a copy of `admin` without `wato.edit` ("Make changes, perform
+actions"). That role is enough: all nine collections answered 200 (statement 14 holds).
+
+- `Bearer <user> <secret>`, the `/<site>/check_mk/api/1.0` prefix and the collection shape
+  (statements 1, 2 and 4) hold on 2.5.
+- `versions.checkmk` reads `2.5.0p14.community`: the edition is named in full, no longer as a short
+  name such as `cre` (statement 5). The collector's version pattern was too narrow for it, so
+  the version was not shown; it now accepts edition words of up to 16 letters.
+- Notification rules carry more conditions than statement 13 listed: host and service event
+  types (each a `{state, value}` whose value maps every transition such as `up_down` or `ok_crit`
+  to a boolean), labels, tags, service levels, service group regexes, plugin output,
+  notification comment, Event Console alerts, notification numbers and throttling, and the
+  contact selection `restrict_by_custom_macros`. Users carry `start_url`. They are classified now
+  (`tests/unit/test_checkmk_real_shapes.py`); the members of condition values the lab site did not
+  fill in (labels, tags, levels, numbers) stay unclassified until a site shows them.
+- Not seen on the lab site: host and service groups (none defined), and filled-in label, tag and
+  level conditions.
+
 ## Sources
 
 | Id | Source | Read on |
