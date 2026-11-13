@@ -15,6 +15,25 @@ folder and dashboard pages were read from the Grafana 11.6 archive. Grafana 13 d
 in favour of `/apis` but keeps the legacy endpoints working. Names marked **UNVERIFIED** were not
 found in what was read.
 
+## Lab check: Grafana 13.3.0 (2026-11-13)
+
+A local Grafana 13.3.0 was read with a token of a service account with the organisation Admin role.
+The legacy `/api` paths still answer on 13.3 and all ten resources answered 200 (statement 18
+holds for the Admin role). Two readings in a row gave no change.
+
+- Fields with a fixed name that the table did not hold are classified now
+  (`tests/unit/test_grafana_real_shapes.py`): `keep_firing_for` on alert rules (the table had
+  `keepFiringFor`), the common members of `data.model` and `data.relativeTimeRange`, the standard
+  annotations, eight dashboard settings, thirteen data source `jsonData` members, `isDeleted` on
+  folders, and `uid`, `isExternallySynced`, `isProvisioned`, `created` on organisation users.
+- Still unclassified, because their paths depend on the panel plugin, the rule or the data source
+  plugin: the internals of dashboard panels (`fieldConfig`, `options`, `transformations`,
+  `targets`, about 160 paths on the lab server), alert rule labels with names of the user's choice,
+  and plugin specific `jsonData` members. A change there is still detected and shown as a
+  fingerprint.
+- The secret scanner already masks query URLs and expressions inside panels that look like
+  credentials.
+
 ## Sources
 
 | Id | Source | Read on |
