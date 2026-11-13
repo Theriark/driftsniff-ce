@@ -218,6 +218,9 @@ types:
       next_name_part: ignore
       created_at: ignore
       modified_at: ignore
+    # Entity options are written by each integration; members not named above are config.
+    subtrees:
+      options: config
     lists:
       labels: set
   - resource: homeassistant-dashboards

@@ -38,6 +38,8 @@ commands answered (4,047 objects, 3,895 of them entities). Two readings in a row
   `entity_id`s and some integration `entry_id`s, so they were stored as fingerprints only.
   `rules/overrides.yaml` now exempts those id paths from the high-entropy rule, and from no other
   rule, with a reason each.
+- Since the type tables have subtrees (2026-11-13), entity `options` is a subtree of the class
+  config: options an integration writes are classified; the suggested values stay ignore.
 - The core location (`latitude`, `longitude`, `elevation`), area pictures and the triggers,
   conditions and actions of automations stay secret, by decision of the type table.
 
