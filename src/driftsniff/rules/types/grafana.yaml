@@ -43,6 +43,20 @@ types:
       jsonData.tlsSkipVerify: config
       jsonData.serverName: config
       jsonData.timeout: config
+      # Seen on Grafana 13.3.0 (2026-11-13).
+      jsonData.allowDangerousHTTPMethods: config
+      jsonData.allowedHosts: config
+      jsonData.auth_method: config
+      jsonData.backend: config
+      jsonData.customHealthCheckEnabled: config
+      jsonData.customHealthCheckUrl: config
+      jsonData.edition: config
+      jsonData.httpHeaderName1: config
+      jsonData.httpMethod: config
+      jsonData.timeInterval: config
+      jsonData.timeoutInSeconds: config
+      jsonData.url: config
+      jsonData.username: config
       secureJsonFields: config
       password: secret
       basicAuthPassword: secret
@@ -74,6 +88,8 @@ types:
       folderTitle: ignore
       folderUrl: ignore
       sortMeta: ignore
+      # Seen on Grafana 13.3.0 (2026-11-13).
+      isDeleted: config
   # One object per folder, built by the collector (collectors/grafana/normalize.py). Admin only.
   # permission: 1 View, 2 Edit, 4 Admin. inherited is UNVERIFIED (nested folders).
   - resource: grafana-folder-permissions
@@ -112,6 +128,15 @@ types:
       dashboard.tags: config
       dashboard.timezone: config
       dashboard.schemaVersion: config
+      # Seen on Grafana 13.3.0 (2026-11-13).
+      dashboard.description: config
+      dashboard.editable: config
+      dashboard.graphTooltip: config
+      dashboard.refresh: config
+      dashboard.time.from: config
+      dashboard.time.to: config
+      dashboard.timepicker.refresh_intervals: config
+      dashboard.timepicker.time_options: config
     lists:
       dashboard.tags: set
   # Admin only (alert.provisioning:read). The members of notification_settings and record are
@@ -143,6 +168,23 @@ types:
       isPaused: config
       notification_settings: config
       record: config
+      # Seen on Grafana 13.3.0 (2026-11-13).
+      keep_firing_for: config
+      annotations.summary: config
+      annotations.description: config
+      annotations.runbook_url: config
+      data.relativeTimeRange.from: config
+      data.relativeTimeRange.to: config
+      data.model.refId: config
+      data.model.type: config
+      data.model.datasource.type: config
+      data.model.datasource.uid: config
+      data.model.expr: config
+      data.model.expression: config
+      data.model.instant: config
+      data.model.range: config
+      data.model.intervalMs: config
+      data.model.maxDataPoints: config
       id: ignore
       updated: ignore
     lists:
@@ -211,6 +253,11 @@ types:
       role: config
       isDisabled: config
       authLabels: config
+      # Seen on Grafana 13.3.0 (2026-11-13).
+      uid: config
+      isExternallySynced: config
+      isProvisioned: config
+      created: ignore
       orgId: ignore
       avatarUrl: ignore
       lastSeenAt: ignore
