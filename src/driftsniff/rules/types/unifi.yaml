@@ -109,6 +109,7 @@ types:
       ipsecFilter: config
       loggingEnabled: config
       metadata.origin: config
+      metadata.configurable: config
       ipProtocolScope.ipVersion: config
       ipProtocolScope.protocolFilter.type: config
       ipProtocolScope.protocolFilter.matchOpposite: config
