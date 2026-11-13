@@ -7,6 +7,7 @@ import pytest
 import sqlalchemy as sa
 
 from driftsniff.core.canonical import JsonValue, canonical_dumps
+from driftsniff.core.normalize import NORMALISER_VERSION
 from driftsniff.core.snapshots import (
     CollectedObject,
     CollectedResource,
@@ -79,7 +80,7 @@ def test_build_manifest_maps_every_object_key_to_its_state_hash() -> None:
     assert set(manifest.objects["networks"]) == {"n1", "n2"}
     assert manifest.object_count == 5
     assert manifest.controller_version == "10.0.1"
-    assert manifest.normaliser_version == 1
+    assert manifest.normaliser_version == NORMALISER_VERSION
     assert manifest.state_hashes() <= manifest.pending_states.keys()
     assert manifest.names["networks"] == {"n1": "net n1", "n2": "net n2"}
 
@@ -116,7 +117,7 @@ def test_the_manifest_hash_covers_state_and_both_versions() -> None:
     assert manifest_of(vlan=21).manifest_hash != base.manifest_hash
     assert manifest_of(controller="10.0.2").manifest_hash != base.manifest_hash
     other_normaliser = build_manifest(
-        collection(), controller_version="10.0.1", normaliser_version=2
+        collection(), controller_version="10.0.1", normaliser_version=NORMALISER_VERSION + 1
     )
     assert other_normaliser.manifest_hash != base.manifest_hash
 
@@ -231,7 +232,7 @@ def test_the_first_snapshot_is_a_baseline_and_stores_every_state(store: Database
     assert row.taken_at == T1
     assert row.manifest_hash == manifest.manifest_hash
     assert row.controller_version == "10.0.1"
-    assert row.normaliser_version == 1
+    assert row.normaliser_version == NORMALISER_VERSION
     assert row.kind == "baseline"
     assert len(row.manifest_zstd) == outcome.manifest_bytes
     assert load_manifest(row.manifest_zstd, row.manifest_hash) == manifest
@@ -281,7 +282,9 @@ def test_a_new_position_order_is_a_change(store: Database) -> None:
 def test_a_normaliser_version_change_starts_a_new_baseline(store: Database) -> None:
     save(store, manifest_of(), T1)
     save(store, manifest_of(vlan=21), T2)
-    upgraded = build_manifest(collection(), controller_version="10.0.1", normaliser_version=2)
+    upgraded = build_manifest(
+        collection(), controller_version="10.0.1", normaliser_version=NORMALISER_VERSION + 1
+    )
     outcome = save(store, upgraded, T3)
     assert outcome.stored is True
     assert outcome.kind == "baseline"
@@ -294,7 +297,7 @@ def test_a_normaliser_version_change_starts_a_new_baseline(store: Database) -> N
         versions = connection.execute(
             sa.select(tables.object_states.c.normaliser_version).distinct()
         ).scalars()
-        assert set(versions) == {1}
+        assert set(versions) == {NORMALISER_VERSION}
 
 
 def test_a_controller_version_change_is_a_normal_snapshot(store: Database) -> None:

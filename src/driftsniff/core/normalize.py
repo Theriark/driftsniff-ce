@@ -25,7 +25,9 @@ from typing import Protocol
 
 from driftsniff.core.canonical import JsonValue, canonical_dumps
 
-NORMALISER_VERSION = 1
+# 2 (2026-11-13): UniFi firewall policies of controller origin are placed between their zone pair's
+# ordering lists; the first reading after the upgrade is a new baseline, not a flood of moves.
+NORMALISER_VERSION = 2
 
 
 class FieldClass(StrEnum):
