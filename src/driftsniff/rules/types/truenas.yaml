@@ -1,8 +1,10 @@
 # Type tables of the TrueNAS collector. Notes with sources and dates: docs/vendor-notes/truenas.md.
 #
 # Field names are taken from the published API reference of TrueNAS 25.10 (api.truenas.com,
-# read 2026-11-12, the *.query result schemas). They are checked against the documentation ONLY:
-# no lab TrueNAS was read, so every name is UNVERIFIED against a live system. A field that is not
+# read 2026-11-12, the *.query result schemas). They were checked against the documentation, and
+# a lab TrueNAS 25.04.2.6 was read on 2026-11-13 and its fields were added (the SMB share options
+# of 25.04 are top-level fields, those of 25.10 sit in options). Names of resources the lab system
+# did not have (NFS, iSCSI, replication, cloud sync, cron) remain UNVERIFIED. A field that is not
 # listed here is unclassified and shows as a fingerprint only, never as a value.
 #
 # Names that are not in the reference at all and come from this collector:
@@ -147,12 +149,35 @@ types:
       options.aapl_name_mangling: config
       options.vuid: config
       options.auxsmbconf: config
+      # TrueNAS 25.04 (seen on 25.04.2.6): the share options are top-level fields, not options.*
+      ro: config
+      guestok: config
+      abe: config
+      hostsallow: config
+      hostsdeny: config
+      recyclebin: config
+      path_suffix: config
+      streams: config
+      durablehandle: config
+      shadowcopy: config
+      fsrvp: config
+      home: config
+      acl: config
+      afp: config
+      timemachine: config
+      timemachine_quota: config
+      aapl_name_mangling: config
+      vuid: config
+      auxsmbconf: config
+      path_local: ignore
       locked: ignore
     lists:
       audit.watch_list: set
       audit.ignore_list: set
       options.hostsallow: set
       options.hostsdeny: set
+      hostsallow: set
+      hostsdeny: set
   - resource: truenas-nfs-shares
     key_field: id
     name_field: path
@@ -234,6 +259,16 @@ types:
       smb: config
       userns_idmap: config
       group: config
+      group.id: config
+      group.bsdgrp_gid: config
+      group.bsdgrp_group: config
+      # The rest of the primary group object belongs to the group; truenas-groups tracks it.
+      group.bsdgrp_builtin: ignore
+      group.bsdgrp_smb: ignore
+      group.bsdgrp_userns_idmap: ignore
+      group.bsdgrp_sudo_commands: ignore
+      group.bsdgrp_sudo_commands_nopasswd: ignore
+      id_type_both: config
       groups: config
       password_disabled: config
       ssh_password_enabled: config
@@ -280,6 +315,7 @@ types:
       roles: config
       users: config
       immutable: config
+      id_type_both: config
     lists:
       sudo_commands: set
       sudo_commands_nopasswd: set
@@ -370,7 +406,12 @@ types:
       hosts: config
       domains: config
       service_announcement: config
+      service_announcement.mdns: config
+      service_announcement.netbios: config
+      service_announcement.wsd: config
       activity: config
+      activity.type: config
+      activity.activities: config
       hostname_local: config
       hostname_b: config
       hostname_virtual: config
@@ -378,6 +419,7 @@ types:
     lists:
       hosts: set
       domains: set
+      activity.activities: set
   - resource: truenas-snapshot-tasks
     key_field: id
     name_field: dataset
@@ -393,6 +435,13 @@ types:
       naming_schema: config
       allow_empty: config
       schedule: config
+      schedule.minute: config
+      schedule.hour: config
+      schedule.dom: config
+      schedule.month: config
+      schedule.dow: config
+      schedule.begin: config
+      schedule.end: config
       vmware_sync: config
       state: ignore
     lists:
@@ -552,6 +601,27 @@ types:
       serial: config
       fingerprint: config
       chain: config
+      chain_list: config
+      issuer: config
+      lifetime: config
+      revoked: config
+      country: config
+      state: config
+      city: config
+      organization: config
+      email: config
+      extensions.SubjectAltName: config
+      extensions.ExtendedKeyUsage: config
+      # Derived by TrueNAS from the type and the certificate itself.
+      CA_type_existing: ignore
+      CA_type_intermediate: ignore
+      CA_type_internal: ignore
+      cert_type_existing: ignore
+      cert_type_internal: ignore
+      cert_type_CSR: ignore
+      internal: ignore
+      can_be_revoked: ignore
+      subject_name_hash: ignore
       privatekey: ignore
       expired: ignore
       parsed: ignore

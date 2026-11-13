@@ -8,6 +8,12 @@ rules:
     when: {name: boolean_flips_to, value: true}
     severity: critical
     rationale: The SMB share now admits guests, so anyone on the network can open it without a password.
+  - id: truenas.smb.guest_access_2504
+    resource: truenas-smb-shares
+    path: guestok
+    when: {name: boolean_flips_to, value: true}
+    severity: critical
+    rationale: The SMB share now admits guests, so anyone on the network can open it without a password.
   - id: truenas.nfs.open_to_all
     resource: truenas-nfs-shares
     path: open_to_all

@@ -7,7 +7,8 @@ own words, with its source and the date it was read.
 
 ## Status in one paragraph
 
-**Nothing here is lab-verified.** No lab TrueNAS was read. The method names, the query options
+**Read on one lab system since 2026-11-13** (see "Lab check: TrueNAS 25.04.2.6" below). Before
+that, nothing here was lab-verified and no lab TrueNAS was read. The method names, the query options
 and the field names come from the vendor's published API reference (S3 to S5), read on
 2026-11-12 through a summarising web reader, so a field the reader left out can be missing. The
 collector, the rule pack and the pipeline are tested against a fake TrueNAS on localhost
@@ -25,6 +26,34 @@ them; it does not show that a real TrueNAS answers with them. Every field name i
 | S4 | API reference 25.10, `jsonrpc.html` and `api_methods_auth.login_ex.html`; 25.04 `api_methods_auth.login_ex.html` | 2026-11-12 | Request, result and error shape; error codes -32000, -32001; `API_KEY_PLAIN` takes `username` and `api_key`; `response_type` SUCCESS, AUTH_ERR, EXPIRED, OTP_REQUIRED, REDIRECT (same in 25.04) |
 | S5 | API reference 25.10, the `*.query` / `*.config` pages of every method in the table below | 2026-11-12 | Field names, which fields are run state, which hold secrets |
 | S6 | Search result summaries (TrueNAS forum, 25.10 release notes) | 2026-11-12 | 25.10.1 raises an alert when a deprecated REST endpoint is used; the removal was announced for "26.04" |
+
+## Lab check: TrueNAS 25.04.2.6 (2026-11-13)
+
+The lab system DELTA (TrueNAS Community Edition 25.04.2.6) was read by a driftsniff source with a
+dedicated local user that holds only the built-in Read-Only Administrator privilege (group
+`truenas_readonly_administrators`), password login off, and an API key of its own.
+
+- `wss://<host>/api/current` and `auth.login_ex` with `API_KEY_PLAIN` worked; `system.version`
+  answered `TrueNAS-25.04.2.6`. Statements 1 and 2 below hold on 25.04.
+- All 18 methods answered for the read-only user (statement 4). None was refused.
+- `retrieve_children: false` in the dataset query made TrueNAS answer only the pool root dataset,
+  so child datasets were never read. The collector no longer sends it (statement 5).
+- SMB shares on 25.04 carry their options as top-level fields (`guestok`, `ro`, `abe`,
+  `hostsallow`, `recyclebin`, ...), not inside `options` as in the 25.10 reference. The type
+  table lists both shapes, and `truenas.smb.guest_access_2504` covers top-level `guestok`.
+- New in 25.04 and absent from the table before: `id_type_both` on users and groups; the primary
+  group of a user as an object (`group.id`, `group.bsdgrp_*`); the `schedule` object of snapshot
+  tasks; `service_announcement` and `activity` of the network settings; certificate subject
+  fields, `extensions`, and flags TrueNAS derives from the type (`CA_type_*`, `cert_type_*`).
+  `tests/unit/test_truenas_real_shapes.py` holds every path DELTA answered and checks none is
+  unclassified.
+- `unixhash`, `smbhash` and `password_history`: every one of the 60 users had the same
+  fingerprint for each field, so TrueNAS gives a read-only user a fixed placeholder, not the real
+  hashes (statement 9 for users). A consequence: a password change is not visible with a
+  read-only user.
+- Not seen on DELTA, so still unverified: NFS shares, iSCSI, replication, cloud sync, cloud
+  credentials and cron jobs (none configured), the `options` shape of SMB shares on 25.10 and
+  later, and the role name `FULL_ADMIN` beyond the built-in users that carry it.
 
 ## REST or WebSocket: the decision
 
@@ -52,7 +81,7 @@ them; it does not show that a real TrueNAS answers with them. Every field name i
 | 2 | Requests are `{"jsonrpc": "2.0", "id", "method", "params": [...]}`; answers carry `result` or `error {code, message, data {errname, reason, ...}}`. | S4 | documented |
 | 3 | An unknown method answers code `-32601` (JSON-RPC method not found). A refused call answers `-32001` with `errname` `EACCES` / `ENOTAUTHENTICATED`. | JSON-RPC 2.0 standard; S4 names -32001; the errnames are our reading | UNVERIFIED |
 | 4 | The methods read: `pool.query`, `pool.dataset.query`, `sharing.smb.query`, `sharing.nfs.query`, `iscsi.target.query`, `iscsi.extent.query`, `user.query`, `group.query`, `ssh.config`, `service.query`, `interface.query`, `network.configuration.config`, `pool.snapshottask.query`, `replication.query`, `cloudsync.query`, `cloudsync.credentials.query`, `cronjob.query`, `certificate.query`, and `system.version` for the probe. | S5 | documented, UNVERIFIED live |
-| 5 | `pool.dataset.query` accepts `[[], {"extra": {"flat": true, "retrieve_children": false, "retrieve_user_props": false}}]`. | S5 | UNVERIFIED |
+| 5 | `pool.dataset.query` accepts `[[], {"extra": {"flat": true, "retrieve_user_props": false}}]` and answers every dataset. With `retrieve_children: false` it answered only the pool root dataset. | S5; lab 25.04.2.6 | verified on 25.04.2.6 |
 | 6 | ZFS properties of pools and datasets are objects `{parsed, rawvalue, value, source, source_info}`; `value` is the text the UI shows (`LZ4`, `ON`, `STANDARD`). | S5 | documented; the exact `value` texts are UNVERIFIED |
 | 7 | `guestok` of an SMB share exists only inside `options` of a legacy share. | S5 | documented |
 | 8 | A user that belongs to `builtin_administrators` has `FULL_ADMIN` in `roles`. | Our reading of the role model; S5 lists `roles` but not its values | UNVERIFIED |
