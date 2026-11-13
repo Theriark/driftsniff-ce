@@ -382,6 +382,13 @@ def test_a_secret_field_that_holds_a_raw_value_is_fingerprinted_here() -> None:
     assert "CANARY" not in repr(item)
 
 
+def test_a_value_stored_in_clear_then_as_its_fingerprint_is_no_change() -> None:
+    # A field reclassified as secret: the old state holds the value, the new one its marker.
+    marker = secret_marker(CANARY)
+    assert diff_one({"wifi": {"passphrase": CANARY}}, {"wifi": {"passphrase": marker}}) == []
+    assert diff_one({"wifi": {"passphrase": marker}}, {"wifi": {"passphrase": CANARY}}) == []
+
+
 def test_a_secret_that_appears_has_only_an_after_fingerprint() -> None:
     marker = secret_marker(CANARY)
     item = one(diff_one({}, {"wifi": {"passphrase": marker}}))
