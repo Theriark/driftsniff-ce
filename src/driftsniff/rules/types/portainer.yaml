@@ -72,6 +72,20 @@ types:
       Kubernetes.Configuration.ResourceOverCommitPercentage: config
       Kubernetes.Configuration.RestrictDefaultNamespace: config
       Kubernetes.Configuration.AllowNoneIngressClass: config
+      # Seen on Portainer BE 2.45.3 (2026-11-13).
+      Kubernetes.Configuration.IngressAvailabilityPerNamespace: config
+      Kubernetes.Configuration.RestrictSecrets: config
+      Kubernetes.Configuration.RestrictStandardUserIngressW: config
+      Kubernetes.Configuration.EnableNodeShell: config
+      ChangeWindow.Enabled: config
+      ChangeWindow.StartTime: config
+      ChangeWindow.EndTime: config
+      EnableImageNotification: config
+      LocalTimeZone: config
+      StatusMessage.summary: ignore
+      StatusMessage.detail: ignore
+      StatusMessage.operation: ignore
+      StatusMessage.operationStatus: ignore
       Kubernetes.Snapshots: ignore
       Kubernetes.Flags: ignore
       AzureCredentials: secret
@@ -114,6 +128,12 @@ types:
       AuthorizedUsers: ignore
       AuthorizedTeams: ignore
       Tags: ignore
+      # Counts Portainer derives from the environments of the group (BE 2.45.3).
+      Total: ignore
+      TypeInfo.Docker: ignore
+      TypeInfo.Kubernetes: ignore
+      TypeInfo.Mixed: ignore
+      TypeInfo.Podman: ignore
     lists:
       TagIds: set
       UserAccessPolicies: {mode: set, key_field: UserId}
@@ -182,6 +202,19 @@ types:
       GitConfig.Authentication.Provider: config
       GitConfig.Authentication.AuthorizationType: config
       StackFileContent: secret
+      # Seen on Portainer BE 2.45.3 (2026-11-13). The webhook id alone redeploys the stack.
+      Webhook: secret
+      Registries: config
+      HelmChartPath: config
+      IsDetachedFromGit: config
+      SupportRelativePath: config
+      Option.Prune: config
+      Option.HelmAtomic: config
+      FilesystemPath: ignore
+      StackFileVersion: ignore
+      CreatedByUserId: ignore
+      PreviousDeploymentInfo.Version: ignore
+      PreviousDeploymentInfo.FileVersion: ignore
       ResourceControl: ignore
       Status: ignore
       DeploymentStartStatus: ignore
@@ -196,6 +229,7 @@ types:
     lists:
       Env: {mode: set, key_field: name}
       AdditionalFiles: set
+      Registries: set
   # Recent versions return only Id, Username and Role. The other names are those of the stored
   # user and are listed for older versions that return the whole user.
   - resource: portainer-users
@@ -253,6 +287,18 @@ types:
       ManagementConfiguration.TLSConfig.TLSKey: config
       ManagementConfiguration.Password: secret
       ManagementConfiguration.AccessToken: secret
+      # Seen on Portainer BE 2.45.3 (2026-11-13).
+      ManagementConfiguration.Type: config
+      ManagementConfiguration.Authentication: config
+      ManagementConfiguration.Username: config
+      ManagementConfiguration.Ecr.Region: config
+      Ecr.Region: config
+      Github.UseOrganisation: config
+      Github.OrganisationName: config
+      Gitlab.InstanceURL: config
+      Gitlab.ProjectId: config
+      Gitlab.ProjectPath: config
+      Quay.OrganisationName: config
       RegistryAccesses: config
       RegistryAccesses.EnvironmentId: config
       RegistryAccesses.Namespaces: config
@@ -339,7 +385,52 @@ types:
       AllowContainerCapabilitiesForRegularUsers: config
       IsDockerDesktopExtension: ignore
       ForceSecureCookies: config
+      # Seen on Portainer BE 2.45.3 (2026-11-13). The cloud provider keys are served in the
+      # settings answer, so they are secret.
+      CloudApiKeys.CivoApiKey: secret
+      CloudApiKeys.DigitalOceanToken: secret
+      CloudApiKeys.LinodeToken: secret
+      CloudApiKeys.GKEApiKey: secret
+      AddonsCatalogURL: config
+      AutoPatchSettings.Enabled: config
+      AutoPatchSettings.PatchCron: config
+      AutoPatchSettings.PortainerRepository: config
+      AutoPatchSettings.RegistryID: config
+      AutoPatchSettings.UpdaterRepository: config
+      CustomLoginBanner: config
+      DefaultRegistry.Hide: config
+      DisableKubeRolesSync: config
+      DisableKubeShell: config
+      DisableKubeconfigDownload: config
+      Edge.CommandInterval: config
+      Edge.PingInterval: config
+      Edge.SnapshotInterval: config
+      Edge.TunnelServerAddress: config
+      Edge.MTLS.UseSeparateCert: config
+      Edge.MTLS.CaCertFile: config
+      Edge.MTLS.CertFile: config
+      Edge.MTLS.KeyFile: config
+      GlobalDeploymentOptions.hideAddWithForm: config
+      GlobalDeploymentOptions.hideFileUpload: config
+      GlobalDeploymentOptions.hideWebEditor: config
+      GlobalDeploymentOptions.minApplicationNoteLength: config
+      GlobalDeploymentOptions.perEnvOverride: config
+      GlobalDeploymentOptions.requireNoteOnApplications: config
+      LDAPSettings.ServerType: config
+      LDAPSettings.AdminAutoPopulate: config
+      LDAPSettings.AdminGroupSearchSettings: config
+      LDAPSettings.AdminGroupSearchSettings.GroupBaseDN: config
+      LDAPSettings.AdminGroupSearchSettings.GroupFilter: config
+      LDAPSettings.AdminGroupSearchSettings.GroupAttribute: config
+      OAuthSettings.HideInternalAuth: config
+      OAuthSettings.MicrosoftTenantID: config
+      OAuthSettings.OAuthAutoMapTeamMemberships: config
+      OAuthSettings.TeamMemberships.OAuthClaimName: config
+      OAuthSettings.TeamMemberships.OAuthClaimMappings: config
+      OAuthSettings.TeamMemberships.AdminAutoPopulate: config
+      OAuthSettings.TeamMemberships.AdminGroupClaimsRegexList: config
     lists:
       BlackListedLabels: set
       LDAPSettings.SearchSettings: ordered-scalar
       LDAPSettings.GroupSearchSettings: ordered-scalar
+      LDAPSettings.AdminGroupSearchSettings: ordered-scalar

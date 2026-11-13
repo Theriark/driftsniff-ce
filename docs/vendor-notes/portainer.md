@@ -16,6 +16,29 @@ API reference (`api-docs.portainer.io`) renders client side and could not be rea
 handlers' own annotations were used instead. Names marked **UNVERIFIED** were not found in what was
 read.
 
+## Lab check: Portainer BE 2.45.3 (2026-11-13)
+
+A local Portainer Business Edition 2.45.3 was read by a driftsniff source with an access token of
+an administrator.
+
+- `X-API-Key`, `/api/system/version` and all ten list paths worked as described below; nine of
+  them answered 200.
+- `GET /api/edge_groups` answered **503** `"Edge compute features are disabled"` because
+  `EnableEdgeComputeFeatures` was false. The collector now reads Edge groups as empty in that
+  case (it confirms the setting first); any other 503 stays a failure. Before, every run was
+  partial on such a server.
+- BE (or 2.45) returns fields the source read for statements 3, 4, 9, 10 and 12 did not show:
+  `ChangeWindow`, `StatusMessage`, `LocalTimeZone`, `EnableImageNotification` and four more
+  `Kubernetes.Configuration` members on environments; `Total` and `TypeInfo` counts on
+  environment groups; `Webhook`, `Registries`, `Option`, `PreviousDeploymentInfo` and more on
+  stacks; the `Gitlab`, `Github`, `Quay`, `Ecr` and `ManagementConfiguration` members of
+  registries (statement 13 for registries); and in the settings `CloudApiKeys` (Civo,
+  DigitalOcean, GKE, Linode: **served in the answer**, now secret), `AutoPatchSettings`, `Edge`,
+  `GlobalDeploymentOptions`, LDAP admin group search and OAuth team membership settings.
+  `tests/unit/test_portainer_real_shapes.py` holds these paths and checks none is unclassified.
+- Not seen on the lab server, so still unverified: Edge groups themselves, tags, teams, team
+  memberships, and filled-in cloud keys or webhooks (all were empty).
+
 ## Sources
 
 | Id | Source | Read on |

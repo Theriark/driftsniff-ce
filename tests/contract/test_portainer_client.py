@@ -204,6 +204,21 @@ def test_a_missing_resource_is_not_available() -> None:
     assert (result.ok, result.status, result.error_class) == (False, "404", ERROR_NOT_AVAILABLE)
 
 
+def test_edge_groups_turned_off_in_the_settings_are_read_as_empty() -> None:
+    # Portainer BE 2.45.3 answers 503 "Edge compute features are disabled" (2026-11-13).
+    scenario = Scenario(status={"edge_groups": 503})
+    scenario.state["settings"]["EnableEdgeComputeFeatures"] = False
+    with probed(scenario) as (_, client):
+        result = client.fetch(ResourceSpec("portainer-edge-groups"))
+    assert (result.ok, list(result.objects)) == (True, [])
+
+
+def test_a_503_on_edge_groups_with_edge_compute_on_stays_a_failure() -> None:
+    with probed(Scenario(status={"edge_groups": 503})) as (_, client):
+        result = client.fetch(ResourceSpec("portainer-edge-groups"))
+    assert (result.ok, result.status) == (False, "503")
+
+
 def test_a_stack_file_that_cannot_be_read_fails_the_stacks_resource() -> None:
     with probed(Scenario(status={"stack_file": 500})) as (_, client):
         result = client.fetch(ResourceSpec("portainer-stacks"))
