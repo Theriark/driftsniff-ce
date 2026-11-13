@@ -16,6 +16,7 @@
   {"rule": "grafana.datasources.access", "path": "access", "before": "proxy", "after": "direct", "severity": "medium", "near": {"path": "readOnly", "before": false, "after": true}},
   {"rule": "grafana.datasources.default", "path": "isDefault", "before": false, "after": true, "severity": "medium", "near": {"path": "withCredentials", "before": false, "after": true}},
   {"rule": "grafana.datasources.name", "path": "name", "before": "Prometheus", "after": "Prom", "severity": "low", "near": {"path": "type", "before": "prometheus", "after": "loki"}},
+  {"rule": "grafana.folder_permissions.title", "path": "title", "before": "Operations", "after": "Ops", "severity": "low", "near": {"path": "permissions", "before": null, "after": {"subject": "team:2", "permission": 4}}},
   {"rule": "grafana.folders.parent", "path": "folderUid", "before": "fold-ops", "after": "fold-biz", "severity": "medium", "near": {"path": "title", "before": "Network", "after": "Net"}},
   {"rule": "grafana.folders.title", "path": "title", "before": "Network", "after": "Net", "severity": "low", "near": {"path": "folderUid", "before": "fold-ops", "after": "fold-biz"}},
   {"rule": "grafana.dashboards.any", "path": "dashboard.panels.0.title", "before": "CPU", "after": "CPU busy", "severity": "low", "near": {"path": "folderUid", "before": "fold-ops", "after": "fold-biz"}},
