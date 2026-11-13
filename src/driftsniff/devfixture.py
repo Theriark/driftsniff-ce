@@ -62,7 +62,7 @@ PUSH_FIELDS: Final[dict[str, list[str]]] = {
     "unifi-devices": ["id", "name", "model", "firmwareVersion", "state"],
     "unifi-dns-policies": ["id", "type", "enabled", "domain"],
     "unifi-firewall-zones": ["id", "name", "networkIds"],
-    "unifi-networks": ["id", "name", "enabled", "management", "vlanId", "internetAccessEnabled"],
+    "unifi-networks": ["id", "name", "enabled", "management", "vlanId"],
     "unifi-radius-profiles": ["id", "name", "sharedSecret"],
     "unifi-vpn-servers": ["id", "name", "type", "enabled", "preSharedKey"],
     "unifi-wifi-broadcasts": [
@@ -71,7 +71,6 @@ PUSH_FIELDS: Final[dict[str, list[str]]] = {
         "enabled",
         "network",
         "securityConfiguration",
-        "clientIsolationEnabled",
     ],
 }
 
@@ -110,7 +109,6 @@ def _baseline() -> Document:
                 "enabled": True,
                 "management": "GATEWAY",
                 "vlanId": 10,
-                "internetAccessEnabled": True,
             },
             {
                 "id": "fx-net-guest",
@@ -118,7 +116,6 @@ def _baseline() -> Document:
                 "enabled": True,
                 "management": "GATEWAY",
                 "vlanId": 30,
-                "internetAccessEnabled": True,
             },
             {
                 "id": "fx-net-iot",
@@ -126,7 +123,6 @@ def _baseline() -> Document:
                 "enabled": True,
                 "management": "GATEWAY",
                 "vlanId": 40,
-                "internetAccessEnabled": False,
             },
         ],
         "unifi-wifi-broadcasts": [
@@ -139,7 +135,6 @@ def _baseline() -> Document:
                     "type": "WPA3_PERSONAL",
                     "passphrase": "CANARY-fixture-wifi-corp-0001",
                 },
-                "clientIsolationEnabled": False,
             },
             {
                 "id": "fx-wifi-guest",
@@ -150,7 +145,6 @@ def _baseline() -> Document:
                     "type": "WPA2_PERSONAL",
                     "passphrase": "CANARY-fixture-wifi-guest-0001",
                 },
-                "clientIsolationEnabled": True,
             },
         ],
         "unifi-firewall-zones": [
@@ -214,20 +208,20 @@ def _object(document: Document, resource: str, object_id: str) -> dict[str, Any]
 
 
 def _secrets_and_exposure(document: Document) -> None:
-    """Critical and high: two secrets replaced, client isolation off, a zone gains a network."""
+    """Critical and high: two secrets replaced, guest WiFi made open, a zone gains a network."""
     wifi = _object(document, "unifi-wifi-broadcasts", "fx-wifi-corp")
     wifi["securityConfiguration"]["passphrase"] = _canary("wifi-corp-0002")
     vpn = _object(document, "unifi-vpn-servers", "fx-vpn-1")
     vpn["preSharedKey"] = _canary("vpn-psk-0002")
     guest = _object(document, "unifi-wifi-broadcasts", "fx-wifi-guest")
-    guest["clientIsolationEnabled"] = False
+    guest["securityConfiguration"]["type"] = "OPEN"
     zone = _object(document, "unifi-firewall-zones", "fx-zone-guest")
     zone["networkIds"] = ["fx-net-guest", "fx-net-iot"]
 
 
 def _routine(document: Document) -> None:
-    """Medium and low: a VLAN, a firmware version, a switched off DNS policy and two names."""
-    _object(document, "unifi-networks", "fx-net-iot")["vlanId"] = 41
+    """Medium and low: a network and a DNS policy switched off, a firmware version, two names."""
+    _object(document, "unifi-networks", "fx-net-iot")["enabled"] = False
     _object(document, "unifi-devices", "fx-dev-sw1")["firmwareVersion"] = "1.1.0"
     _object(document, "unifi-dns-policies", "fx-dns-2")["enabled"] = False
     _object(document, "unifi-devices", "fx-dev-ap1")["name"] = "FIXTURE Access point lobby"
@@ -243,7 +237,6 @@ def _lifecycle(document: Document) -> None:
             "enabled": True,
             "management": "GATEWAY",
             "vlanId": 50,
-            "internetAccessEnabled": True,
         }
     )
     document["unifi-dns-policies"] = [

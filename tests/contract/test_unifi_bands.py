@@ -1,8 +1,9 @@
 """The UniFi version-band fixtures through the real collector (P7-T5).
 
 ``tests/fixtures/unifi/band-*.json`` holds one hand written controller per version band: the floor
-(10.1.84), a reference band (10.3.58) and the newest band (10.4.12). Every name in them is
-unverified against the vendor reference (dependency D5 is open) and the newest band is invented.
+(10.1.84), a reference band (10.6.109) and the newest band (10.7.0). Their shapes are those a real
+10.6.109 controller returned (docs/vendor-notes/unifi.md); the values are synthetic, the shapes of
+the floor are not verified and the newest band is invented.
 
 The tests check that the files are well formed and hold no secret, that every band is collected in
 full with one coverage row per resource, and that a field which is absent at the floor and present
@@ -77,13 +78,13 @@ def stored_items(database: Database) -> list[tuple[str, str, str, str | None, st
 
 
 @pytest.mark.parametrize("band", BANDS)
-def test_a_band_file_is_marked_unverified_and_holds_a_placeholder_in_every_secret_field(
+def test_a_band_file_says_whether_it_is_verified_and_holds_a_placeholder_in_every_secret_field(
     band: str,
 ) -> None:
     data = load_band_file(band)
     text = band_path(band).read_text(encoding="utf-8")
     assert data["band"] == band
-    assert data["unverified"] is True
+    assert data["unverified"] is (band != "reference")
     assert "CANARY-" not in text
     seeded = 0
     for resource, path in SECRET_FIELDS.items():

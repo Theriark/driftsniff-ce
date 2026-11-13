@@ -6,7 +6,9 @@ import pytest
 
 from driftsniff.collectors.unifi.normalize import (
     ACTION_TYPE_FIELD,
+    firewall_orderings,
     firewall_pairs,
+    is_system_placed,
     merge_ordering,
     mismatch_text,
     prepare_object,
@@ -15,14 +17,19 @@ from driftsniff.collectors.unifi.normalize import (
 from driftsniff.collectors.unifi.resources import RESOURCE_ACL_RULES, RESOURCE_FIREWALL_POLICIES
 
 
-def policy(key: str, source: object = "z1", destination: object = "z2") -> dict[str, Any]:
-    return {
+def policy(
+    key: str, source: object = "z1", destination: object = "z2", origin: str | None = None
+) -> dict[str, Any]:
+    item: dict[str, Any] = {
         "id": key,
         "name": f"Policy {key}",
         "action": {"type": "BLOCK"},
         "source": {"zoneId": source},
         "destination": {"zoneId": destination},
     }
+    if origin is not None:
+        item["metadata"] = {"origin": origin}
+    return item
 
 
 def ids(merged_objects: list[dict[str, Any]]) -> list[str]:
@@ -152,3 +159,61 @@ def test_the_warning_text_holds_counts_and_nothing_else() -> None:
     text = mismatch_text(2, 1)
     assert "2 appended" in text
     assert "1 ids dropped" in text
+
+
+# -- policies the controller made itself -------------------------------------------------------
+
+
+def test_only_a_known_non_user_origin_is_placed_by_the_collector() -> None:
+    assert is_system_placed(policy("p", origin="SYSTEM_DEFINED"))
+    assert is_system_placed(policy("p", origin="DERIVED"))
+    assert not is_system_placed(policy("p", origin="USER_DEFINED"))
+    assert not is_system_placed(policy("p"))
+    assert not is_system_placed({"id": "p", "metadata": {"origin": 5}})
+    assert not is_system_placed({"id": "p", "metadata": "SYSTEM_DEFINED"})
+
+
+def test_system_placed_policies_go_between_the_two_lists_of_their_pair_sorted_by_id() -> None:
+    policies = [
+        policy("u1", origin="USER_DEFINED"),
+        policy("s9", origin="SYSTEM_DEFINED"),
+        policy("u2", origin="USER_DEFINED"),
+        policy("d1", origin="DERIVED"),
+        policy("x1", "z2", "z1", origin="SYSTEM_DEFINED"),
+        policy("n1", None, "z1", origin="SYSTEM_DEFINED"),
+        policy("n0", None, "z1", origin="DERIVED"),
+    ]
+    answers = {("z1", "z2"): (["u1"], ["u2"]), ("z2", "z1"): ([], [])}
+    orderings = firewall_orderings(policies, answers)
+    assert orderings == [["u1", "d1", "s9", "u2"], ["x1"], ["n0", "n1"]]
+    merged = merge_ordering(policies, orderings)
+    assert ids(merged.objects) == ["u1", "d1", "s9", "u2", "x1", "n0", "n1"]
+    assert merged.mismatch is False
+
+
+def test_the_place_of_system_policies_does_not_depend_on_the_order_they_arrive_in() -> None:
+    policies = [policy(key, origin="SYSTEM_DEFINED") for key in ("s3", "s1", "s2")]
+    policies.append(policy("u1", origin="USER_DEFINED"))
+    answers: dict[tuple[str, str], tuple[list[str], list[str]]] = {("z1", "z2"): (["u1"], [])}
+    first = merge_ordering(policies, firewall_orderings(policies, answers))
+    reverse = list(reversed(policies))
+    second = merge_ordering(reverse, firewall_orderings(reverse, answers))
+    assert ids(first.objects) == ids(second.objects) == ["u1", "s1", "s2", "s3"]
+
+
+def test_a_user_defined_policy_the_lists_miss_is_still_a_mismatch() -> None:
+    policies = [
+        policy("u1", origin="USER_DEFINED"),
+        policy("u2", origin="USER_DEFINED"),
+        policy("s1", origin="SYSTEM_DEFINED"),
+        policy("old"),
+    ]
+    merged = merge_ordering(policies, firewall_orderings(policies, {("z1", "z2"): (["u1"], [])}))
+    assert ids(merged.objects) == ["u1", "s1", "u2", "old"]
+    assert (merged.appended, merged.dropped) == (2, 0)
+
+
+def test_a_system_policy_the_lists_do_name_keeps_its_listed_place() -> None:
+    policies = [policy("u1", origin="USER_DEFINED"), policy("s1", origin="SYSTEM_DEFINED")]
+    orderings = firewall_orderings(policies, {("z1", "z2"): ([], ["s1", "u1"])})
+    assert orderings == [["s1", "u1"], []]

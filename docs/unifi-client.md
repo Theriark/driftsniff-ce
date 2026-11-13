@@ -68,21 +68,24 @@ A failed resource keeps its previous state in the pipeline, so nothing is report
 ## Ordering and the action field (P7-T4)
 
 Firewall policies and ACL rules are first match lists, so their order is data. The controller gives
-the order in separate documents (the paths and names are **unverified**, docs/vendor-notes/
-unifi.md, statements 9, 10, 16 and 17):
+the order in separate documents (the firewall ones verified on UniFi Network 10.6.109, the ACL one
+unverified; docs/vendor-notes/unifi.md, statements 9, 10, 16 and 17):
 
 - Firewall policies are ordered per pair of (source zone, destination zone). For every site the
   client takes the distinct zone pairs of the policies, sorted, and asks for the ordering of each
   pair (`<site>/firewall/policies/ordering?sourceFirewallZoneId=...&destinationFirewallZoneId=...`).
   Each answer holds two lists, the policies that run before the system defined ones and those that
-  run after them. The position list is the lists of all pairs one after the other, each pair
-  before first, then after. The pair order is sorted so that an unchanged controller gives the same
-  list every run.
+  run after them. The lists name only the policies whose `metadata.origin` is `USER_DEFINED`. The
+  position list is the lists of all pairs one after the other: each pair's before list, then the
+  policies of that pair the controller made itself (any other origin), sorted by id, then its after
+  list. Controller-made policies without a usable pair come last, sorted by id. The pair order is
+  sorted so that an unchanged controller gives the same list every run.
 - ACL rules have one list per site (`<site>/acl-rules/ordering`).
 - The objects of a site are returned in that order, and the sites one after the other.
 
 A mismatch between the lists and the objects is repaired and reported, never hidden: an object that
-no list names (a policy with no usable pair of zones counts) is appended at the end, and an id that
+no list names and that is not controller-made (a user defined policy, or one without an origin;
+one with no usable pair of zones counts) is appended at the end, and an id that
 no object has, or that is listed twice, is dropped. The result then carries the warning class
 `ordering_mismatch` with a text of two counts (no ids or names), the run is `partial` and the
 coverage of the resource stays `200`. A policy that moves because the controller order changed is

@@ -1,9 +1,16 @@
-# UniFi rules for firewall zones, firewall policies and ACL rules (P7-T4). These resources have
-# the object floors of the type table (an added, modified or moved object is high, a removed one
-# critical), so a rule here only matters when it is critical or when it explains why the change
-# is serious. A move needs no rule: the engine raises it by the first match floor, and to
-# critical when the entry jumped over a blocking one. The action values are unverified
-# (docs/vendor-notes/unifi.md, statement 8) and are spelled in upper and lower case.
+# UniFi rules for firewall zones, firewall policies and ACL rules (P7-T4). Field paths and the
+# action values ALLOW and BLOCK were checked on UniFi Network 10.6.109 (docs/vendor-notes/unifi.md);
+# REJECT is kept as a blocking value although that controller had no such policy. ACL rules were
+# not seen there (no objects), so their rules stay unverified.
+#
+# Zones and ACL rules have the object floors of the type table (added, modified or moved is high,
+# removed critical). Firewall policies keep the floors for added, removed and moved, but not for
+# modified: every field that changes what a policy matches or does has its own high rule below,
+# and a rename or a new description is low. A move needs no rule: the engine raises it by the first
+# match floor, and to critical when the entry jumped over a blocking one.
+#
+# Not expressible with field rules: "a change to a system defined policy is low unless its action
+# changes", because a rule sees one field and not the origin of the object it belongs to.
 version: 1
 rules:
   - id: unifi.firewall_zones.network_ids
@@ -11,10 +18,20 @@ rules:
     path: networkIds
     severity: high
     rationale: The networks of a firewall zone changed, so the policies of that zone now apply to other devices.
+  - id: unifi.firewall_policies.name
+    resource: unifi-firewall-policies
+    path: name
+    severity: low
+    rationale: A firewall policy was renamed, which changes only how people find it.
+  - id: unifi.firewall_policies.description
+    resource: unifi-firewall-policies
+    path: description
+    severity: low
+    rationale: The description of a firewall policy changed, which is wording only.
   - id: unifi.firewall_policies.action_to_allow
     resource: unifi-firewall-policies
     path: actionType
-    when: {name: enum_transition, from: [BLOCK, REJECT, block, reject], to: [ALLOW, allow]}
+    when: {name: enum_transition, from: [BLOCK, REJECT], to: [ALLOW]}
     severity: critical
     rationale: A firewall policy that stopped traffic now lets it through.
   - id: unifi.firewall_policies.action_type
@@ -22,12 +39,22 @@ rules:
     path: actionType
     severity: high
     rationale: The verdict of a firewall policy changed, which changes what traffic it lets through or stops.
+  - id: unifi.firewall_policies.return_traffic
+    resource: unifi-firewall-policies
+    path: action.allowReturnTraffic
+    severity: high
+    rationale: Whether a firewall policy also lets the answers back through changed.
   - id: unifi.firewall_policies.disabled
     resource: unifi-firewall-policies
     path: enabled
     when: {name: boolean_flips_to, value: false}
     severity: high
     rationale: A firewall policy was switched off, so what it enforced is no longer enforced.
+  - id: unifi.firewall_policies.enabled
+    resource: unifi-firewall-policies
+    path: enabled
+    severity: high
+    rationale: A firewall policy was switched on, so what it allows or stops now applies.
   - id: unifi.firewall_policies.source_zone
     resource: unifi-firewall-policies
     path: source.zoneId
@@ -38,10 +65,51 @@ rules:
     path: destination.zoneId
     severity: high
     rationale: The destination zone of a firewall policy changed, so it applies to traffic to other devices.
+  - id: unifi.firewall_policies.source_filter
+    resource: unifi-firewall-policies
+    path: source.**
+    severity: high
+    rationale: The source filter of a firewall policy changed (addresses, networks, ports, a list or an inverted match), so it matches other traffic.
+  - id: unifi.firewall_policies.destination_filter
+    resource: unifi-firewall-policies
+    path: destination.**
+    severity: high
+    rationale: The destination filter of a firewall policy changed (addresses, networks, ports, a list or an inverted match), so it matches other traffic.
+  - id: unifi.firewall_policies.protocol
+    resource: unifi-firewall-policies
+    path: ipProtocolScope.**
+    severity: high
+    rationale: The IP version or protocol a firewall policy matches changed, or its protocol match was inverted.
+  - id: unifi.firewall_policies.connection_states
+    resource: unifi-firewall-policies
+    path: connectionStateFilter
+    severity: high
+    rationale: The connection states a firewall policy matches changed, so it applies to other packets.
+  - id: unifi.firewall_policies.ipsec
+    resource: unifi-firewall-policies
+    path: ipsecFilter
+    severity: high
+    rationale: Whether a firewall policy matches encrypted or unencrypted traffic changed.
+  - id: unifi.firewall_policies.logging_off
+    resource: unifi-firewall-policies
+    path: loggingEnabled
+    when: {name: boolean_flips_to, value: false}
+    severity: medium
+    rationale: Logging of a firewall policy was switched off, so its matches leave no trace.
+  - id: unifi.firewall_policies.logging
+    resource: unifi-firewall-policies
+    path: loggingEnabled
+    severity: low
+    rationale: Logging of a firewall policy was switched on, which changes nothing about traffic.
+  - id: unifi.firewall_policies.origin
+    resource: unifi-firewall-policies
+    path: metadata.origin
+    severity: medium
+    rationale: The origin of a firewall policy changed between user defined and controller made, which changes who owns its place in the order.
   - id: unifi.acl_rules.action_to_allow
     resource: unifi-acl-rules
     path: action
-    when: {name: enum_transition, from: [BLOCK, block], to: [ALLOW, allow]}
+    when: {name: enum_transition, from: [BLOCK], to: [ALLOW]}
     severity: critical
     rationale: An access control rule that stopped traffic now lets it through.
   - id: unifi.acl_rules.action

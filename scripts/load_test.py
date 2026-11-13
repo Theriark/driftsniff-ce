@@ -71,8 +71,9 @@ RESOURCE_WEIGHTS: Final = (
     ("unifi-devices", 280),
 )
 
-# The fields the push source keeps. uptimeSec and lastHeartbeatAt are ignore class in the table:
-# they differ at every poll, like the counters of a real controller, and must cost no snapshot.
+# The fields the push source keeps. state and firmwareUpdatable are ignore class in the table:
+# they move between polls without a configuration change, as on a real controller, and must cost
+# no snapshot.
 PUSH_FIELDS: Final[dict[str, list[str]]] = {
     "unifi-networks": ["id", "name", "enabled", "management", "vlanId", "internetAccessEnabled"],
     "unifi-wifi-broadcasts": [
@@ -102,8 +103,7 @@ PUSH_FIELDS: Final[dict[str, list[str]]] = {
         "model",
         "firmwareVersion",
         "state",
-        "uptimeSec",
-        "lastHeartbeatAt",
+        "firmwareUpdatable",
     ],
 }
 
@@ -261,8 +261,7 @@ def base_document(counts: Mapping[str, int]) -> Document:
                 "model": "LD-AP-6",
                 "firmwareVersion": "1.0.0",
                 "state": "ONLINE",
-                "uptimeSec": 0,
-                "lastHeartbeatAt": "synthetic-heartbeat-0",
+                "firmwareUpdatable": False,
             }
             for index in range(counts["unifi-devices"])
         ],
@@ -322,16 +321,16 @@ def mutate(resource: str, entry: dict[str, Any], revision: int) -> None:
         elif options == 1:
             entry["name"] = f"LOAD device r{revision}"
         else:
-            entry["state"] = "OFFLINE" if entry["state"] == "ONLINE" else "ONLINE"
+            entry["model"] = f"LD-AP-{revision}"
     else:
         raise LoadTestError(f"no mutation for resource {resource}")
 
 
 def touch_volatile(document: Document, poll: int) -> None:
-    """Move the ignore class counters of every device, as a controller does between two polls."""
-    for index, device in enumerate(document["unifi-devices"]):
-        device["uptimeSec"] = 1000 * (poll + 1) + index
-        device["lastHeartbeatAt"] = f"synthetic-heartbeat-{poll}"
+    """Move the ignore class fields of every device, as a controller does between two polls."""
+    for device in document["unifi-devices"]:
+        device["state"] = "OFFLINE" if poll % 2 else "ONLINE"
+        device["firmwareUpdatable"] = poll % 2 == 1
 
 
 @dataclass(slots=True)

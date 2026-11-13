@@ -1,9 +1,10 @@
 """The UniFi version-band fixtures and the pipeline helpers the P7-T5 contract tests share.
 
 ``tests/fixtures/unifi/band-<name>.json`` is one hand written controller per version band: the
-floor (10.1.84), a reference band (10.3.58) and a newest band (10.4.12). Everything in them is
-**unverified** (dependency D5, the vendor reference, is open; no lab controller was used), and the
-version of the newest band and the two fields it adds are invented.
+floor (10.1.84), a reference band (10.6.109) and a newest band (10.7.0). The shapes are those of a
+real UniFi Network 10.6.109 controller (docs/vendor-notes/unifi.md), with synthetic values; the
+version of the newest band and the two fields it adds are invented. 10.6.109 returns none of the
+four secret fields below: the bands keep them as a hypothesis, so the leak tests still run.
 
 The files hold no secret value, not even a made-up one. A string that starts with ``@canary:`` is a
 placeholder; :func:`band_scenario` replaces it with the value its :class:`Seeds` gives for the

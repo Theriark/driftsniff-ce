@@ -2,8 +2,8 @@
 
 ``rules/packs/unifi/*.yaml`` and ``rules/types/unifi.yaml`` are loaded from the package, the way
 the application loads them. Every rule has one input that it matches and one near miss that it
-must not match; the inputs are in ``tests/fixtures/unifi/rule_cases.json``. Every name and value in
-them is unverified against the vendor reference (dependency D5 is open) and synthetic.
+must not match; the inputs are in ``tests/fixtures/unifi/rule_cases.json``. The field names
+follow the paths of UniFi Network 10.6.109 (docs/vendor-notes/unifi.md); the values are synthetic.
 """
 
 import json
@@ -87,9 +87,9 @@ def case_id(case: dict[str, Any]) -> str:
 # ---- the pack loads ---------------------------------------------------------------------------
 
 
-def test_the_unifi_pack_loads_with_no_tie_and_holds_about_forty_rules(index: RuleIndex) -> None:
+def test_the_unifi_pack_loads_with_no_tie_and_holds_about_sixty_rules(index: RuleIndex) -> None:
     rules = unifi_rules(index)
-    assert 40 <= len(rules) <= 55
+    assert 50 <= len(rules) <= 70
     assert re.fullmatch(r"[0-9a-f]{12}", index.pack_version)
     assert {compiled.source for compiled in rules.values()} == SOURCES
 
@@ -200,15 +200,36 @@ def test_a_rule_does_not_match_its_near_miss(
 
 
 @pytest.mark.parametrize(
-    "before", ["WPA_PERSONAL", "WPA2_PERSONAL", "WPA3_PERSONAL", "WPA2_WPA3_PERSONAL", "wpa2"]
+    ("before", "after"),
+    [
+        ("WPA_PERSONAL", "OPEN"),
+        ("WPA2_PERSONAL", "OPEN"),
+        ("WPA2_WPA3_PERSONAL", "OPEN"),
+        ("WPA3_PERSONAL", "OPEN"),
+        ("WPA2_PERSONAL", "WPA_PERSONAL"),
+        ("WPA2_WPA3_PERSONAL", "WPA_PERSONAL"),
+    ],
 )
-@pytest.mark.parametrize("after", ["OPEN", "open", "NONE"])
-def test_a_secured_wifi_that_becomes_open_is_critical(
+def test_a_wifi_that_drops_below_wpa2_is_critical(
     before: str, after: str, engine: RuleEngine
 ) -> None:
     item = make("unifi-wifi-broadcasts", "modified", "securityConfiguration.type", before, after)
     result = engine.classify(item)
-    assert (result.severity, result.rule_id) == ("critical", "unifi.wifi.security_to_open")
+    assert (result.severity, result.rule_id) == ("critical", "unifi.wifi.security_downgrade")
+
+
+def test_wpa3_to_wpa2_is_a_high_security_change_not_a_critical_downgrade(
+    engine: RuleEngine,
+) -> None:
+    item = make(
+        "unifi-wifi-broadcasts",
+        "modified",
+        "securityConfiguration.type",
+        "WPA2_WPA3_PERSONAL",
+        "WPA2_PERSONAL",
+    )
+    result = engine.classify(item)
+    assert (result.severity, result.rule_id) == ("high", "unifi.wifi.security_type")
 
 
 def test_an_open_wifi_that_becomes_secured_is_high_not_critical(engine: RuleEngine) -> None:
@@ -250,6 +271,27 @@ def test_a_policy_that_is_switched_on_is_not_the_disabled_rule(engine: RuleEngin
     result = engine.classify(item)
     assert result.rule_id != "unifi.firewall_policies.disabled"
     assert result.severity == "high"
+
+
+@pytest.mark.parametrize("path", ["name", "description"])
+def test_a_renamed_firewall_policy_is_low_because_modified_has_no_floor(
+    path: str, engine: RuleEngine
+) -> None:
+    result = engine.classify(make("unifi-firewall-policies", "modified", path, "a", "b"))
+    assert (result.severity, result.floored) == ("low", False)
+
+
+def test_an_added_or_removed_device_or_dns_policy_is_medium_with_a_reason(
+    engine: RuleEngine,
+) -> None:
+    for resource, rule_id in [
+        ("unifi-devices", "unifi.devices.any"),
+        ("unifi-dns-policies", "unifi.dns_policies.any"),
+    ]:
+        kinds: tuple[ChangeKind, ...] = ("added", "removed")
+        for kind in kinds:
+            result = engine.classify(make(resource, kind, "", None, None))
+            assert (result.severity, result.rule_id) == ("medium", rule_id)
 
 
 def test_a_renamed_network_is_low_and_can_be_muted(engine: RuleEngine) -> None:

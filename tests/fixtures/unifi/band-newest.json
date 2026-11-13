@@ -1,68 +1,66 @@
 {
   "band": "newest",
-  "applicationVersion": "10.4.12",
+  "applicationVersion": "10.7.0",
   "unverified": true,
-  "note": "Hand written for the contract tests. The shape follows docs/vendor-notes/unifi.md and every path, field name and value is UNVERIFIED: dependency D5 (the vendor API reference) is open and no lab controller was used. No secret value is stored here: a string that starts with @canary: is replaced by a fresh synthetic canary when a test loads the file. Addresses are from the documentation ranges (RFC 5737). The version of this band is invented to stand for the newest version of the vendor reference; the two fields it adds (bandSteeringEnabled on WiFi broadcasts, igmpSnoopingEnabled on networks) are invented too.",
+  "note": "Hand written for the contract tests in the shapes a real UniFi Network 10.6.109 controller returned on 2026-11-13 (docs/vendor-notes/unifi.md): every field path, enum value and the ordering behaviour (only USER_DEFINED policies are listed; pol-5, pol-6 and pol-7 are not) follow that controller. Values are synthetic: addresses from the documentation ranges (RFC 5737, RFC 7042), invented names. That controller had no ACL rules and no device tags, so both lists are empty. 10.6.109 returns no passphrase, shared secret or VPN key; the four secret fields are kept here as a hypothesis so that the leak tests still prove such a value would never be shown. A string that starts with @canary: is replaced by a fresh synthetic canary when a test loads the file. The version of this band is invented to stand for a newer controller; the two fields it adds (bandSteeringEnabled on WiFi broadcasts, igmpSnoopingEnabled on networks) are invented too.",
   "objects": {
     "networks": [
-      {"id": "net-1", "name": "Internal", "enabled": true, "management": true, "vlanId": 1, "internetAccessEnabled": true, "dhcpGuarding": {"trustedDhcpServerIpAddresses": ["192.0.2.1"]}, "dhcpConfig": {"dnsServers": ["192.0.2.53", "192.0.2.54"]}, "igmpSnoopingEnabled": false},
-      {"id": "net-2", "name": "Guest", "enabled": true, "management": false, "vlanId": 20, "internetAccessEnabled": true, "dhcpGuarding": {"trustedDhcpServerIpAddresses": ["192.0.2.1"]}, "dhcpConfig": {"dnsServers": ["192.0.2.53"]}, "igmpSnoopingEnabled": false}
+      {"id": "net-1", "name": "Internal", "enabled": true, "default": true, "management": "GATEWAY", "vlanId": 1, "zoneId": "zone-1", "metadata": {"origin": "SYSTEM_DEFINED", "configurable": true}, "igmpSnoopingEnabled": false},
+      {"id": "net-2", "name": "Guest", "enabled": true, "default": false, "management": "GATEWAY", "vlanId": 20, "zoneId": "zone-3", "metadata": {"origin": "USER_DEFINED", "configurable": true}, "igmpSnoopingEnabled": false}
     ],
     "wifi/broadcasts": [
-      {"id": "wifi-1", "name": "Staff", "enabled": true, "type": "STANDARD", "network": {"networkId": "net-1"}, "securityConfiguration": {"type": "WPA2_PERSONAL", "passphrase": "@canary:wifi-staff-passphrase"}, "broadcastingFrequenciesGHz": [2.4, 5], "hideName": false, "clientIsolationEnabled": false, "bandSteeringEnabled": true},
-      {"id": "wifi-2", "name": "Guest", "enabled": true, "type": "STANDARD", "network": {"networkId": "net-2"}, "securityConfiguration": {"type": "WPA2_PERSONAL", "passphrase": "@canary:wifi-guest-passphrase"}, "broadcastingFrequenciesGHz": [2.4, 5], "hideName": false, "clientIsolationEnabled": true, "bandSteeringEnabled": true}
+      {"id": "wifi-1", "name": "Staff", "enabled": true, "type": "STANDARD", "network": {"type": "SPECIFIC", "networkId": "net-1"}, "securityConfiguration": {"type": "WPA2_WPA3_PERSONAL", "passphrase": "@canary:wifi-staff-passphrase"}, "broadcastingFrequenciesGHz": [2.4, 5], "metadata": {"origin": "USER_DEFINED"}, "bandSteeringEnabled": true},
+      {"id": "wifi-2", "name": "Things", "enabled": true, "type": "IOT_OPTIMIZED", "network": {"type": "SPECIFIC", "networkId": "net-2"}, "securityConfiguration": {"type": "WPA2_PERSONAL", "passphrase": "@canary:wifi-things-passphrase"}, "broadcastingFrequenciesGHz": [2.4], "metadata": {"origin": "USER_DEFINED"}, "bandSteeringEnabled": true}
     ],
     "firewall/zones": [
-      {"id": "zone-1", "name": "Internal", "networkIds": ["net-1"]},
-      {"id": "zone-2", "name": "External", "networkIds": []},
-      {"id": "zone-3", "name": "Guest", "networkIds": ["net-2"]}
+      {"id": "zone-1", "name": "Internal", "networkIds": ["net-1"], "metadata": {"origin": "SYSTEM_DEFINED", "configurable": true}},
+      {"id": "zone-2", "name": "External", "networkIds": [], "metadata": {"origin": "SYSTEM_DEFINED", "configurable": false}},
+      {"id": "zone-3", "name": "Guest", "networkIds": ["net-2"], "metadata": {"origin": "USER_DEFINED", "configurable": true}}
     ],
     "firewall/policies": [
-      {"id": "pol-1", "name": "Internal to internet", "enabled": true, "action": {"type": "ALLOW", "allowReturnTraffic": true}, "source": {"zoneId": "zone-1"}, "destination": {"zoneId": "zone-2"}, "loggingEnabled": false},
-      {"id": "pol-2", "name": "Guest to internet", "enabled": true, "action": {"type": "ALLOW", "allowReturnTraffic": true}, "source": {"zoneId": "zone-3"}, "destination": {"zoneId": "zone-2"}, "loggingEnabled": false},
-      {"id": "pol-3", "name": "Guest to internal", "enabled": true, "action": {"type": "BLOCK", "allowReturnTraffic": false}, "source": {"zoneId": "zone-3"}, "destination": {"zoneId": "zone-1"}, "loggingEnabled": false}
+      {"id": "pol-1", "name": "Internal to web", "description": "Internal to web (synthetic)", "enabled": true, "action": {"type": "ALLOW", "allowReturnTraffic": true}, "source": {"zoneId": "zone-1", "trafficFilter": {"type": "NETWORK", "networkFilter": {"matchOpposite": false, "networkIds": ["net-1"]}}}, "destination": {"zoneId": "zone-2", "trafficFilter": {"type": "PORT", "portFilter": {"type": "PORTS", "matchOpposite": false, "items": [{"type": "PORT_NUMBER", "value": 443}, {"type": "PORT_NUMBER_RANGE", "start": 8000, "stop": 8080}]}}}, "ipProtocolScope": {"ipVersion": "IPV4", "protocolFilter": {"type": "NAMED_PROTOCOL", "matchOpposite": false, "protocol": {"name": "TCP"}}}, "loggingEnabled": true, "metadata": {"origin": "USER_DEFINED"}, "connectionStateFilter": ["NEW"]},
+      {"id": "pol-2", "name": "Guests to internal", "description": "Guests to internal (synthetic)", "enabled": true, "action": {"type": "BLOCK", "allowReturnTraffic": false}, "source": {"zoneId": "zone-3", "trafficFilter": {"type": "IP_ADDRESS", "ipAddressFilter": {"type": "IP_ADDRESSES", "matchOpposite": false, "items": [{"type": "IP_ADDRESS", "value": "192.0.2.10"}, {"type": "SUBNET", "value": "192.0.2.0/28"}]}}}, "destination": {"zoneId": "zone-1", "trafficFilter": {"type": "IP_ADDRESS", "ipAddressFilter": {"type": "TRAFFIC_MATCHING_LIST", "matchOpposite": true, "trafficMatchingListId": "tml-1"}}}, "ipProtocolScope": {"ipVersion": "IPV4_AND_IPV6", "protocolFilter": {"type": "PRESET", "matchOpposite": false, "preset": {"name": "TCP_UDP"}}}, "loggingEnabled": false, "metadata": {"origin": "USER_DEFINED"}, "ipsecFilter": "MATCH_NOT_ENCRYPTED"},
+      {"id": "pol-3", "name": "Printer by address", "description": "Printer by address (synthetic)", "enabled": true, "action": {"type": "ALLOW", "allowReturnTraffic": true}, "source": {"zoneId": "zone-3", "trafficFilter": {"type": "MAC_ADDRESS", "macAddressFilter": {"macAddresses": ["00:00:5e:00:53:21"]}}}, "destination": {"zoneId": "zone-1", "trafficFilter": {"type": "PORT", "portFilter": {"type": "TRAFFIC_MATCHING_LIST", "matchOpposite": false, "trafficMatchingListId": "tml-2"}}}, "ipProtocolScope": {"ipVersion": "IPV4", "protocolFilter": {"type": "NAMED_PROTOCOL", "matchOpposite": false, "protocol": {"name": "TCP"}}}, "loggingEnabled": false, "metadata": {"origin": "USER_DEFINED"}, "connectionStateFilter": ["ESTABLISHED", "RELATED"]},
+      {"id": "pol-4", "name": "Remote users in", "description": "Remote users in (synthetic)", "enabled": true, "action": {"type": "ALLOW", "allowReturnTraffic": true}, "source": {"zoneId": "zone-2", "trafficFilter": {"type": "VPN_SERVER", "vpnServerFilter": {"matchOpposite": false, "vpnServerIds": ["vpn-1"]}}}, "destination": {"zoneId": "zone-1", "trafficFilter": {"type": "SITE_TO_SITE_VPN_TUNNEL", "siteToSiteVpnTunnelFilter": {"siteToSiteVpnTunnelId": "tun-1"}}}, "ipProtocolScope": {"ipVersion": "IPV4", "protocolFilter": {"type": "NAMED_PROTOCOL", "matchOpposite": false, "protocol": {"name": "UDP"}}}, "loggingEnabled": false, "metadata": {"origin": "USER_DEFINED"}},
+      {"id": "pol-5", "name": "Block invalid from guests", "description": "Block invalid from guests (synthetic)", "enabled": true, "action": {"type": "BLOCK", "allowReturnTraffic": false}, "source": {"zoneId": "zone-3", "trafficFilter": {"type": "SITE_TO_SITE_VPN_TUNNEL", "siteToSiteVpnTunnelFilter": {"siteToSiteVpnTunnelId": "tun-2"}}}, "destination": {"zoneId": "zone-1", "trafficFilter": {"type": "NETWORK", "networkFilter": {"matchOpposite": true, "networkIds": ["net-1", "net-2"]}}}, "ipProtocolScope": {"ipVersion": "IPV6", "protocolFilter": {"type": "NAMED_PROTOCOL", "matchOpposite": true, "protocol": {"name": "ICMPV6"}}}, "loggingEnabled": false, "metadata": {"origin": "SYSTEM_DEFINED"}, "connectionStateFilter": ["INVALID"]},
+      {"id": "pol-6", "name": "Port forward", "description": "Port forward (synthetic)", "enabled": true, "action": {"type": "ALLOW", "allowReturnTraffic": true}, "source": {"zoneId": "zone-1", "trafficFilter": {"type": "PORT", "portFilter": {"type": "PORTS", "matchOpposite": true, "items": [{"type": "PORT_NUMBER_RANGE", "start": 1024, "stop": 2048}]}}}, "destination": {"zoneId": "zone-2", "trafficFilter": {"type": "IP_ADDRESS", "ipAddressFilter": {"type": "IP_ADDRESSES", "matchOpposite": false, "items": [{"type": "IP_ADDRESS", "value": "198.51.100.7"}]}}}, "ipProtocolScope": {"ipVersion": "IPV4", "protocolFilter": {"type": "NAMED_PROTOCOL", "matchOpposite": false, "protocol": {"name": "TCP"}}}, "loggingEnabled": false, "metadata": {"origin": "DERIVED"}},
+      {"id": "pol-7", "name": "Block external to guests", "description": "Block external to guests (synthetic)", "enabled": true, "action": {"type": "BLOCK", "allowReturnTraffic": false}, "source": {"zoneId": "zone-2", "trafficFilter": {"type": "PORT", "portFilter": {"type": "TRAFFIC_MATCHING_LIST", "matchOpposite": false, "trafficMatchingListId": "tml-2"}}}, "destination": {"zoneId": "zone-3", "trafficFilter": {"type": "PORT", "portFilter": {"type": "PORTS", "matchOpposite": false, "items": [{"type": "PORT_NUMBER", "value": 22}]}}}, "ipProtocolScope": {"ipVersion": "IPV4_AND_IPV6", "protocolFilter": {"type": "PRESET", "matchOpposite": false, "preset": {"name": "TCP_UDP"}}}, "loggingEnabled": false, "metadata": {"origin": "SYSTEM_DEFINED"}}
     ],
-    "acl-rules": [
-      {"id": "acl-1", "name": "Block telnet", "type": "IPV4", "enabled": true, "action": "BLOCK"},
-      {"id": "acl-2", "name": "Allow printing", "type": "IPV4", "enabled": true, "action": "ALLOW"}
-    ],
+    "acl-rules": [],
     "dns/policies": [
-      {"id": "dns-1", "type": "A_RECORD", "enabled": true, "domain": "host-a.example.test"},
-      {"id": "dns-2", "type": "A_RECORD", "enabled": true, "domain": "host-b.example.test"}
+      {"id": "dns-1", "type": "A_RECORD", "enabled": true, "domain": "host-a.example.test", "ipv4Address": "192.0.2.40", "ttlSeconds": 300, "metadata": {"origin": "USER_DEFINED"}},
+      {"id": "dns-2", "type": "A_RECORD", "enabled": true, "domain": "host-b.example.test", "ipv4Address": "192.0.2.41", "ttlSeconds": 3600, "metadata": {"origin": "USER_DEFINED"}}
     ],
     "traffic-matching-lists": [
-      {"id": "tml-1", "name": "Printers", "type": "IPV4_ADDRESSES", "items": ["192.0.2.20"]},
-      {"id": "tml-2", "name": "Print ports", "type": "PORTS", "items": ["631", "9100"]}
+      {"id": "tml-1", "name": "Servers", "type": "IPV4_ADDRESSES", "items": [{"type": "IP_ADDRESS", "value": "192.0.2.20"}, {"type": "SUBNET", "value": "198.51.100.0/24"}]},
+      {"id": "tml-2", "name": "Print ports", "type": "PORTS", "items": [{"type": "PORT_NUMBER", "value": 631}, {"type": "PORT_NUMBER", "value": 9100}]}
     ],
     "wans": [
-      {"id": "wan-1", "name": "Internet 1", "dnsServers": ["192.0.2.1", "192.0.2.2"]},
-      {"id": "wan-2", "name": "Internet 2", "dnsServers": ["192.0.2.3"]}
+      {"id": "wan-1", "name": "Internet 1"},
+      {"id": "wan-2", "name": "Internet 2"}
     ],
     "vpn/site-to-site-tunnels": [
-      {"id": "tun-1", "name": "Branch one", "type": "IPSEC", "enabled": true, "preSharedKey": "@canary:vpn-tunnel-one-key"},
-      {"id": "tun-2", "name": "Branch two", "type": "IPSEC", "enabled": true, "preSharedKey": "@canary:vpn-tunnel-two-key"}
+      {"id": "tun-1", "name": "Branch one", "type": "WIREGUARD", "metadata": {"origin": "DERIVED", "source": "SDWAN"}, "preSharedKey": "@canary:vpn-tunnel-one-key"},
+      {"id": "tun-2", "name": "Branch two", "type": "WIREGUARD", "metadata": {"origin": "DERIVED", "source": "SDWAN"}, "preSharedKey": "@canary:vpn-tunnel-two-key"}
     ],
     "vpn/servers": [
-      {"id": "vpn-1", "name": "Remote access", "type": "WIREGUARD", "enabled": true, "preSharedKey": "@canary:vpn-server-one-key"},
-      {"id": "vpn-2", "name": "Legacy access", "type": "L2TP", "enabled": false, "preSharedKey": "@canary:vpn-server-two-key"}
+      {"id": "vpn-1", "name": "Remote access", "type": "WIREGUARD", "enabled": true, "metadata": {"origin": "USER_DEFINED"}, "preSharedKey": "@canary:vpn-server-one-key"},
+      {"id": "vpn-2", "name": "Spare access", "type": "WIREGUARD", "enabled": false, "metadata": {"origin": "USER_DEFINED"}, "preSharedKey": "@canary:vpn-server-two-key"}
     ],
     "radius/profiles": [
-      {"id": "rad-1", "name": "Office RADIUS", "sharedSecret": "@canary:radius-office-secret"},
-      {"id": "rad-2", "name": "Guest RADIUS", "sharedSecret": "@canary:radius-guest-secret"}
+      {"id": "rad-1", "name": "Default", "metadata": {"origin": "SYSTEM_DEFINED", "configurable": false}, "sharedSecret": "@canary:radius-default-secret"},
+      {"id": "rad-2", "name": "Office", "metadata": {"origin": "DERIVED", "configurable": true}, "sharedSecret": "@canary:radius-office-secret"}
     ],
-    "device-tags": [
-      {"id": "tag-1", "name": "Access points", "deviceIds": ["dev-2"]},
-      {"id": "tag-2", "name": "Gateways", "deviceIds": ["dev-1"]}
-    ],
+    "device-tags": [],
     "devices": [
-      {"id": "dev-1", "name": "Gateway", "model": "GW-Lite", "firmwareVersion": "4.0.6", "state": "ONLINE", "uptimeSec": 90000, "lastHeartbeatAt": "2026-10-22T08:00:00Z", "statistics": {"rxBytes": 900000, "txBytes": 360000}},
-      {"id": "dev-2", "name": "Access point", "model": "AP-Pro", "firmwareVersion": "6.6.77", "state": "ONLINE", "uptimeSec": 176400, "lastHeartbeatAt": "2026-10-22T08:00:05Z", "statistics": {"rxBytes": 1764000, "txBytes": 705600}}
+      {"id": "dev-1", "name": "Gateway", "model": "GW-Pro", "macAddress": "00:00:5e:00:53:01", "ipAddress": "192.0.2.1", "firmwareVersion": "4.3.9", "state": "ONLINE", "firmwareUpdatable": false, "supported": true, "features": ["switching"], "interfaces": ["ports"]},
+      {"id": "dev-2", "name": "Access point", "model": "AP-Pro", "macAddress": "00:00:5e:00:53:02", "ipAddress": "192.0.2.2", "firmwareVersion": "6.7.31", "state": "ONLINE", "firmwareUpdatable": false, "supported": true, "features": ["accessPoint"], "interfaces": ["ports", "radios"]}
     ]
   },
   "firewallOrder": [
     {"site": "site-a", "source": "zone-1", "destination": "zone-2", "before": ["pol-1"], "after": []},
-    {"site": "site-a", "source": "zone-3", "destination": "zone-2", "before": ["pol-2"], "after": []},
-    {"site": "site-a", "source": "zone-3", "destination": "zone-1", "before": ["pol-3"], "after": []}
+    {"site": "site-a", "source": "zone-2", "destination": "zone-1", "before": [], "after": ["pol-4"]},
+    {"site": "site-a", "source": "zone-3", "destination": "zone-1", "before": ["pol-2"], "after": ["pol-3"]}
   ],
-  "aclOrder": {"site-a": ["acl-1", "acl-2"]}
+  "aclOrder": {}
 }

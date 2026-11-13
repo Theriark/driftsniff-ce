@@ -23,7 +23,7 @@ import load_test
 from driftsniff.web.auth import SESSION_COOKIE
 
 NOW = datetime(2026, 10, 25, 12, 0, tzinfo=UTC)
-VOLATILE = {"uptimeSec", "lastHeartbeatAt"}
+VOLATILE = {"state", "firmwareUpdatable"}
 SMALL = load_test.FixtureSpec(
     objects=60, changes=40, days=6, polls_per_day=4, noisy_polls=6, noisy_objects=20
 )
@@ -78,9 +78,9 @@ def test_every_planned_change_is_one_object_with_one_changed_field() -> None:
         previous = current
 
 
-def test_the_ignore_class_counters_move_at_every_poll() -> None:
-    seen = [poll.document["unifi-devices"][0]["uptimeSec"] for poll in load_test.polls(SMALL, NOW)]
-    assert len(set(seen)) == len(seen)
+def test_the_ignore_class_fields_move_at_every_poll() -> None:
+    seen = [poll.document["unifi-devices"][0]["state"] for poll in load_test.polls(SMALL, NOW)]
+    assert all(before != after for before, after in zip(seen, seen[1:], strict=False))
 
 
 @pytest.mark.parametrize("resource", [name for name, _ in load_test.RESOURCE_WEIGHTS])

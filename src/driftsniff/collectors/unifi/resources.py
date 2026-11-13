@@ -1,16 +1,16 @@
 """The UniFi resources the collector reads and where it reads them (P7-T2).
 
-Every path below is **unverified**: it comes from third party descriptions (docs/vendor-notes/
-unifi.md, statements 1 and 5) and not from the vendor reference, which is dependency D5 and still
-open. When D5 arrives, correct :data:`RESOURCES` and nothing else has to change.
+Every resource path below answered 200 on a real UniFi Network 10.6.109 controller on 2026-11-13
+(docs/vendor-notes/unifi.md). If a later version moves one, correct :data:`RESOURCES` and nothing
+else has to change.
 
 ``unifi-site-settings`` has no endpoint in any source, so the collector does not list it (the type
 table keeps it as a placeholder). A resource that is not listed keeps its previous state in the
 run pipeline, so leaving it out can never report an object as removed.
 
-The ordering lists of firewall policies and ACL rules are separate documents (P7-T4). Their paths
-below are **unverified** as well; ``collectors/unifi/normalize.py`` merges them into the position
-list of the resource.
+The ordering lists of firewall policies and ACL rules are separate documents (P7-T4). The firewall
+ordering path and its answer were verified on 10.6.109; the ACL one was not (that controller has no
+ACL rules). ``collectors/unifi/normalize.py`` merges them into the position list of the resource.
 """
 
 from dataclasses import dataclass
@@ -27,7 +27,7 @@ RESOURCE_SITES: Final = "unifi-sites"
 RESOURCE_FIREWALL_POLICIES: Final = "unifi-firewall-policies"
 RESOURCE_ACL_RULES: Final = "unifi-acl-rules"
 
-# The ordering documents (unverified, docs/vendor-notes/unifi.md statements 9, 16 and 17). The
+# The ordering documents (docs/vendor-notes/unifi.md statements 9, 16 and 17). The
 # firewall order is asked per pair of zones; the ACL order is one list per site.
 FIREWALL_ORDERING_PATH: Final = "/firewall/policies/ordering"
 FIREWALL_ORDERING_SOURCE_PARAM: Final = "sourceFirewallZoneId"

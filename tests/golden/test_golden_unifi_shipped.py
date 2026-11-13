@@ -5,7 +5,8 @@ a UniFi resource run again, against ``rules/types/unifi.yaml`` and ``rules/packs
 application loads them: rows 3, 5, 16, 17, 21 and 22. Rows 7 and 9 name fields of the site settings
 that the shipped table does not collect (the plan says to run them only if the field exists, and no
 endpoint for site settings is known), so a test below pins that fact instead of running them. The
-field names are unverified (dependency D5 is open, docs/vendor-notes/unifi.md).
+field names are those of UniFi Network 10.6.109 (docs/vendor-notes/unifi.md). Row 5 named a radio
+channel; the device list of that controller has none, so row 5 runs on its volatile fields.
 """
 
 from functools import cache
@@ -65,9 +66,9 @@ def test_row_3_a_renamed_network_is_low() -> None:
     assert result.rationale.strip() != ""
 
 
-def test_row_5_a_moved_radio_channel_is_no_change() -> None:
-    before = state(id="d1", name="ap-1", interfaces={"radios": [{"band": "5GHz", "channel": 36}]})
-    after = state(id="d1", name="ap-1", interfaces={"radios": [{"band": "5GHz", "channel": 40}]})
+def test_row_5_a_volatile_device_field_that_moves_is_no_change() -> None:
+    before = state(id="d1", name="ap-1", state="ONLINE", firmwareUpdatable=False)
+    after = state(id="d1", name="ap-1", state="OFFLINE", firmwareUpdatable=True)
     assert items("unifi-devices", [before], [after]) == []
 
 
@@ -75,7 +76,7 @@ def test_row_5_control_a_real_device_change_is_reported() -> None:
     before = state(id="d1", name="ap-1", firmwareVersion="6.6.55")
     after = state(id="d1", name="ap-1", firmwareVersion="6.6.65")
     result = shipped().classify(only(items("unifi-devices", [before], [after])))
-    assert (result.severity, result.rule_id) == ("medium", "unifi.devices.firmware_version")
+    assert (result.severity, result.rule_id) == ("low", "unifi.devices.firmware_version")
 
 
 def test_row_16_a_secured_wifi_that_becomes_open_is_critical() -> None:
@@ -84,7 +85,7 @@ def test_row_16_a_secured_wifi_that_becomes_open_is_critical() -> None:
     item = only(items("unifi-wifi-broadcasts", [before], [after]))
     result = shipped().classify(item)
     assert (item.change_kind, item.path) == ("modified", "securityConfiguration.type")
-    assert (result.severity, result.rule_id) == ("critical", "unifi.wifi.security_to_open")
+    assert (result.severity, result.rule_id) == ("critical", "unifi.wifi.security_downgrade")
 
 
 def test_row_17_a_changed_passphrase_is_critical_and_shows_fingerprints_only() -> None:

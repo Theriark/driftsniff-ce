@@ -1,10 +1,9 @@
 """The UniFi client: probe, version floor and paging (P7-T2).
 
 ``UnifiClient`` is a :class:`~driftsniff.collectors.base.Collector` for the integration API of the
-UniFi Network application (docs/unifi-client.md has the user view). Paths, header name and
-envelope names are **unverified**: dependency D5 (the vendor reference) is open and no lab
-controller was used (docs/vendor-notes/unifi.md). The behaviour below is the plan's and does not
-depend on them.
+UniFi Network application (docs/unifi-client.md has the user view). The header name, the
+resource paths and the firewall ordering shape were verified against UniFi Network 10.6.109 on
+2026-11-13 (docs/vendor-notes/unifi.md); the rest of the behaviour below is the plan's.
 
 * The API key travels in one request header, ``X-API-KEY``, and nowhere else: never in a query
   string, a log line or an error text. This module logs nothing, and every error text is fixed.
@@ -28,8 +27,11 @@ TLS modes come from ``collectors/tls.py`` (P7-T3): the caller passes the setting
   client reads it for every site and returns the objects in position order, with ``actionType``
   copied from ``action.type`` (``normalize.py``). An object the ordering does not name is appended
   and an id without an object is dropped; the result then carries the warning
-  ``ordering_mismatch`` and the run is partial. A failed ordering read fails the whole resource
-  with its coverage status, so the previous state stays and nothing is reported as removed.
+  ``ordering_mismatch`` and the run is partial. Firewall policies the controller made itself
+  (``metadata.origin`` other than ``USER_DEFINED``) are never in the ordering lists; they are
+  placed between the two lists of their zone pair and not counted (``normalize.py``). A failed
+  ordering read fails the whole resource with its coverage status, so the previous state stays
+  and nothing is reported as removed.
 
 Not done here (other tasks): the factory that builds a client from a stored source and saves the
 detected base path and the state ``unsupported``.
@@ -74,6 +76,7 @@ from driftsniff.collectors.unifi.normalize import (
     MAX_ZONE_PAIRS,
     Merged,
     ZonePair,
+    firewall_orderings,
     firewall_pairs,
     merge_ordering,
     mismatch_text,
@@ -366,10 +369,11 @@ class UnifiClient(Collector):
         if len(pairs) > MAX_ZONE_PAIRS:
             raise CollectorError(ERROR_BAD_PAYLOAD, "the policies use too many pairs of zones")
         base = self._url(self._base_path, f"{site}{FIREWALL_ORDERING_PATH}")
-        return merge_ordering(found, [self._firewall_order(base, pair) for pair in pairs])
+        answers = {pair: self._firewall_order(base, pair) for pair in pairs}
+        return merge_ordering(found, firewall_orderings(found, answers))
 
-    def _firewall_order(self, base_url: str, pair: ZonePair) -> list[str]:
-        """The policy ids of one pair of zones, those before the system defined ones first."""
+    def _firewall_order(self, base_url: str, pair: ZonePair) -> tuple[list[str], list[str]]:
+        """The policy ids of one pair of zones: before and after the system defined ones."""
         query = urlencode(
             {FIREWALL_ORDERING_SOURCE_PARAM: pair[0], FIREWALL_ORDERING_DESTINATION_PARAM: pair[1]}
         )
@@ -379,7 +383,7 @@ class UnifiClient(Collector):
             answer = FirewallOrdering.model_validate(parsed)
         except ValidationError:
             raise CollectorError(ERROR_BAD_PAYLOAD, "the answer is not an ordering list") from None
-        return [*answer.ordered.before, *answer.ordered.after]
+        return list(answer.ordered.before), list(answer.ordered.after)
 
     def _acl_order(self, url: str) -> list[str]:
         """The ids of the ACL rules of one site, first match first."""
