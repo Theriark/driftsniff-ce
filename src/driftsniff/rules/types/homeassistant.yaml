@@ -203,6 +203,16 @@ types:
       options.cloud.alexa.should_expose: config
       options.cloud.google_assistant.should_expose: config
       options.cloud.google_assistant.disable_2fa: config
+      # Seen on Home Assistant 2026.10.4 (2026-11-13). Display settings a user sets are
+      # config; what the integration suggests or derives is ignore.
+      categories.automation: config
+      options.battery_notes.entity_id: config
+      options.sensor.display_precision: config
+      options.sensor.unit_of_measurement: config
+      options.sensor.suggested_display_precision: ignore
+      options.sensor.private.suggested_unit_of_measurement: ignore
+      options.collection.hash: ignore
+      has_entity_name: ignore
       original_name: ignore
       translation_key: ignore
       next_name_part: ignore

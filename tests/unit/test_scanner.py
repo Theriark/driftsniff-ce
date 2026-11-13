@@ -259,8 +259,11 @@ overrides:
 """
 
 
-def test_the_packaged_overrides_file_loads_and_is_empty() -> None:
-    assert load_overrides().entries == ()
+def test_the_packaged_overrides_file_loads_and_only_silences_the_entropy_rule() -> None:
+    entries = load_overrides().entries
+    assert entries
+    assert all(entry.rules == frozenset({ScanRule.HIGH_ENTROPY}) for entry in entries)
+    assert all(entry.reason for entry in entries)
 
 
 def test_a_valid_file_is_parsed() -> None:
