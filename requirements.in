@@ -9,3 +9,5 @@ pyyaml
 sqlalchemy
 uvicorn
 zstandard
+# Security floor: CVE-2026-126360 in opentelemetry-api 1.45.1 (a dependency of fastapi).
+opentelemetry-api>=1.45.2
