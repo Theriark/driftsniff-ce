@@ -11,4 +11,32 @@
 #
 # A field of the secret class is never affected, and fingerprint_marker cannot be listed.
 version: 1
-overrides: []
+overrides:
+  - resource_type: homeassistant-entities
+    path: unique_id
+    rules: [high_entropy]
+    reason: The id an integration gives an entity; often a ULID, a MAC or a serial number. Seen as a false positive on Home Assistant 2026.10.4 (2026-11-13).
+  - resource_type: homeassistant-entities
+    path: entity_id
+    rules: [high_entropy]
+    reason: The entity id (domain.object_id); long ids built from device names are common. Seen as a false positive on Home Assistant 2026.10.4 (2026-11-13).
+  - resource_type: homeassistant-entities
+    path: config_entry_id
+    rules: [high_entropy]
+    reason: The ULID of the integration entry the entity belongs to. Seen as a false positive on Home Assistant 2026.10.4 (2026-11-13).
+  - resource_type: homeassistant-entities
+    path: config_subentry_id
+    rules: [high_entropy]
+    reason: The ULID of the integration subentry the entity belongs to. Seen as a false positive on Home Assistant 2026.10.4 (2026-11-13).
+  - resource_type: homeassistant-entities
+    path: categories.automation
+    rules: [high_entropy]
+    reason: The ULID of the automation category the entity is filed under. Seen as a false positive on Home Assistant 2026.10.4 (2026-11-13).
+  - resource_type: homeassistant-entities
+    path: options.battery_notes.entity_id
+    rules: [high_entropy]
+    reason: The entity id of the battery the entity reports on. Seen as a false positive on Home Assistant 2026.10.4 (2026-11-13).
+  - resource_type: homeassistant-integrations
+    path: entry_id
+    rules: [high_entropy]
+    reason: The ULID of the integration entry. Seen as a false positive on Home Assistant 2026.10.4 (2026-11-13).

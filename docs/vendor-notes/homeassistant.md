@@ -23,6 +23,24 @@ therefore **UNVERIFIED** against a live system, as the header of the type table 
 | S2 | Developer docs, REST API (`developers.home-assistant.io/docs/api/rest`, now `contributors.home-assistant.io/core/internals/rest-api/`) | 2026-11-12 | `Authorization: Bearer <token>`; `/api/config` and the few other REST endpoints; no automation, user or registry endpoint is documented there |
 | S3 | Core source, `github.com/home-assistant/core`, `dev` branch: `components/websocket_api/{auth,commands,const}.py`, `core_config.py` (`as_dict`), `config_entries.py` (`as_json_fragment`), `components/config/{auth,area_registry,entity_registry,config_entries}.py`, `helpers/{area,entity}_registry.py`, `components/{automation,script}/__init__.py`, `components/lovelace/{__init__,dashboard,const}.py`, `components/homeassistant/exposed_entities.py`, `components/cloud/const.py`, `auth/const.py`, `util/unit_system.py` | 2026-11-12 | Command names, which need an administrator, answer fields |
 
+## Lab check: Home Assistant 2026.10.4 (2026-11-13)
+
+A local Home Assistant 2026.10.4 was read over `wss://<host>/api/websocket` with a long-lived
+token of an administrator. Statements 1, 2 and 6 hold: the token signs in once, and all eight
+commands answered (4,047 objects, 3,895 of them entities). Two readings in a row gave no change.
+
+- Eight entity paths were not in the table: `has_entity_name`, `categories.automation`,
+  `options.battery_notes.entity_id` (an integration's own options), `options.collection.hash`
+  and four `options.sensor.*` display settings. They are classified now
+  (`tests/unit/test_homeassistant_real_shapes.py`).
+- The high-entropy rule of the secret scanner took identifiers for secrets: about 2,500 entity
+  `unique_id`s (ULIDs, MAC addresses, serial numbers), 309 `config_entry_id`s, 172 long
+  `entity_id`s and some integration `entry_id`s, so they were stored as fingerprints only.
+  `rules/overrides.yaml` now exempts those id paths from the high-entropy rule, and from no other
+  rule, with a reason each.
+- The core location (`latitude`, `longitude`, `elevation`), area pictures and the triggers,
+  conditions and actions of automations stay secret, by decision of the type table.
+
 ## REST or WebSocket: the decision
 
 - The REST API (S2) has `/api/config` and states, services, events, history and templates. It has
