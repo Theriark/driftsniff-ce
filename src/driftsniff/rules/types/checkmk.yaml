@@ -191,6 +191,7 @@ types:
       disable_notifications.timerange.start_time: config
       disable_notifications.timerange.end_time: config
       interface_options: ignore  # theme, sidebar and menu preferences of the user
+      start_url: ignore  # the start page of the user, a preference like interface_options
       password: secret  # never served; listed in case a version does
       automation_secret: secret  # never served; listed in case a version does
     lists:
@@ -293,6 +294,74 @@ types:
       rule_config.conditions.match_contact_groups.value: config
       rule_config.conditions.match_only_during_time_period.state: config
       rule_config.conditions.match_only_during_time_period.value: config
+      # Seen on Checkmk 2.5.0p14 (2026-11-13). Members of the condition values that the
+      # lab site did not fill in (labels, tags, levels, numbers) stay unclassified.
+      rule_config.conditions.match_host_event_type.state: config
+      rule_config.conditions.match_host_event_type.value: config
+      rule_config.conditions.match_host_event_type.value.up_down: config
+      rule_config.conditions.match_host_event_type.value.up_unreachable: config
+      rule_config.conditions.match_host_event_type.value.down_up: config
+      rule_config.conditions.match_host_event_type.value.down_unreachable: config
+      rule_config.conditions.match_host_event_type.value.unreachable_down: config
+      rule_config.conditions.match_host_event_type.value.unreachable_up: config
+      rule_config.conditions.match_host_event_type.value.any_up: config
+      rule_config.conditions.match_host_event_type.value.any_down: config
+      rule_config.conditions.match_host_event_type.value.any_unreachable: config
+      rule_config.conditions.match_host_event_type.value.start_or_end_of_flapping_state: config
+      rule_config.conditions.match_host_event_type.value.start_or_end_of_scheduled_downtime: config
+      rule_config.conditions.match_host_event_type.value.acknowledgement_of_problem: config
+      rule_config.conditions.match_host_event_type.value.alert_handler_execution_successful: config
+      rule_config.conditions.match_host_event_type.value.alert_handler_execution_failed: config
+      rule_config.conditions.match_service_event_type.state: config
+      rule_config.conditions.match_service_event_type.value: config
+      rule_config.conditions.match_service_event_type.value.ok_ok: config
+      rule_config.conditions.match_service_event_type.value.ok_warn: config
+      rule_config.conditions.match_service_event_type.value.ok_crit: config
+      rule_config.conditions.match_service_event_type.value.ok_unknown: config
+      rule_config.conditions.match_service_event_type.value.warn_ok: config
+      rule_config.conditions.match_service_event_type.value.warn_crit: config
+      rule_config.conditions.match_service_event_type.value.warn_unknown: config
+      rule_config.conditions.match_service_event_type.value.crit_ok: config
+      rule_config.conditions.match_service_event_type.value.crit_warn: config
+      rule_config.conditions.match_service_event_type.value.crit_unknown: config
+      rule_config.conditions.match_service_event_type.value.unknown_ok: config
+      rule_config.conditions.match_service_event_type.value.unknown_warn: config
+      rule_config.conditions.match_service_event_type.value.unknown_crit: config
+      rule_config.conditions.match_service_event_type.value.any_ok: config
+      rule_config.conditions.match_service_event_type.value.any_warn: config
+      rule_config.conditions.match_service_event_type.value.any_crit: config
+      rule_config.conditions.match_service_event_type.value.any_unknown: config
+      rule_config.conditions.match_service_event_type.value.start_or_end_of_flapping_state: config
+      rule_config.conditions.match_service_event_type.value.start_or_end_of_scheduled_downtime: config
+      rule_config.conditions.match_service_event_type.value.acknowledgement_of_problem: config
+      rule_config.conditions.match_service_event_type.value.alert_handler_execution_successful: config
+      rule_config.conditions.match_service_event_type.value.alert_handler_execution_failed: config
+      rule_config.conditions.event_console_alerts.state: config
+      rule_config.conditions.event_console_alerts.value: config
+      rule_config.conditions.match_exclude_service_groups.state: config
+      rule_config.conditions.match_exclude_service_groups.value: config
+      rule_config.conditions.match_exclude_service_groups_regex.state: config
+      rule_config.conditions.match_exclude_service_groups_regex.value: config
+      rule_config.conditions.match_host_labels.state: config
+      rule_config.conditions.match_host_labels.value: config
+      rule_config.conditions.match_host_tags.state: config
+      rule_config.conditions.match_host_tags.value: config
+      rule_config.conditions.match_notification_comment.state: config
+      rule_config.conditions.match_notification_comment.value: config
+      rule_config.conditions.match_plugin_output.state: config
+      rule_config.conditions.match_plugin_output.value: config
+      rule_config.conditions.match_service_groups_regex.state: config
+      rule_config.conditions.match_service_groups_regex.value: config
+      rule_config.conditions.match_service_labels.state: config
+      rule_config.conditions.match_service_labels.value: config
+      rule_config.conditions.match_service_levels.state: config
+      rule_config.conditions.match_service_levels.value: config
+      rule_config.conditions.restrict_to_notification_numbers.state: config
+      rule_config.conditions.restrict_to_notification_numbers.value: config
+      rule_config.conditions.throttle_periodic_notifications.state: config
+      rule_config.conditions.throttle_periodic_notifications.value: config
+      rule_config.contact_selection.restrict_by_custom_macros.state: config
+      rule_config.contact_selection.restrict_by_custom_macros.value: config
     lists:
       rule_config.contact_selection.the_following_users.value: set
       rule_config.contact_selection.members_of_contact_groups.value: set
