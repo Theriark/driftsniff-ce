@@ -98,7 +98,9 @@ types:
   - resource: grafana-folder-permissions
     key_field: uid
     name_field: title
-    floor: high
+    # Added and removed only: the object repeats the folder title, and a rename must not rate
+    # high here. Changes to the permission entries are high by grafana.folder_permissions.entries.
+    floors: {added: high, removed: high}
     fields:
       uid: config
       title: config

@@ -43,6 +43,11 @@ rules:
     rationale: A team was renamed, which changes only how people find it.
   - id: grafana.folder_permissions.entries
     resource: grafana-folder-permissions
-    path: permissions
+    path: permissions.**
     severity: high
     rationale: Who may view, edit or administer a folder and its dashboards changed.
+  - id: grafana.folder_permissions.title
+    resource: grafana-folder-permissions
+    path: title
+    severity: low
+    rationale: The folder was renamed, which changes only how people find it.

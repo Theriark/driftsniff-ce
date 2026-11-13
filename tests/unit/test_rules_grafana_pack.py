@@ -23,7 +23,6 @@ CASES: list[dict[str, Any]] = json.loads(CASES_FILE.read_text(encoding="utf-8"))
 FINGERPRINT = "fp1:0a1b2c3d:" + "0" * 32
 OTHER_FINGERPRINT = "fp1:0a1b2c3d:" + "1" * 32
 FLOORED_HIGH = (
-    "grafana-folder-permissions",
     "grafana-contact-points",
     "grafana-notification-policies",
     "grafana-org-users",
@@ -121,6 +120,28 @@ def test_access_and_alert_routing_have_the_object_floor_high(
 ) -> None:
     table = index.type_tables[resource]
     assert [table.floor_for(k) for k in ("added", "removed", "modified", "moved")] == ["high"] * 4
+
+
+def test_folder_permissions_floor_only_added_and_removed(index: RuleIndex) -> None:
+    table = index.type_tables["grafana-folder-permissions"]
+    floors = [table.floor_for(k) for k in ("added", "removed", "modified", "moved")]
+    assert floors == ["high", "high", None, None]
+
+
+@pytest.mark.parametrize(
+    ("path", "before", "after", "severity"),
+    [
+        # A real Grafana 13.3.0 rename (2026-11-13) rated high here before; access did not change.
+        ("title", "FortPT", "FortPT (driftsniff test)", "low"),
+        ("permissions.permission", 1, 4, "high"),
+        ("permissions.role", "Viewer", "Editor", "high"),
+    ],
+)
+def test_a_folder_permission_change_is_rated_by_what_changed(
+    path: str, before: JsonValue, after: JsonValue, severity: str, engine: RuleEngine
+) -> None:
+    result = engine.classify(make("grafana-folder-permissions", "modified", path, before, after))
+    assert result.severity == severity
 
 
 @pytest.mark.parametrize(
