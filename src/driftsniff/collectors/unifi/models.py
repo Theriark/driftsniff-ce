@@ -1,9 +1,9 @@
 """What the UniFi collector reads through pydantic: the paging envelope and the object key.
 
 Everything else stays a raw dictionary on purpose (dev work plan, decision 1): an unknown field
-must reach the type table and become unclassified, never be dropped by a model. The envelope names
-(``data``, ``totalCount`` and so on) are **unverified** against the vendor reference (dependency D5
-is open, docs/vendor-notes/unifi.md).
+must reach the type table and become unclassified, never be dropped by a model. The envelope
+(``data``, ``totalCount`` and so on) read every list of a real UniFi Network 10.6.109 controller
+on 2026-11-13 (docs/vendor-notes/unifi.md).
 
 A validation error of pydantic repeats the offending input, so the collector never shows one: it
 catches :class:`pydantic.ValidationError` and raises a fixed text instead.
@@ -48,7 +48,8 @@ class InfoAnswer(BaseModel):
 class SystemDefinedOrder(BaseModel):
     """The two ordered lists of one zone pair: before and after the system defined policies.
 
-    **Unverified** names (docs/vendor-notes/unifi.md, statement 9).
+    Names verified on UniFi Network 10.6.109 (docs/vendor-notes/unifi.md, statement 9). The lists
+    name only the user defined policies.
     """
 
     model_config = ConfigDict(extra="ignore", populate_by_name=True)

@@ -1,14 +1,17 @@
 """A fake UniFi Network application on localhost for the contract tests (P7-T2).
 
-It serves the integration API shape the collector expects (docs/vendor-notes/unifi.md; every name
-is unverified against the vendor reference): ``GET <base path>/v1/info``, ``/v1/sites`` and
+It serves the integration API shape the collector expects, as verified on a real UniFi Network
+10.6.109 controller (docs/vendor-notes/unifi.md): ``GET <base path>/v1/info``, ``/v1/sites`` and
 ``/v1/sites/<site>/<resource>``, with ``offset`` and ``limit`` paging. A :class:`Scenario` says
 which base path answers, which version it reports, which objects each resource holds and which
 failures to simulate. Every request is recorded, so a test can count requests and check that the
 credential only ever travels in the key header.
 
 The ordering documents of firewall policies (per pair of zones) and ACL rules (per site) are served
-from ``Scenario.firewall_order`` and ``Scenario.acl_order`` (P7-T4; the names are unverified too).
+from ``Scenario.firewall_order`` and ``Scenario.acl_order`` (P7-T4). As on the real controller, the
+firewall lists name only the policies with ``metadata.origin`` ``USER_DEFINED``; a pair without an
+entry answers two empty lists. Real-shaped objects for every resource are in the version band
+fixtures (``unifi_bands.py``); the ACL ordering names are unverified (that controller had none).
 """
 
 import json
@@ -42,7 +45,7 @@ class Scenario:
     site id (``networks``, ``wifi/broadcasts``).
     """
 
-    version: str = "10.3.58"
+    version: str = "10.6.109"
     base_path: str = "/integration"
     expected_header: str | None = CANARY_HEADER
     sites: list[str] = field(default_factory=lambda: ["site-a"])

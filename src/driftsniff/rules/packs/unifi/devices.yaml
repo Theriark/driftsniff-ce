@@ -1,7 +1,13 @@
-# UniFi rules for adopted devices (P7-T4). Uptime, heartbeat time and statistics are ignore class
-# in the type table and never reach a rule.
+# UniFi rules for adopted devices (P7-T4). The connection state and whether newer firmware exists
+# are ignore class in the type table (they change by themselves) and never reach a rule. The
+# catch-all rule (path **) rates an adopted or removed device medium, with a reason.
 version: 1
 rules:
+  - id: unifi.devices.any
+    resource: unifi-devices
+    path: '**'
+    severity: medium
+    rationale: A device was adopted or removed, or a property of it without its own rule changed.
   - id: unifi.devices.name
     resource: unifi-devices
     path: name
@@ -15,10 +21,10 @@ rules:
   - id: unifi.devices.firmware_version
     resource: unifi-devices
     path: firmwareVersion
-    severity: medium
-    rationale: The firmware of a device changed, which changes its behaviour and its known weaknesses.
-  - id: unifi.devices.state
+    severity: low
+    rationale: The firmware of a device was updated, which is routine but changes its behaviour and its known weaknesses.
+  - id: unifi.devices.ip_address
     resource: unifi-devices
-    path: state
-    severity: medium
-    rationale: The adoption state of a device changed, which changes whether the controller manages it.
+    path: ipAddress
+    severity: low
+    rationale: The address of a device changed, which changes only where it is reached.

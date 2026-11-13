@@ -24,8 +24,8 @@ The change page lists each changed item, grouped by object.
 
 For each item read:
 
-1. the severity badge and what happened, for example "Client isolation changed",
-2. the rule that rated it, for example `unifi.wifi.client_isolation_off`,
+1. the severity badge and what happened, for example "Security mode changed",
+2. the rule that rated it, for example `unifi.wifi.security_downgrade`,
 3. **Before** and **After**, with the part that differs boxed.
 
 A secret, such as the pre-shared key of a VPN, shows "secret changed" with two fingerprints. The

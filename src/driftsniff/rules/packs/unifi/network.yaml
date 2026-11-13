@@ -1,9 +1,11 @@
 # UniFi rules for sites, networks, DNS policies, traffic matching lists, WANs and device tags
-# (P7-T4). Every field name in the type table is unverified (docs/vendor-notes/unifi.md), and so
-# are the values the predicates compare; a name or value that differs on a real controller
-# simply does not match and the change falls back to the unclassified rule or an object floor.
-# The DNS server lists are ordered, so a change is reported per position (dnsServers.0) and the
-# rule path ends with **.
+# (P7-T4). The field names were checked on UniFi Network 10.6.109 (docs/vendor-notes/unifi.md),
+# except those of device tags, which that controller did not have. A value a predicate compares
+# that differs on a real controller simply does not match, and the change falls back to the next
+# rule or to the unclassified rule.
+#
+# A DNS policy has a catch-all rule (path **): it also rates an added or removed policy medium,
+# with a reason, instead of the unclassified rule.
 version: 1
 rules:
   - id: unifi.sites.name
@@ -26,42 +28,41 @@ rules:
     path: enabled
     severity: medium
     rationale: A network was switched on or off, which changes which devices can use it.
+  - id: unifi.networks.default
+    resource: unifi-networks
+    path: default
+    severity: medium
+    rationale: A different network is now the default one, which changes where untagged devices land.
   - id: unifi.networks.management
     resource: unifi-networks
     path: management
     severity: high
-    rationale: The management flag of a network changed, so the network that carries device administration traffic is a different one.
+    rationale: Who manages a network changed (for example the gateway), which changes who hands out its addresses and routes it.
   - id: unifi.networks.vlan_id
     resource: unifi-networks
     path: vlanId
-    severity: medium
+    severity: high
     rationale: The VLAN number of a network changed, which can cut devices off from it or join them to another one.
-  - id: unifi.networks.internet_access_on
+  - id: unifi.networks.zone_id
     resource: unifi-networks
-    path: internetAccessEnabled
-    when: {name: boolean_flips_to, value: true}
+    path: zoneId
     severity: high
-    rationale: A network that had no internet access can now reach the internet.
-  - id: unifi.networks.internet_access
-    resource: unifi-networks
-    path: internetAccessEnabled
+    rationale: A network moved to another firewall zone, so other firewall policies now apply to its devices.
+  - id: unifi.dns_policies.any
+    resource: unifi-dns-policies
+    path: '**'
     severity: medium
-    rationale: The internet access setting of a network changed.
-  - id: unifi.networks.trusted_dhcp_servers
-    resource: unifi-networks
-    path: dhcpGuarding.trustedDhcpServerIpAddresses
-    severity: high
-    rationale: The DHCP servers trusted on a network changed, so another machine may now hand out addresses.
-  - id: unifi.networks.dns_servers
-    resource: unifi-networks
-    path: dhcpConfig.dnsServers.**
-    severity: high
-    rationale: The DNS servers handed to the clients of a network changed, which can redirect every name lookup they make.
+    rationale: A DNS policy was added or removed, or a setting of it changed, which changes how a local name is answered.
   - id: unifi.dns_policies.domain
     resource: unifi-dns-policies
     path: domain
-    severity: high
+    severity: medium
     rationale: A DNS policy now answers for a different domain, which changes where that name leads.
+  - id: unifi.dns_policies.ipv4_address
+    resource: unifi-dns-policies
+    path: ipv4Address
+    severity: medium
+    rationale: A DNS policy now answers with a different address, so the name leads somewhere else.
   - id: unifi.dns_policies.enabled
     resource: unifi-dns-policies
     path: enabled
@@ -72,6 +73,11 @@ rules:
     path: type
     severity: medium
     rationale: The kind of a DNS policy changed, which changes the kind of answer it gives.
+  - id: unifi.dns_policies.ttl
+    resource: unifi-dns-policies
+    path: ttlSeconds
+    severity: low
+    rationale: How long clients may keep the answer of a DNS policy changed, which changes only how fast a later change reaches them.
   - id: unifi.traffic_matching_lists.name
     resource: unifi-traffic-matching-lists
     path: name
@@ -92,11 +98,6 @@ rules:
     path: name
     severity: low
     rationale: An internet connection was renamed, which changes only how people find it.
-  - id: unifi.wans.dns_servers
-    resource: unifi-wans
-    path: dnsServers.**
-    severity: high
-    rationale: The DNS servers of an internet connection changed, which can redirect the name lookups of the whole site.
   - id: unifi.device_tags.name
     resource: unifi-device-tags
     path: name

@@ -1,9 +1,11 @@
 """Resource collection, the ordering merge and the UniFi pack through the real collector (P7-T4).
 
-The fake controller serves firewall policies, ACL rules and their ordering documents (all names
-unverified, docs/vendor-notes/unifi.md). The first group reads through :class:`UnifiClient` alone;
-the last group runs the whole pipeline on a migrated database, so a moved firewall policy is
-followed from the ordering document to a stored change item.
+The fake controller serves firewall policies, ACL rules and their ordering documents
+(docs/vendor-notes/unifi.md; the policies here have no ``metadata.origin``, so every one of them is
+expected in the ordering lists, which is the behaviour kept for such objects). The first group
+reads through :class:`UnifiClient` alone; the last group runs the whole pipeline on a migrated
+database, so a moved firewall policy is followed from the ordering document to a stored change
+item.
 """
 
 from collections.abc import Iterator

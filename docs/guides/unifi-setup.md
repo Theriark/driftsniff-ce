@@ -5,12 +5,13 @@ configuration. It is written for the person who runs the controller and the drif
 
 ## Read this first: what is checked and what is not
 
-- **No lab controller has been used.** Dependency D5 (the vendor reference) is open and
-  `docs/lab-evidence.md` does not exist yet. Every statement about the UniFi side below is labelled
-  **NOT VERIFIED** unless it says otherwise. Do not rely on a NOT VERIFIED statement for a
-  production controller until it has been checked and dated here.
-- Names of menus, roles and fields in the controller can differ from this guide. The names come from
-  third party descriptions (`docs/vendor-notes/unifi.md`, read on 2026-10-21), not from the vendor.
+- **One real controller has been read** (2026-11-13): a UDM Pro Max running UniFi Network
+  10.6.109, with an API key made by an **owner** account. What that reading settled is labelled
+  **VERIFIED on 10.6.109** below; everything else is still labelled **NOT VERIFIED**. Dependency D5
+  (the vendor reference) is open and `docs/lab-evidence.md` does not exist yet. Do not rely on a
+  NOT VERIFIED statement for a production controller until it has been checked and dated here.
+- Names of menus and roles in the controller can differ from this guide. Field names come from the
+  10.6.109 reading (`docs/vendor-notes/unifi.md`); other versions may differ.
 - Some driftsniff parts named in the steps are **not built yet** (see "What is not built yet"). The
   steps describe the intended flow; the status of each part is stated where it matters.
 
@@ -21,8 +22,8 @@ configuration. It is written for the person who runs the controller and the drif
 - It uses the integration API with an API key. The legacy private interface (the one the controller
   web page itself uses, with a user name and password) is **not used in CE v1**.
 - The key is sent in one request header, `X-API-KEY`, and nowhere else. It is never put in a
-  query string, a log line or an error text. NOT VERIFIED: that this is the header name the vendor
-  uses (D5 open).
+  query string, a log line or an error text. VERIFIED on 10.6.109 (2026-11-13): the controller
+  accepts the key in this header.
 - The key is encrypted at rest (AES-256-GCM, see `key-management.md`) and is **never shown again**
   after you save it. To change it, enter a new one; to remove it, delete the source.
 
@@ -52,20 +53,23 @@ accounts on every supported version.
 Sign in to the controller as the new account and create an API key in the integrations part of the
 settings. Copy it once; the controller may not show it again.
 
+VERIFIED on 10.6.109 (2026-11-13), with a key made by an owner account:
+
+- **The key reads every resource driftsniff lists.** All fourteen resources answered `200`.
+- **No credential is returned in clear.** WiFi broadcasts come with their security type only, not
+  the passphrase. RADIUS profiles come without the shared secret. VPN servers and site-to-site
+  tunnels come without keys. driftsniff still treats such fields as secrets (a fingerprint only,
+  never the value) in case another version returns them. Protect the key like a password anyway:
+  it reads the whole network layout.
+
 NOT VERIFIED:
 
 - **That a key inherits the role of its creator.** If it does not, a key made by a View Only account
   could be more powerful than intended. Phase 0 test U2 is meant to check this. Status: **not
-  tested**.
+  tested**; the 10.6.109 key was made by an owner account, so it says nothing about View Only.
 - **That View Only is enough to read everything driftsniff lists.** If it is not, some resources
   will show `403` in the coverage panel (step 6) and are reported as stale, not as removed. Phase 0
-  test U3 is meant to check this. Status: **not tested**.
-- **Which secrets the API returns in clear.** driftsniff treats the WiFi passphrase, the RADIUS
-  shared secret and the VPN pre-shared keys as secrets: it keeps a fingerprint (a keyed hash that
-  shows that the value changed) and never stores or shows the value. Whether the controller
-  actually returns those values in clear to a View Only key is **not verified** (tests U2 and U3);
-  if it does, the key itself can read them from the controller, so protect the key like a password.
-  VPN key behaviour is **unknown**.
+  test U3 is meant to check this. Status: **not tested**, for the same reason.
 
 When `docs/lab-evidence.md` exists, replace each NOT VERIFIED label above with the result and the
 date of the test.
@@ -101,16 +105,20 @@ the vendor cloud.
 
 On the first collection driftsniff probes the controller information endpoint to learn the
 application version. It tries the direct integration path first (`/integration`) and then the
-console proxy path (`/proxy/network/integration`); the first that answers wins. NOT VERIFIED: both
-paths and the information endpoint (D5 open).
+console proxy path (`/proxy/network/integration`); the first that answers wins. VERIFIED on
+10.6.109: the information endpoint answers with the version and the floor check passes. NOT
+VERIFIED: which of the two paths answered there was not recorded.
 
 Then it reads each resource: sites, networks, WiFi broadcasts, firewall zones and policies, ACL
 rules, DNS policies, traffic matching lists, WANs, site-to-site VPN tunnels and servers, RADIUS
 profiles, device tags and devices. Firewall policies and ACL rules are read together with the
-controller's own ordering lists, because their order is part of the configuration. Fields that move
-by themselves (statistics, uptime, counters, a radio channel under automatic selection) are ignored.
-The type table `src/driftsniff/rules/types/unifi.yaml` is the exact list; every UniFi field name in it
-is NOT VERIFIED.
+controller's own ordering lists, because their order is part of the configuration. VERIFIED on
+10.6.109: those lists name only the policies you made yourself; the policies the controller makes
+(system defined and derived ones) are never in them, and driftsniff places them between the two
+lists of their zone pair without counting them as a mismatch. Fields that move by themselves (the
+connection state of a device, whether newer firmware exists) are ignored. The type table
+`src/driftsniff/rules/types/unifi.yaml` is the exact list; its field names were VERIFIED on 10.6.109,
+except those of ACL rules and device tags, which that controller did not have.
 
 ## Step 6: read the coverage panel
 
@@ -124,7 +132,8 @@ For every resource driftsniff keeps one coverage row. The statuses are:
 | `error` | timeout, server error, bad answer, paging that repeated, or a certificate refused. The previous state is kept and nothing is reported as removed | check the address, the TLS mode and the controller |
 
 A run is `partial` when some resource failed, or when the ordering lists did not match the policies
-(class `ordering_mismatch`): driftsniff then repairs the list and says so. Today the pipeline
+you made (class `ordering_mismatch`): driftsniff then repairs the list and says so. Policies the
+controller made itself are expected to be missing from those lists and do not make a run partial. Today the pipeline
 also counts a `404` resource as a failed resource (the run is `partial`); whether it should not is
 an open decision for Delivery.
 
@@ -135,8 +144,9 @@ Status: the coverage rows are written by the run pipeline and are stored in the 
 
 - The legacy private interface, and anything a read-only integration key cannot reach.
 - Site level settings: no source names an endpoint for them, so none are read.
-- The nested traffic filter objects of firewall policies and ACL rules are not classified yet (their
-  field names are not known); a change in them is shown as a fingerprint only.
+- The filters of ACL rules are not classified yet (no ACL rule has been seen on a real controller);
+  a change in them is shown as a fingerprint only. The traffic filters of firewall policies are
+  classified and shown.
 
 ## What is not built yet
 
@@ -145,15 +155,15 @@ Status: the coverage rows are written by the run pipeline and are stored in the 
 | Web form to add and edit a source, upload a CA file, coverage panel | P10, not built |
 | Collector factory: builds the client from a stored source, stores the detected base path, saves the `unsupported` state | not built; `serve` starts no scheduler until it exists |
 | First admin and login: `driftsniff create-admin-code` and the setup, login and logout posts exist (P9-T1, `docs/auth.md`); the setup and login pages come with P10-T3 | partly built |
-| Vendor reference (D5) and lab results (U2, U3) | open; no controller was used |
+| Vendor reference (D5) and lab results (U2, U3) | open; one controller (10.6.109, owner key) was read on 2026-11-13 |
 
 ## Trying the steps without a controller
 
 The tests use a fake controller on localhost (`tests/contract/fake_unifi.py`) with hand written
-fixtures for the version bands 10.1.84, 10.3.58 and a newer invented one (10.4.12), all with
-placeholder canary values (`tests/fixtures/unifi/`). They show the client flow of steps 5 and 6:
-`tests/contract/test_unifi_client.py`, `test_unifi_collection.py`, `test_unifi_coverage.py` and
-`test_unifi_bands.py`. Because the web form and the factory are not built, a person cannot yet
+fixtures for the version bands 10.1.84, 10.6.109 and a newer invented one (10.7.0), all in the
+shapes the 10.6.109 controller returned and with placeholder canary values (`tests/fixtures/unifi/`). They show the client flow of steps 5 and 6:
+`tests/contract/test_unifi_client.py`, `test_unifi_collection.py`, `test_unifi_coverage.py`,
+`test_unifi_bands.py` and `test_unifi_real_shapes.py`. Because the web form and the factory are not built, a person cannot yet
 complete steps 4 to 6 in a browser against the fake server; the walk-through by someone who did not
 write the code (acceptance check 1 of P7-T6) is pending the Test Engineer's review and is **not
 claimed here**.

@@ -1,9 +1,9 @@
 """The shipped UniFi type tables (P7-T1).
 
-``rules/types/unifi.yaml`` is loaded from the package, the way the application loads it. The field
-names are unverified (dependency D5 is open), so the test pins what the plan decides, which is the
-collection mode of each resource and list, the secret fields and the floors, and not the vendor
-names themselves.
+``rules/types/unifi.yaml`` is loaded from the package, the way the application loads it. The test
+pins what the plan decides: the collection mode of each resource and list, the secret fields and
+the floors. That every path of UniFi Network 10.6.109 is classified is checked in
+``tests/contract/test_unifi_real_shapes.py``.
 """
 
 import pytest
@@ -33,9 +33,7 @@ UNIFI_RESOURCES = (
 )
 ORDERED = ("unifi-firewall-policies", "unifi-acl-rules")
 FLOORED = (
-    "unifi-wifi-broadcasts",
     "unifi-firewall-zones",
-    "unifi-firewall-policies",
     "unifi-acl-rules",
     "unifi-vpn-site-to-site-tunnels",
     "unifi-vpn-servers",
@@ -89,26 +87,23 @@ def test_other_resources_are_plain_sets(index: RuleIndex, resource: str) -> None
     assert table(index, resource).collection is CollectionMode.SET
 
 
-def test_the_dns_server_lists_keep_their_order(index: RuleIndex) -> None:
-    assert table(index, "unifi-networks").collection_mode("dhcpConfig.dnsServers") is (
-        CollectionMode.ORDERED_SCALAR
-    )
-    assert table(index, "unifi-wans").collection_mode("dnsServers") is (
-        CollectionMode.ORDERED_SCALAR
-    )
-
-
-def test_the_other_lists_are_sets(index: RuleIndex) -> None:
-    sets = {
-        "unifi-networks": "dhcpGuarding.trustedDhcpServerIpAddresses",
-        "unifi-wifi-broadcasts": "broadcastingFrequenciesGHz",
-        "unifi-firewall-zones": "networkIds",
-        "unifi-firewall-policies": "connectionStateFilter",
-        "unifi-traffic-matching-lists": "items",
-        "unifi-device-tags": "deviceIds",
-    }
-    for resource, path in sets.items():
+def test_every_declared_list_is_a_set(index: RuleIndex) -> None:
+    # No list of the 10.6.109 API carries meaning by position; only whole collections are ordered.
+    sets = [
+        ("unifi-wifi-broadcasts", "broadcastingFrequenciesGHz"),
+        ("unifi-firewall-zones", "networkIds"),
+        ("unifi-firewall-policies", "connectionStateFilter"),
+        ("unifi-firewall-policies", "source.trafficFilter.portFilter.items"),
+        ("unifi-firewall-policies", "destination.trafficFilter.ipAddressFilter.items"),
+        ("unifi-traffic-matching-lists", "items"),
+        ("unifi-device-tags", "deviceIds"),
+        ("unifi-devices", "features"),
+    ]
+    for resource, path in sets:
         assert table(index, resource).collection_mode(path) is CollectionMode.SET
+    for resource in UNIFI_RESOURCES:
+        modes = set(table(index, resource).collection_modes.values())
+        assert modes <= {CollectionMode.SET}, resource
 
 
 @pytest.mark.parametrize(
@@ -124,11 +119,11 @@ def test_credentials_are_secret_class(index: RuleIndex, resource: str, path: str
     assert table(index, resource).field_class(path) is SECRET
 
 
-def test_statistics_and_counters_of_devices_are_ignored(index: RuleIndex) -> None:
+def test_the_volatile_fields_of_devices_are_ignored(index: RuleIndex) -> None:
     devices = table(index, "unifi-devices")
-    for path in ("uptimeSec", "lastHeartbeatAt", "statistics"):
+    for path in ("state", "firmwareUpdatable"):
         assert devices.field_class(path) is FieldClass.IGNORE
-    for path in ("name", "model", "firmwareVersion", "state"):
+    for path in ("name", "model", "firmwareVersion", "macAddress"):
         assert devices.field_class(path) is CONFIG
 
 
@@ -144,6 +139,22 @@ def test_security_sensitive_objects_have_the_floor_high(index: RuleIndex, resour
     found = table(index, resource)
     for kind in ("added", "modified", "moved"):
         assert found.floor_for(kind) == "high"
+
+
+@pytest.mark.parametrize("resource", ["unifi-firewall-policies", "unifi-wifi-broadcasts"])
+def test_policies_and_wifi_have_no_modified_floor_but_keep_the_others(
+    index: RuleIndex, resource: str
+) -> None:
+    # Their packs rate a rename low or medium and every security field high by its own rule.
+    found = table(index, resource)
+    assert found.floor_for("modified") is None
+    assert found.floor_for("added") == "high"
+    assert found.floor_for("removed") in ("high", "critical")
+
+
+def test_origin_and_configurable_are_config(index: RuleIndex) -> None:
+    assert table(index, "unifi-firewall-policies").field_class("metadata.origin") is CONFIG
+    assert table(index, "unifi-firewall-zones").field_class("metadata.configurable") is CONFIG
 
 
 @pytest.mark.parametrize(

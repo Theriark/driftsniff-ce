@@ -1,10 +1,14 @@
-# UniFi rules for WiFi broadcasts (P7-T4). The type table gives them the object floor high, so a
-# rule here only matters when it is critical or when it explains why the change is serious.
-# The names and values of the security types are unverified (docs/vendor-notes/unifi.md,
-# statement 7); the lists below spell the likely ones in upper and lower case.
+# UniFi rules for WiFi broadcasts (P7-T4). The type table gives them the floor high for an added or
+# removed broadcast but none for a modified one, so that switching one off can be medium; every
+# field that changes who may join or what they reach has its own high rule.
+#
+# Security types: UniFi Network 10.6.109 returned WPA2_PERSONAL and WPA2_WPA3_PERSONAL
+# (docs/vendor-notes/unifi.md). The other names below follow the same spelling and are
+# unverified; a name that differs on a real controller simply does not match, and the change is
+# then high by the security type rule.
 version: 1
 rules:
-  - id: unifi.wifi.security_to_open
+  - id: unifi.wifi.security_downgrade
     resource: unifi-wifi-broadcasts
     path: securityConfiguration.type
     when:
@@ -16,15 +20,10 @@ rules:
         - WPA2_WPA3_PERSONAL
         - WPA2_ENTERPRISE
         - WPA3_ENTERPRISE
-        - wpa
-        - wpa2
-        - wpa3
-        - wpa-psk
-        - wpa2-psk
-        - wpa3-sae
-      to: [OPEN, open, NONE, none]
+        - WPA2_WPA3_ENTERPRISE
+      to: [OPEN, WPA_PERSONAL]
     severity: critical
-    rationale: A secured wireless network became open, so anyone in range can join it.
+    rationale: A wireless network dropped below WPA2 (to open or to the old WPA), so outsiders can join or break in far more easily.
   - id: unifi.wifi.security_type
     resource: unifi-wifi-broadcasts
     path: securityConfiguration.type
@@ -36,14 +35,30 @@ rules:
     when: changed
     severity: critical
     rationale: The passphrase of a wireless network changed, so its access control changed.
-  - id: unifi.wifi.network_id
+  - id: unifi.wifi.network
     resource: unifi-wifi-broadcasts
-    path: network.networkId
+    path: network.**
     severity: high
     rationale: A wireless network now connects its clients to a different network, which changes what they can reach.
-  - id: unifi.wifi.client_isolation_off
+  - id: unifi.wifi.enabled
     resource: unifi-wifi-broadcasts
-    path: clientIsolationEnabled
-    when: {name: boolean_flips_to, value: false}
+    path: enabled
+    severity: medium
+    rationale: A wireless network was switched on or off, which changes who can connect through it.
+  - id: unifi.wifi.name
+    resource: unifi-wifi-broadcasts
+    path: name
+    severity: medium
+    rationale: The name a wireless network broadcasts changed, so its clients have to join it again.
+  - id: unifi.wifi.type
+    resource: unifi-wifi-broadcasts
+    path: type
+    severity: medium
+    rationale: The kind of a wireless network changed (standard or tuned for smart home devices), which changes how it serves its clients.
+  - id: unifi.wifi.frequencies
+    resource: unifi-wifi-broadcasts
+    path: broadcastingFrequenciesGHz
+    # A band added to or removed from the list is an added or removed list member, which the
+    # floor of the table raises to high anyway.
     severity: high
-    rationale: Client isolation of a wireless network was switched off, so its clients can reach each other.
+    rationale: The radio bands a wireless network uses changed, which changes which devices can see it and where.

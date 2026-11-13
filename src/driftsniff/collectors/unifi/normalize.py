@@ -1,7 +1,7 @@
 """What the UniFi collector does to raw objects before the pipeline normalises them (P7-T4).
 
 Two jobs, both on raw dictionaries and neither with any vendor knowledge beyond the names in
-``resources.py`` (all **unverified**, docs/vendor-notes/unifi.md):
+``resources.py`` (verified on UniFi Network 10.6.109, docs/vendor-notes/unifi.md):
 
 * :func:`prepare_object` copies the nested action of a firewall policy (``action.type``) to the
   flat top level field ``actionType`` that the type table names as its action field. Without that
@@ -19,6 +19,15 @@ sorted so that two runs of an unchanged controller give the same list.
 An object that no ordering list names is appended at the end, and an id that no object has is
 dropped. Both are counted: the collector reports them as the class ``ordering_mismatch`` and the
 run is marked partial, because the position of what was appended is a guess.
+
+Policies the controller made itself are the exception (verified on UniFi Network 10.6.109,
+2026-11-13): the ordering lists name only the policies whose ``metadata.origin`` is
+``USER_DEFINED``. A policy with any other origin (``SYSTEM_DEFINED``, ``DERIVED``) is expected to be
+absent, is not counted, and is placed by :func:`firewall_orderings`: inside its zone pair, between
+the ``beforeSystemDefined`` and ``afterSystemDefined`` lists, which is where the controller
+evaluates them; one without a usable pair goes after every pair. Inside each group they are
+sorted by id, a key that never changes, so the place never depends on the order the controller
+returned them in. A policy without ``metadata.origin`` keeps the rule above and is counted.
 """
 
 import re
@@ -31,6 +40,7 @@ from driftsniff.collectors.unifi.resources import RESOURCE_FIREWALL_POLICIES
 ERROR_ORDERING_MISMATCH: Final = "ordering_mismatch"
 ACTION_TYPE_FIELD: Final = "actionType"
 MAX_ZONE_PAIRS: Final = 256
+USER_DEFINED: Final = "USER_DEFINED"
 
 _ZONE_ID = re.compile(r"[A-Za-z0-9_-]{1,64}")
 
@@ -72,6 +82,13 @@ def zone_pair(policy: Mapping[str, Any]) -> ZonePair | None:
     if source is None or destination is None:
         return None
     return source, destination
+
+
+def is_system_placed(policy: Mapping[str, Any]) -> bool:
+    """Whether the ordering lists are expected not to name ``policy``: a known non-user origin."""
+    metadata = policy.get("metadata")
+    origin = metadata.get("origin") if isinstance(metadata, Mapping) else None
+    return isinstance(origin, str) and origin != USER_DEFINED
 
 
 def firewall_pairs(policies: Sequence[Mapping[str, Any]]) -> list[ZonePair]:
@@ -127,6 +144,32 @@ def merge_ordering(objects: Sequence[dict[str, Any]], orderings: Sequence[Sequen
     leftover = [item for position, item in enumerate(objects) if position not in used]
     ordered.extend(leftover)
     return Merged(ordered, len(leftover), dropped)
+
+
+def firewall_orderings(
+    policies: Sequence[Mapping[str, Any]],
+    answers: Mapping[ZonePair, tuple[Sequence[str], Sequence[str]]],
+) -> list[list[str]]:
+    """The ordering lists of :func:`merge_ordering` for firewall policies, one per zone pair.
+
+    ``answers`` holds the (before, after) lists of each pair. Each pair's list is its before list,
+    then its system placed policies (:func:`is_system_placed`) sorted by id, then its after list.
+    A last list holds the system placed policies whose pair was not asked, sorted by id. A policy
+    that a list names already is not added again.
+    """
+    listed = {key for before, after in answers.values() for key in (*before, *after)}
+    placed: dict[ZonePair | None, list[str]] = {}
+    for policy in policies:
+        key = _object_id(policy)
+        if key is not None and key not in listed and is_system_placed(policy):
+            pair = zone_pair(policy)
+            placed.setdefault(pair if pair in answers else None, []).append(key)
+    orderings = [
+        [*before, *sorted(placed.get(pair, [])), *after]
+        for pair, (before, after) in sorted(answers.items())
+    ]
+    orderings.append(sorted(placed.get(None, [])))
+    return orderings
 
 
 def mismatch_text(appended: int, dropped: int) -> str:

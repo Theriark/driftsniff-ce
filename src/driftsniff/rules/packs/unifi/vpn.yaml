@@ -1,6 +1,7 @@
 # UniFi rules for VPN tunnels, VPN servers and RADIUS profiles (P7-T4). All three have the object
-# floor high, so a rule here only matters when it is critical or when it explains why the change
-# is serious. The keys and the shared secret are secret class: the rules read their fingerprints.
+# floor high, so an added or removed tunnel, server or profile is high without a rule here.
+# UniFi Network 10.6.109 returns no key and no shared secret for them (docs/vendor-notes/unifi.md);
+# the secret rules are kept for a version that does: they read only the fingerprints.
 version: 1
 rules:
   - id: unifi.vpn_tunnels.pre_shared_key
@@ -25,6 +26,11 @@ rules:
     path: type
     severity: high
     rationale: The kind of a VPN server changed, which changes how remote users connect and are protected.
+  - id: unifi.vpn_servers.enabled
+    resource: unifi-vpn-servers
+    path: enabled
+    severity: high
+    rationale: A VPN server was switched on or off, which opens or closes a way into the network from outside.
   - id: unifi.radius_profiles.shared_secret
     resource: unifi-radius-profiles
     path: sharedSecret

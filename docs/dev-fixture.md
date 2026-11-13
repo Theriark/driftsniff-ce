@@ -9,9 +9,9 @@ One push source named `DEV-FIXTURE synthetic (removable)` and four pushed docume
 | Step | Result | What changes (all synthetic) |
 |---|---|---|
 | 1 baseline | the first snapshot, no event | 3 networks, 2 WiFi broadcasts, 2 firewall zones, 2 DNS policies, 1 VPN server, 1 RADIUS profile, 2 devices |
-| 2 secrets and exposure | event, highest severity `critical` | a WiFi passphrase and a VPN key replaced (fingerprints only), client isolation off, a zone gains a network |
-| 3 routine changes | event, highest severity `medium` | a VLAN, a firmware version, a DNS policy switched off, two names |
-| 4 objects added and removed | event with additions and removals | a network added, a DNS policy and the RADIUS profile removed, a device offline, a network management mode |
+| 2 secrets and exposure | event, highest severity `critical` | a WiFi passphrase and a VPN key replaced (fingerprints only), the guest WiFi made open, a zone gains a network |
+| 3 routine changes | event, highest severity `medium` | a network and a DNS policy switched off, a firmware version, two names |
+| 4 objects added and removed | event with additions and removals | a network added, a DNS policy and the RADIUS profile removed, a device offline (volatile, so not reported), a network management mode |
 
 Resource types: `unifi-networks`, `unifi-wifi-broadcasts`, `unifi-firewall-zones`, `unifi-dns-policies`, `unifi-vpn-servers`, `unifi-radius-profiles`, `unifi-devices`.
 
