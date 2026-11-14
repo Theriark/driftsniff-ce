@@ -1162,6 +1162,11 @@ const REPLAY = {
     let rise = null;
     let shown = -1;
 
+    // the distance between two cards' centres: a card and its shape, closer when there are many
+    function cardStep(n) {
+      return n > 1 ? Math.min(0.56, 2.4 / (n - 1)) : 0;
+    }
+
     function clearDeck() {
       cards.forEach((card) => {
         kit.unpickable(card.group);
@@ -1228,12 +1233,13 @@ const REPLAY = {
         .filter((cell) => cell.day === day)
         .sort((a, b) => RANK.indexOf(b.worst) - RANK.indexOf(a.worst) || b.total - a.total);
       const n = ofDay.length;
-      const spread = Math.min(2.2, 0.42 * n);
+      // side by side, a card and its shape apart (closer when many), the worst in the middle
+      const step = cardStep(n);
+      const places = Array.from({ length: n }, (_, k) => (k - (n - 1) / 2) * step).sort((a, b) => Math.abs(a) - Math.abs(b) || a - b);
+      const outer = Math.max(step, ((n - 1) / 2) * step);
       ofDay.forEach((cell, i) => {
-        // middle first, then alternately right and left
-        const slot = i === 0 ? 0 : (i % 2 ? 1 : -1) * Math.ceil(i / 2);
-        const x = n > 1 ? (slot / Math.max(1, Math.ceil((n - 1) / 2))) * (spread / 2) : 0;
-        const y = deviceTop + 0.32 + 0.18 * (1 - Math.abs(slot) / Math.max(1, Math.ceil(n / 2))) + (i % 2) * 0.05;
+        const x = places[i];
+        const y = deviceTop + 0.32 + 0.18 * (1 - Math.abs(x) / outer) + (i % 2) * 0.05;
         const size = 0.85 + Math.min(0.45, Math.log2(1 + cell.total) * 0.08);
         cards.push(card(cell, x, y, size));
       });
@@ -1308,7 +1314,8 @@ const REPLAY = {
 
     const perDay = new Map();
     data.cells.forEach((cell) => perDay.set(cell.day, (perDay.get(cell.day) || 0) + 1));
-    const widestDeck = Math.max(1.0, Math.min(2.2, 0.42 * Math.max(0, ...perDay.values())) + 0.3);
+    const most = Math.max(1, ...perDay.values());
+    const widestDeck = Math.max(1.0, (most - 1) * cardStep(most) + 0.75);
 
     function follow() {
       const x = Number(data.cursor.getAttribute("x"));
