@@ -210,8 +210,10 @@ def test_the_3d_replay_is_a_hidden_block_that_loads_its_module(site: Site) -> No
     block = text.split('id="replay-scene"', 1)[1].split('<p class="scene__detail"', 1)[0]
     for part in ("scene__toggle", "scene__stage", "scene__turn-right", "scene__reset"):
         assert part in block
-    # the scene reads the cells and the cursor of the map, which keep their data attributes
+    # the scene reads the cells and the cursor of the map, and the source's type for its device
     assert "data-replay-cursor" in text and 'data-counts="' in text
+    section = re.search(r'<section class="jump-target replay"[^>]*>', text)
+    assert section is not None and 'data-source-type="push"' in section.group(0)
 
 
 def test_an_empty_replay_has_no_3d_view(store: Database) -> None:

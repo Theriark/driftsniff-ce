@@ -3,8 +3,8 @@
  * every scene; a page carries a block with data-scene="<kind>" and loads this file:
  * - lab: the dashboard's sources as devices on a desk, the severity shape of each source's worst
  *   open change above it and the Driftsniff ferret sniffing at the source that needs you most;
- * - replay: the change replay of a source page, a bar per day and resource type, with a pane on
- *   the day the replay controls have chosen.
+ * - replay: the change replay of a source page, the source's own device with the resource types
+ *   that changed on the replay's day rising out of it as cards.
  *
  * Same origin, no eval, nothing from outside: three.js r186 is vendored in
  * /static/vendor/three (hashes in PINNED.json) and is imported only after the browser has shown
@@ -110,11 +110,6 @@ function colours() {
   };
 }
 
-// Height grows with the log of a count, so one change and a thousand both read.
-function height(count) {
-  return 0.35 + 0.55 * Math.log2(1 + Math.max(0, count));
-}
-
 // --- the stage: renderer, camera, turning, picking, drawing on demand ----------------------
 
 // `spec.build(kit)` adds the meshes of a scene to kit.scene and returns
@@ -159,16 +154,8 @@ function buildStage(THREE, root, spec, data, options) {
 
   let palette = colours();
   renderer.setClearColor(palette.backdrop, 1);
-  const geometries = new Map();
   const materials = new Map();
   const picks = [];
-
-  function geometry(key, make) {
-    if (!geometries.has(key)) {
-      geometries.set(key, make());
-    }
-    return geometries.get(key);
-  }
 
   // A material per palette name; "pale-<name>" is the same colour at 32 % opacity.
   function material(name) {
@@ -180,9 +167,7 @@ function buildStage(THREE, root, spec, data, options) {
     return materials.get(name);
   }
 
-  function box(key, x, y, z) {
-    return new THREE.Mesh(geometry(key, () => new THREE.BoxGeometry(x, y, z).translate(0, y / 2, 0)));
-  }
+
 
   // a pickable may be a mesh or a group; a pick anywhere inside it finds its node
   function pickable(mesh, node) {
@@ -205,9 +190,19 @@ function buildStage(THREE, root, spec, data, options) {
   let hovered = null;
   let lastTick = 0;
   const kit = {
-    THREE, scene, material, box, pickable, data, addons, colours,
+    THREE, scene, material, pickable, data, addons, colours,
     invalidate: () => invalidate(),
     billboard: (mesh) => billboards.push(mesh),
+    // a pickable that left the scene (a card of an earlier day) is picked no more
+    unpickable: (mesh) => {
+      const at = picks.indexOf(mesh);
+      if (at >= 0) {
+        picks.splice(at, 1);
+      }
+      if (hovered && hovered.mesh === mesh) {
+        hovered = null;
+      }
+    },
     animate: (update) => {
       animators.push(update);
       invalidate();
@@ -477,7 +472,6 @@ function buildStage(THREE, root, spec, data, options) {
           m.dispose();
         });
       });
-      geometries.forEach((item) => item.dispose());
       materials.forEach((item) => item.dispose());
       if (scene.environment) {
         scene.environment.dispose();
@@ -510,6 +504,331 @@ const SCREEN_LINE = { grafana: "#f2a33a", checkmk: "#5fbf6e", zabbix: "#d9534f",
 const RACK_CAPACITY = 10; // rack units per rack before a second rack stands beside it
 const ROW_WIDTH = 4.6; // a row of devices wraps to the next one past this width (metres)
 const UNHEALTHY = new Set(["failing", "partial", "stale", "unsupported"]);
+
+// --- the workshop: the devices, the severity tokens, the desk and the ferret of the 3D views ------
+
+// Everything a studio scene draws with (the lab of the dashboard, the replay of a source page).
+function workshop(kit) {
+const { THREE, scene, addons } = kit;
+  const RoundedBox = addons.RoundedBoxGeometry;
+  const isDark = () => window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const tokenColour = (severity) => (isDark() ? TOKEN_DARK : SEVERITY_LIGHT)[severity];
+  const m = (options) => new THREE.MeshStandardMaterial(options);
+  const mat = {
+    black: m({ color: 0x1b1c20, roughness: 0.45, metalness: 0.3 }),
+    graphite: m({ color: 0x2c2e34, roughness: 0.5, metalness: 0.5 }),
+    steel: m({ color: 0x9aa0a8, roughness: 0.35, metalness: 0.85 }),
+    white: m({ color: 0xeeeeea, roughness: 0.35 }),
+    silver: m({ color: 0xc4c7cc, roughness: 0.3, metalness: 0.7 }),
+    glass: m({ color: 0x0b0c10, roughness: 0.1, metalness: 0.2 }),
+    port: m({ color: 0x0c0c0e, roughness: 0.9 }),
+    desk: m({ roughness: 0.85 }),
+    deskEdge: m({ roughness: 0.8 }),
+    off: m({ color: 0x3a3b42, roughness: 0.6 }),
+  };
+  const glowCache = new Map();
+  const glow = (hex, strength = 2.2) => {
+    const key = hex + ":" + strength;
+    if (!glowCache.has(key)) {
+      glowCache.set(key, m({ color: hex, emissive: hex, emissiveIntensity: strength, roughness: 0.4 }));
+    }
+    return glowCache.get(key);
+  };
+  const OK = 0x57c27a;
+  const BUSY = 0x7fb0ff;
+
+  // the desk and the tokens follow the theme (called again when the colour scheme changes)
+  function paint() {
+    const dark = isDark();
+    const p = kit.colours();
+    mat.desk.color.setHex(dark ? p.lane : 0xd8d2c3);
+    mat.deskEdge.color.setHex(dark ? p.none : 0xcfc9ba);
+    scene.environmentIntensity = dark ? 0.55 : 0.8;
+    tokens.forEach((mesh) => {
+      if (mesh.userData.severity) {
+        mesh.material.color.setHex(tokenColour(mesh.userData.severity));
+        mesh.material.emissive.setHex(tokenColour(mesh.userData.severity));
+      }
+    });
+  }
+
+  const rbox = (w, h, d, r, material) => new THREE.Mesh(new RoundedBox(w, h, d, 3, r), material);
+  const block = (w, h, d, material) => new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
+  function leds(group, x0, y, z, count, gap, colour) {
+    for (let i = 0; i < count; i += 1) {
+      const led = block(0.018, 0.012, 0.004, glow(colour, 3));
+      led.position.set(x0 + i * gap, y, z);
+      group.add(led);
+    }
+  }
+
+  // ---- the devices (metres, roughly real) ----
+  function nas(body, led) {
+    const g = new THREE.Group();
+    const shell = rbox(0.28, 0.24, 0.26, 0.018, body);
+    shell.position.y = 0.12;
+    g.add(shell);
+    for (let i = 0; i < 4; i += 1) {
+      const sled = rbox(0.042, 0.19, 0.01, 0.004, mat.graphite);
+      sled.position.set(-0.07 + i * 0.047, 0.125, 0.131);
+      g.add(sled);
+      leds(g, sled.position.x, 0.205, 0.137, 1, 0, led);
+    }
+    return g;
+  }
+  function rackUnit(units, front, led, ports) {
+    const g = new THREE.Group();
+    const h = 0.0445 * units - 0.004;
+    const body = block(0.48, h, 0.4, front);
+    body.position.y = h / 2;
+    g.add(body);
+    for (const x of [-0.25, 0.25]) {
+      const ear = block(0.02, h, 0.01, mat.steel);
+      ear.position.set(x, h / 2, 0.2);
+      g.add(ear);
+    }
+    if (ports) {
+      for (let i = 0; i < 24; i += 1) {
+        const port = block(0.012, 0.01, 0.004, mat.port);
+        port.position.set(-0.17 + (i % 12) * 0.022, h / 2 + (i < 12 ? 0.008 : -0.008), 0.201);
+        g.add(port);
+      }
+    } else {
+      for (let i = 0; i < 6; i += 1) {
+        const bay = block(0.05, h * 0.7, 0.004, mat.graphite);
+        bay.position.set(-0.14 + i * 0.056, h / 2, 0.201);
+        g.add(bay);
+      }
+    }
+    leds(g, 0.19, h / 2, 0.203, 2, 0.026, led);
+    g.userData.height = h;
+    return g;
+  }
+  function rackFrame(height) {
+    const g = new THREE.Group();
+    for (const x of [-0.27, 0.27]) {
+      for (const z of [-0.21, 0.21]) {
+        const post = block(0.03, height, 0.03, mat.black);
+        post.position.set(x, height / 2, z);
+        g.add(post);
+      }
+    }
+    const top = block(0.6, 0.03, 0.48, mat.black);
+    top.position.y = height;
+    const base = block(0.6, 0.05, 0.48, mat.black);
+    base.position.y = 0.025;
+    g.add(top, base);
+    return g;
+  }
+  function gateway() {
+    const g = new THREE.Group();
+    const body = rbox(0.24, 0.07, 0.2, 0.03, mat.white);
+    body.position.y = 0.035;
+    const screen = new THREE.Mesh(new THREE.CircleGeometry(0.022, 32), glow(0x5fa8ff, 1.4));
+    screen.position.set(0, 0.04, 0.1005);
+    g.add(body, screen);
+    return g;
+  }
+  function camera() {
+    const g = new THREE.Group();
+    const mast = block(0.025, 0.42, 0.025, mat.white);
+    mast.position.y = 0.21;
+    const arm = block(0.025, 0.025, 0.08, mat.white);
+    arm.position.set(0, 0.41, 0.03);
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.16, 32).rotateX(Math.PI / 2), mat.white);
+    body.position.set(0, 0.38, 0.1);
+    const lens = new THREE.Mesh(new THREE.CircleGeometry(0.026, 32), mat.glass);
+    lens.position.set(0, 0.38, 0.181);
+    g.add(mast, arm, body, lens);
+    return g;
+  }
+  function screenTexture(colour, seed) {
+    const canvas = document.createElement("canvas");
+    canvas.width = 256;
+    canvas.height = 160;
+    const x = canvas.getContext("2d");
+    x.fillStyle = "#121318";
+    x.fillRect(0, 0, 256, 160);
+    x.strokeStyle = "#2a2d36";
+    for (let i = 1; i < 5; i += 1) {
+      x.beginPath();
+      x.moveTo(0, i * 32);
+      x.lineTo(256, i * 32);
+      x.stroke();
+    }
+    x.strokeStyle = colour;
+    x.lineWidth = 3;
+    x.beginPath();
+    for (let i = 0; i <= 32; i += 1) {
+      const v = 90 + Math.sin(i * 0.6 + seed) * 22 + Math.sin(i * 1.7 + seed * 2) * 10;
+      if (i) {
+        x.lineTo(i * 8, v);
+      } else {
+        x.moveTo(0, v);
+      }
+    }
+    x.stroke();
+    for (let i = 0; i < 6; i += 1) {
+      x.fillStyle = i % 3 ? "#3b6ea8" : colour;
+      x.fillRect(12 + i * 40, 130, 28, 18);
+    }
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    return texture;
+  }
+  function screen(colour, seed) {
+    const g = new THREE.Group();
+    const stand = block(0.03, 0.16, 0.03, mat.graphite);
+    stand.position.y = 0.08;
+    const foot = rbox(0.14, 0.012, 0.09, 0.005, mat.graphite);
+    foot.position.y = 0.006;
+    const frame = rbox(0.42, 0.26, 0.025, 0.008, mat.black);
+    frame.position.y = 0.29;
+    const texture = screenTexture(colour, seed);
+    const face = new THREE.Mesh(new THREE.PlaneGeometry(0.39, 0.23), m({ map: texture, emissive: 0xffffff, emissiveMap: texture, emissiveIntensity: 0.7 }));
+    face.position.set(0, 0.29, 0.0131);
+    g.add(stand, foot, frame, face);
+    return g;
+  }
+  function hub(colour) {
+    const g = new THREE.Group();
+    const body = rbox(0.12, 0.05, 0.12, 0.02, colour);
+    body.position.y = 0.025;
+    g.add(body);
+    leds(g, 0, 0.03, 0.0605, 1, 0, BUSY);
+    return g;
+  }
+  function containers() {
+    const g = new THREE.Group();
+    const body = rbox(0.14, 0.055, 0.14, 0.01, mat.silver);
+    body.position.y = 0.0275;
+    g.add(body);
+    const blues = [0x2f7fd8, 0x3aa0e8, 0x1d5fa8].map((c) => m({ color: c, roughness: 0.4 }));
+    for (let i = 0; i < 5; i += 1) {
+      const crate = rbox(0.05, 0.035, 0.05, 0.004, blues[i % 3]);
+      crate.position.set(-0.035 + (i % 2) * 0.06, 0.075 + Math.floor(i / 2) * 0.04, (i % 3) * 0.01 - 0.01);
+      g.add(crate);
+    }
+    return g;
+  }
+
+  // ---- the severity token over a device ----
+  function shapeOf(severity, r) {
+    const shape = new THREE.Shape();
+    const sides = { low: 0, medium: 3, high: 4, critical: 8 }[severity];
+    if (!sides) {
+      shape.absarc(0, 0, r, 0, Math.PI * 2, false);
+      return shape;
+    }
+    const turn = sides === 8 ? Math.PI / 8 : Math.PI / 2;
+    for (let i = 0; i <= sides; i += 1) {
+      const a = turn + (i / sides) * Math.PI * 2;
+      if (i) {
+        shape.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+      } else {
+        shape.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+      }
+    }
+    return shape;
+  }
+  const tokens = [];
+  // `parent` is the scene, or a group the token moves with (a card of the replay, which turns
+  // to the viewer as a whole, so its token is no billboard of its own)
+  function token(at, source, scale = 1, parent = scene) {
+    const unhealthy = UNHEALTHY.has(source.health);
+    if (!source.worst && !unhealthy) {
+      return null;
+    }
+    let mesh;
+    if (!source.worst) {
+      mesh = new THREE.Mesh(new THREE.TorusGeometry(0.05 * scale, 0.008, 12, 40), m({ color: 0x6b7280, roughness: 0.5 }));
+    } else {
+      const colour = tokenColour(source.worst);
+      const r = (0.045 + Math.min(0.035, Math.log2(1 + source.items) * 0.005)) * scale;
+      const geometry = new THREE.ExtrudeGeometry(shapeOf(source.worst, r), { depth: 0.014, bevelEnabled: true, bevelSize: 0.004, bevelThickness: 0.004, bevelSegments: 2 });
+      geometry.center();
+      mesh = new THREE.Mesh(geometry, m({ color: colour, emissive: colour, emissiveIntensity: 0.12, roughness: 0.45, metalness: 0.05 }));
+      mesh.userData.severity = source.worst;
+      const lamp = new THREE.PointLight(colour, 0.12, 0.5, 2);
+      lamp.position.copy(at).add(new THREE.Vector3(0, -0.05, 0.05));
+      parent.add(lamp);
+    }
+    mesh.position.copy(at);
+    mesh.castShadow = true;
+    if (parent === scene) {
+      kit.billboard(mesh);
+    }
+    tokens.push(mesh);
+    parent.add(mesh);
+    return mesh;
+  }
+
+  // the device of one source on its own (the replay's close-up); a racked server stands in a
+  // short rack of its own
+  function deviceFor(source) {
+    const kind = KIND_OF[source.type] || "box";
+    const led = source.worst ? BUSY : OK;
+    if (kind === "rack1" || kind === "rack2") {
+      const g = new THREE.Group();
+      g.add(rackFrame(0.36));
+      const unit = rackUnit(kind === "rack1" ? 1 : 2, mat.black, led, false);
+      unit.position.y = 0.12;
+      g.add(unit);
+      return g;
+    }
+    if (kind === "nas-black") return nas(mat.black, led);
+    if (kind === "nas-silver") return nas(mat.silver, led);
+    if (kind === "screen") return screen(SCREEN_LINE[source.type] || "#7fb0ff", (source.index || 0) + 1);
+    if (kind === "gateway") return gateway();
+    if (kind === "camera") return camera();
+    if (kind === "containers") return containers();
+    return hub(source.type === "homeassistant" ? mat.white : mat.silver);
+  }
+
+  // the desk, centred on x 0 and on `z`; it receives the shadows
+  function makeDesk(width, depth, z) {
+    const desk = rbox(width, 0.12, depth, 0.04, mat.desk);
+    desk.position.set(0, -0.06, z);
+    desk.receiveShadow = true;
+    const lip = rbox(width + 0.04, 0.04, depth + 0.04, 0.02, mat.deskEdge);
+    lip.position.set(0, -0.1, z);
+    scene.add(desk, lip);
+    return [desk, lip];
+  }
+
+  // every mesh but the desk casts and receives shadows
+  function shade(except) {
+    scene.traverse((part) => {
+      if (part.isMesh && !except.includes(part)) {
+        part.castShadow = true;
+        part.receiveShadow = true;
+      }
+    });
+  }
+
+  // the ferret, once loaded; `then(ferret, gltf)` places it. Without it the scene still says
+  // everything, so a failed load is silent.
+  function loadFerret(then) {
+    new addons.GLTFLoader()
+      .loadAsync(FERRET_URL)
+      .then((gltf) => {
+        gltf.scene.traverse((part) => {
+          if (part.isMesh) {
+            part.castShadow = true;
+            part.frustumCulled = false;
+          }
+        });
+        then(gltf.scene, gltf);
+        kit.invalidate();
+      })
+      .catch(() => {});
+  }
+
+  return {
+    m, mat, glow, rbox, block, OK, BUSY, nas, rackUnit, rackFrame, gateway, camera, screen, hub,
+    containers, shapeOf, token, tokens, tokenColour, paint, deviceFor, makeDesk, shade, loadFerret,
+  };
+}
 
 const LAB = {
   studio: true,
@@ -546,255 +865,8 @@ const LAB = {
   },
 
   build(kit) {
-    const { THREE, scene, pickable, addons } = kit;
-    const RoundedBox = addons.RoundedBoxGeometry;
-    const isDark = () => window.matchMedia("(prefers-color-scheme: dark)").matches;
-    const tokenColour = (severity) => (isDark() ? TOKEN_DARK : SEVERITY_LIGHT)[severity];
-    const m = (options) => new THREE.MeshStandardMaterial(options);
-    const mat = {
-      black: m({ color: 0x1b1c20, roughness: 0.45, metalness: 0.3 }),
-      graphite: m({ color: 0x2c2e34, roughness: 0.5, metalness: 0.5 }),
-      steel: m({ color: 0x9aa0a8, roughness: 0.35, metalness: 0.85 }),
-      white: m({ color: 0xeeeeea, roughness: 0.35 }),
-      silver: m({ color: 0xc4c7cc, roughness: 0.3, metalness: 0.7 }),
-      glass: m({ color: 0x0b0c10, roughness: 0.1, metalness: 0.2 }),
-      port: m({ color: 0x0c0c0e, roughness: 0.9 }),
-      desk: m({ roughness: 0.85 }),
-      deskEdge: m({ roughness: 0.8 }),
-      off: m({ color: 0x3a3b42, roughness: 0.6 }),
-    };
-    const glowCache = new Map();
-    const glow = (hex, strength = 2.2) => {
-      const key = hex + ":" + strength;
-      if (!glowCache.has(key)) {
-        glowCache.set(key, m({ color: hex, emissive: hex, emissiveIntensity: strength, roughness: 0.4 }));
-      }
-      return glowCache.get(key);
-    };
-    const OK = 0x57c27a;
-    const BUSY = 0x7fb0ff;
-
-    // the desk and the tokens follow the theme (called again when the colour scheme changes)
-    function paint() {
-      const dark = isDark();
-      const p = kit.colours();
-      mat.desk.color.setHex(dark ? p.lane : 0xd8d2c3);
-      mat.deskEdge.color.setHex(dark ? p.none : 0xcfc9ba);
-      scene.environmentIntensity = dark ? 0.55 : 0.8;
-      tokens.forEach((mesh) => {
-        if (mesh.userData.severity) {
-          mesh.material.color.setHex(tokenColour(mesh.userData.severity));
-          mesh.material.emissive.setHex(tokenColour(mesh.userData.severity));
-        }
-      });
-    }
-
-    const rbox = (w, h, d, r, material) => new THREE.Mesh(new RoundedBox(w, h, d, 3, r), material);
-    const block = (w, h, d, material) => new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
-    function leds(group, x0, y, z, count, gap, colour) {
-      for (let i = 0; i < count; i += 1) {
-        const led = block(0.018, 0.012, 0.004, glow(colour, 3));
-        led.position.set(x0 + i * gap, y, z);
-        group.add(led);
-      }
-    }
-
-    // ---- the devices (metres, roughly real) ----
-    function nas(body, led) {
-      const g = new THREE.Group();
-      const shell = rbox(0.28, 0.24, 0.26, 0.018, body);
-      shell.position.y = 0.12;
-      g.add(shell);
-      for (let i = 0; i < 4; i += 1) {
-        const sled = rbox(0.042, 0.19, 0.01, 0.004, mat.graphite);
-        sled.position.set(-0.07 + i * 0.047, 0.125, 0.131);
-        g.add(sled);
-        leds(g, sled.position.x, 0.205, 0.137, 1, 0, led);
-      }
-      return g;
-    }
-    function rackUnit(units, front, led, ports) {
-      const g = new THREE.Group();
-      const h = 0.0445 * units - 0.004;
-      const body = block(0.48, h, 0.4, front);
-      body.position.y = h / 2;
-      g.add(body);
-      for (const x of [-0.25, 0.25]) {
-        const ear = block(0.02, h, 0.01, mat.steel);
-        ear.position.set(x, h / 2, 0.2);
-        g.add(ear);
-      }
-      if (ports) {
-        for (let i = 0; i < 24; i += 1) {
-          const port = block(0.012, 0.01, 0.004, mat.port);
-          port.position.set(-0.17 + (i % 12) * 0.022, h / 2 + (i < 12 ? 0.008 : -0.008), 0.201);
-          g.add(port);
-        }
-      } else {
-        for (let i = 0; i < 6; i += 1) {
-          const bay = block(0.05, h * 0.7, 0.004, mat.graphite);
-          bay.position.set(-0.14 + i * 0.056, h / 2, 0.201);
-          g.add(bay);
-        }
-      }
-      leds(g, 0.19, h / 2, 0.203, 2, 0.026, led);
-      g.userData.height = h;
-      return g;
-    }
-    function rackFrame(height) {
-      const g = new THREE.Group();
-      for (const x of [-0.27, 0.27]) {
-        for (const z of [-0.21, 0.21]) {
-          const post = block(0.03, height, 0.03, mat.black);
-          post.position.set(x, height / 2, z);
-          g.add(post);
-        }
-      }
-      const top = block(0.6, 0.03, 0.48, mat.black);
-      top.position.y = height;
-      const base = block(0.6, 0.05, 0.48, mat.black);
-      base.position.y = 0.025;
-      g.add(top, base);
-      return g;
-    }
-    function gateway() {
-      const g = new THREE.Group();
-      const body = rbox(0.24, 0.07, 0.2, 0.03, mat.white);
-      body.position.y = 0.035;
-      const screen = new THREE.Mesh(new THREE.CircleGeometry(0.022, 32), glow(0x5fa8ff, 1.4));
-      screen.position.set(0, 0.04, 0.1005);
-      g.add(body, screen);
-      return g;
-    }
-    function camera() {
-      const g = new THREE.Group();
-      const mast = block(0.025, 0.42, 0.025, mat.white);
-      mast.position.y = 0.21;
-      const arm = block(0.025, 0.025, 0.08, mat.white);
-      arm.position.set(0, 0.41, 0.03);
-      const body = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.16, 32).rotateX(Math.PI / 2), mat.white);
-      body.position.set(0, 0.38, 0.1);
-      const lens = new THREE.Mesh(new THREE.CircleGeometry(0.026, 32), mat.glass);
-      lens.position.set(0, 0.38, 0.181);
-      g.add(mast, arm, body, lens);
-      return g;
-    }
-    function screenTexture(colour, seed) {
-      const canvas = document.createElement("canvas");
-      canvas.width = 256;
-      canvas.height = 160;
-      const x = canvas.getContext("2d");
-      x.fillStyle = "#121318";
-      x.fillRect(0, 0, 256, 160);
-      x.strokeStyle = "#2a2d36";
-      for (let i = 1; i < 5; i += 1) {
-        x.beginPath();
-        x.moveTo(0, i * 32);
-        x.lineTo(256, i * 32);
-        x.stroke();
-      }
-      x.strokeStyle = colour;
-      x.lineWidth = 3;
-      x.beginPath();
-      for (let i = 0; i <= 32; i += 1) {
-        const v = 90 + Math.sin(i * 0.6 + seed) * 22 + Math.sin(i * 1.7 + seed * 2) * 10;
-        if (i) {
-          x.lineTo(i * 8, v);
-        } else {
-          x.moveTo(0, v);
-        }
-      }
-      x.stroke();
-      for (let i = 0; i < 6; i += 1) {
-        x.fillStyle = i % 3 ? "#3b6ea8" : colour;
-        x.fillRect(12 + i * 40, 130, 28, 18);
-      }
-      const texture = new THREE.CanvasTexture(canvas);
-      texture.colorSpace = THREE.SRGBColorSpace;
-      return texture;
-    }
-    function screen(colour, seed) {
-      const g = new THREE.Group();
-      const stand = block(0.03, 0.16, 0.03, mat.graphite);
-      stand.position.y = 0.08;
-      const foot = rbox(0.14, 0.012, 0.09, 0.005, mat.graphite);
-      foot.position.y = 0.006;
-      const frame = rbox(0.42, 0.26, 0.025, 0.008, mat.black);
-      frame.position.y = 0.29;
-      const texture = screenTexture(colour, seed);
-      const face = new THREE.Mesh(new THREE.PlaneGeometry(0.39, 0.23), m({ map: texture, emissive: 0xffffff, emissiveMap: texture, emissiveIntensity: 0.7 }));
-      face.position.set(0, 0.29, 0.0131);
-      g.add(stand, foot, frame, face);
-      return g;
-    }
-    function hub(colour) {
-      const g = new THREE.Group();
-      const body = rbox(0.12, 0.05, 0.12, 0.02, colour);
-      body.position.y = 0.025;
-      g.add(body);
-      leds(g, 0, 0.03, 0.0605, 1, 0, BUSY);
-      return g;
-    }
-    function containers() {
-      const g = new THREE.Group();
-      const body = rbox(0.14, 0.055, 0.14, 0.01, mat.silver);
-      body.position.y = 0.0275;
-      g.add(body);
-      const blues = [0x2f7fd8, 0x3aa0e8, 0x1d5fa8].map((c) => m({ color: c, roughness: 0.4 }));
-      for (let i = 0; i < 5; i += 1) {
-        const crate = rbox(0.05, 0.035, 0.05, 0.004, blues[i % 3]);
-        crate.position.set(-0.035 + (i % 2) * 0.06, 0.075 + Math.floor(i / 2) * 0.04, (i % 3) * 0.01 - 0.01);
-        g.add(crate);
-      }
-      return g;
-    }
-
-    // ---- the severity token over a device ----
-    function shapeOf(severity, r) {
-      const shape = new THREE.Shape();
-      const sides = { low: 0, medium: 3, high: 4, critical: 8 }[severity];
-      if (!sides) {
-        shape.absarc(0, 0, r, 0, Math.PI * 2, false);
-        return shape;
-      }
-      const turn = sides === 8 ? Math.PI / 8 : Math.PI / 2;
-      for (let i = 0; i <= sides; i += 1) {
-        const a = turn + (i / sides) * Math.PI * 2;
-        if (i) {
-          shape.lineTo(Math.cos(a) * r, Math.sin(a) * r);
-        } else {
-          shape.moveTo(Math.cos(a) * r, Math.sin(a) * r);
-        }
-      }
-      return shape;
-    }
-    const tokens = [];
-    function token(at, source, scale = 1) {
-      const unhealthy = UNHEALTHY.has(source.health);
-      if (!source.worst && !unhealthy) {
-        return null;
-      }
-      let mesh;
-      if (!source.worst) {
-        mesh = new THREE.Mesh(new THREE.TorusGeometry(0.05 * scale, 0.008, 12, 40), m({ color: 0x6b7280, roughness: 0.5 }));
-      } else {
-        const colour = tokenColour(source.worst);
-        const r = (0.045 + Math.min(0.035, Math.log2(1 + source.items) * 0.005)) * scale;
-        const geometry = new THREE.ExtrudeGeometry(shapeOf(source.worst, r), { depth: 0.014, bevelEnabled: true, bevelSize: 0.004, bevelThickness: 0.004, bevelSegments: 2 });
-        geometry.center();
-        mesh = new THREE.Mesh(geometry, m({ color: colour, emissive: colour, emissiveIntensity: 0.12, roughness: 0.45, metalness: 0.05 }));
-        mesh.userData.severity = source.worst;
-        const lamp = new THREE.PointLight(colour, 0.12, 0.5, 2);
-        lamp.position.copy(at).add(new THREE.Vector3(0, -0.05, 0.05));
-        scene.add(lamp);
-      }
-      mesh.position.copy(at);
-      mesh.castShadow = true;
-      kit.billboard(mesh);
-      tokens.push(mesh);
-      scene.add(mesh);
-      return mesh;
-    }
+    const { THREE, scene, pickable } = kit;
+    const { mat, OK, BUSY, nas, rackUnit, rackFrame, gateway, camera, screen, hub, containers, token, tokens, paint, makeDesk, shade, loadFerret } = workshop(kit);
 
     // ---- the layout: a back row of racks, NAS units and screens, a front row of the rest ----
     const sources = kit.data.sources;
@@ -913,20 +985,8 @@ const LAB = {
     const zMin = zOfBack(backRows.length - 1) - 0.45;
     const zMax = zOfFront(Math.max(0, frontRows.length - 1)) + 0.4;
     const deskDepth = zMax - zMin;
-    const desk = rbox(deskWidth, 0.12, deskDepth, 0.04, mat.desk);
-    desk.position.set(0, -0.06, (zMin + zMax) / 2);
-    desk.receiveShadow = true;
-    const lip = rbox(deskWidth + 0.04, 0.04, deskDepth + 0.04, 0.02, mat.deskEdge);
-    lip.position.set(0, -0.1, (zMin + zMax) / 2);
-    scene.add(desk, lip);
+    shade(makeDesk(deskWidth, deskDepth, (zMin + zMax) / 2));
     paint();
-
-    scene.traverse((part) => {
-      if (part.isMesh && part !== desk && part !== lip) {
-        part.castShadow = true;
-        part.receiveShadow = true;
-      }
-    });
 
     // ---- pointing and choosing ----
     sources.forEach((source) => {
@@ -958,42 +1018,28 @@ const LAB = {
       .sort((a, b) => RANK.indexOf(b.worst) - RANK.indexOf(a.worst) || b.items - a.items);
     let mixer = null;
     const target = worstFirst[0];
-    new addons.GLTFLoader()
-      .loadAsync(FERRET_URL)
-      .then((gltf) => {
-        const ferret = gltf.scene;
-        ferret.traverse((part) => {
-          if (part.isMesh) {
-            part.castShadow = true;
-            part.frustumCulled = false;
-          }
-        });
-        ferret.scale.setScalar(1.0);
-        if (target) {
-          // side-on to the viewer just in front of the device, nose at its front corner
-          const box = new THREE.Box3().setFromObject(nodes.get(target));
-          const c = box.getCenter(new THREE.Vector3());
-          const z = box.max.z + 0.12;
-          ferret.position.set(c.x + 0.3, 0, z);
-          ferret.lookAt(c.x - 0.2, 0, z - 0.06);
-        } else {
-          // nothing open: it sits at the front and looks around
-          ferret.position.set(0, 0, zMax - 0.3);
-          ferret.rotation.y = -0.6;
-        }
-        scene.add(ferret);
-        mixer = new THREE.AnimationMixer(ferret);
-        const clip = gltf.animations.find((a) => a.name === (target ? "idle_sniff" : "look_around")) || gltf.animations[0];
-        if (clip) {
-          mixer.clipAction(clip).play();
-          mixer.update(1.1); // a natural pose when motion is reduced and nothing plays
-        }
-        kit.animate((step) => mixer && mixer.update(step));
-        kit.invalidate();
-      })
-      .catch(() => {
-        // without the ferret the lab still says everything; nothing to report
-      });
+    loadFerret((ferret, gltf) => {
+      if (target) {
+        // side-on to the viewer just in front of the device, nose at its front corner
+        const box = new THREE.Box3().setFromObject(nodes.get(target));
+        const c = box.getCenter(new THREE.Vector3());
+        const z = box.max.z + 0.12;
+        ferret.position.set(c.x + 0.3, 0, z);
+        ferret.lookAt(c.x - 0.2, 0, z - 0.06);
+      } else {
+        // nothing open: it sits at the front and looks around
+        ferret.position.set(0, 0, zMax - 0.3);
+        ferret.rotation.y = -0.6;
+      }
+      scene.add(ferret);
+      mixer = new THREE.AnimationMixer(ferret);
+      const clip = gltf.animations.find((a) => a.name === (target ? "idle_sniff" : "look_around")) || gltf.animations[0];
+      if (clip) {
+        mixer.clipAction(clip).play();
+        mixer.update(1.1); // a natural pose when motion is reduced and nothing plays
+      }
+      kit.animate((step) => mixer && mixer.update(step));
+    });
 
     return {
       floor: false,
@@ -1014,12 +1060,18 @@ const LAB = {
 
 // --- the change replay of a source page --------------------------------------------------------
 
-const REPLAY_PITCH = 0.42;
-const REPLAY_ROW = 0.9;
-const BAR = 0.34;
+// The source's own device on a desk; the resource types that changed on the replay's day rise out
+// of it as cards, each with the severity shape of its worst item; the ferret sniffs at the device
+// on a day with changes and looks around on a quiet one. The scene follows the heat map's day
+// cursor through its x attribute, so the replay's controls move it with no other wiring.
+const CARD_RISE_MS = 380;
 
 const REPLAY = {
-  // the cells of the heat map, its days and rows, and the day cursor the replay moves
+  studio: true,
+  fov: 30,
+  addons: ["RoundedBoxGeometry", "RoomEnvironment", "GLTFLoader"],
+
+  // the cells of the heat map, the day cursor, and the source the page is about
   read(root) {
     const section = root.closest("[data-replay]");
     const map = section ? section.querySelector("[data-replay-map]") : null;
@@ -1030,112 +1082,262 @@ const REPLAY = {
       return null;
     }
     const cells = [];
-    let rows = section.querySelectorAll(".replay-track").length;
     section.querySelectorAll(".replay-cell").forEach((cell) => {
       const day = Number(cell.getAttribute("data-day-index"));
-      const row = Number(cell.getAttribute("data-row"));
       const counts = (cell.getAttribute("data-counts") || "").split(" ").map(Number);
-      if (!Number.isInteger(day) || !Number.isInteger(row) || counts.length !== 4 || counts.some((n) => !(n >= 0))) {
+      if (!Number.isInteger(day) || counts.length !== 4 || counts.some((n) => !(n >= 0))) {
         return;
       }
-      rows = Math.max(rows, row + 1);
+      const total = counts.reduce((a, b) => a + b, 0);
+      if (!total) {
+        return;
+      }
       const title = cell.querySelector("title");
+      let worst = "";
+      counts.forEach((n, s) => {
+        if (n) {
+          worst = RANK[s];
+        }
+      });
       cells.push({
         day,
-        row,
-        counts,
+        row: Number(cell.getAttribute("data-row")) || 0,
+        total,
+        worst,
         element: cell,
         href: localPath(cell.getAttribute("href")),
         label: title ? title.textContent.trim() : cell.getAttribute("data-label") || "",
       });
     });
-    return cells.length ? { cells, days, rows, pitch, cursor, view: map } : null;
+    return {
+      cells,
+      days,
+      pitch,
+      cursor,
+      type: section.getAttribute("data-source-type") || "",
+      view: map,
+    };
   },
 
   elementOf(target) {
     return target.closest ? target.closest(".replay-cell") : null;
   },
 
-  // A bar per cell, stacked by severity from critical at the foot to low on top, its height from
-  // the log of all its items; a pane stands on the day of the cursor and the days after it fade,
-  // as on the heat map. The scene follows the cursor through its x attribute.
   build(kit) {
-    const { THREE, scene, material, box, pickable, data } = kit;
-    const wide = data.days * REPLAY_PITCH;
-    const deep = data.rows * REPLAY_ROW;
-    const xOf = (day) => -wide / 2 + (day + 0.5) * REPLAY_PITCH;
-    const zOf = (row) => -deep / 2 + (row + 0.5) * REPLAY_ROW;
-    const segments = [];
-    let tallest = 1;
-    for (let row = 0; row < data.rows; row += 1) {
-      const track = box("track", wide, 0.02, REPLAY_ROW * 0.7);
-      track.material = material("lane");
-      track.position.set(0, 0, zOf(row));
-      scene.add(track);
+    const { THREE, scene, pickable, data } = kit;
+    const w = workshop(kit);
+    const { mat, rbox, block, m } = w;
+
+    // the device, lit as busy while the shown day has changes
+    const device = w.deviceFor({ type: data.type, worst: "", items: 0, index: 0 });
+    scene.add(device);
+    const deviceBox = new THREE.Box3().setFromObject(device);
+    const deviceTop = deviceBox.max.y;
+    w.shade(w.makeDesk(2.8, 1.7, 0.05));
+    w.paint();
+    const rest = device.position.y;
+    pickable(device, {
+      label: "",
+      href: "",
+      element: null,
+      hover(on) {
+        device.position.y = on ? rest + 0.02 : rest;
+      },
+    });
+    const deviceNode = device.userData.node;
+
+    // the cards of the shown day, in a deck that turns to the viewer as a whole
+    const deck = new THREE.Group();
+    scene.add(deck);
+    kit.billboard(deck);
+    const cardFace = m({ roughness: 0.55 });
+    const cardLine = m({ roughness: 0.8 });
+    function paintCards() {
+      const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      cardFace.color.setHex(dark ? 0x2a2b33 : 0xffffff);
+      cardLine.color.setHex(dark ? 0x6b6f7a : 0xb8bcc4);
     }
-    data.cells.forEach((cell) => {
-      const total = cell.counts.reduce((a, b) => a + b, 0);
-      if (!total) {
+    paintCards();
+    let cards = [];
+    let rise = null;
+    let shown = -1;
+
+    function clearDeck() {
+      cards.forEach((card) => {
+        kit.unpickable(card.group);
+        card.group.traverse((part) => {
+          if (part.geometry) {
+            part.geometry.dispose();
+          }
+          if (part.material && part.material !== cardFace && part.material !== cardLine && !Object.values(mat).includes(part.material)) {
+            part.material.dispose();
+          }
+        });
+        deck.remove(card.group);
+      });
+      cards = [];
+    }
+
+    function card(cell, x, y, size) {
+      const g = new THREE.Group();
+      const width = 0.3 * size;
+      const height = 0.18 * size;
+      const face = rbox(width, height, 0.012, 0.01, cardFace);
+      const colour = w.tokenColour(cell.worst);
+      const stripe = block(width * 0.92, 0.012 * size, 0.014, m({ color: colour, emissive: colour, emissiveIntensity: 0.25 }));
+      stripe.position.set(0, height / 2 - 0.022 * size, 0.002);
+      g.add(face, stripe);
+      for (let i = 0; i < 3; i += 1) {
+        const bar = block(width * (i ? 0.45 : 0.62), 0.01 * size, 0.014, cardLine);
+        bar.position.set(-width * 0.12 + (i ? -0.04 * size : 0), height / 2 - 0.06 * size - i * 0.032 * size, 0.002);
+        g.add(bar);
+      }
+      w.token(new THREE.Vector3(width / 2 + 0.055 * size, 0, 0.01), { worst: cell.worst, items: cell.total, health: "ok" }, 0.95 * size, g);
+      // a dashed line down to the device
+      const line = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, -height / 2, 0), new THREE.Vector3(-x, deviceTop - y + 0.01, 0)]),
+        new THREE.LineDashedMaterial({ color: colour, dashSize: 0.012, gapSize: 0.01 })
+      );
+      line.computeLineDistances();
+      g.add(line);
+      g.position.set(x, y, 0);
+      deck.add(g);
+      const lift = g.position.y;
+      pickable(g, {
+        label: cell.label + ". Select it to open those changes.",
+        href: cell.href,
+        element: cell.element,
+        hover(on) {
+          g.position.y = on ? lift + 0.02 : lift;
+        },
+      });
+      g.traverse((part) => {
+        if (part.isMesh) {
+          part.castShadow = true;
+        }
+      });
+      return { group: g, x, y };
+    }
+
+    // The day's cards in an arc over the device, the worst first in the middle, a little larger
+    // with more items.
+    function showDay(day) {
+      clearDeck();
+      shown = day;
+      const ofDay = data.cells
+        .filter((cell) => cell.day === day)
+        .sort((a, b) => RANK.indexOf(b.worst) - RANK.indexOf(a.worst) || b.total - a.total);
+      const n = ofDay.length;
+      const spread = Math.min(2.2, 0.42 * n);
+      ofDay.forEach((cell, i) => {
+        // middle first, then alternately right and left
+        const slot = i === 0 ? 0 : (i % 2 ? 1 : -1) * Math.ceil(i / 2);
+        const x = n > 1 ? (slot / Math.max(1, Math.ceil((n - 1) / 2))) * (spread / 2) : 0;
+        const y = deviceTop + 0.32 + 0.18 * (1 - Math.abs(slot) / Math.max(1, Math.ceil(n / 2))) + (i % 2) * 0.05;
+        const size = 0.85 + Math.min(0.45, Math.log2(1 + cell.total) * 0.08);
+        cards.push(card(cell, x, y, size));
+      });
+      // the device's own words for the day
+      const items = ofDay.reduce((sum, cell) => sum + cell.total, 0);
+      deviceNode.label = items
+        ? `This source on the replay's day: ${number(items)} change ${items === 1 ? "item" : "items"} in ${n} resource ${n === 1 ? "type" : "types"}.`
+        : "This source on the replay's day: no change items.";
+      setFerret(Boolean(n));
+      // the cards rise out of the device, unless motion is reduced
+      if (!kit.reducedMotion() && cards.length) {
+        rise = { start: performance.now() };
+        cards.forEach((c) => {
+          c.group.position.y = deviceTop;
+          c.group.scale.setScalar(0.2);
+        });
+      } else {
+        rise = null;
+      }
+      kit.invalidate();
+    }
+
+    kit.animate(() => {
+      if (!rise) {
         return;
       }
-      const tall = height(total);
-      tallest = Math.max(tallest, tall);
-      let base = 0.02;
-      const node = { label: cell.label, href: cell.href, element: cell.element, parts: [] };
-      // one picked part per cell: the lowest segment carries the node, the others point to it
-      for (let s = RANK.length - 1; s >= 0; s -= 1) {
-        if (!cell.counts[s]) {
-          continue;
-        }
-        const part = box("bar", BAR, 1, BAR);
-        part.scale.y = (tall * cell.counts[s]) / total;
-        part.position.set(xOf(cell.day), base, zOf(cell.row));
-        base += part.scale.y;
-        part.userData.severity = RANK[s];
-        part.userData.day = cell.day;
-        segments.push(part);
-        node.parts.push(part);
-        scene.add(part);
-        if (!node.mesh) {
-          pickable(part, node);
-        } else {
-          part.userData.node = node;
-        }
+      const t = Math.min(1, (performance.now() - rise.start) / CARD_RISE_MS);
+      const e = 1 - (1 - t) * (1 - t);
+      cards.forEach((c) => {
+        c.group.position.y = deviceTop + (c.y - deviceTop) * e;
+        c.group.scale.setScalar(0.2 + 0.8 * e);
+      });
+      if (t >= 1) {
+        rise = null;
       }
     });
-    // the day of the cursor: a thin pane across every row
-    const pane = new THREE.Mesh(
-      new THREE.BoxGeometry(REPLAY_PITCH * 0.92, 1, deep + 0.4).translate(0, 0.5, 0),
-      new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.12, depthWrite: false })
-    );
-    pane.scale.y = tallest + 0.3;
-    scene.add(pane);
-    let shown = -1;
+
+    // the ferret: sniffing at the device on a day with changes, looking around on a quiet one
+    let mixer = null;
+    let actions = {};
+    let ferretBusy = null;
+    function setFerret(busy) {
+      ferretBusy = busy;
+      if (!mixer) {
+        return;
+      }
+      const want = busy ? actions.idle_sniff : actions.look_around;
+      Object.values(actions).forEach((action) => {
+        if (action !== want) {
+          action.fadeOut(0.3);
+        }
+      });
+      if (want) {
+        want.reset().fadeIn(0.3).play();
+        if (kit.reducedMotion()) {
+          mixer.update(1.1);
+        }
+      }
+    }
+    w.loadFerret((ferret, gltf) => {
+      ferret.position.set(deviceBox.max.x + 0.32, 0, deviceBox.max.z + 0.1);
+      ferret.lookAt(deviceBox.max.x - 0.1, 0, deviceBox.max.z - 0.05);
+      scene.add(ferret);
+      mixer = new THREE.AnimationMixer(ferret);
+      gltf.animations.forEach((clip) => {
+        actions[clip.name] = mixer.clipAction(clip);
+      });
+      setFerret(Boolean(ferretBusy));
+      mixer.update(1.1);
+      kit.animate((step) => mixer && mixer.update(step));
+    });
+
+    const perDay = new Map();
+    data.cells.forEach((cell) => perDay.set(cell.day, (perDay.get(cell.day) || 0) + 1));
+    const widestDeck = Math.max(1.0, Math.min(2.2, 0.42 * Math.max(0, ...perDay.values())) + 0.3);
 
     function follow() {
       const x = Number(data.cursor.getAttribute("x"));
       const day = Math.max(0, Math.min(data.days - 1, Math.round(x / data.pitch)));
-      shown = day;
-      pane.position.set(xOf(day), 0, 0);
-      pane.material.color.setHex(token("--ink", 0x1e1e24));
-      segments.forEach((part) => {
-        part.material = material(part.userData.day > day ? "pale-" + part.userData.severity : part.userData.severity);
-      });
-      kit.invalidate();
+      if (day !== shown) {
+        showDay(day);
+      }
     }
     const watch = new MutationObserver(follow);
     watch.observe(data.cursor, { attributes: true, attributeFilter: ["x"] });
     follow();
 
     return {
-      extent: { wide, deep, tall: tallest, x: 0 },
-      home: { yaw: -0.42, pitch: 0.72 },
-      hint: "Point at a bar to read its day and resource type; select it to open those changes. The pane is the day of the replay.",
-      info: () => ({ cells: data.cells.length, days: data.days, rows: data.rows, day: shown }),
+      floor: false,
+      // the camera fits the widest day's cards and the device
+      extent: { wide: widestDeck + 0.5, deep: 0.8, tall: deviceTop + 0.75, x: 0, y: deviceTop * 0.5 + 0.28, z: 0 },
+      home: { yaw: -0.18, pitch: 0.3 },
+      hint: "The cards are the resource types that changed on the day of the replay. Point at one to read it; select it to open those changes.",
+      info: () => ({ cells: data.cells.length, days: data.days, day: shown, cards: cards.length, ferret: Boolean(mixer), type: data.type }),
+      recolour() {
+        w.paint();
+        paintCards();
+      },
       dispose() {
         watch.disconnect();
-        pane.geometry.dispose();
-        pane.material.dispose();
+        clearDeck();
+        if (mixer) {
+          mixer.stopAllAction();
+        }
       },
     };
   },
