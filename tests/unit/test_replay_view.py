@@ -320,8 +320,8 @@ def test_the_sheet_moves_nothing_and_keeps_hidden_parts_hidden() -> None:
 
 def test_the_source_page_loads_the_sheet_and_the_deferred_script_from_its_own_origin() -> None:
     page = (Path(TEMPLATES_DIR) / "sources" / "detail.html").read_text(encoding="utf-8")
-    assert '<link rel="stylesheet" href="/static/replay.css">' in page
-    assert '<script src="/static/replay.js" defer></script>' in page
+    assert '<link rel="stylesheet" href="{{ static_url(\'replay.css\') }}">' in page
+    assert "<script src=\"{{ static_url('replay.js') }}\" defer></script>" in page
 
 
 def test_the_severity_order_of_a_cell_is_the_application_one() -> None:

@@ -13,7 +13,10 @@ from pathlib import Path
 
 STATIC = Path(__file__).resolve().parents[2] / "src" / "driftsniff" / "web" / "static"
 THREE = STATIC / "vendor" / "three"
-ADDONS = ("addons/RoundedBoxGeometry.js", "addons/RoomEnvironment.js")
+# the add-ons the module loads, and the two the glTF loader imports in turn
+LOADED = ("addons/RoundedBoxGeometry.js", "addons/RoomEnvironment.js", "addons/GLTFLoader.js")
+ADDONS = (*LOADED, "addons/BufferGeometryUtils.js", "addons/SkeletonUtils.js")
+MODELS = STATIC / "models"
 
 
 def test_three_is_the_pinned_release_unmodified() -> None:
@@ -31,7 +34,7 @@ def test_the_module_imports_only_the_vendored_library_and_keeps_the_policy() -> 
     assert re.findall(r"import\(([^)]*)\)", code) == ["THREE_URL", "ADDON_URLS[name]"]
     # the add-ons are the vendored ones, nothing else
     urls = re.findall(r'"(/static/vendor/three/addons/[A-Za-z]+\.js)"', code)
-    assert sorted(urls) == sorted(f"/static/vendor/three/{name}" for name in ADDONS)
+    assert sorted(urls) == sorted(f"/static/vendor/three/{name}" for name in LOADED)
     assert 'const THREE_URL = "/static/vendor/three/three.module.js";' in code
     assert "http" not in code
     for refused in (
@@ -89,7 +92,9 @@ def test_the_addons_are_the_pinned_release_with_only_their_imports_made_relative
         imports = re.findall(r"^(?:\} from|import .* from) '([^']+)';", text, re.M)
         assert imports, name
         for spec in imports:
-            assert spec == "../three.module.js", (name, spec)
+            assert spec == "../three.module.js" or spec.removeprefix("./") in {
+                Path(other).name for other in ADDONS
+            }, (name, spec)
 
 
 def test_a_source_shows_its_status_on_the_device_and_no_ferret_or_sign() -> None:
@@ -97,5 +102,33 @@ def test_a_source_shows_its_status_on_the_device_and_no_ferret_or_sign() -> None
     # Ruben, 14 November 2026: no floating severity signs, then no ferret at all
     assert "ExtrudeGeometry" not in code and "TorusGeometry" not in code
     assert "const STATUS_LIGHT = {" in code and "function light(device, source)" in code
-    assert "ferret" not in code.lower() and "GLTFLoader" not in code
-    assert not (STATIC / "models").exists()
+    assert "ferret" not in code.lower()
+
+
+def test_the_devices_are_the_credited_models_and_load_only_their_own_files() -> None:
+    code = (STATIC / "scenes.js").read_text(encoding="utf-8")
+    kinds = re.search(r"const MODEL_OF = \{([^}]*)\}", code)
+    assert kinds is not None
+    names = set(re.findall(r'"([a-z]+)"', kinds.group(1)))
+    assert names == {path.name for path in MODELS.iterdir() if path.is_dir()}
+    credits = (MODELS / "CREDITS.txt").read_text(encoding="utf-8")
+    assert "CC BY 4.0" in credits
+    for name in names:
+        folder = MODELS / name
+        assert f"{name}/ " in credits, name
+        gltf = json.loads((folder / f"{name}.gltf").read_text(encoding="utf-8"))
+        # plain glTF: every buffer and image a file beside it (no data: URI, no other site, no
+        # extension the page cannot load under its policy)
+        uris = [item["uri"] for item in gltf.get("buffers", []) + gltf.get("images", [])]
+        assert uris, name
+        for uri in uris:
+            assert "/" not in uri and ":" not in uri and (folder / uri).is_file(), (name, uri)
+        assert set(gltf.get("extensionsRequired", [])) <= {"EXT_texture_webp"}, name
+        assert {path.name for path in folder.iterdir()} == {f"{name}.gltf", *uris}, name
+    # the monitoring screen draws the product's own picture on the model's Screen surface
+    screen = json.loads((MODELS / "screen" / "screen.gltf").read_text(encoding="utf-8"))
+    assert "Screen" in [node.get("name") for node in screen["nodes"]]
+    assert 'part.name === "Screen"' in code
+    # a model is fetched with the build's version, like the page's own scripts
+    assert "const VERSION = new URL(import.meta.url).search;" in code
+    assert "/static/models/${name}/${name}.gltf${VERSION}" in code

@@ -49,7 +49,7 @@ def test_the_source_page_keeps_its_head_actions_on_a_wide_screen() -> None:
     assert '<div class="summary-head summary-head--wrap">' in text
     head = re.search(r"{% block head %}(.*?){% endblock %}", text, re.S)
     assert head is not None, "the source page loads no sheet of its own"
-    assert '<link rel="stylesheet" href="/static/summary-head.css">' in head.group(1)
+    assert '<link rel="stylesheet" href="{{ static_url(\'summary-head.css\') }}">' in head.group(1)
 
 
 def test_no_page_without_a_side_column_hides_its_head_actions() -> None:

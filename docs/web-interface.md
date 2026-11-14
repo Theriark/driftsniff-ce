@@ -17,7 +17,8 @@ guide wins over both for typography and logo use.
 | `src/driftsniff/web/static/app.css` | the one stylesheet: the design tokens of `docs/design-colours.json` (the contrast test fails when they drift) and the component styles carried over from the P10-T1 mock-ups |
 | `src/driftsniff/web/static/scenes.js` | the 3D views, one ES module for every `[data-scene]` block (the lab of the dashboard and the change replay of a source page, `docs/design-direction.md` section 2), loaded only by a page that has one; each block offers `block.scene` with `info()`, `draw()`, `show()` and `hide()` for a test |
 | `src/driftsniff/web/static/vendor/three/` | three.js r186 (`three.module.js`, `three.core.js`, MIT `LICENSE`), unmodified from the npm tarball named in `PINNED.json` with the hashes `tests/unit/test_scenes.py` checks |
-| `src/driftsniff/web/static/vendor/three/addons/` | two files of `examples/jsm` from the same three.js release (RoundedBoxGeometry, RoomEnvironment); only their import specifier is made relative, because the content security policy blocks an inline import map; both hashes are in `PINNED.json` |
+| `src/driftsniff/web/static/vendor/three/addons/` | five files of `examples/jsm` from the same three.js release (RoundedBoxGeometry, RoomEnvironment, GLTFLoader and the two it imports, BufferGeometryUtils and SkeletonUtils); only their import specifiers are made relative, because the content security policy blocks an inline import map; every hash is in `PINNED.json` |
+| `src/driftsniff/web/static/models/` | the device models of the 3D views, one folder per kind (`<kind>.gltf`, `<kind>.bin`, WebP textures), CC BY 4.0, credited in `CREDITS.txt` |
 | `src/driftsniff/web/static/vendor/inter/` | Inter, the variable upright face from `@fontsource-variable/inter` 5.3.0, unmodified: two `woff2` files, `inter.css` with the two faces, and `LICENSE` (SIL Open Font Licence 1.1); `base.html` links `inter.css` before `app.css` |
 | `src/driftsniff/web/static/htmx.min.js` | htmx 2.0.4, unmodified, linked without `defer` (the page change, `docs/design-direction.md` section 6); `htmx.min.js.LICENSE.txt` holds the version, the source, the file hashes and the Zero-Clause BSD licence text |
 | `src/driftsniff/web/static/brand/` | byte-for-byte copies of the brand files (the image copies only `src/`, so the running application never reads `brand/`) |
@@ -100,6 +101,14 @@ the folder; anything else is 404. The answer carries `Cache-Control: public, max
 middleware leaves `/static/` out of its `no-store` rule) and the security headers like every
 other answer. The route is listed in the route table as public.
 
+Every stylesheet and script link of the templates is written with `static_url()`
+(`web/templating.py`), which adds the build as `?v=<first 12 characters of the commit>` (the
+release version when the commit is unknown). A proxy in front of the app may keep a static file
+for hours (Development's kept them four hours on 14 November 2026); with the build in the
+address, a new image's pages never use an older build's kept stylesheet or script. The 3D module
+reads its own `?v=` and puts it on the model addresses. glTF, `.bin` and WebP are served as
+`model/gltf+json`, `application/octet-stream` and `image/webp`.
+
 ## 7. Checks
 
 - `tests/unit/test_templates.py`: the shell (landmarks, skip link, navigation, logo lockup,
@@ -107,8 +116,8 @@ other answer. The route is listed in the route table as public.
   policy rules over every template file; the helper functions.
 - `tests/unit/test_web_preferences.py`: the density cookie, the route (sign-in required, CSRF
   required, 422 on an odd value, foreign `next` refused, Secure over HTTPS).
-- `tests/unit/test_routes_static.py`: the stylesheet and htmx are served with the right type
-  and cache header; escapes and folders are 404.
+- `tests/unit/test_routes_static.py`: the stylesheet, htmx and a model are served with the
+  right type and cache header; a static address carries the build; escapes and folders are 404.
 - `tests/unit/test_check_contrast.py`: `app.css` carries the token values of the JSON.
 - `tests/security/test_route_table.py`: the two new routes are in the table and refuse the
   callers their access excludes.

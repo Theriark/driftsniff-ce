@@ -48,22 +48,28 @@ Later phases keep the same strip; the only data that changes is the list of chec
 ### The lab (3D)
 
 Above the drift lines the dashboard draws the sources as a small lab on a desk
-(`data-scene="lab"`, `static/scenes.js`; three.js r186 and two of its add-ons vendored in
+(`data-scene="lab"`, `static/scenes.js`; three.js r186 and five of its add-ons vendored in
 `static/vendor/three` with `PINNED.json`). Ruben chose this
 direction on 14 November 2026 over a 3D chart of the drift lines, which added nothing the strips
-did not say.
+did not say. The same day he rejected devices built in code ("both look garbage ... get the
+models ... from the internet"): the devices are real 3D models under CC BY 4.0, prepared in
+Blender and kept in `static/models/` with their credits in `static/models/CREDITS.txt`.
 
 | Element | Drawing | Meaning |
 |---|---|---|
-| Device | a low-poly device built in code by source type: 1U and 2U servers in an open rack (Proxmox VE, Xen Orchestra, TrueNAS, Redfish), desktop NAS units (Synology black, QNAP silver), a gateway (UniFi Network), a camera on a mast (UniFi Protect), a monitoring screen with a small chart (Grafana, Checkmk, Zabbix, Prometheus), a hub (Home Assistant), a container host (Portainer), a small box for anything else (a push source) | a source |
-| Status lights | the device's own LEDs (drive bays, rack unit lights, the gateway's display, a bead on the camera, the screen's bezel and the container host) in the colour of the worst open change: red `#E5392F` critical, orange `#F07A2A` high, amber `#E8B02A` medium, blue `#5F8FD6` low, with a faint glow of that colour on the desk; green when nothing is open | the worst open change of the source |
+| Device | a real model by source type: a server rack (Proxmox VE, Xen Orchestra, TrueNAS, Redfish), a router (UniFi Network), a camera on a mast (UniFi Protect), a desktop monitor with the product's own small chart on its screen (Grafana, Checkmk, Zabbix, Prometheus), a Raspberry Pi (Home Assistant), a small PC (Portainer, a push source and anything else); a NAS (Synology, QNAP) stands as the small PC until a licence-clean NAS model exists | a source |
+| Status lights | the model's own lit parts (the router's LEDs, the camera's glass) and a status LED where the model has none (a strip on the rack's front, a bead on the monitor's bezel and on the Pi and the small PC) in the colour of the worst open change: red `#E5392F` critical, orange `#F07A2A` high, amber `#E8B02A` medium, blue `#5F8FD6` low, with a faint glow of that colour on the desk; green when nothing is open | the worst open change of the source |
 | Dark lights | the LEDs dark grey, no glow | a source that is failing, partial, stale, unsupported, or not checked yet |
 
 Rules:
 
-- Racks, NAS units and screens stand in the back row, the camera, gateway, hub, container host
-  and small boxes in the front row, like with like and by name within a kind. A row wraps past
-  4.6 m; a rack holds ten sources before a second rack stands beside it.
+- Racks, NAS units and screens stand in the back row, the camera, router, Pi and small PCs in
+  the front row, like with like and by name within a kind; each source has a device of its own.
+  A row wraps past 4.6 m.
+- The models are plain glTF (a `.bin` and WebP textures of at most 512 px, no Draco), because
+  the content security policy allows no inline script, worker or `blob:` decoder; about 1.2 MB
+  for the six. A page fetches only the models of the kinds it shows, with the build's version on
+  the address; a model that fails to load stands as a plain box.
 - The scene reads its facts from the data attributes of the drift line rows
   (`data-source-type`, `data-open-items`, `data-worst-open`, `data-health`), so it never disagrees
   with the page and makes no request. The drift lines stay the record and the keyboard path; the
@@ -91,7 +97,7 @@ replaced a 3D chart of the heat map's cells on 14 November 2026, for the same re
 
 | Element | Drawing | Meaning |
 |---|---|---|
-| Device | the lab's device for this source's type; a racked server stands in a short rack of its own | the source of the page |
+| Device | the lab's model for this source's type, scaled so every kind stands at about the same size | the source of the page |
 | Card | a rounded panel with a stripe in the severity colour and three grey lines, larger with more change items, joined to the device by a dashed line; the cards of a day stand in an arc over the device, the worst in the middle, and turn to the viewer together; the device's status lights take the day's worst colour | one resource type that changed on the replay's day; its worst item gives the colour |
 
 The scene reads the cells (`data-day-index`, `data-counts`, the cell's `title`) and the source's

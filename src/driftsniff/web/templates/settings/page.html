@@ -15,11 +15,11 @@
 {% from "components/states.html" import banner, success_banner %}
 {% from "components/badges.html" import status_badge %}
 {% from "components/details.html" import time_tag, tab_strip %}
-{% block head %}<link rel="stylesheet" href="/static/summary-head.css">
-<link rel="stylesheet" href="/static/settings.css">
+{% block head %}<link rel="stylesheet" href="{{ static_url('summary-head.css') }}">
+<link rel="stylesheet" href="{{ static_url('settings.css') }}">
 {# the answer to a post that must not run again on a reload: a token or the key shown once, a
    test message; the script turns the history entry into GET /settings #}
-{% if created_token or signing_key or test_result %}<script src="/static/settings-once.js" defer></script>{% endif %}{% endblock %}
+{% if created_token or signing_key or test_result %}<script src="{{ static_url('settings-once.js') }}" defer></script>{% endif %}{% endblock %}
 
 {% macro meter_bar(id, meter) %}
 <svg class="meter{% if meter.over %} meter--over{% endif %}" viewBox="0 0 100 8" preserveAspectRatio="none" width="100%" height="8" role="img" aria-labelledby="{{ id }}-t">

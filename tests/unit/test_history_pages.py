@@ -44,7 +44,7 @@ from driftsniff.web.history_pages import (
     range_text,
     size_text,
 )
-from driftsniff.web.templating import TEMPLATES_DIR, Shell, render
+from driftsniff.web.templating import TEMPLATES_DIR, Shell, render, static_url
 
 NOW = datetime(2026, 10, 24, 9, 0, tzinfo=UTC)
 CSRF = "CANARY-csrf-value"
@@ -458,17 +458,17 @@ def test_the_history_pages_load_their_own_stylesheet() -> None:
         return [a.get("href") for a in Parsed(text).find("link") if a.get("rel") == "stylesheet"]
 
     assert sheets(render_picker("viewer", [])) == [
-        "/static/vendor/inter/inter.css",
-        "/static/app.css",
-        "/static/history.css",
+        static_url("vendor/inter/inter.css"),
+        static_url("app.css"),
+        static_url("history.css"),
     ]
     # the two pages of one source also load the detail head sheet, for the source tabs (THE-1161)
     for text in (render_history(history_view(())), render_configuration(config_view())):
         assert sheets(text) == [
-            "/static/vendor/inter/inter.css",
-            "/static/app.css",
-            "/static/history.css",
-            "/static/summary-head.css",
+            static_url("vendor/inter/inter.css"),
+            static_url("app.css"),
+            static_url("history.css"),
+            static_url("summary-head.css"),
         ]
 
 

@@ -13,7 +13,7 @@
 {% from "components/driftline.html" import drift_line %}
 {% from "components/details.html" import time_tag %}
 {% from "components/charts.html" import posture_ring, trend_chart, bar_list %}
-{% block head %}{% if dashboard.driftlines %}<script type="module" src="/static/scenes.js"></script>{% endif %}{% endblock %}
+{% block head %}{% if dashboard.driftlines %}<script type="module" src="{{ static_url('scenes.js') }}"></script>{% endif %}{% endblock %}
 {% block content %}
 {# One timeline entry: text, the named target (a link when it has a page), the tail, the time. #}
 {% macro activity_entry(entry) -%}

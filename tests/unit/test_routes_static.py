@@ -5,9 +5,11 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+from driftsniff import __version__
 from driftsniff.config import Settings
 from driftsniff.main import create_app
 from driftsniff.web.routes_static import STATIC_DIR, resolve_static
+from driftsniff.web.templating import static_url
 
 
 @pytest.fixture
@@ -80,3 +82,25 @@ def test_a_folder_is_not_served(client: TestClient) -> None:
 def test_the_static_folder_holds_the_shipped_files() -> None:
     names = {path.name for path in Path(STATIC_DIR).iterdir()}
     assert {"app.css", "htmx.min.js", "htmx.min.js.LICENSE.txt"} <= names
+
+
+def test_a_model_is_served_with_its_web_types_and_a_versioned_address_still_finds_it(
+    client: TestClient,
+) -> None:
+    for path, kind in (
+        ("models/screen/screen.gltf?v=0123456789ab", "model/gltf+json"),
+        ("models/screen/screen.bin", "application/octet-stream"),
+    ):
+        response = client.get(f"/static/{path}")
+        assert response.status_code == 200, path
+        assert response.headers["content-type"].startswith(kind), path
+    webp = next((STATIC_DIR / "models").rglob("*.webp"))
+    response = client.get(f"/static/{webp.relative_to(STATIC_DIR).as_posix()}")
+    assert response.headers["content-type"] == "image/webp"
+
+
+def test_a_static_address_carries_the_build_or_the_release(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DRIFTSNIFF_COMMIT", "0123456789abcdef0123456789abcdef01234567")
+    assert static_url("app.css") == "/static/app.css?v=0123456789ab"
+    monkeypatch.delenv("DRIFTSNIFF_COMMIT")
+    assert static_url("app.css") == f"/static/app.css?v={__version__}"

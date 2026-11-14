@@ -40,6 +40,7 @@ from driftsniff.web.templating import (
     relative_time,
     render,
     sparkline_points,
+    static_url,
     topbar_action,
 )
 
@@ -415,9 +416,9 @@ def test_the_shell_sends_the_csrf_value_in_the_htmx_header_and_configures_htmx()
     assert '"includeIndicatorStyles": false' in str(config["content"])
     # no defer: the script holds the parser until the stylesheets are in (the page change)
     scripts = parsed.find("script")
-    assert scripts == [{"src": "/static/htmx.min.js"}]
+    assert scripts == [{"src": static_url("htmx.min.js")}]
     sheets = [attrs["href"] for attrs in parsed.find("link") if attrs.get("rel") == "stylesheet"]
-    assert sheets == ["/static/vendor/inter/inter.css", "/static/app.css"]
+    assert sheets == [static_url("vendor/inter/inter.css"), static_url("app.css")]
 
 
 def test_the_csrf_value_is_escaped_in_the_header_attribute_and_the_form() -> None:
@@ -893,7 +894,7 @@ def test_no_template_file_has_a_style_attribute_or_an_inline_script() -> None:
         assert "javascript:" not in text, path.name
         for line in text.splitlines():
             if "<script" in line:
-                assert 'src="/static/' in line and "</script>" in line, path.name
+                assert "src=\"{{ static_url('" in line and "</script>" in line, path.name
 
 
 def test_the_stylesheet_and_htmx_are_shipped_with_a_licence_file() -> None:

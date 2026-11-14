@@ -34,7 +34,14 @@ const SEVERITY_LIGHT = { low: 0x4a6283, medium: 0x8a5f00, high: 0xa8441b, critic
 const ADDON_URLS = {
   RoundedBoxGeometry: "/static/vendor/three/addons/RoundedBoxGeometry.js",
   RoomEnvironment: "/static/vendor/three/addons/RoomEnvironment.js",
+  GLTFLoader: "/static/vendor/three/addons/GLTFLoader.js",
 };
+// The build's version (the `v` query the page put on this script's own address): the models are
+// fetched with it, so a new build is never drawn with models a browser or a cache kept from an
+// older one. three.js and its add-ons keep their plain addresses: they are pinned files, and
+// one address per module keeps them one module instance.
+const VERSION = new URL(import.meta.url).search;
+const modelUrl = (name) => `/static/models/${name}/${name}.gltf${VERSION}`;
 
 const WORDS = {
   noModule: "The 3D view could not be loaded. Reload the page; the view below shows the same facts.",
@@ -190,6 +197,7 @@ function buildStage(THREE, root, spec, data, options) {
   let lastTick = 0;
   const kit = {
     THREE, scene, material, pickable, data, addons, colours,
+    models: options.models,
     invalidate: () => invalidate(),
     billboard: (mesh) => billboards.push(mesh),
     // a pickable that left the scene (a card of an earlier day) is picked no more
@@ -493,18 +501,24 @@ const STATUS_OFF = 0x3a3d45;
 // The severity colours of the replay cards' stripes. In the dark theme the page's severity tokens are light
 // tints made for text on charcoal; lit in 3D they wash out to pink, so the lab uses deeper ones.
 const TOKEN_DARK = { low: 0x5f86c8, medium: 0xd9a52a, high: 0xe0702a, critical: 0xd8352b };
-// Where a source type stands in the lab: racked servers, desktop NAS units, network gear, the
-// camera, the monitoring screens, and small boxes for the rest (a push source included).
+// What a source type is in the lab: a server rack, a NAS, the gateway, a camera, a monitoring
+// screen, a Raspberry Pi (Home Assistant), a small PC (Portainer, and anything else).
 const KIND_OF = {
-  proxmox: "rack2", xo: "rack2", truenas: "rack2", redfish: "rack1",
-  synology: "nas-black", qnap: "nas-silver",
+  proxmox: "rack", xo: "rack", truenas: "rack", redfish: "rack",
+  synology: "nas", qnap: "nas",
   unifi: "gateway", unifi_protect: "camera",
   grafana: "screen", checkmk: "screen", zabbix: "screen", prometheus: "screen",
-  homeassistant: "hub", portainer: "containers",
+  homeassistant: "pi", portainer: "nuc",
 };
+const kindOf = (type) => KIND_OF[type] || "nuc";
+// The model of each kind (static/models/<name>/<name>.gltf, real models under CC BY 4.0, see
+// static/models/CREDITS.txt). The NAS has no licence-clean model yet and stands as a small PC.
+const MODEL_OF = { rack: "rack", nas: "nuc", gateway: "gateway", camera: "camera", screen: "screen", pi: "pi", nuc: "nuc" };
+// The room a kind takes in its row (metres) and the row it stands in.
+const FOOTPRINT = { rack: 0.72, nas: 0.36, screen: 0.56, camera: 0.36, gateway: 0.4, pi: 0.36, nuc: 0.36 };
+const BACK_ROW = new Set(["rack", "nas", "screen"]);
 // the line colour of a screen's little dashboard, per monitoring product
 const SCREEN_LINE = { grafana: "#f2a33a", checkmk: "#5fbf6e", zabbix: "#d9534f", prometheus: "#e6522c" };
-const RACK_CAPACITY = 10; // rack units per rack before a second rack stands beside it
 const ROW_WIDTH = 4.6; // a row of devices wraps to the next one past this width (metres)
 const UNHEALTHY = new Set(["failing", "partial", "stale", "unsupported"]);
 
@@ -512,7 +526,7 @@ const UNHEALTHY = new Set(["failing", "partial", "stale", "unsupported"]);
 
 // Everything a studio scene draws with (the lab of the dashboard, the replay of a source page).
 function workshop(kit) {
-const { THREE, scene, addons } = kit;
+  const { THREE, scene, addons } = kit;
   const RoundedBox = addons.RoundedBoxGeometry;
   const isDark = () => window.matchMedia("(prefers-color-scheme: dark)").matches;
   const tokenColour = (severity) => (isDark() ? TOKEN_DARK : SEVERITY_LIGHT)[severity];
@@ -559,86 +573,15 @@ const { THREE, scene, addons } = kit;
     }
   }
 
-  // ---- the devices (metres, roughly real) ----
-  function nas(body, led) {
+  // ---- the devices: clones of the real models ----
+  // A device is a clone of its kind's model with materials of its own (its lights are tinted
+  // per source), a status LED where the model has no lit part of its own, the monitoring
+  // screen's picture on the model's Screen surface, and the camera on a short mast.
+  function fallbackBox() {
     const g = new THREE.Group();
-    const shell = rbox(0.28, 0.24, 0.26, 0.018, body);
-    shell.position.y = 0.12;
-    g.add(shell);
-    for (let i = 0; i < 4; i += 1) {
-      const sled = rbox(0.042, 0.19, 0.01, 0.004, mat.graphite);
-      sled.position.set(-0.07 + i * 0.047, 0.125, 0.131);
-      g.add(sled);
-      leds(g, sled.position.x, 0.205, 0.137, 1, 0, led);
-    }
-    return g;
-  }
-  function rackUnit(units, front, led, ports) {
-    const g = new THREE.Group();
-    const h = 0.0445 * units - 0.004;
-    const body = block(0.48, h, 0.4, front);
-    body.position.y = h / 2;
-    g.add(body);
-    for (const x of [-0.25, 0.25]) {
-      const ear = block(0.02, h, 0.01, mat.steel);
-      ear.position.set(x, h / 2, 0.2);
-      g.add(ear);
-    }
-    if (ports) {
-      for (let i = 0; i < 24; i += 1) {
-        const port = block(0.012, 0.01, 0.004, mat.port);
-        port.position.set(-0.17 + (i % 12) * 0.022, h / 2 + (i < 12 ? 0.008 : -0.008), 0.201);
-        g.add(port);
-      }
-    } else {
-      for (let i = 0; i < 6; i += 1) {
-        const bay = block(0.05, h * 0.7, 0.004, mat.graphite);
-        bay.position.set(-0.14 + i * 0.056, h / 2, 0.201);
-        g.add(bay);
-      }
-    }
-    leds(g, 0.19, h / 2, 0.203, 2, 0.026, led);
-    g.userData.height = h;
-    return g;
-  }
-  function rackFrame(height) {
-    const g = new THREE.Group();
-    for (const x of [-0.27, 0.27]) {
-      for (const z of [-0.21, 0.21]) {
-        const post = block(0.03, height, 0.03, mat.black);
-        post.position.set(x, height / 2, z);
-        g.add(post);
-      }
-    }
-    const top = block(0.6, 0.03, 0.48, mat.black);
-    top.position.y = height;
-    const base = block(0.6, 0.05, 0.48, mat.black);
-    base.position.y = 0.025;
-    g.add(top, base);
-    return g;
-  }
-  function gateway() {
-    const g = new THREE.Group();
-    const body = rbox(0.24, 0.07, 0.2, 0.03, mat.white);
+    const body = rbox(0.24, 0.07, 0.2, 0.02, mat.black);
     body.position.y = 0.035;
-    const screen = new THREE.Mesh(new THREE.CircleGeometry(0.022, 32), glow(0x5fa8ff, 1.4));
-    screen.position.set(0, 0.04, 0.1005);
-    screen.userData.led = true;
-    g.add(body, screen);
-    return g;
-  }
-  function camera() {
-    const g = new THREE.Group();
-    const mast = block(0.025, 0.42, 0.025, mat.white);
-    mast.position.y = 0.21;
-    const arm = block(0.025, 0.025, 0.08, mat.white);
-    arm.position.set(0, 0.41, 0.03);
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.16, 32).rotateX(Math.PI / 2), mat.white);
-    body.position.set(0, 0.38, 0.1);
-    const lens = new THREE.Mesh(new THREE.CircleGeometry(0.026, 32), mat.glass);
-    lens.position.set(0, 0.38, 0.181);
-    g.add(mast, arm, body, lens);
-    leds(g, 0.022, 0.408, 0.17, 1, 0, OK);
+    g.add(body);
     return g;
   }
   function screenTexture(colour, seed) {
@@ -675,44 +618,6 @@ const { THREE, scene, addons } = kit;
     texture.colorSpace = THREE.SRGBColorSpace;
     return texture;
   }
-  function screen(colour, seed) {
-    const g = new THREE.Group();
-    const stand = block(0.03, 0.16, 0.03, mat.graphite);
-    stand.position.y = 0.08;
-    const foot = rbox(0.14, 0.012, 0.09, 0.005, mat.graphite);
-    foot.position.y = 0.006;
-    const frame = rbox(0.42, 0.26, 0.025, 0.008, mat.black);
-    frame.position.y = 0.29;
-    const texture = screenTexture(colour, seed);
-    const face = new THREE.Mesh(new THREE.PlaneGeometry(0.39, 0.23), m({ map: texture, emissive: 0xffffff, emissiveMap: texture, emissiveIntensity: 0.7 }));
-    face.position.set(0, 0.29, 0.0131);
-    g.add(stand, foot, frame, face);
-    leds(g, 0.175, 0.168, 0.0135, 1, 0, OK);
-    return g;
-  }
-  function hub(colour) {
-    const g = new THREE.Group();
-    const body = rbox(0.12, 0.05, 0.12, 0.02, colour);
-    body.position.y = 0.025;
-    g.add(body);
-    leds(g, 0, 0.03, 0.0605, 1, 0, OK);
-    return g;
-  }
-  function containers() {
-    const g = new THREE.Group();
-    const body = rbox(0.14, 0.055, 0.14, 0.01, mat.silver);
-    body.position.y = 0.0275;
-    g.add(body);
-    const blues = [0x2f7fd8, 0x3aa0e8, 0x1d5fa8].map((c) => m({ color: c, roughness: 0.4 }));
-    for (let i = 0; i < 5; i += 1) {
-      const crate = rbox(0.05, 0.035, 0.05, 0.004, blues[i % 3]);
-      crate.position.set(-0.035 + (i % 2) * 0.06, 0.075 + Math.floor(i / 2) * 0.04, (i % 3) * 0.01 - 0.01);
-      g.add(crate);
-    }
-    leds(g, 0.04, 0.03, 0.0705, 2, 0.024, OK);
-    return g;
-  }
-
   // ---- the status of a device: its own lights, no sign over it ----
   // The status lights take the colour of the worst open change (as on real kit: red, orange,
   // amber, blue); green when nothing is open; dark when the source is failing, stale or not
@@ -726,9 +631,14 @@ const { THREE, scene, addons } = kit;
   const pools = new Map();
   function light(device, source) {
     const colour = statusColour(source);
+    const off = colour === STATUS_OFF;
     device.traverse((part) => {
       if (part.isMesh && part.userData.led) {
-        part.material = glow(colour, colour === STATUS_OFF ? 0.15 : 3);
+        part.material = glow(colour, off ? 0.15 : 3);
+      } else if (part.isMesh && part.userData.lit) {
+        // the model's own lit parts (the router's LEDs, the camera's glass) take the colour
+        part.material.emissive.setHex(colour);
+        part.material.emissiveIntensity = off ? 0.05 : 1.4;
       }
     });
     if (pools.has(device)) {
@@ -746,26 +656,56 @@ const { THREE, scene, addons } = kit;
     }
   }
 
-  // the device of one source on its own (the replay's close-up); a racked server stands in a
-  // short rack of its own
+  // The device of one source: its kind's model, cloned. `kit.models` holds the loaded models
+  // (start() loads the ones the page needs); a kind whose model failed to load gets a plain box.
   function deviceFor(source) {
-    const kind = KIND_OF[source.type] || "box";
-    const led = OK;
-    if (kind === "rack1" || kind === "rack2") {
-      const g = new THREE.Group();
-      g.add(rackFrame(0.36));
-      const unit = rackUnit(kind === "rack1" ? 1 : 2, mat.black, led, false);
-      unit.position.y = 0.12;
-      g.add(unit);
-      return g;
+    const kind = kindOf(source.type);
+    const proto = kit.models && kit.models.get(MODEL_OF[kind]);
+    if (!proto) {
+      const box = fallbackBox();
+      leds(box, 0.09, 0.04, 0.101, 1, 0, OK);
+      return box;
     }
-    if (kind === "nas-black") return nas(mat.black, led);
-    if (kind === "nas-silver") return nas(mat.silver, led);
-    if (kind === "screen") return screen(SCREEN_LINE[source.type] || "#7fb0ff", (source.index || 0) + 1);
-    if (kind === "gateway") return gateway();
-    if (kind === "camera") return camera();
-    if (kind === "containers") return containers();
-    return hub(source.type === "homeassistant" ? mat.white : mat.silver);
+    const g = new THREE.Group();
+    const body = proto.clone(true);
+    body.traverse((part) => {
+      if (!part.isMesh) {
+        return;
+      }
+      part.material = part.material.clone();
+      if (part.name === "Screen") {
+        const picture = screenTexture(SCREEN_LINE[source.type] || "#7fb0ff", (source.index || 0) + 1);
+        part.material = m({ map: picture, emissive: 0xffffff, emissiveMap: picture, emissiveIntensity: 0.75, roughness: 0.3 });
+      } else if (part.material.emissiveMap) {
+        part.userData.lit = true;
+      }
+    });
+    if (kind === "camera") {
+      // the camera on a short mast, looking a little down
+      const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.016, 0.36, 16), mat.steel);
+      mast.position.y = 0.18;
+      const foot = rbox(0.09, 0.012, 0.09, 0.004, mat.graphite);
+      foot.position.y = 0.006;
+      body.position.y = 0.3;
+      body.rotation.x = 0.12;
+      g.add(mast, foot);
+    }
+    g.add(body);
+    // a status LED where the model has no lit part of its own: the rack's door, the bezel of
+    // the screen, the front of the Pi and of the small PC
+    g.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(g);
+    if (kind === "rack") {
+      const strip = block(0.012, 0.22, 0.006, glow(OK, 3));
+      strip.position.set(box.max.x - 0.06, box.max.y * 0.62, box.max.z + 0.004);
+      strip.userData.led = true;
+      g.add(strip);
+    } else if (kind === "screen") {
+      leds(g, box.max.x - 0.04, box.max.y * 0.43, box.max.z * 0.3, 1, 0, OK);
+    } else if (kind !== "camera" && kind !== "gateway") {
+      leds(g, box.max.x - 0.04, box.max.y + 0.004, box.max.z - 0.02, 1, 0, OK);
+    }
+    return g;
   }
 
   // the desk, centred on x 0 and on `z`; it receives the shadows
@@ -789,16 +729,15 @@ const { THREE, scene, addons } = kit;
     });
   }
 
-  return {
-    m, mat, glow, rbox, block, OK, nas, rackUnit, rackFrame, gateway, camera, screen, hub,
-    containers, light, tokenColour, paint, deviceFor, makeDesk, shade,
-  };
+  return { m, mat, glow, rbox, block, OK, light, tokenColour, paint, deviceFor, makeDesk, shade };
 }
 
 const LAB = {
   studio: true,
   fov: 30,
-  addons: ["RoundedBoxGeometry", "RoomEnvironment"],
+  addons: ["RoundedBoxGeometry", "RoomEnvironment", "GLTFLoader"],
+  // the models of the kinds on this page
+  models: (data) => [...new Set(data.sources.map((s) => MODEL_OF[kindOf(s.type)]))],
 
   // the sources, from the drift lines of the page and their data attributes
   read() {
@@ -831,34 +770,19 @@ const LAB = {
 
   build(kit) {
     const { THREE, scene, pickable } = kit;
-    const { mat, OK, nas, rackUnit, rackFrame, gateway, camera, screen, hub, containers, light, paint, makeDesk, shade } = workshop(kit);
+    const { light, paint, deviceFor, makeDesk, shade } = workshop(kit);
 
     // ---- the layout: a back row of racks, NAS units and screens, a front row of the rest ----
     const sources = kit.data.sources;
-    const racked = sources.filter((s) => KIND_OF[s.type] === "rack1" || KIND_OF[s.type] === "rack2");
     const back = [];
     const front = [];
-    const racks = [];
-    for (let i = 0; i < racked.length; i += RACK_CAPACITY) {
-      racks.push(racked.slice(i, i + RACK_CAPACITY));
-    }
-    racks.forEach((members) => back.push({ kind: "rack", members, width: 0.75 }));
     sources.forEach((source) => {
-      const kind = KIND_OF[source.type] || "box";
-      if (kind.startsWith("rack")) {
-        return;
-      }
-      if (kind.startsWith("nas")) {
-        back.push({ kind, source, width: 0.42 });
-      } else if (kind === "screen") {
-        back.push({ kind, source, width: 0.5 });
-      } else {
-        front.push({ kind, source, width: kind === "camera" ? 0.32 : kind === "gateway" ? 0.36 : 0.3 });
-      }
+      const kind = kindOf(source.type);
+      (BACK_ROW.has(kind) ? back : front).push({ kind, source, width: FOOTPRINT[kind] });
     });
     // like stands with like: racks, NAS units and screens at the back; camera, gateway, hub,
     // container host and small boxes at the front; by name within a kind
-    const ORDER = ["rack", "nas-black", "nas-silver", "screen", "camera", "gateway", "hub", "containers", "box"];
+    const ORDER = ["rack", "nas", "screen", "camera", "gateway", "pi", "nuc"];
     const byKind = (a, b) => ORDER.indexOf(a.kind) - ORDER.indexOf(b.kind) || (a.source ? a.source.index : 0) - (b.source ? b.source.index : 0);
     back.sort(byKind);
     front.sort(byKind);
@@ -882,7 +806,7 @@ const LAB = {
     const zOfBack = (i) => -0.45 - i * 0.75;
     const zOfFront = (i) => 0.3 + i * 0.5;
     const nodes = new Map();
-    let rackHeight = 0;
+    let tallest = 0.6;
 
     function place(row, z, depthTilt) {
       const total = row.reduce((sum, item) => sum + item.width, 0);
@@ -890,54 +814,19 @@ const LAB = {
       row.forEach((item) => {
         const centre = x + item.width / 2;
         x += item.width;
-        if (item.kind === "rack") {
-          const height = 0.18 + item.members.reduce((sum, s) => sum + (KIND_OF[s.type] === "rack1" ? 0.0445 : 0.089) + 0.012, 0) + 0.12;
-          rackHeight = Math.max(rackHeight, height);
-          const frame = rackFrame(height);
-          frame.position.set(centre, 0, z);
-          scene.add(frame);
-          let y = 0.08;
-          item.members.forEach((source, i) => {
-            const kind = KIND_OF[source.type];
-            const unit = rackUnit(kind === "rack1" ? 1 : 2, i % 2 ? mat.graphite : mat.black, OK, false);
-            unit.position.set(centre, y, z);
-            y += unit.userData.height + 0.012;
-            scene.add(unit);
-            light(unit, source);
-            nodes.set(source, unit);
-          });
-          return;
-        }
         const s = item.source;
-        let device;
-        if (item.kind === "nas-black") device = nas(mat.black, OK);
-        else if (item.kind === "nas-silver") device = nas(mat.silver, OK);
-        else if (item.kind === "screen") device = screen(SCREEN_LINE[s.type] || "#7fb0ff", s.index + 1);
-        else if (item.kind === "gateway") device = gateway();
-        else if (item.kind === "camera") device = camera();
-        else if (item.kind === "containers") device = containers();
-        else device = hub(s.type === "homeassistant" ? mat.white : mat.silver);
+        const device = deviceFor(s);
         device.position.set(centre, 0, z);
         device.rotation.y = depthTilt * (centre / Math.max(1, widest / 2));
         scene.add(device);
         nodes.set(s, device);
         light(device, s);
+        device.updateMatrixWorld(true);
+        tallest = Math.max(tallest, new THREE.Box3().setFromObject(device).max.y);
       });
     }
     backRows.forEach((row, i) => place(row, zOfBack(i), -0.22));
     frontRows.forEach((row, i) => place(row, zOfFront(i), -0.12));
-
-    // a source not yet checked, or switched off, stands dim
-    sources.forEach((source) => {
-      const device = nodes.get(source);
-      if (source.health === "open" && device) {
-        device.traverse((part) => {
-          if (part.isMesh && part.material && part.material.emissive && part.material.emissiveIntensity > 1) {
-            part.material = mat.off;
-          }
-        });
-      }
-    });
 
     // ---- the desk ----
     const deskWidth = widest + 0.9;
@@ -974,7 +863,7 @@ const LAB = {
     return {
       floor: false,
       // the camera fits the devices, not the whole desk (its edge may leave the frame)
-      extent: { wide: widest + 0.3, deep: deskDepth * 0.8, tall: Math.max(rackHeight, 0.6), x: 0, y: 0.18, z: (zMin + zMax) / 2 },
+      extent: { wide: widest + 0.3, deep: deskDepth * 0.8, tall: tallest, x: 0, y: 0.2, z: (zMin + zMax) / 2 },
       home: { yaw: -0.08, pitch: 0.42 },
       hint: "Point at a device to read its source; select it to open the source.",
       info: () => ({ sources: sources.length, devices: nodes.size, lit: sources.filter((s) => s.worst).length }),
@@ -994,7 +883,8 @@ const CARD_RISE_MS = 380;
 const REPLAY = {
   studio: true,
   fov: 30,
-  addons: ["RoundedBoxGeometry", "RoomEnvironment"],
+  addons: ["RoundedBoxGeometry", "RoomEnvironment", "GLTFLoader"],
+  models: (data) => [MODEL_OF[kindOf(data.type)]],
 
   // the cells of the heat map, the day cursor, and the source the page is about
   read(root) {
@@ -1055,6 +945,9 @@ const REPLAY = {
 
     // the device, lit as busy while the shown day has changes
     const device = w.deviceFor({ type: data.type, worst: "", items: 0, index: 0 });
+    // a close-up: every kind of device stands at about the same size (a Pi as large as a rack)
+    const size = new THREE.Box3().setFromObject(device).getSize(new THREE.Vector3());
+    device.scale.setScalar(0.7 / Math.max(size.x, size.y, size.z));
     scene.add(device);
     const deviceBox = new THREE.Box3().setFromObject(device);
     const deviceTop = deviceBox.max.y;
@@ -1277,6 +1170,13 @@ async function start(root) {
         say(WORDS.noModule);
         return;
       }
+    }
+    if (!options.models && spec.models) {
+      // the models of the devices on this page; one that fails to load stands as a plain box
+      const loader = new options.addons.GLTFLoader();
+      const names = spec.models(data);
+      const loaded = await Promise.all(names.map((name) => loader.loadAsync(modelUrl(name)).catch(() => null)));
+      options.models = new Map(names.map((name, i) => [name, loaded[i] && loaded[i].scene]).filter(([, model]) => model));
     }
     try {
       built = buildStage(library, root, spec, data, options);

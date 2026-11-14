@@ -11,6 +11,8 @@ text, the user initials. They take values and return values, so the template tes
 without the application.
 """
 
+import os
+import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -349,6 +351,33 @@ def topbar_action(shell: Shell) -> tuple[str, str] | None:
     return TOPBAR_ACTION
 
 
+COMMIT_ENV = "DRIFTSNIFF_COMMIT"
+UNKNOWN_COMMIT = "unknown"
+# The image build sets the full 40-character commit SHA; other short tokens (for example the
+# smoke test value) are passed through. Anything else is reported as unknown.
+_COMMIT_TOKEN = re.compile(r"[0-9A-Za-z._-]{1,64}")
+
+
+def build_commit() -> str:
+    """Return the commit this image was built from, or "unknown" when unset or malformed."""
+    value = os.environ.get(COMMIT_ENV, "").strip()
+    if _COMMIT_TOKEN.fullmatch(value) and value != UNKNOWN_COMMIT:
+        return value
+    return UNKNOWN_COMMIT
+
+
+def static_url(path: str) -> str:
+    """The address of a file of static/ with the build as its version (`?v=`).
+
+    A browser or a cache in front of the app keeps a static file for hours; with the build in
+    the address, a new image's pages fetch its own stylesheets and scripts, never an older
+    build's kept copy. Without a known commit the release version stands in.
+    """
+    commit = build_commit()
+    version = __version__ if commit == UNKNOWN_COMMIT else commit[:12]
+    return f"/static/{path}?v={version}"
+
+
 def make_environment() -> Environment:
     """The configured Jinja environment: escaping on, strict names, the helpers as globals."""
     environment = Environment(
@@ -360,6 +389,7 @@ def make_environment() -> Environment:
     )
     environment.globals.update(
         app_version=__version__,
+        static_url=static_url,
         nav_items=NAV_ITEMS,
         nav_groups=nav_groups,
         nav_location=nav_location,

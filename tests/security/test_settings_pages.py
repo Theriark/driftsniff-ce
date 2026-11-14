@@ -53,6 +53,7 @@ from driftsniff.sources.retention import MAX_RETENTION_DAYS, MIN_RETENTION_DAYS
 from driftsniff.web.bearer import MAX_EXPIRY_DAYS, hash_token
 from driftsniff.web.settings_page import UNKNOWN_FIELD_TEXT
 from driftsniff.web.settings_store import MAX_STORAGE_WARNING_GB, MIN_STORAGE_WARNING_GB
+from driftsniff.web.templating import static_url
 
 from .appkit import CORRECT, Kit, Session
 from .routekit import real_routes
@@ -578,10 +579,10 @@ def test_the_page_loads_its_stylesheet_after_the_shell(kit: Kit) -> None:
     text = show(kit, kit.new_session("admin")).text
     sheets = re.findall(r'<link rel="stylesheet" href="([^"]+)">', text)
     assert sheets == [
-        "/static/vendor/inter/inter.css",
-        "/static/app.css",
-        "/static/summary-head.css",
-        "/static/settings.css",
+        static_url("vendor/inter/inter.css"),
+        static_url("app.css"),
+        static_url("summary-head.css"),
+        static_url("settings.css"),
     ]
     css = kit.client.get("/static/settings.css")
     assert css.status_code == 200
@@ -600,7 +601,7 @@ def test_a_user_who_signs_in_after_a_disable_is_refused(kit: Kit) -> None:
 
 # ---- carry-overs of the PR 108 notes (THE-1269 review, THE-1278) -----------------------------
 
-ONCE_SCRIPT = '<script src="/static/settings-once.js" defer></script>'
+ONCE_SCRIPT = f'<script src="{static_url("settings-once.js")}" defer></script>'
 
 
 def test_every_number_field_carries_the_bounds_the_server_checks(kit: Kit) -> None:
