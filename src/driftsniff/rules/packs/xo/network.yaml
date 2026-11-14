@@ -6,6 +6,11 @@ rules:
     path: name_label
     severity: low
     rationale: The network was renamed, which changes only how people find it.
+  - id: xo.networks.name_description
+    resource: networks
+    path: name_description
+    severity: low
+    rationale: The description of the network changed, which is documentation only.
   - id: xo.networks.mtu
     resource: networks
     path: MTU

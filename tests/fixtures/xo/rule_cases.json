@@ -1,4 +1,9 @@
 [
+  {"rule": "xo.vms.name_description", "path": "name_description", "before": "", "after": "lab rack two", "severity": "low", "near": {"path": "name_label", "before": "a", "after": "b"}},
+  {"rule": "xo.hosts.name_description", "path": "name_description", "before": "", "after": "lab rack two", "severity": "low", "near": {"path": "name_label", "before": "a", "after": "b"}},
+  {"rule": "xo.pools.name_description", "path": "name_description", "before": "", "after": "lab rack two", "severity": "low", "near": {"path": "name_label", "before": "a", "after": "b"}},
+  {"rule": "xo.srs.name_description", "path": "name_description", "before": "", "after": "lab rack two", "severity": "low", "near": {"path": "name_label", "before": "a", "after": "b"}},
+  {"rule": "xo.networks.name_description", "path": "name_description", "before": "", "after": "lab rack two", "severity": "low", "near": {"path": "name_label", "before": "a", "after": "b"}},
   {"rule": "xo.vms.secure_boot_off", "path": "secureBoot", "before": true, "after": false, "severity": "high", "near": {"path": "secureBoot", "before": false, "after": true}},
   {"rule": "xo.vms.secure_boot_on", "path": "secureBoot", "before": false, "after": true, "severity": "low", "near": {"path": "secureBoot", "before": true, "after": false}},
   {"rule": "xo.vms.high_availability", "path": "high_availability", "before": "", "after": "restart", "severity": "medium", "near": {"path": "name_description", "before": "a", "after": "b"}},
