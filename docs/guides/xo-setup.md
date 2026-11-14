@@ -6,7 +6,15 @@ is written for the person who runs XO and the driftsniff admin.
 
 ## Read this first: what is checked and what is not
 
-- **No lab Xen Orchestra has been used.** The vendor reference was not read for this guide, and
+- **Checked on two lab Xen Orchestra 5 servers (2026-11-13)** with an administrator's
+  authentication token (the user page > Authentication tokens > New token, with an expiry date
+  and a description). The REST prefix `/rest/v0`, the cookie `authenticationToken`, the
+  collection names and the backup job settings keyed by schedule id are **VERIFIED** there; all
+  twenty collections answered, and a change to a pool description and its revert were reported.
+  Recent XO builds redirect `/rest/v0` itself to the API documentation; driftsniff checks the
+  credential on `/rest/v0/pools` instead. XO caps how long a token may live, so enter its expiry
+  date on the source to be warned before it runs out.
+- Before that check, no lab Xen Orchestra had been used. The vendor reference was not read for this guide, and
   `docs/lab-evidence.md` does not exist yet (Phase 0 tests X1 to X4 are open). Every statement about
   the XO side below is labelled **NOT VERIFIED** unless it says otherwise. Do not rely on a statement
   with that label for a production XO until it has been checked and dated here.

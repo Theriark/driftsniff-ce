@@ -1,9 +1,17 @@
 # driftsniff CE
 
-driftsniff Community Edition (CE) is a self-hosted tool that records changes to UniFi Network and
-Xen Orchestra configuration, keeps the before and after values, and gives each change an
-explainable risk label.
+driftsniff Community Edition (CE) is a self-hosted tool that records changes to the configuration
+of your network, virtualisation, storage, home automation and monitoring systems, keeps the before
+and after values, and gives each change an explainable risk label.
 
+It reads UniFi Network, UniFi Protect, Xen Orchestra, Proxmox VE, Portainer, TrueNAS, Synology DSM, QNAP, Redfish BMCs (iDRAC, iLO, Supermicro), Home Assistant, Grafana, Prometheus, Zabbix and Checkmk, and takes configurations that a sender pushes to it.
+
+> **The `development` branch is ahead of the last release candidate.** Since v27.0.0-rc.5 it
+> reads twelve more kinds of system (every one listed above except UniFi Network and Xen
+> Orchestra). TrueNAS, Portainer, Checkmk, Home Assistant, Grafana, Xen Orchestra and UniFi
+> Network have been read on real systems; the others are tested against simulations. The next
+> release candidate is v27.1.0-rc.1. Until it is tagged, the text below describes v27.0.0-rc.5.
+>
 > **Release candidate v27.0.0-rc.5.** This documentation describes the Development candidate
 > `40963ddf3b52f689ca48028611e79374ba362b8a` (image
 > `ghcr.io/theriark/driftsniff-ce@sha256:bb09f8a33c3ad95e8e52884dd887791a6d62862dee5a34d960ac6f12d1a44f16`).
@@ -27,8 +35,9 @@ name and value on it is synthetic test data.*
 
 ## What it does
 
-- Reads the configuration of UniFi Network and Xen Orchestra with read-only access, on a schedule,
-  or takes a configuration that a sender pushes to it.
+- Reads the configuration of UniFi Network, UniFi Protect, Xen Orchestra, Proxmox VE, Portainer, TrueNAS, Synology DSM, QNAP, Redfish BMCs (iDRAC, iLO, Supermicro), Home Assistant, Grafana, Prometheus, Zabbix and Checkmk with read-only access where the
+  system offers it, on a schedule, or takes a configuration that a sender pushes to it. Each one has
+  a setup guide in [docs/guides](docs/guides).
 - Stores only what changed, with the before and after values.
 - Keeps secret values out of storage: a secret is recorded as a keyed fingerprint only.
 - Labels each change low, medium, high or critical, and names the rule that produced the label and

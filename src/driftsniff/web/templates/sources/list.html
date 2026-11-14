@@ -17,7 +17,7 @@
 {{ page_header("Sources", "The systems driftsniff watches, and how each one answered its last check.") }}
 <div class="card">
   {% if can_admin %}
-  {{ empty_state("Nothing to watch yet", "Add a UniFi Network controller, a Xen Orchestra server or a push sender. driftsniff records every change from the first check.", "/sources/new", "Add source") }}
+  {{ empty_state("Nothing to watch yet", "Add a system to watch, such as a UniFi controller, a hypervisor, a NAS or a monitoring server, or a push sender. driftsniff records every change from the first check.", "/sources/new", "Add source") }}
   {% else %}
   {{ empty_state("No sources yet", "An admin adds the sources driftsniff watches. Ask an admin of this installation to add a UniFi Network or Xen Orchestra source.") }}
   {% endif %}

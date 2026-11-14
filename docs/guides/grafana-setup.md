@@ -6,9 +6,10 @@ organisation users, teams and service accounts.
 
 ## Read this first
 
-- **No lab Grafana has been used.** The API paths and fields come from the Grafana HTTP API
-  documentation, read on 2026-11-12 (`docs/vendor-notes/grafana.md`). The collector is tested
-  against a fake Grafana on localhost (`tests/contract/fake_grafana.py`), not a real server.
+- **Checked on a lab Grafana 13.3.0 (2026-11-13)** with a token of a service account with the
+  Admin role: the legacy `/api` paths still answer on 13.3, all ten resources answered, and a
+  folder rename and its revert were reported (low). The API paths and fields otherwise come from
+  the Grafana HTTP API documentation (`docs/vendor-notes/grafana.md`).
 - driftsniff **only reads**: it sends `GET` requests and nothing else. The token still has every
   right of its service account, so the role you give that account is the real limit.
 - One source reads one Grafana organisation, the one the service account belongs to.

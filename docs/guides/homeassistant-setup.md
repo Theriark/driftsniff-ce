@@ -6,10 +6,11 @@ person who runs Home Assistant and the driftsniff admin.
 
 ## Read this first
 
-- **No lab Home Assistant has been used.** Commands and fields come from the developer
-  documentation and the core source (`docs/vendor-notes/homeassistant.md`, read 2026-11-12).
-  Statements about the Home Assistant side are labelled **NOT VERIFIED** where they were not
-  checked in those sources.
+- **Checked on a lab Home Assistant 2026.10.4 (2026-11-13)**, and again after its update to
+  2026.11.1, with a long-lived token of an administrator: all eight resources answered (about
+  4,000 objects), and a change to an entity name and its revert were reported. Statements about
+  the Home Assistant side that the lab did not settle are labelled **NOT VERIFIED**
+  (`docs/vendor-notes/homeassistant.md`).
 - The client and the pipeline are tested against a fake Home Assistant on localhost
   (`tests/contract/fake_homeassistant.py`). That shows how driftsniff behaves for the names it
   expects, not that a real Home Assistant answers with them.
@@ -36,6 +37,8 @@ person who runs Home Assistant and the driftsniff admin.
    if driftsniff runs on that network. NOT VERIFIED: the menu names on your version.
 2. **Create a long-lived access token.** Sign in as that user, open the profile (bottom left) >
    Security > Long-lived access tokens > Create token, and copy it: Home Assistant shows it once.
+   If a banner says that a new version of the frontend is available, select **Update now** first:
+   the reload it does on its own would close the dialog with the token.
 3. **Add the source in driftsniff.** Sources > Add a source > Home Assistant.
    - Address: `https://home.example.invalid:8123` (no path).
    - Token: the long-lived access token.
