@@ -39,6 +39,11 @@ rules:
     path: name_label
     severity: low
     rationale: The virtual machine was renamed, which changes only how people find it.
+  - id: xo.vms.name_description
+    resource: vms
+    path: name_description
+    severity: low
+    rationale: The description of the virtual machine changed, which is documentation only.
   - id: xo.vms.memory
     resource: vms
     path: memory.**
@@ -76,6 +81,11 @@ rules:
     path: name_label
     severity: low
     rationale: The host was renamed, which changes only how people find it.
+  - id: xo.hosts.name_description
+    resource: hosts
+    path: name_description
+    severity: low
+    rationale: The description of the host changed, which is documentation only.
   - id: xo.pools.ha_enabled
     resource: pools
     path: HA_enabled
@@ -92,6 +102,11 @@ rules:
     path: name_label
     severity: low
     rationale: The pool was renamed, which changes only how people find it.
+  - id: xo.pools.name_description
+    resource: pools
+    path: name_description
+    severity: low
+    rationale: The description of the pool changed, which is documentation only.
   - id: xo.srs.in_maintenance
     resource: srs
     path: inMaintenanceMode
@@ -109,3 +124,8 @@ rules:
     path: name_label
     severity: low
     rationale: The storage repository was renamed, which changes only how people find it.
+  - id: xo.srs.name_description
+    resource: srs
+    path: name_description
+    severity: low
+    rationale: The description of the storage repository changed, which is documentation only.
