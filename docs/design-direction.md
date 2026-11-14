@@ -48,18 +48,16 @@ Later phases keep the same strip; the only data that changes is the list of chec
 ### The lab (3D)
 
 Above the drift lines the dashboard draws the sources as a small lab on a desk
-(`data-scene="lab"`, `static/scenes.js`; three.js r186 and five of its add-ons vendored in
-`static/vendor/three` with `PINNED.json`; the ferret in `static/models/ferret`). Ruben chose this
+(`data-scene="lab"`, `static/scenes.js`; three.js r186 and two of its add-ons vendored in
+`static/vendor/three` with `PINNED.json`). Ruben chose this
 direction on 14 November 2026 over a 3D chart of the drift lines, which added nothing the strips
 did not say.
 
 | Element | Drawing | Meaning |
 |---|---|---|
 | Device | a low-poly device built in code by source type: 1U and 2U servers in an open rack (Proxmox VE, Xen Orchestra, TrueNAS, Redfish), desktop NAS units (Synology black, QNAP silver), a gateway (UniFi Network), a camera on a mast (UniFi Protect), a monitoring screen with a small chart (Grafana, Checkmk, Zabbix, Prometheus), a hub (Home Assistant), a container host (Portainer), a small box for anything else (a push source) | a source |
-| Token | the interface's severity shape (octagon critical, diamond high, triangle medium, circle low) floating over the device, turned to the viewer, a little larger with more open items; beside the rack for a racked server | the worst open change of the source |
-| Grey ring | a hollow grey ring over the device | a source that is failing, partial, stale or unsupported and has nothing open |
-| Dim device | its status lights off | a source not checked yet, or switched off |
-| Ferret | the Driftsniff ferret, side-on in front of the device, playing its `idle_sniff` clip | the source that needs attention most: the highest worst severity, then the most open items; with nothing open it sits at the front and plays `look_around` |
+| Status lights | the device's own LEDs (drive bays, rack unit lights, the gateway's display, a bead on the camera, the screen's bezel and the container host) in the colour of the worst open change: red `#E5392F` critical, orange `#F07A2A` high, amber `#E8B02A` medium, blue `#5F8FD6` low, with a faint glow of that colour on the desk; green when nothing is open | the worst open change of the source |
+| Dark lights | the LEDs dark grey, no glow | a source that is failing, partial, stale, unsupported, or not checked yet |
 
 Rules:
 
@@ -73,16 +71,13 @@ Rules:
 - Pointing at a device lifts it and says its source and open items in the detail line under the
   stage; selecting it opens the source. Pointing at a drift line lifts its device.
 - Turn left, Turn right and Reset view turn the lab 22.5 degrees (a drag turns it too); the turn
-  is immediate under reduced motion. The ferret's clip plays only while the stage is in view and
-  the page is shown, and stands still (one pose) under reduced motion; otherwise a frame is drawn
-  only when something changed.
+  is immediate under reduced motion. A frame is drawn only when something changed, never while
+  the page is hidden or the stage is out of view.
 - Studio light: a room environment for the materials, filmic tone mapping and one shadow-casting
-  key light. In the dark theme the tokens use deeper severity colours (`#D8352B`, `#E0702A`,
-  `#D9A52A`, `#5F86C8`), because the page's dark severity tints are made for text and wash out
-  when lit. The desk follows the theme.
-- The ferret is plain glTF (no Draco, textures as separate WebP files), so it loads under the
-  content security policy without WebAssembly, workers or blob URLs; `NOTICE.txt` beside it says
-  where it comes from. If it cannot be loaded, the lab shows without it.
+  key light. The desk follows the theme. On 14 November 2026 Ruben rejected floating severity
+  signs over the devices ("all those red and yellow signs are garbage") and then the Driftsniff
+  ferret that sniffed at the worst source ("the ferret is too much", "remove the ferret"): the
+  status is on the devices, as on real kit, and the scenes hold devices only.
 - Without script the block stays hidden. With script the stylesheet keeps its room
   (`@media (scripting: enabled)`), and without WebGL 2 the block goes and three.js is never
   downloaded. The hide button keeps its choice in this browser only (`localStorage`
@@ -97,8 +92,7 @@ replaced a 3D chart of the heat map's cells on 14 November 2026, for the same re
 | Element | Drawing | Meaning |
 |---|---|---|
 | Device | the lab's device for this source's type; a racked server stands in a short rack of its own | the source of the page |
-| Card | a rounded panel with a stripe in the severity colour, three grey lines and the severity shape beside it, larger with more change items, joined to the device by a dashed line; the cards of a day stand in an arc over the device, the worst in the middle, and turn to the viewer together | one resource type that changed on the replay's day; its worst item gives the colour and the shape |
-| Ferret | the Driftsniff ferret beside the device, `idle_sniff` on a day with changes, `look_around` on a quiet day | |
+| Card | a rounded panel with a stripe in the severity colour and three grey lines, larger with more change items, joined to the device by a dashed line; the cards of a day stand in an arc over the device, the worst in the middle, and turn to the viewer together; the device's status lights take the day's worst colour | one resource type that changed on the replay's day; its worst item gives the colour |
 
 The scene reads the cells (`data-day-index`, `data-counts`, the cell's `title`) and the source's
 type (`data-source-type` on the replay section), and follows the cursor of the heat map through its

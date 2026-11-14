@@ -2,7 +2,7 @@
  * The 3D views of the interface (docs/design-direction.md, "The 3D views"). One ES module for
  * every scene; a page carries a block with data-scene="<kind>" and loads this file:
  * - lab: the dashboard's sources as devices on a desk, the severity shape of each source's worst
- *   open change above it and the Driftsniff ferret sniffing at the source that needs you most;
+ *   open change on its status lights;
  * - replay: the change replay of a source page, the source's own device with the resource types
  *   that changed on the replay's day rising out of it as cards.
  *
@@ -28,11 +28,10 @@ const HIDE_KEY = "ds-scenes";
 const TURN_STEP = Math.PI / 8;
 const TWEEN_MS = 300;
 const RANK = ["low", "medium", "high", "critical"];
-// the light theme's severity colours, as in app.css; the dark theme's 3D tokens are in the lab
+// the light theme's severity colours, as in app.css (the replay cards' stripes)
 const SEVERITY_LIGHT = { low: 0x4a6283, medium: 0x8a5f00, high: 0xa8441b, critical: 0xc8342b };
 // the add-ons a scene may ask for (spec.addons), vendored beside three.js, same release
 const ADDON_URLS = {
-  GLTFLoader: "/static/vendor/three/addons/GLTFLoader.js",
   RoundedBoxGeometry: "/static/vendor/three/addons/RoundedBoxGeometry.js",
   RoomEnvironment: "/static/vendor/three/addons/RoomEnvironment.js",
 };
@@ -176,9 +175,9 @@ function buildStage(THREE, root, spec, data, options) {
     picks.push(mesh);
   }
 
-  // meshes that turn to face the viewer as the scene turns (the severity tokens)
+  // meshes that turn to face the viewer as the scene turns (the replay's deck of cards)
   const billboards = [];
-  // per-frame updates (the ferret's animation): while any is set, frames keep coming, but only
+  // per-frame updates (the replay's cards rising): while one returns true, frames keep coming, but only
   // while the stage is in view, the page is shown and reduced motion is off
   const animators = [];
 
@@ -252,8 +251,9 @@ function buildStage(THREE, root, spec, data, options) {
     rafId = 0;
     const step = lastTick ? Math.min(0.1, (now - lastTick) / 1000) : 0;
     lastTick = now;
-    if (animators.length && !options.reducedMotion()) {
-      animators.forEach((update) => update(step));
+    // an animator returns true while it needs more frames (the replay's cards rising)
+    const busy = !options.reducedMotion() && animators.map((update) => update(step)).some(Boolean);
+    if (busy) {
       invalidate();
     } else {
       lastTick = 0;
@@ -486,8 +486,11 @@ function buildStage(THREE, root, spec, data, options) {
 
 // --- the lab of the dashboard --------------------------------------------------------------------
 
-const FERRET_URL = "/static/models/ferret/ferret.gltf";
-// The severity colours of the 3D tokens. In the dark theme the page's severity tokens are light
+// The colours of a device's status lights: the worst open change, as status LEDs show it on real
+// kit; green when nothing is open; dark grey for a source that is failing, stale or not checked.
+const STATUS_LIGHT = { low: 0x5f8fd6, medium: 0xe8b02a, high: 0xf07a2a, critical: 0xe5392f };
+const STATUS_OFF = 0x3a3d45;
+// The severity colours of the replay cards' stripes. In the dark theme the page's severity tokens are light
 // tints made for text on charcoal; lit in 3D they wash out to pink, so the lab uses deeper ones.
 const TOKEN_DARK = { low: 0x5f86c8, medium: 0xd9a52a, high: 0xe0702a, critical: 0xd8352b };
 // Where a source type stands in the lab: racked servers, desktop NAS units, network gear, the
@@ -505,7 +508,7 @@ const RACK_CAPACITY = 10; // rack units per rack before a second rack stands bes
 const ROW_WIDTH = 4.6; // a row of devices wraps to the next one past this width (metres)
 const UNHEALTHY = new Set(["failing", "partial", "stale", "unsupported"]);
 
-// --- the workshop: the devices, the severity tokens, the desk and the ferret of the 3D views ------
+// --- the workshop: the devices, their status lights and the desk of the 3D views ----------------
 
 // Everything a studio scene draws with (the lab of the dashboard, the replay of a source page).
 function workshop(kit) {
@@ -535,21 +538,14 @@ const { THREE, scene, addons } = kit;
     return glowCache.get(key);
   };
   const OK = 0x57c27a;
-  const BUSY = 0x7fb0ff;
 
-  // the desk and the tokens follow the theme (called again when the colour scheme changes)
+  // the desk follows the theme (called again when the colour scheme changes)
   function paint() {
     const dark = isDark();
     const p = kit.colours();
     mat.desk.color.setHex(dark ? p.lane : 0xd8d2c3);
     mat.deskEdge.color.setHex(dark ? p.none : 0xcfc9ba);
     scene.environmentIntensity = dark ? 0.55 : 0.8;
-    tokens.forEach((mesh) => {
-      if (mesh.userData.severity) {
-        mesh.material.color.setHex(tokenColour(mesh.userData.severity));
-        mesh.material.emissive.setHex(tokenColour(mesh.userData.severity));
-      }
-    });
   }
 
   const rbox = (w, h, d, r, material) => new THREE.Mesh(new RoundedBox(w, h, d, 3, r), material);
@@ -558,6 +554,7 @@ const { THREE, scene, addons } = kit;
     for (let i = 0; i < count; i += 1) {
       const led = block(0.018, 0.012, 0.004, glow(colour, 3));
       led.position.set(x0 + i * gap, y, z);
+      led.userData.led = true;
       group.add(led);
     }
   }
@@ -626,6 +623,7 @@ const { THREE, scene, addons } = kit;
     body.position.y = 0.035;
     const screen = new THREE.Mesh(new THREE.CircleGeometry(0.022, 32), glow(0x5fa8ff, 1.4));
     screen.position.set(0, 0.04, 0.1005);
+    screen.userData.led = true;
     g.add(body, screen);
     return g;
   }
@@ -640,6 +638,7 @@ const { THREE, scene, addons } = kit;
     const lens = new THREE.Mesh(new THREE.CircleGeometry(0.026, 32), mat.glass);
     lens.position.set(0, 0.38, 0.181);
     g.add(mast, arm, body, lens);
+    leds(g, 0.022, 0.408, 0.17, 1, 0, OK);
     return g;
   }
   function screenTexture(colour, seed) {
@@ -688,6 +687,7 @@ const { THREE, scene, addons } = kit;
     const face = new THREE.Mesh(new THREE.PlaneGeometry(0.39, 0.23), m({ map: texture, emissive: 0xffffff, emissiveMap: texture, emissiveIntensity: 0.7 }));
     face.position.set(0, 0.29, 0.0131);
     g.add(stand, foot, frame, face);
+    leds(g, 0.175, 0.168, 0.0135, 1, 0, OK);
     return g;
   }
   function hub(colour) {
@@ -695,7 +695,7 @@ const { THREE, scene, addons } = kit;
     const body = rbox(0.12, 0.05, 0.12, 0.02, colour);
     body.position.y = 0.025;
     g.add(body);
-    leds(g, 0, 0.03, 0.0605, 1, 0, BUSY);
+    leds(g, 0, 0.03, 0.0605, 1, 0, OK);
     return g;
   }
   function containers() {
@@ -709,65 +709,48 @@ const { THREE, scene, addons } = kit;
       crate.position.set(-0.035 + (i % 2) * 0.06, 0.075 + Math.floor(i / 2) * 0.04, (i % 3) * 0.01 - 0.01);
       g.add(crate);
     }
+    leds(g, 0.04, 0.03, 0.0705, 2, 0.024, OK);
     return g;
   }
 
-  // ---- the severity token over a device ----
-  function shapeOf(severity, r) {
-    const shape = new THREE.Shape();
-    const sides = { low: 0, medium: 3, high: 4, critical: 8 }[severity];
-    if (!sides) {
-      shape.absarc(0, 0, r, 0, Math.PI * 2, false);
-      return shape;
+  // ---- the status of a device: its own lights, no sign over it ----
+  // The status lights take the colour of the worst open change (as on real kit: red, orange,
+  // amber, blue); green when nothing is open; dark when the source is failing, stale or not
+  // checked yet. A device with open changes also casts a faint glow of that colour on the desk.
+  function statusColour(source) {
+    if (source.worst) {
+      return STATUS_LIGHT[source.worst];
     }
-    const turn = sides === 8 ? Math.PI / 8 : Math.PI / 2;
-    for (let i = 0; i <= sides; i += 1) {
-      const a = turn + (i / sides) * Math.PI * 2;
-      if (i) {
-        shape.lineTo(Math.cos(a) * r, Math.sin(a) * r);
-      } else {
-        shape.moveTo(Math.cos(a) * r, Math.sin(a) * r);
-      }
-    }
-    return shape;
+    return UNHEALTHY.has(source.health) || source.health === "open" ? STATUS_OFF : OK;
   }
-  const tokens = [];
-  // `parent` is the scene, or a group the token moves with (a card of the replay, which turns
-  // to the viewer as a whole, so its token is no billboard of its own)
-  function token(at, source, scale = 1, parent = scene) {
-    const unhealthy = UNHEALTHY.has(source.health);
-    if (!source.worst && !unhealthy) {
-      return null;
+  const pools = new Map();
+  function light(device, source) {
+    const colour = statusColour(source);
+    device.traverse((part) => {
+      if (part.isMesh && part.userData.led) {
+        part.material = glow(colour, colour === STATUS_OFF ? 0.15 : 3);
+      }
+    });
+    if (pools.has(device)) {
+      device.remove(pools.get(device));
+      pools.delete(device);
     }
-    let mesh;
-    if (!source.worst) {
-      mesh = new THREE.Mesh(new THREE.TorusGeometry(0.05 * scale, 0.008, 12, 40), m({ color: 0x6b7280, roughness: 0.5 }));
-    } else {
-      const colour = tokenColour(source.worst);
-      const r = (0.045 + Math.min(0.035, Math.log2(1 + source.items) * 0.005)) * scale;
-      const geometry = new THREE.ExtrudeGeometry(shapeOf(source.worst, r), { depth: 0.014, bevelEnabled: true, bevelSize: 0.004, bevelThickness: 0.004, bevelSegments: 2 });
-      geometry.center();
-      mesh = new THREE.Mesh(geometry, m({ color: colour, emissive: colour, emissiveIntensity: 0.12, roughness: 0.45, metalness: 0.05 }));
-      mesh.userData.severity = source.worst;
-      const lamp = new THREE.PointLight(colour, 0.12, 0.5, 2);
-      lamp.position.copy(at).add(new THREE.Vector3(0, -0.05, 0.05));
-      parent.add(lamp);
+    if (source.worst) {
+      device.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(device);
+      const pool = new THREE.PointLight(colour, 0.09, 0.32, 2);
+      // in the device's own frame: low, just in front of it
+      pool.position.copy(device.worldToLocal(new THREE.Vector3((box.min.x + box.max.x) / 2, 0.06, box.max.z + 0.07)));
+      device.add(pool);
+      pools.set(device, pool);
     }
-    mesh.position.copy(at);
-    mesh.castShadow = true;
-    if (parent === scene) {
-      kit.billboard(mesh);
-    }
-    tokens.push(mesh);
-    parent.add(mesh);
-    return mesh;
   }
 
   // the device of one source on its own (the replay's close-up); a racked server stands in a
   // short rack of its own
   function deviceFor(source) {
     const kind = KIND_OF[source.type] || "box";
-    const led = source.worst ? BUSY : OK;
+    const led = OK;
     if (kind === "rack1" || kind === "rack2") {
       const g = new THREE.Group();
       g.add(rackFrame(0.36));
@@ -806,34 +789,16 @@ const { THREE, scene, addons } = kit;
     });
   }
 
-  // the ferret, once loaded; `then(ferret, gltf)` places it. Without it the scene still says
-  // everything, so a failed load is silent.
-  function loadFerret(then) {
-    new addons.GLTFLoader()
-      .loadAsync(FERRET_URL)
-      .then((gltf) => {
-        gltf.scene.traverse((part) => {
-          if (part.isMesh) {
-            part.castShadow = true;
-            part.frustumCulled = false;
-          }
-        });
-        then(gltf.scene, gltf);
-        kit.invalidate();
-      })
-      .catch(() => {});
-  }
-
   return {
-    m, mat, glow, rbox, block, OK, BUSY, nas, rackUnit, rackFrame, gateway, camera, screen, hub,
-    containers, shapeOf, token, tokens, tokenColour, paint, deviceFor, makeDesk, shade, loadFerret,
+    m, mat, glow, rbox, block, OK, nas, rackUnit, rackFrame, gateway, camera, screen, hub,
+    containers, light, tokenColour, paint, deviceFor, makeDesk, shade,
   };
 }
 
 const LAB = {
   studio: true,
   fov: 30,
-  addons: ["RoundedBoxGeometry", "RoomEnvironment", "GLTFLoader"],
+  addons: ["RoundedBoxGeometry", "RoomEnvironment"],
 
   // the sources, from the drift lines of the page and their data attributes
   read() {
@@ -866,7 +831,7 @@ const LAB = {
 
   build(kit) {
     const { THREE, scene, pickable } = kit;
-    const { mat, OK, BUSY, nas, rackUnit, rackFrame, gateway, camera, screen, hub, containers, token, tokens, paint, makeDesk, shade, loadFerret } = workshop(kit);
+    const { mat, OK, nas, rackUnit, rackFrame, gateway, camera, screen, hub, containers, light, paint, makeDesk, shade } = workshop(kit);
 
     // ---- the layout: a back row of racks, NAS units and screens, a front row of the rest ----
     const sources = kit.data.sources;
@@ -932,26 +897,21 @@ const LAB = {
           frame.position.set(centre, 0, z);
           scene.add(frame);
           let y = 0.08;
-          let tokenY = Infinity;
           item.members.forEach((source, i) => {
             const kind = KIND_OF[source.type];
-            const led = UNHEALTHY.has(source.health) ? 0x6b7280 : source.worst ? BUSY : OK;
-            const unit = rackUnit(kind === "rack1" ? 1 : 2, i % 2 ? mat.graphite : mat.black, led, false);
+            const unit = rackUnit(kind === "rack1" ? 1 : 2, i % 2 ? mat.graphite : mat.black, OK, false);
             unit.position.set(centre, y, z);
             y += unit.userData.height + 0.012;
             scene.add(unit);
-            // the unit's token floats beside the rack at the unit's height, never on the one below
-            const want = unit.position.y + unit.userData.height / 2;
-            tokenY = tokenY === Infinity ? want + 0.04 : Math.max(want, tokenY + 0.13);
-            token(new THREE.Vector3(centre + 0.4, tokenY, z + 0.2), source, 0.7);
+            light(unit, source);
             nodes.set(source, unit);
           });
           return;
         }
         const s = item.source;
         let device;
-        if (item.kind === "nas-black") device = nas(mat.black, s.worst ? BUSY : OK);
-        else if (item.kind === "nas-silver") device = nas(mat.silver, s.worst ? BUSY : OK);
+        if (item.kind === "nas-black") device = nas(mat.black, OK);
+        else if (item.kind === "nas-silver") device = nas(mat.silver, OK);
         else if (item.kind === "screen") device = screen(SCREEN_LINE[s.type] || "#7fb0ff", s.index + 1);
         else if (item.kind === "gateway") device = gateway();
         else if (item.kind === "camera") device = camera();
@@ -961,8 +921,7 @@ const LAB = {
         device.rotation.y = depthTilt * (centre / Math.max(1, widest / 2));
         scene.add(device);
         nodes.set(s, device);
-        const box = new THREE.Box3().setFromObject(device);
-        token(new THREE.Vector3(centre, box.max.y + (item.kind === "camera" ? 0.07 : 0.11), z), s);
+        light(device, s);
       });
     }
     backRows.forEach((row, i) => place(row, zOfBack(i), -0.22));
@@ -1012,48 +971,14 @@ const LAB = {
       });
     });
 
-    // ---- the ferret, at the source that needs attention most ----
-    const worstFirst = sources
-      .filter((s) => s.worst && nodes.has(s))
-      .sort((a, b) => RANK.indexOf(b.worst) - RANK.indexOf(a.worst) || b.items - a.items);
-    let mixer = null;
-    const target = worstFirst[0];
-    loadFerret((ferret, gltf) => {
-      if (target) {
-        // side-on to the viewer just in front of the device, nose at its front corner
-        const box = new THREE.Box3().setFromObject(nodes.get(target));
-        const c = box.getCenter(new THREE.Vector3());
-        const z = box.max.z + 0.12;
-        ferret.position.set(c.x + 0.3, 0, z);
-        ferret.lookAt(c.x - 0.2, 0, z - 0.06);
-      } else {
-        // nothing open: it sits at the front and looks around
-        ferret.position.set(0, 0, zMax - 0.3);
-        ferret.rotation.y = -0.6;
-      }
-      scene.add(ferret);
-      mixer = new THREE.AnimationMixer(ferret);
-      const clip = gltf.animations.find((a) => a.name === (target ? "idle_sniff" : "look_around")) || gltf.animations[0];
-      if (clip) {
-        mixer.clipAction(clip).play();
-        mixer.update(1.1); // a natural pose when motion is reduced and nothing plays
-      }
-      kit.animate((step) => mixer && mixer.update(step));
-    });
-
     return {
       floor: false,
       // the camera fits the devices, not the whole desk (its edge may leave the frame)
       extent: { wide: widest + 0.3, deep: deskDepth * 0.8, tall: Math.max(rackHeight, 0.6), x: 0, y: 0.18, z: (zMin + zMax) / 2 },
       home: { yaw: -0.08, pitch: 0.42 },
       hint: "Point at a device to read its source; select it to open the source.",
-      info: () => ({ sources: sources.length, devices: nodes.size, tokens: tokens.length, ferret: Boolean(mixer), target: target ? target.name : "" }),
+      info: () => ({ sources: sources.length, devices: nodes.size, lit: sources.filter((s) => s.worst).length }),
       recolour: paint,
-      dispose() {
-        if (mixer) {
-          mixer.stopAllAction();
-        }
-      },
     };
   },
 };
@@ -1061,15 +986,15 @@ const LAB = {
 // --- the change replay of a source page --------------------------------------------------------
 
 // The source's own device on a desk; the resource types that changed on the replay's day rise out
-// of it as cards, each with the severity shape of its worst item; the ferret sniffs at the device
-// on a day with changes and looks around on a quiet one. The scene follows the heat map's day
-// cursor through its x attribute, so the replay's controls move it with no other wiring.
+// of it as cards with a stripe in the colour of their worst item, and the device's status lights
+// show the day's worst change. The scene follows the heat map's day cursor through its x
+// attribute, so the replay's controls move it with no other wiring.
 const CARD_RISE_MS = 380;
 
 const REPLAY = {
   studio: true,
   fov: 30,
-  addons: ["RoundedBoxGeometry", "RoomEnvironment", "GLTFLoader"],
+  addons: ["RoundedBoxGeometry", "RoomEnvironment"],
 
   // the cells of the heat map, the day cursor, and the source the page is about
   read(root) {
@@ -1164,7 +1089,7 @@ const REPLAY = {
 
     // the distance between two cards' centres: a card and its shape, closer when there are many
     function cardStep(n) {
-      return n > 1 ? Math.min(0.56, 2.4 / (n - 1)) : 0;
+      return n > 1 ? Math.min(0.42, 2.4 / (n - 1)) : 0;
     }
 
     function clearDeck() {
@@ -1197,7 +1122,6 @@ const REPLAY = {
         bar.position.set(-width * 0.12 + (i ? -0.04 * size : 0), height / 2 - 0.06 * size - i * 0.032 * size, 0.002);
         g.add(bar);
       }
-      w.token(new THREE.Vector3(width / 2 + 0.055 * size, 0, 0.01), { worst: cell.worst, items: cell.total, health: "ok" }, 0.95 * size, g);
       // a dashed line down to the device
       const line = new THREE.Line(
         new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, -height / 2, 0), new THREE.Vector3(-x, deviceTop - y + 0.01, 0)]),
@@ -1243,12 +1167,13 @@ const REPLAY = {
         const size = 0.85 + Math.min(0.45, Math.log2(1 + cell.total) * 0.08);
         cards.push(card(cell, x, y, size));
       });
+      // the device's lights show the day's worst change, green on a quiet day
+      w.light(device, { worst: ofDay.length ? ofDay[0].worst : "", health: "ok" });
       // the device's own words for the day
       const items = ofDay.reduce((sum, cell) => sum + cell.total, 0);
       deviceNode.label = items
         ? `This source on the replay's day: ${number(items)} change ${items === 1 ? "item" : "items"} in ${n} resource ${n === 1 ? "type" : "types"}.`
         : "This source on the replay's day: no change items.";
-      setFerret(Boolean(n));
       // the cards rise out of the device, unless motion is reduced
       if (!kit.reducedMotion() && cards.length) {
         rise = { start: performance.now() };
@@ -1264,7 +1189,7 @@ const REPLAY = {
 
     kit.animate(() => {
       if (!rise) {
-        return;
+        return false;
       }
       const t = Math.min(1, (performance.now() - rise.start) / CARD_RISE_MS);
       const e = 1 - (1 - t) * (1 - t);
@@ -1275,41 +1200,7 @@ const REPLAY = {
       if (t >= 1) {
         rise = null;
       }
-    });
-
-    // the ferret: sniffing at the device on a day with changes, looking around on a quiet one
-    let mixer = null;
-    let actions = {};
-    let ferretBusy = null;
-    function setFerret(busy) {
-      ferretBusy = busy;
-      if (!mixer) {
-        return;
-      }
-      const want = busy ? actions.idle_sniff : actions.look_around;
-      Object.values(actions).forEach((action) => {
-        if (action !== want) {
-          action.fadeOut(0.3);
-        }
-      });
-      if (want) {
-        want.reset().fadeIn(0.3).play();
-        if (kit.reducedMotion()) {
-          mixer.update(1.1);
-        }
-      }
-    }
-    w.loadFerret((ferret, gltf) => {
-      ferret.position.set(deviceBox.max.x + 0.32, 0, deviceBox.max.z + 0.1);
-      ferret.lookAt(deviceBox.max.x - 0.1, 0, deviceBox.max.z - 0.05);
-      scene.add(ferret);
-      mixer = new THREE.AnimationMixer(ferret);
-      gltf.animations.forEach((clip) => {
-        actions[clip.name] = mixer.clipAction(clip);
-      });
-      setFerret(Boolean(ferretBusy));
-      mixer.update(1.1);
-      kit.animate((step) => mixer && mixer.update(step));
+      return true;
     });
 
     const perDay = new Map();
@@ -1334,7 +1225,7 @@ const REPLAY = {
       extent: { wide: widestDeck + 0.5, deep: 0.8, tall: deviceTop + 0.75, x: 0, y: deviceTop * 0.5 + 0.28, z: 0 },
       home: { yaw: -0.18, pitch: 0.3 },
       hint: "The cards are the resource types that changed on the day of the replay. Point at one to read it; select it to open those changes.",
-      info: () => ({ cells: data.cells.length, days: data.days, day: shown, cards: cards.length, ferret: Boolean(mixer), type: data.type }),
+      info: () => ({ cells: data.cells.length, days: data.days, day: shown, cards: cards.length, type: data.type }),
       recolour() {
         w.paint();
         paintCards();
@@ -1342,9 +1233,6 @@ const REPLAY = {
       dispose() {
         watch.disconnect();
         clearDeck();
-        if (mixer) {
-          mixer.stopAllAction();
-        }
       },
     };
   },

@@ -71,13 +71,13 @@
     <h2 id="drift-h">Drift line, last 30 days</h2>
     <span class="hint">One mark per check; one per day for a source with more than 31 checks. Hover or focus a mark to read the event.</span>
   </div>
-  {# The 3D lab (scenes.js): every source as a device on a desk, the severity shape of its worst
-     open change above it, and the ferret at the source that needs attention most. Hidden until
+  {# The 3D lab (scenes.js): every source as a device on a desk, its status lights in the colour
+     of its worst open change. Hidden until
      the script has seen WebGL 2; the scene reads the data attributes of the drift lines below,
      which stay the record and the keyboard path. #}
   <div class="card scene" id="lab-scene" data-scene="lab" hidden>
     <div class="scene__bar">
-      <p class="scene__lead">Your sources as a lab: each device is a source. The shape above a device is its worst open change (octagon critical, diamond high, triangle medium, circle low); a grey ring is a source that is stale or failing. The ferret sniffs at the source that needs you most.</p>
+      <p class="scene__lead">Your sources as a lab: each device is a source. Its status lights show its worst open change (red critical, orange high, amber medium, blue low), green when nothing is open and dark when the source is failing or stale.</p>
       <button type="button" class="btn btn--small scene__toggle" hidden>Hide the 3D view</button>
     </div>
     <div class="scene__stage"></div>

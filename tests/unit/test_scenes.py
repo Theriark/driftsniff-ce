@@ -13,14 +13,7 @@ from pathlib import Path
 
 STATIC = Path(__file__).resolve().parents[2] / "src" / "driftsniff" / "web" / "static"
 THREE = STATIC / "vendor" / "three"
-FERRET = STATIC / "models" / "ferret"
-ADDONS = (
-    "addons/GLTFLoader.js",
-    "addons/BufferGeometryUtils.js",
-    "addons/SkeletonUtils.js",
-    "addons/RoundedBoxGeometry.js",
-    "addons/RoomEnvironment.js",
-)
+ADDONS = ("addons/RoundedBoxGeometry.js", "addons/RoomEnvironment.js")
 
 
 def test_three_is_the_pinned_release_unmodified() -> None:
@@ -38,9 +31,7 @@ def test_the_module_imports_only_the_vendored_library_and_keeps_the_policy() -> 
     assert re.findall(r"import\(([^)]*)\)", code) == ["THREE_URL", "ADDON_URLS[name]"]
     # the add-ons are the vendored ones, nothing else
     urls = re.findall(r'"(/static/vendor/three/addons/[A-Za-z]+\.js)"', code)
-    # the loader brings its two helpers itself
-    direct = ("addons/GLTFLoader.js", "addons/RoundedBoxGeometry.js", "addons/RoomEnvironment.js")
-    assert sorted(urls) == sorted(f"/static/vendor/three/{name}" for name in direct)
+    assert sorted(urls) == sorted(f"/static/vendor/three/{name}" for name in ADDONS)
     assert 'const THREE_URL = "/static/vendor/three/three.module.js";' in code
     assert "http" not in code
     for refused in (
@@ -98,19 +89,13 @@ def test_the_addons_are_the_pinned_release_with_only_their_imports_made_relative
         imports = re.findall(r"^(?:\} from|import .* from) '([^']+)';", text, re.M)
         assert imports, name
         for spec in imports:
-            assert spec in (
-                "../three.module.js",
-                "./BufferGeometryUtils.js",
-                "./SkeletonUtils.js",
-            ), (name, spec)
+            assert spec == "../three.module.js", (name, spec)
 
 
-def test_the_ferret_is_plain_gltf_that_loads_under_the_policy() -> None:
-    gltf = json.loads((FERRET / "ferret.gltf").read_text(encoding="utf-8"))
-    # no Draco (it needs WebAssembly and a worker) and no embedded image (a blob URL)
-    assert "KHR_draco_mesh_compression" not in gltf.get("extensionsUsed", [])
-    assert set(gltf.get("extensionsUsed", [])) <= {"EXT_texture_webp", "KHR_mesh_quantization"}
-    uris = [b["uri"] for b in gltf["buffers"]] + [i["uri"] for i in gltf["images"]]
-    assert all("/" not in uri and ":" not in uri and (FERRET / uri).is_file() for uri in uris)
-    assert {a["name"] for a in gltf["animations"]} == {"idle_sniff", "look_around"}
-    assert "Meshy" in (FERRET / "NOTICE.txt").read_text(encoding="utf-8")
+def test_a_source_shows_its_status_on_the_device_and_no_ferret_or_sign() -> None:
+    code = (STATIC / "scenes.js").read_text(encoding="utf-8")
+    # Ruben, 14 November 2026: no floating severity signs, then no ferret at all
+    assert "ExtrudeGeometry" not in code and "TorusGeometry" not in code
+    assert "const STATUS_LIGHT = {" in code and "function light(device, source)" in code
+    assert "ferret" not in code.lower() and "GLTFLoader" not in code
+    assert not (STATIC / "models").exists()
