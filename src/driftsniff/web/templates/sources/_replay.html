@@ -72,6 +72,23 @@
       <p class="replay-reduced" data-replay-reduced hidden>Reduced motion is on, so the replay moves only when you step or drag the slider.</p>
     </div>
 
+    {# The 3D replay (scenes.js): the cells of the map below as bars on a field of days and
+       resource types, with a pane on the day of the replay. Hidden until the script has seen
+       WebGL 2; the map stays the record and the keyboard path. #}
+    <div class="scene scene--inset" id="replay-scene" data-scene="replay" hidden>
+      <div class="scene__bar">
+        <p class="scene__lead">The same days in 3D: a bar per day and resource type, taller with more change items, stacked by severity from critical at the foot. The pane is the day of the replay; the days after it fade.</p>
+        <button type="button" class="btn btn--small scene__toggle" hidden>Hide the 3D view</button>
+      </div>
+      <div class="scene__stage"></div>
+      <div class="scene__tools" hidden>
+        <button type="button" class="btn btn--small scene__turn-left">Turn left</button>
+        <button type="button" class="btn btn--small scene__turn-right">Turn right</button>
+        <button type="button" class="btn btn--small scene__reset">Reset view</button>
+      </div>
+      <p class="scene__detail" aria-live="polite"></p>
+    </div>
+
     {# The names of the rows are a drawing of their own beside the scrolling cells, so a narrow
        screen scrolls the days and never the names; both draw one unit per CSS pixel. #}
     <div class="replay-map">

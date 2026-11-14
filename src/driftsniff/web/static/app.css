@@ -3538,3 +3538,14 @@ textarea.input {
     flex-direction: column;
   }
 }
+
+/* Inside the replay card the 3D view is a part of the card, not a card of its own. */
+.scene--inset {
+  margin: var(--sp-4) 0;
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--border);
+}
+
+.scene--inset .scene__stage {
+  height: clamp(240px, 32vw, 340px);
+}

@@ -54,3 +54,15 @@ def test_the_scene_waits_for_webgl2_and_hides_without_it() -> None:
     assert 'root.classList.add("is-unavailable")' in code
     css = (STATIC / "app.css").read_text(encoding="utf-8")
     assert "@media (scripting: enabled)" in css and ".scene.is-unavailable" in css
+
+
+def test_every_scene_kind_on_a_page_has_its_builder() -> None:
+    code = (STATIC / "scenes.js").read_text(encoding="utf-8")
+    assert "const SCENES = { drift: DRIFT, replay: REPLAY };" in code
+    templates = STATIC.parent / "templates"
+    kinds = set()
+    for page in templates.rglob("*.html"):
+        kinds.update(re.findall(r'data-scene="([a-z]+)"', page.read_text(encoding="utf-8")))
+    assert kinds == {"drift", "replay"}
+    # the replay scene follows the cursor of the 2D map and stops watching when it is put away
+    assert 'attributeFilter: ["x"]' in code and "watch.disconnect()" in code

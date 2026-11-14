@@ -1,7 +1,9 @@
 /*
  * The 3D views of the interface (docs/design-direction.md, "The 3D views"). One ES module for
  * every scene; a page carries a block with data-scene="<kind>" and loads this file:
- * - drift: the dashboard's drift lines drawn as a field, one lane per source over 30 days.
+ * - drift: the dashboard's drift lines drawn as a field, one lane per source over 30 days;
+ * - replay: the change replay of a source page, a bar per day and resource type, with a pane on
+ *   the day the replay controls have chosen.
  *
  * Same origin, no eval, nothing from outside: three.js r186 is vendored in
  * /static/vendor/three (hashes in PINNED.json) and is imported only after the browser has shown
@@ -519,7 +521,136 @@ const DRIFT = {
   },
 };
 
-const SCENES = { drift: DRIFT };
+// --- the change replay of a source page --------------------------------------------------------
+
+const REPLAY_PITCH = 0.42;
+const REPLAY_ROW = 0.9;
+const BAR = 0.34;
+
+const REPLAY = {
+  // the cells of the heat map, its days and rows, and the day cursor the replay moves
+  read(root) {
+    const section = root.closest("[data-replay]");
+    const map = section ? section.querySelector("[data-replay-map]") : null;
+    const cursor = section ? section.querySelector("[data-replay-cursor]") : null;
+    const days = section ? Number(section.getAttribute("data-days")) : 0;
+    const pitch = section ? Number(section.getAttribute("data-pitch")) : 0;
+    if (!map || !cursor || !(days > 0) || !(pitch > 0)) {
+      return null;
+    }
+    const cells = [];
+    let rows = section.querySelectorAll(".replay-track").length;
+    section.querySelectorAll(".replay-cell").forEach((cell) => {
+      const day = Number(cell.getAttribute("data-day-index"));
+      const row = Number(cell.getAttribute("data-row"));
+      const counts = (cell.getAttribute("data-counts") || "").split(" ").map(Number);
+      if (!Number.isInteger(day) || !Number.isInteger(row) || counts.length !== 4 || counts.some((n) => !(n >= 0))) {
+        return;
+      }
+      rows = Math.max(rows, row + 1);
+      const title = cell.querySelector("title");
+      cells.push({
+        day,
+        row,
+        counts,
+        element: cell,
+        href: localPath(cell.getAttribute("href")),
+        label: title ? title.textContent.trim() : cell.getAttribute("data-label") || "",
+      });
+    });
+    return cells.length ? { cells, days, rows, pitch, cursor, view: map } : null;
+  },
+
+  elementOf(target) {
+    return target.closest ? target.closest(".replay-cell") : null;
+  },
+
+  // A bar per cell, stacked by severity from critical at the foot to low on top, its height from
+  // the log of all its items; a pane stands on the day of the cursor and the days after it fade,
+  // as on the heat map. The scene follows the cursor through its x attribute.
+  build(kit) {
+    const { THREE, scene, material, box, pickable, data } = kit;
+    const wide = data.days * REPLAY_PITCH;
+    const deep = data.rows * REPLAY_ROW;
+    const xOf = (day) => -wide / 2 + (day + 0.5) * REPLAY_PITCH;
+    const zOf = (row) => -deep / 2 + (row + 0.5) * REPLAY_ROW;
+    const segments = [];
+    let tallest = 1;
+    for (let row = 0; row < data.rows; row += 1) {
+      const track = box("track", wide, 0.02, REPLAY_ROW * 0.7);
+      track.material = material("lane");
+      track.position.set(0, 0, zOf(row));
+      scene.add(track);
+    }
+    data.cells.forEach((cell) => {
+      const total = cell.counts.reduce((a, b) => a + b, 0);
+      if (!total) {
+        return;
+      }
+      const tall = height(total);
+      tallest = Math.max(tallest, tall);
+      let base = 0.02;
+      const node = { label: cell.label, href: cell.href, element: cell.element, parts: [] };
+      // one picked part per cell: the lowest segment carries the node, the others point to it
+      for (let s = RANK.length - 1; s >= 0; s -= 1) {
+        if (!cell.counts[s]) {
+          continue;
+        }
+        const part = box("bar", BAR, 1, BAR);
+        part.scale.y = (tall * cell.counts[s]) / total;
+        part.position.set(xOf(cell.day), base, zOf(cell.row));
+        base += part.scale.y;
+        part.userData.severity = RANK[s];
+        part.userData.day = cell.day;
+        segments.push(part);
+        node.parts.push(part);
+        scene.add(part);
+        if (!node.mesh) {
+          pickable(part, node);
+        } else {
+          part.userData.node = node;
+        }
+      }
+    });
+    // the day of the cursor: a thin pane across every row
+    const pane = new THREE.Mesh(
+      new THREE.BoxGeometry(REPLAY_PITCH * 0.92, 1, deep + 0.4).translate(0, 0.5, 0),
+      new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.12, depthWrite: false })
+    );
+    pane.scale.y = tallest + 0.3;
+    scene.add(pane);
+    let shown = -1;
+
+    function follow() {
+      const x = Number(data.cursor.getAttribute("x"));
+      const day = Math.max(0, Math.min(data.days - 1, Math.round(x / data.pitch)));
+      shown = day;
+      pane.position.set(xOf(day), 0, 0);
+      pane.material.color.setHex(token("--ink", 0x1e1e24));
+      segments.forEach((part) => {
+        part.material = material(part.userData.day > day ? "pale-" + part.userData.severity : part.userData.severity);
+      });
+      kit.invalidate();
+    }
+    const watch = new MutationObserver(follow);
+    watch.observe(data.cursor, { attributes: true, attributeFilter: ["x"] });
+    follow();
+
+    return {
+      extent: { wide, deep, tall: tallest, x: 0 },
+      home: { yaw: -0.42, pitch: 0.72 },
+      hint: "Point at a bar to read its day and resource type; select it to open those changes. The pane is the day of the replay.",
+      info: () => ({ cells: data.cells.length, days: data.days, rows: data.rows, day: shown }),
+      dispose() {
+        watch.disconnect();
+        pane.geometry.dispose();
+        pane.material.dispose();
+      },
+    };
+  },
+};
+
+const SCENES = { drift: DRIFT, replay: REPLAY };
 
 // --- the page: each block, its hide button and the three buttons under it ----------------------
 
