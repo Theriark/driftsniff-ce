@@ -39,7 +39,7 @@ choose Sign out. The sign-in page then confirms "Signed out".
 The start page answers two questions: what changed across your sources in the last 30 days, and
 what still needs a decision.
 
-![The full dashboard at 1440 px: stat cards, open items by severity, Needs attention, the 3D drift field above the drift lines, change items per day, where the open items are, and the activity timeline](images/dashboard-1440-full.png)
+![The full dashboard at 1440 px: stat cards, open items by severity, Needs attention, the 3D lab of your sources above the drift lines, change items per day, where the open items are, and the activity timeline](images/dashboard-1440-full.png)
 
 From the top:
 
@@ -54,12 +54,13 @@ From the top:
   with no change, a hollow tick a failed or partial check, and a coloured shape a change in the
   colour and shape of its highest severity. Point at or focus a mark to read the change; select it
   to open it.
-- **The 3D view** above the drift lines draws the same 30 days as a field: a lane per source, a
-  column per change (taller with more change items, in the shape and colour of its severity, pale
-  once acknowledged or resolved), and at the end of each lane a block for the source, coloured by
-  its worst open change. Point at a column or a block to read it, select it to open it, and turn
-  the field with Turn left, Turn right or a drag. Hide the 3D view puts it away in this browser
-  until you show it again. A browser without WebGL 2 shows only the drift lines.
+- **The 3D view** above the drift lines shows your sources as a small lab: each device is a
+  source (servers in a rack, NAS units, network gear, a camera, monitoring screens, a hub). The
+  shape above a device is its worst open change, in the same shapes as everywhere else; a grey
+  ring is a source that is failing or stale. The ferret sniffs at the source that needs you most.
+  Point at a device to read it and select it to open the source; turn the lab with Turn left,
+  Turn right or a drag. Hide the 3D view puts it away in this browser until you show it again. A
+  browser without WebGL 2 shows only the drift lines.
 - **Change items per day.** Thirty days stacked by severity. "Show the numbers as a table" gives
   the same numbers as text.
 - **Where the open items are.** Open items by source and by resource type.

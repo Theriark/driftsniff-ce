@@ -71,12 +71,13 @@
     <h2 id="drift-h">Drift line, last 30 days</h2>
     <span class="hint">One mark per check; one per day for a source with more than 31 checks. Hover or focus a mark to read the event.</span>
   </div>
-  {# The 3D drift field (scenes.js) draws the drift lines below as lanes. Hidden until the
-     script has seen WebGL 2, so without it the page is the drift lines alone; the scene reads the
-     data attributes of the marks, the lines stay the record and the keyboard path. #}
-  <div class="card scene" id="drift-scene" data-scene="drift" hidden>
+  {# The 3D lab (scenes.js): every source as a device on a desk, the severity shape of its worst
+     open change above it, and the ferret at the source that needs attention most. Hidden until
+     the script has seen WebGL 2; the scene reads the data attributes of the drift lines below,
+     which stay the record and the keyboard path. #}
+  <div class="card scene" id="lab-scene" data-scene="lab" hidden>
     <div class="scene__bar">
-      <p class="scene__lead">The same 30 days in 3D: a lane per source, a column per change. Taller is more change items; the shape and colour are the severity, pale once acknowledged or resolved. The block at the end of a lane is the source: all its items, coloured by its worst open change.</p>
+      <p class="scene__lead">Your sources as a lab: each device is a source. The shape above a device is its worst open change (octagon critical, diamond high, triangle medium, circle low); a grey ring is a source that is stale or failing. The ferret sniffs at the source that needs you most.</p>
       <button type="button" class="btn btn--small scene__toggle" hidden>Hide the 3D view</button>
     </div>
     <div class="scene__stage"></div>
@@ -90,7 +91,7 @@
   <div class="card">
     <div class="driftlines">
       {% for row in dashboard.driftlines %}
-      {{ drift_line(row.name, row.checks, row.id_prefix, href=row.href, meta=row.meta) }}
+      {{ drift_line(row.name, row.checks, row.id_prefix, href=row.href, meta=row.meta, data={"source-type": row.source_type, "open-items": row.open_items, "worst-open": row.worst_open, "health": row.health}) }}
       {% endfor %}
     </div>
     <ul class="legend" aria-label="Legend">

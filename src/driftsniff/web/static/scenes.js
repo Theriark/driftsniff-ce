@@ -1,7 +1,8 @@
 /*
  * The 3D views of the interface (docs/design-direction.md, "The 3D views"). One ES module for
  * every scene; a page carries a block with data-scene="<kind>" and loads this file:
- * - drift: the dashboard's drift lines drawn as a field, one lane per source over 30 days;
+ * - lab: the dashboard's sources as devices on a desk, the severity shape of each source's worst
+ *   open change above it and the Driftsniff ferret sniffing at the source that needs you most;
  * - replay: the change replay of a source page, a bar per day and resource type, with a pane on
  *   the day the replay controls have chosen.
  *
@@ -27,8 +28,14 @@ const HIDE_KEY = "ds-scenes";
 const TURN_STEP = Math.PI / 8;
 const TWEEN_MS = 300;
 const RANK = ["low", "medium", "high", "critical"];
-// the severity shapes of the interface as prism cross-sections: circle, triangle, diamond, octagon
-const SEGMENTS = { low: 24, medium: 3, high: 4, critical: 8 };
+// the light theme's severity colours, as in app.css; the dark theme's 3D tokens are in the lab
+const SEVERITY_LIGHT = { low: 0x4a6283, medium: 0x8a5f00, high: 0xa8441b, critical: 0xc8342b };
+// the add-ons a scene may ask for (spec.addons), vendored beside three.js, same release
+const ADDON_URLS = {
+  GLTFLoader: "/static/vendor/three/addons/GLTFLoader.js",
+  RoundedBoxGeometry: "/static/vendor/three/addons/RoundedBoxGeometry.js",
+  RoomEnvironment: "/static/vendor/three/addons/RoomEnvironment.js",
+};
 
 const WORDS = {
   noModule: "The 3D view could not be loaded. Reload the page; the view below shows the same facts.",
@@ -78,6 +85,10 @@ function localPath(value) {
   return typeof value === "string" && /^\/(?![/\\])[\x21-\x7e]*$/.test(value) ? value : "";
 }
 
+function number(value) {
+  return String(value).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
 function token(name, fallback) {
   const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   return /^#[0-9a-f]{6}$/i.test(value) ? parseInt(value.slice(1), 16) : fallback;
@@ -111,6 +122,7 @@ function height(count) {
 // registered with kit.pickable(mesh, {label, href, element}); `element` is the node of the 2D
 // view it stands for, so pointing at that node lights the mesh.
 function buildStage(THREE, root, spec, data, options) {
+  const addons = options.addons || {};
   const stage = root.querySelector(".scene__stage");
   const canvas = document.createElement("canvas");
   canvas.className = "scene__canvas";
@@ -119,10 +131,30 @@ function buildStage(THREE, root, spec, data, options) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(32, 2, 0.1, 400);
-  const sky = new THREE.HemisphereLight(0xffffff, 0x888888, 1.6);
-  const sun = new THREE.DirectionalLight(0xffffff, 1.4);
-  sun.position.set(-6, 14, 8);
+  const camera = new THREE.PerspectiveCamera(spec.fov || 32, 2, 0.05, 400);
+  // a scene with spec.studio gets soft studio light: a room environment for the materials,
+  // filmic tone mapping and one shadow-casting key light; the others keep the flat chart light
+  let sky;
+  let sun;
+  if (spec.studio && addons.RoomEnvironment) {
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    scene.environment = pmrem.fromScene(new addons.RoomEnvironment(), 0.04).texture;
+    pmrem.dispose();
+    sky = new THREE.HemisphereLight(0xffffff, 0x404048, 0.45);
+    sun = new THREE.DirectionalLight(0xffffff, 2.4);
+    sun.position.set(-4, 7, 5);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.radius = 4;
+    sun.shadow.bias = -0.0004;
+  } else {
+    sky = new THREE.HemisphereLight(0xffffff, 0x888888, 1.6);
+    sun = new THREE.DirectionalLight(0xffffff, 1.4);
+    sun.position.set(-6, 14, 8);
+  }
   scene.add(sky, sun);
 
   let palette = colours();
@@ -148,27 +180,22 @@ function buildStage(THREE, root, spec, data, options) {
     return materials.get(name);
   }
 
-  function prism(severity, size, tall) {
-    const segments = SEGMENTS[severity] || 24;
-    // a diamond stands on a corner, the others on a flat side facing the viewer
-    const turn = severity === "high" ? 0 : severity === "medium" ? Math.PI / 6 : Math.PI / segments;
-    const shape = geometry(`prism-${segments}-${size}`, () =>
-      new THREE.CylinderGeometry(size, size, 1, segments).rotateY(turn).translate(0, 0.5, 0)
-    );
-    const mesh = new THREE.Mesh(shape);
-    mesh.scale.y = tall;
-    return mesh;
-  }
-
   function box(key, x, y, z) {
     return new THREE.Mesh(geometry(key, () => new THREE.BoxGeometry(x, y, z).translate(0, y / 2, 0)));
   }
 
+  // a pickable may be a mesh or a group; a pick anywhere inside it finds its node
   function pickable(mesh, node) {
     node.mesh = mesh;
     mesh.userData.node = node;
     picks.push(mesh);
   }
+
+  // meshes that turn to face the viewer as the scene turns (the severity tokens)
+  const billboards = [];
+  // per-frame updates (the ferret's animation): while any is set, frames keep coming, but only
+  // while the stage is in view, the page is shown and reduced motion is off
+  const animators = [];
 
   // the drawing state comes first: a scene may ask for a frame while it is built
   let tween = null;
@@ -176,14 +203,30 @@ function buildStage(THREE, root, spec, data, options) {
   let inView = true;
   let lost = false;
   let hovered = null;
-  const kit = { THREE, scene, material, prism, box, pickable, data, invalidate: () => invalidate() };
+  let lastTick = 0;
+  const kit = {
+    THREE, scene, material, box, pickable, data, addons, colours,
+    invalidate: () => invalidate(),
+    billboard: (mesh) => billboards.push(mesh),
+    animate: (update) => {
+      animators.push(update);
+      invalidate();
+    },
+    reducedMotion: () => options.reducedMotion(),
+  };
   const built = spec.build(kit);
   const { extent } = built;
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(extent.wide + 2, extent.deep + 1.2), material("ground"));
-  floor.rotation.x = -Math.PI / 2;
-  floor.position.set(extent.x, 0, 0);
-  scene.add(floor);
-  const center = new THREE.Vector3(extent.x, extent.tall / 3, 0);
+  if (built.floor !== false) {
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(extent.wide + 2, extent.deep + 1.2), material("ground"));
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.set(extent.x, 0, 0);
+    scene.add(floor);
+  }
+  if (spec.studio) {
+    const reach = Math.max(extent.wide, extent.deep) * 0.7 + 1;
+    Object.assign(sun.shadow.camera, { left: -reach, right: reach, top: reach, bottom: -reach });
+  }
+  const center = new THREE.Vector3(extent.x, extent.y !== undefined ? extent.y : extent.tall / 3, extent.z || 0);
 
   const view = { yaw: built.home.yaw, pitch: built.home.pitch };
 
@@ -197,9 +240,12 @@ function buildStage(THREE, root, spec, data, options) {
     camera.position.set(
       center.x + distance * Math.cos(view.pitch) * Math.sin(view.yaw),
       center.y + distance * Math.sin(view.pitch),
-      distance * Math.cos(view.pitch) * Math.cos(view.yaw)
+      center.z + distance * Math.cos(view.pitch) * Math.cos(view.yaw)
     );
     camera.lookAt(center);
+    billboards.forEach((mesh) => {
+      mesh.rotation.y = view.yaw;
+    });
   }
 
   function draw() {
@@ -209,6 +255,14 @@ function buildStage(THREE, root, spec, data, options) {
 
   function frame(now) {
     rafId = 0;
+    const step = lastTick ? Math.min(0.1, (now - lastTick) / 1000) : 0;
+    lastTick = now;
+    if (animators.length && !options.reducedMotion()) {
+      animators.forEach((update) => update(step));
+      invalidate();
+    } else {
+      lastTick = 0;
+    }
     if (tween) {
       const t = Math.min(1, (now - tween.start) / TWEEN_MS);
       view.yaw = tween.from + (tween.to - tween.from) * (1 - (1 - t) * (1 - t));
@@ -253,14 +307,23 @@ function buildStage(THREE, root, spec, data, options) {
     if (hovered === node) {
       return;
     }
-    // a node may stand on several meshes (the stacked segments of a bar)
-    (hovered ? hovered.parts || [hovered.mesh] : []).forEach((mesh) => {
-      mesh.scale.x = mesh.scale.z = 1;
-    });
+    // a node may light itself (node.hover); otherwise its meshes widen (the segments of a bar)
+    const light = (item, on) => {
+      if (item.hover) {
+        item.hover(on);
+        return;
+      }
+      (item.parts || [item.mesh]).forEach((mesh) => {
+        mesh.scale.x = mesh.scale.z = on ? 1.35 : 1;
+      });
+    };
+    if (hovered) {
+      light(hovered, false);
+    }
     hovered = node;
-    (node ? node.parts || [node.mesh] : []).forEach((mesh) => {
-      mesh.scale.x = mesh.scale.z = 1.35;
-    });
+    if (node) {
+      light(node, true);
+    }
     options.say(node ? node.label : built.hint);
     canvas.classList.toggle("is-pointing", Boolean(node && node.href));
     invalidate();
@@ -272,8 +335,13 @@ function buildStage(THREE, root, spec, data, options) {
     const area = canvas.getBoundingClientRect();
     pointer.set(((event.clientX - area.left) / area.width) * 2 - 1, -((event.clientY - area.top) / area.height) * 2 + 1);
     ray.setFromCamera(pointer, camera);
-    const hit = ray.intersectObjects(picks, false)[0];
-    return hit ? hit.object.userData.node : null;
+    const hit = ray.intersectObjects(picks, true)[0];
+    for (let item = hit ? hit.object : null; item; item = item.parent) {
+      if (item.userData.node) {
+        return item.userData.node;
+      }
+    }
+    return null;
   }
 
   const controller = new AbortController();
@@ -367,6 +435,9 @@ function buildStage(THREE, root, spec, data, options) {
       palette = colours();
       renderer.setClearColor(palette.backdrop, 1);
       materials.forEach((item, name) => item.color.setHex(palette[name.replace(/^pale-/, "")]));
+      if (built.recolour) {
+        built.recolour(palette);
+      }
       invalidate();
     },
     { signal }
@@ -396,9 +467,21 @@ function buildStage(THREE, root, spec, data, options) {
       if (rafId) {
         window.cancelAnimationFrame(rafId);
       }
+      // everything the scene holds, shared or not (dispose is safe to repeat)
+      scene.traverse((item) => {
+        if (item.geometry) {
+          item.geometry.dispose();
+        }
+        (Array.isArray(item.material) ? item.material : item.material ? [item.material] : []).forEach((m) => {
+          Object.values(m).forEach((value) => value && value.isTexture && value.dispose());
+          m.dispose();
+        });
+      });
       geometries.forEach((item) => item.dispose());
       materials.forEach((item) => item.dispose());
-      floor.geometry.dispose();
+      if (scene.environment) {
+        scene.environment.dispose();
+      }
       scene.clear();
       renderer.dispose();
       renderer.forceContextLoss();
@@ -407,118 +490,524 @@ function buildStage(THREE, root, spec, data, options) {
   };
 }
 
-// --- the drift field of the dashboard ---------------------------------------------------------
+// --- the lab of the dashboard --------------------------------------------------------------------
 
-const DRIFT_DAYS = 30;
-const LANE_LENGTH = 18;
-const LANE_GAP = 1.3;
-// changes hours apart would stand in one spot; the drift line keeps the exact times
-const COLUMN_GAP = 0.6;
+const FERRET_URL = "/static/models/ferret/ferret.gltf";
+// The severity colours of the 3D tokens. In the dark theme the page's severity tokens are light
+// tints made for text on charcoal; lit in 3D they wash out to pink, so the lab uses deeper ones.
+const TOKEN_DARK = { low: 0x5f86c8, medium: 0xd9a52a, high: 0xe0702a, critical: 0xd8352b };
+// Where a source type stands in the lab: racked servers, desktop NAS units, network gear, the
+// camera, the monitoring screens, and small boxes for the rest (a push source included).
+const KIND_OF = {
+  proxmox: "rack2", xo: "rack2", truenas: "rack2", redfish: "rack1",
+  synology: "nas-black", qnap: "nas-silver",
+  unifi: "gateway", unifi_protect: "camera",
+  grafana: "screen", checkmk: "screen", zabbix: "screen", prometheus: "screen",
+  homeassistant: "hub", portainer: "containers",
+};
+// the line colour of a screen's little dashboard, per monitoring product
+const SCREEN_LINE = { grafana: "#f2a33a", checkmk: "#5fbf6e", zabbix: "#d9534f", prometheus: "#e6522c" };
+const RACK_CAPACITY = 10; // rack units per rack before a second rack stands beside it
+const ROW_WIDTH = 4.6; // a row of devices wraps to the next one past this width (metres)
+const UNHEALTHY = new Set(["failing", "partial", "stale", "unsupported"]);
 
-const DRIFT = {
-  // the lanes, from the drift lines of the page
-  read(root) {
+const LAB = {
+  studio: true,
+  fov: 30,
+  addons: ["RoundedBoxGeometry", "RoomEnvironment", "GLTFLoader"],
+
+  // the sources, from the drift lines of the page and their data attributes
+  read() {
     const list = document.querySelector(".driftlines");
-    const lanes = [];
     if (!list) {
       return null;
     }
-    list.querySelectorAll(".driftline").forEach((row) => {
+    const sources = [];
+    list.querySelectorAll(".driftline").forEach((row, index) => {
       const name = row.querySelector(".driftline__name");
-      const meta = row.querySelector(".driftline__meta");
-      const lane = {
-        label: [name ? name.textContent.trim() : "", meta ? meta.textContent.trim() : ""].filter(Boolean).join(", "),
+      const worst = row.getAttribute("data-worst-open") || "";
+      sources.push({
+        index,
+        name: name ? name.textContent.trim() : "",
         href: name ? localPath(name.getAttribute("href")) : "",
+        type: row.getAttribute("data-source-type") || "",
+        items: Math.max(0, Number(row.getAttribute("data-open-items")) || 0),
+        worst: RANK.includes(worst) ? worst : "",
+        health: row.getAttribute("data-health") || "",
         element: row,
-        checks: [],
-      };
-      row.querySelectorAll("[data-age]").forEach((mark) => {
-        const age = Number(mark.getAttribute("data-age"));
-        if (!Number.isFinite(age)) {
-          return;
-        }
-        const kind = mark.getAttribute("data-kind") || "ok";
-        const check = { kind, age, element: mark };
-        if (kind === "change") {
-          const severity = mark.getAttribute("data-severity");
-          check.severity = RANK.includes(severity) ? severity : "low";
-          check.items = Math.max(1, Number(mark.getAttribute("data-items")) || 1);
-          check.open = mark.getAttribute("data-status") === "open";
-          check.href = localPath(mark.getAttribute("href"));
-          check.label = mark.getAttribute("aria-label") || "";
-        }
-        lane.checks.push(check);
       });
-      const changes = lane.checks.filter((check) => check.kind === "change");
-      lane.items = changes.reduce((sum, check) => sum + check.items, 0);
-      const open = changes.filter((check) => check.open).map((check) => RANK.indexOf(check.severity));
-      lane.worst = open.length ? RANK[Math.max(...open)] : "";
-      lanes.push(lane);
     });
-    return lanes.length ? { lanes, view: list } : null;
+    return sources.length ? { sources, view: list } : null;
   },
 
-  // a mark or the name of a drift line stands for its column or block
+  // a drift line, or anything inside it, stands for its device
   elementOf(target) {
-    const found = target.closest ? target.closest(".driftline [data-age], .driftline__name") : null;
-    return found && found.classList.contains("driftline__name") ? found.closest(".driftline") : found;
+    return target.closest ? target.closest(".driftline") : null;
   },
 
   build(kit) {
-    const { scene, material, prism, box, pickable } = kit;
-    const lanes = kit.data.lanes;
-    // the lanes stretch with the number of sources, so a deep field still fills a wide stage
-    const length = Math.max(LANE_LENGTH, lanes.length * LANE_GAP * 2.2);
-    let tallest = 1;
-    lanes.forEach((lane, index) => {
-      const z = (index - (lanes.length - 1) / 2) * LANE_GAP;
-      const strip = box("strip", length, 0.02, 0.7);
-      strip.material = material("lane");
-      scene.add(strip);
-      strip.position.set(0, 0, z);
-      let next = Infinity;
-      const placed = lane.checks
-        .map((check) => ({ check, x: length / 2 - (Math.min(DRIFT_DAYS, Math.max(0, check.age)) / DRIFT_DAYS) * length }))
-        .sort((a, b) => b.x - a.x);
-      placed.forEach((item) => {
-        if (item.check.kind === "change") {
-          item.x = Math.min(item.x, next - COLUMN_GAP);
-          next = item.x;
+    const { THREE, scene, pickable, addons } = kit;
+    const RoundedBox = addons.RoundedBoxGeometry;
+    const isDark = () => window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const tokenColour = (severity) => (isDark() ? TOKEN_DARK : SEVERITY_LIGHT)[severity];
+    const m = (options) => new THREE.MeshStandardMaterial(options);
+    const mat = {
+      black: m({ color: 0x1b1c20, roughness: 0.45, metalness: 0.3 }),
+      graphite: m({ color: 0x2c2e34, roughness: 0.5, metalness: 0.5 }),
+      steel: m({ color: 0x9aa0a8, roughness: 0.35, metalness: 0.85 }),
+      white: m({ color: 0xeeeeea, roughness: 0.35 }),
+      silver: m({ color: 0xc4c7cc, roughness: 0.3, metalness: 0.7 }),
+      glass: m({ color: 0x0b0c10, roughness: 0.1, metalness: 0.2 }),
+      port: m({ color: 0x0c0c0e, roughness: 0.9 }),
+      desk: m({ roughness: 0.85 }),
+      deskEdge: m({ roughness: 0.8 }),
+      off: m({ color: 0x3a3b42, roughness: 0.6 }),
+    };
+    const glowCache = new Map();
+    const glow = (hex, strength = 2.2) => {
+      const key = hex + ":" + strength;
+      if (!glowCache.has(key)) {
+        glowCache.set(key, m({ color: hex, emissive: hex, emissiveIntensity: strength, roughness: 0.4 }));
+      }
+      return glowCache.get(key);
+    };
+    const OK = 0x57c27a;
+    const BUSY = 0x7fb0ff;
+
+    // the desk and the tokens follow the theme (called again when the colour scheme changes)
+    function paint() {
+      const dark = isDark();
+      const p = kit.colours();
+      mat.desk.color.setHex(dark ? p.lane : 0xd8d2c3);
+      mat.deskEdge.color.setHex(dark ? p.none : 0xcfc9ba);
+      scene.environmentIntensity = dark ? 0.55 : 0.8;
+      tokens.forEach((mesh) => {
+        if (mesh.userData.severity) {
+          mesh.material.color.setHex(tokenColour(mesh.userData.severity));
+          mesh.material.emissive.setHex(tokenColour(mesh.userData.severity));
         }
       });
-      placed.forEach(({ check, x }) => {
-        let mesh;
-        if (check.kind === "change") {
-          const tall = height(check.items);
-          tallest = Math.max(tallest, tall);
-          mesh = prism(check.severity, 0.26, tall);
-          mesh.material = material(check.open ? check.severity : "pale-" + check.severity);
-          pickable(mesh, { label: check.label, href: check.href, element: check.element });
-        } else if (check.kind === "failed") {
-          mesh = box("stub", 0.12, 0.12, 0.42);
-          mesh.material = material("ink");
+    }
+
+    const rbox = (w, h, d, r, material) => new THREE.Mesh(new RoundedBox(w, h, d, 3, r), material);
+    const block = (w, h, d, material) => new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
+    function leds(group, x0, y, z, count, gap, colour) {
+      for (let i = 0; i < count; i += 1) {
+        const led = block(0.018, 0.012, 0.004, glow(colour, 3));
+        led.position.set(x0 + i * gap, y, z);
+        group.add(led);
+      }
+    }
+
+    // ---- the devices (metres, roughly real) ----
+    function nas(body, led) {
+      const g = new THREE.Group();
+      const shell = rbox(0.28, 0.24, 0.26, 0.018, body);
+      shell.position.y = 0.12;
+      g.add(shell);
+      for (let i = 0; i < 4; i += 1) {
+        const sled = rbox(0.042, 0.19, 0.01, 0.004, mat.graphite);
+        sled.position.set(-0.07 + i * 0.047, 0.125, 0.131);
+        g.add(sled);
+        leds(g, sled.position.x, 0.205, 0.137, 1, 0, led);
+      }
+      return g;
+    }
+    function rackUnit(units, front, led, ports) {
+      const g = new THREE.Group();
+      const h = 0.0445 * units - 0.004;
+      const body = block(0.48, h, 0.4, front);
+      body.position.y = h / 2;
+      g.add(body);
+      for (const x of [-0.25, 0.25]) {
+        const ear = block(0.02, h, 0.01, mat.steel);
+        ear.position.set(x, h / 2, 0.2);
+        g.add(ear);
+      }
+      if (ports) {
+        for (let i = 0; i < 24; i += 1) {
+          const port = block(0.012, 0.01, 0.004, mat.port);
+          port.position.set(-0.17 + (i % 12) * 0.022, h / 2 + (i < 12 ? 0.008 : -0.008), 0.201);
+          g.add(port);
+        }
+      } else {
+        for (let i = 0; i < 6; i += 1) {
+          const bay = block(0.05, h * 0.7, 0.004, mat.graphite);
+          bay.position.set(-0.14 + i * 0.056, h / 2, 0.201);
+          g.add(bay);
+        }
+      }
+      leds(g, 0.19, h / 2, 0.203, 2, 0.026, led);
+      g.userData.height = h;
+      return g;
+    }
+    function rackFrame(height) {
+      const g = new THREE.Group();
+      for (const x of [-0.27, 0.27]) {
+        for (const z of [-0.21, 0.21]) {
+          const post = block(0.03, height, 0.03, mat.black);
+          post.position.set(x, height / 2, z);
+          g.add(post);
+        }
+      }
+      const top = block(0.6, 0.03, 0.48, mat.black);
+      top.position.y = height;
+      const base = block(0.6, 0.05, 0.48, mat.black);
+      base.position.y = 0.025;
+      g.add(top, base);
+      return g;
+    }
+    function gateway() {
+      const g = new THREE.Group();
+      const body = rbox(0.24, 0.07, 0.2, 0.03, mat.white);
+      body.position.y = 0.035;
+      const screen = new THREE.Mesh(new THREE.CircleGeometry(0.022, 32), glow(0x5fa8ff, 1.4));
+      screen.position.set(0, 0.04, 0.1005);
+      g.add(body, screen);
+      return g;
+    }
+    function camera() {
+      const g = new THREE.Group();
+      const mast = block(0.025, 0.42, 0.025, mat.white);
+      mast.position.y = 0.21;
+      const arm = block(0.025, 0.025, 0.08, mat.white);
+      arm.position.set(0, 0.41, 0.03);
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.16, 32).rotateX(Math.PI / 2), mat.white);
+      body.position.set(0, 0.38, 0.1);
+      const lens = new THREE.Mesh(new THREE.CircleGeometry(0.026, 32), mat.glass);
+      lens.position.set(0, 0.38, 0.181);
+      g.add(mast, arm, body, lens);
+      return g;
+    }
+    function screenTexture(colour, seed) {
+      const canvas = document.createElement("canvas");
+      canvas.width = 256;
+      canvas.height = 160;
+      const x = canvas.getContext("2d");
+      x.fillStyle = "#121318";
+      x.fillRect(0, 0, 256, 160);
+      x.strokeStyle = "#2a2d36";
+      for (let i = 1; i < 5; i += 1) {
+        x.beginPath();
+        x.moveTo(0, i * 32);
+        x.lineTo(256, i * 32);
+        x.stroke();
+      }
+      x.strokeStyle = colour;
+      x.lineWidth = 3;
+      x.beginPath();
+      for (let i = 0; i <= 32; i += 1) {
+        const v = 90 + Math.sin(i * 0.6 + seed) * 22 + Math.sin(i * 1.7 + seed * 2) * 10;
+        if (i) {
+          x.lineTo(i * 8, v);
         } else {
-          mesh = box("tick", 0.05, 0.2, 0.42);
-          mesh.material = material("tick");
+          x.moveTo(0, v);
         }
-        mesh.position.set(x, 0.02, z);
-        scene.add(mesh);
-      });
-      // the source: all its items, shape and colour of its worst open change
-      const tall = height(lane.items);
-      tallest = Math.max(tallest, tall);
-      const block = lane.worst ? prism(lane.worst, 0.5, tall) : box("block-none", 0.8, 1, 0.8);
-      block.scale.y = tall;
-      block.material = material(lane.worst || "none");
-      block.position.set(length / 2 + 1.3, 0.02, z);
-      pickable(block, { label: lane.label, href: lane.href, element: lane.element });
-      scene.add(block);
+      }
+      x.stroke();
+      for (let i = 0; i < 6; i += 1) {
+        x.fillStyle = i % 3 ? "#3b6ea8" : colour;
+        x.fillRect(12 + i * 40, 130, 28, 18);
+      }
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      return texture;
+    }
+    function screen(colour, seed) {
+      const g = new THREE.Group();
+      const stand = block(0.03, 0.16, 0.03, mat.graphite);
+      stand.position.y = 0.08;
+      const foot = rbox(0.14, 0.012, 0.09, 0.005, mat.graphite);
+      foot.position.y = 0.006;
+      const frame = rbox(0.42, 0.26, 0.025, 0.008, mat.black);
+      frame.position.y = 0.29;
+      const texture = screenTexture(colour, seed);
+      const face = new THREE.Mesh(new THREE.PlaneGeometry(0.39, 0.23), m({ map: texture, emissive: 0xffffff, emissiveMap: texture, emissiveIntensity: 0.7 }));
+      face.position.set(0, 0.29, 0.0131);
+      g.add(stand, foot, frame, face);
+      return g;
+    }
+    function hub(colour) {
+      const g = new THREE.Group();
+      const body = rbox(0.12, 0.05, 0.12, 0.02, colour);
+      body.position.y = 0.025;
+      g.add(body);
+      leds(g, 0, 0.03, 0.0605, 1, 0, BUSY);
+      return g;
+    }
+    function containers() {
+      const g = new THREE.Group();
+      const body = rbox(0.14, 0.055, 0.14, 0.01, mat.silver);
+      body.position.y = 0.0275;
+      g.add(body);
+      const blues = [0x2f7fd8, 0x3aa0e8, 0x1d5fa8].map((c) => m({ color: c, roughness: 0.4 }));
+      for (let i = 0; i < 5; i += 1) {
+        const crate = rbox(0.05, 0.035, 0.05, 0.004, blues[i % 3]);
+        crate.position.set(-0.035 + (i % 2) * 0.06, 0.075 + Math.floor(i / 2) * 0.04, (i % 3) * 0.01 - 0.01);
+        g.add(crate);
+      }
+      return g;
+    }
+
+    // ---- the severity token over a device ----
+    function shapeOf(severity, r) {
+      const shape = new THREE.Shape();
+      const sides = { low: 0, medium: 3, high: 4, critical: 8 }[severity];
+      if (!sides) {
+        shape.absarc(0, 0, r, 0, Math.PI * 2, false);
+        return shape;
+      }
+      const turn = sides === 8 ? Math.PI / 8 : Math.PI / 2;
+      for (let i = 0; i <= sides; i += 1) {
+        const a = turn + (i / sides) * Math.PI * 2;
+        if (i) {
+          shape.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+        } else {
+          shape.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+        }
+      }
+      return shape;
+    }
+    const tokens = [];
+    function token(at, source, scale = 1) {
+      const unhealthy = UNHEALTHY.has(source.health);
+      if (!source.worst && !unhealthy) {
+        return null;
+      }
+      let mesh;
+      if (!source.worst) {
+        mesh = new THREE.Mesh(new THREE.TorusGeometry(0.05 * scale, 0.008, 12, 40), m({ color: 0x6b7280, roughness: 0.5 }));
+      } else {
+        const colour = tokenColour(source.worst);
+        const r = (0.045 + Math.min(0.035, Math.log2(1 + source.items) * 0.005)) * scale;
+        const geometry = new THREE.ExtrudeGeometry(shapeOf(source.worst, r), { depth: 0.014, bevelEnabled: true, bevelSize: 0.004, bevelThickness: 0.004, bevelSegments: 2 });
+        geometry.center();
+        mesh = new THREE.Mesh(geometry, m({ color: colour, emissive: colour, emissiveIntensity: 0.12, roughness: 0.45, metalness: 0.05 }));
+        mesh.userData.severity = source.worst;
+        const lamp = new THREE.PointLight(colour, 0.12, 0.5, 2);
+        lamp.position.copy(at).add(new THREE.Vector3(0, -0.05, 0.05));
+        scene.add(lamp);
+      }
+      mesh.position.copy(at);
+      mesh.castShadow = true;
+      kit.billboard(mesh);
+      tokens.push(mesh);
+      scene.add(mesh);
+      return mesh;
+    }
+
+    // ---- the layout: a back row of racks, NAS units and screens, a front row of the rest ----
+    const sources = kit.data.sources;
+    const racked = sources.filter((s) => KIND_OF[s.type] === "rack1" || KIND_OF[s.type] === "rack2");
+    const back = [];
+    const front = [];
+    const racks = [];
+    for (let i = 0; i < racked.length; i += RACK_CAPACITY) {
+      racks.push(racked.slice(i, i + RACK_CAPACITY));
+    }
+    racks.forEach((members) => back.push({ kind: "rack", members, width: 0.75 }));
+    sources.forEach((source) => {
+      const kind = KIND_OF[source.type] || "box";
+      if (kind.startsWith("rack")) {
+        return;
+      }
+      if (kind.startsWith("nas")) {
+        back.push({ kind, source, width: 0.42 });
+      } else if (kind === "screen") {
+        back.push({ kind, source, width: 0.5 });
+      } else {
+        front.push({ kind, source, width: kind === "camera" ? 0.32 : kind === "gateway" ? 0.36 : 0.3 });
+      }
     });
+    // like stands with like: racks, NAS units and screens at the back; camera, gateway, hub,
+    // container host and small boxes at the front; by name within a kind
+    const ORDER = ["rack", "nas-black", "nas-silver", "screen", "camera", "gateway", "hub", "containers", "box"];
+    const byKind = (a, b) => ORDER.indexOf(a.kind) - ORDER.indexOf(b.kind) || (a.source ? a.source.index : 0) - (b.source ? b.source.index : 0);
+    back.sort(byKind);
+    front.sort(byKind);
+    // a long row wraps: back rows step away from the viewer, front rows towards
+    function rows(items) {
+      const result = [[]];
+      let width = 0;
+      items.forEach((item) => {
+        if (width + item.width > ROW_WIDTH && result[result.length - 1].length) {
+          result.push([]);
+          width = 0;
+        }
+        result[result.length - 1].push(item);
+        width += item.width;
+      });
+      return result.filter((row) => row.length);
+    }
+    const backRows = rows(back);
+    const frontRows = rows(front);
+    const widest = Math.max(...backRows.concat(frontRows).map((row) => row.reduce((sum, item) => sum + item.width, 0)), 1.6);
+    const zOfBack = (i) => -0.45 - i * 0.75;
+    const zOfFront = (i) => 0.3 + i * 0.5;
+    const nodes = new Map();
+    let rackHeight = 0;
+
+    function place(row, z, depthTilt) {
+      const total = row.reduce((sum, item) => sum + item.width, 0);
+      let x = -total / 2;
+      row.forEach((item) => {
+        const centre = x + item.width / 2;
+        x += item.width;
+        if (item.kind === "rack") {
+          const height = 0.18 + item.members.reduce((sum, s) => sum + (KIND_OF[s.type] === "rack1" ? 0.0445 : 0.089) + 0.012, 0) + 0.12;
+          rackHeight = Math.max(rackHeight, height);
+          const frame = rackFrame(height);
+          frame.position.set(centre, 0, z);
+          scene.add(frame);
+          let y = 0.08;
+          let tokenY = Infinity;
+          item.members.forEach((source, i) => {
+            const kind = KIND_OF[source.type];
+            const led = UNHEALTHY.has(source.health) ? 0x6b7280 : source.worst ? BUSY : OK;
+            const unit = rackUnit(kind === "rack1" ? 1 : 2, i % 2 ? mat.graphite : mat.black, led, false);
+            unit.position.set(centre, y, z);
+            y += unit.userData.height + 0.012;
+            scene.add(unit);
+            // the unit's token floats beside the rack at the unit's height, never on the one below
+            const want = unit.position.y + unit.userData.height / 2;
+            tokenY = tokenY === Infinity ? want + 0.04 : Math.max(want, tokenY + 0.13);
+            token(new THREE.Vector3(centre + 0.4, tokenY, z + 0.2), source, 0.7);
+            nodes.set(source, unit);
+          });
+          return;
+        }
+        const s = item.source;
+        let device;
+        if (item.kind === "nas-black") device = nas(mat.black, s.worst ? BUSY : OK);
+        else if (item.kind === "nas-silver") device = nas(mat.silver, s.worst ? BUSY : OK);
+        else if (item.kind === "screen") device = screen(SCREEN_LINE[s.type] || "#7fb0ff", s.index + 1);
+        else if (item.kind === "gateway") device = gateway();
+        else if (item.kind === "camera") device = camera();
+        else if (item.kind === "containers") device = containers();
+        else device = hub(s.type === "homeassistant" ? mat.white : mat.silver);
+        device.position.set(centre, 0, z);
+        device.rotation.y = depthTilt * (centre / Math.max(1, widest / 2));
+        scene.add(device);
+        nodes.set(s, device);
+        const box = new THREE.Box3().setFromObject(device);
+        token(new THREE.Vector3(centre, box.max.y + (item.kind === "camera" ? 0.07 : 0.11), z), s);
+      });
+    }
+    backRows.forEach((row, i) => place(row, zOfBack(i), -0.22));
+    frontRows.forEach((row, i) => place(row, zOfFront(i), -0.12));
+
+    // a source not yet checked, or switched off, stands dim
+    sources.forEach((source) => {
+      const device = nodes.get(source);
+      if (source.health === "open" && device) {
+        device.traverse((part) => {
+          if (part.isMesh && part.material && part.material.emissive && part.material.emissiveIntensity > 1) {
+            part.material = mat.off;
+          }
+        });
+      }
+    });
+
+    // ---- the desk ----
+    const deskWidth = widest + 0.9;
+    const zMin = zOfBack(backRows.length - 1) - 0.45;
+    const zMax = zOfFront(Math.max(0, frontRows.length - 1)) + 0.4;
+    const deskDepth = zMax - zMin;
+    const desk = rbox(deskWidth, 0.12, deskDepth, 0.04, mat.desk);
+    desk.position.set(0, -0.06, (zMin + zMax) / 2);
+    desk.receiveShadow = true;
+    const lip = rbox(deskWidth + 0.04, 0.04, deskDepth + 0.04, 0.02, mat.deskEdge);
+    lip.position.set(0, -0.1, (zMin + zMax) / 2);
+    scene.add(desk, lip);
+    paint();
+
+    scene.traverse((part) => {
+      if (part.isMesh && part !== desk && part !== lip) {
+        part.castShadow = true;
+        part.receiveShadow = true;
+      }
+    });
+
+    // ---- pointing and choosing ----
+    sources.forEach((source) => {
+      const device = nodes.get(source);
+      if (!device) {
+        return;
+      }
+      const state = source.worst
+        ? `${number(source.items)} open change ${source.items === 1 ? "item" : "items"}, worst ${source.worst}`
+        : UNHEALTHY.has(source.health)
+          ? `nothing open; the source is ${source.health}`
+          : source.health === "open"
+            ? "no check yet"
+            : "nothing open";
+      const rest = device.position.y;
+      pickable(device, {
+        label: `${source.name}: ${state}. Select it to open the source.`,
+        href: source.href,
+        element: source.element,
+        hover(on) {
+          device.position.y = on ? rest + 0.03 : rest;
+        },
+      });
+    });
+
+    // ---- the ferret, at the source that needs attention most ----
+    const worstFirst = sources
+      .filter((s) => s.worst && nodes.has(s))
+      .sort((a, b) => RANK.indexOf(b.worst) - RANK.indexOf(a.worst) || b.items - a.items);
+    let mixer = null;
+    const target = worstFirst[0];
+    new addons.GLTFLoader()
+      .loadAsync(FERRET_URL)
+      .then((gltf) => {
+        const ferret = gltf.scene;
+        ferret.traverse((part) => {
+          if (part.isMesh) {
+            part.castShadow = true;
+            part.frustumCulled = false;
+          }
+        });
+        ferret.scale.setScalar(1.0);
+        if (target) {
+          // side-on to the viewer just in front of the device, nose at its front corner
+          const box = new THREE.Box3().setFromObject(nodes.get(target));
+          const c = box.getCenter(new THREE.Vector3());
+          const z = box.max.z + 0.12;
+          ferret.position.set(c.x + 0.3, 0, z);
+          ferret.lookAt(c.x - 0.2, 0, z - 0.06);
+        } else {
+          // nothing open: it sits at the front and looks around
+          ferret.position.set(0, 0, zMax - 0.3);
+          ferret.rotation.y = -0.6;
+        }
+        scene.add(ferret);
+        mixer = new THREE.AnimationMixer(ferret);
+        const clip = gltf.animations.find((a) => a.name === (target ? "idle_sniff" : "look_around")) || gltf.animations[0];
+        if (clip) {
+          mixer.clipAction(clip).play();
+          mixer.update(1.1); // a natural pose when motion is reduced and nothing plays
+        }
+        kit.animate((step) => mixer && mixer.update(step));
+        kit.invalidate();
+      })
+      .catch(() => {
+        // without the ferret the lab still says everything; nothing to report
+      });
+
     return {
-      extent: { wide: length + 3, deep: lanes.length * LANE_GAP, tall: tallest, x: 0.6 },
-      home: { yaw: -0.28, pitch: 0.78 },
-      hint: "Point at a column or a block to read it; select it to open the change or the source.",
-      info: () => ({ lanes: lanes.length }),
+      floor: false,
+      // the camera fits the devices, not the whole desk (its edge may leave the frame)
+      extent: { wide: widest + 0.3, deep: deskDepth * 0.8, tall: Math.max(rackHeight, 0.6), x: 0, y: 0.18, z: (zMin + zMax) / 2 },
+      home: { yaw: -0.08, pitch: 0.42 },
+      hint: "Point at a device to read its source; select it to open the source.",
+      info: () => ({ sources: sources.length, devices: nodes.size, tokens: tokens.length, ferret: Boolean(mixer), target: target ? target.name : "" }),
+      recolour: paint,
+      dispose() {
+        if (mixer) {
+          mixer.stopAllAction();
+        }
+      },
     };
   },
 };
@@ -652,7 +1141,7 @@ const REPLAY = {
   },
 };
 
-const SCENES = { drift: DRIFT, replay: REPLAY };
+const SCENES = { lab: LAB, replay: REPLAY };
 
 // --- the page: each block, its hide button and the three buttons under it ----------------------
 
@@ -680,9 +1169,13 @@ async function start(root) {
   async function show() {
     root.classList.remove("is-closed");
     toggle.textContent = "Hide the 3D view";
-    if (!library) {
+    if (!library || !options.addons) {
       try {
-        library = await import(THREE_URL);
+        library = library || (await import(THREE_URL));
+        // each add-on module exports the class of its name
+        const names = spec.addons || [];
+        const modules = await Promise.all(names.map((name) => import(ADDON_URLS[name])));
+        options.addons = Object.fromEntries(names.map((name, i) => [name, modules[i][name]]));
       } catch (error) {
         say(WORDS.noModule);
         return;

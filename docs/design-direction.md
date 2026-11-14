@@ -45,44 +45,48 @@ and on the change detail as the short version (strip only, the event is the last
 
 Later phases keep the same strip; the only data that changes is the list of checks.
 
-### The drift field (3D)
+### The lab (3D)
 
-On the dashboard the drift lines are also drawn as a 3D field above them
-(`static/scenes.js`, three.js r186 vendored in `static/vendor/three` with `PINNED.json`).
-There is one lane per source, 30 days ago at the far end and today near the viewer's right:
+Above the drift lines the dashboard draws the sources as a small lab on a desk
+(`data-scene="lab"`, `static/scenes.js`; three.js r186 and five of its add-ons vendored in
+`static/vendor/three` with `PINNED.json`; the ferret in `static/models/ferret`). Ruben chose this
+direction on 14 November 2026 over a 3D chart of the drift lines, which added nothing the strips
+did not say.
 
 | Element | Drawing | Meaning |
 |---|---|---|
-| Tick | a thin `slate` slab | a check without change |
-| Stub | a low `ink` block | a failed or partial run |
-| Column | a prism with the severity cross-section (circle, triangle, diamond, octagon) in the severity colour; height grows with the log of the change items | a check that found changes; pale (32 % opacity) once the event is acknowledged or resolved |
-| Block | a wider prism at the end of the lane, height from all change items of the 30 days, shape and colour of the worst open severity, a grey box when nothing is open | the source |
+| Device | a low-poly device built in code by source type: 1U and 2U servers in an open rack (Proxmox VE, Xen Orchestra, TrueNAS, Redfish), desktop NAS units (Synology black, QNAP silver), a gateway (UniFi Network), a camera on a mast (UniFi Protect), a monitoring screen with a small chart (Grafana, Checkmk, Zabbix, Prometheus), a hub (Home Assistant), a container host (Portainer), a small box for anything else (a push source) | a source |
+| Token | the interface's severity shape (octagon critical, diamond high, triangle medium, circle low) floating over the device, turned to the viewer, a little larger with more open items; beside the rack for a racked server | the worst open change of the source |
+| Grey ring | a hollow grey ring over the device | a source that is failing, partial, stale or unsupported and has nothing open |
+| Dim device | its status lights off | a source not checked yet, or switched off |
+| Ferret | the Driftsniff ferret, side-on in front of the device, playing its `idle_sniff` clip | the source that needs attention most: the highest worst severity, then the most open items; with nothing open it sits at the front and plays `look_around` |
 
 Rules:
 
-- The scene reads its facts from the data attributes of the drift line marks (`data-kind`,
-  `data-age`, and for a change `data-severity`, `data-items`, `data-status`), so it never
-  disagrees with the page and makes no request.
-- The drift lines stay the record and the keyboard path. The canvas is `aria-hidden`, and
-  nothing is written inside the scene.
-- Pointing at a column or a block shows its words in the detail line under the stage, and
-  selecting it opens the change or the source. Pointing at a mark or a name of a drift line
-  lights its column or block.
-- Turn left, Turn right and Reset view turn the field 22.5 degrees around its middle (a drag
-  turns it too). The turn is immediate under reduced motion. Nothing moves by itself, and a
-  frame is drawn only when something changed, never while the page is hidden or the stage is
-  out of view.
-- Changes a few hours apart keep 0.6 units between their columns. The drift line keeps the
-  exact times. The lanes stretch with the number of sources (at least 18 units, 2.86 units per
-  source), so a deep field still fills the wide stage and its columns spread out.
-- The camera fits the whole field, lanes and blocks, for the current turn and stage size; the
-  view starts slightly turned (yaw -0.28) and looks down at about 45 degrees.
-- The colours come from the stylesheet tokens (`surface`, `paper`, `surface-2`, `slate`, `ink`,
-  the four severities), so the field follows the light and dark themes.
+- Racks, NAS units and screens stand in the back row, the camera, gateway, hub, container host
+  and small boxes in the front row, like with like and by name within a kind. A row wraps past
+  4.6 m; a rack holds ten sources before a second rack stands beside it.
+- The scene reads its facts from the data attributes of the drift line rows
+  (`data-source-type`, `data-open-items`, `data-worst-open`, `data-health`), so it never disagrees
+  with the page and makes no request. The drift lines stay the record and the keyboard path; the
+  canvas is `aria-hidden` and nothing is written inside the scene.
+- Pointing at a device lifts it and says its source and open items in the detail line under the
+  stage; selecting it opens the source. Pointing at a drift line lifts its device.
+- Turn left, Turn right and Reset view turn the lab 22.5 degrees (a drag turns it too); the turn
+  is immediate under reduced motion. The ferret's clip plays only while the stage is in view and
+  the page is shown, and stands still (one pose) under reduced motion; otherwise a frame is drawn
+  only when something changed.
+- Studio light: a room environment for the materials, filmic tone mapping and one shadow-casting
+  key light. In the dark theme the tokens use deeper severity colours (`#D8352B`, `#E0702A`,
+  `#D9A52A`, `#5F86C8`), because the page's dark severity tints are made for text and wash out
+  when lit. The desk follows the theme.
+- The ferret is plain glTF (no Draco, textures as separate WebP files), so it loads under the
+  content security policy without WebAssembly, workers or blob URLs; `NOTICE.txt` beside it says
+  where it comes from. If it cannot be loaded, the lab shows without it.
 - Without script the block stays hidden. With script the stylesheet keeps its room
   (`@media (scripting: enabled)`), and without WebGL 2 the block goes and three.js is never
   downloaded. The hide button keeps its choice in this browser only (`localStorage`
-  `ds-scenes`), and leaving the page disposes every geometry, material and the renderer.
+  `ds-scenes`), and leaving the page disposes every geometry, material, texture and the renderer.
 
 ### The change replay (3D)
 
@@ -98,8 +102,8 @@ On a source page the change replay has the same kind of 3D view above its heat m
 The scene reads the cells (`data-day-index`, `data-row`, `data-counts`, the cell's `title`) and
 follows the cursor of the heat map through its `x` attribute, so Previous day, Next day, Play and
 the slider move the pane without any other wiring. Pointing at a cell of the map lights its bar;
-selecting a bar opens the changes of that day and resource type. The rules of the drift field
-apply.
+selecting a bar opens the changes of that day and resource type. The rules of the lab apply
+(without the studio light and the ferret).
 
 ## 3. Logo and clear space
 

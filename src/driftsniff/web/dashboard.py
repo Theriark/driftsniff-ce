@@ -418,6 +418,12 @@ class DriftRow:
     id_prefix: str
     checks: tuple[dict[str, Any], ...]
     per_day: bool
+    # for the 3D lab of the dashboard (scenes.js): the source's type, its open change items, the
+    # highest severity among them (empty when none is open) and its health (SourceHealth.kind)
+    source_type: str = ""
+    open_items: int = 0
+    worst_open: str = ""
+    health: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -921,6 +927,7 @@ class DashboardService:
             by_source, by_resource = _breakdowns(connection, names)
             activity = _activity(connection, names)
             warning_bytes = storage_warning_bytes(connection)
+            open_by_source = _open_items_by_source(connection)
         return Dashboard(
             now=now,
             has_sources=True,
@@ -929,7 +936,7 @@ class DashboardService:
             ),
             posture=_posture(open_items),
             attention=attention,
-            driftlines=_driftlines(health, runs_30, events_30, now),
+            driftlines=_driftlines(health, runs_30, events_30, now, open_by_source),
             trend=trend,
             by_source=by_source,
             by_resource=by_resource,
@@ -964,6 +971,20 @@ def _open_items_by_severity(connection: Connection) -> dict[str, int]:
         .group_by(change_items.c.severity)
     ).all()
     return {str(row[0]): int(row[1]) for row in rows}
+
+
+def _open_items_by_source(connection: Connection) -> dict[int, Counter[str]]:
+    """Open change items per source, counted per item severity."""
+    rows = connection.execute(
+        sa.select(change_events.c.source_id, change_items.c.severity, sa.func.count())
+        .select_from(_items_of_events())
+        .where(change_events.c.status == "open")
+        .group_by(change_events.c.source_id, change_items.c.severity)
+    ).all()
+    result: dict[int, Counter[str]] = defaultdict(Counter)
+    for row in rows:
+        result[int(row[0])][str(row[1])] += int(row[2])
+    return result
 
 
 def _events_per_day(connection: Connection, since: str) -> dict[date, Counter[str]]:
@@ -1019,8 +1040,6 @@ def _events_since(connection: Connection, since: str) -> list[Any]:
             change_events.c.created_at,
             change_events.c.max_severity,
             change_events.c.summary,
-            change_events.c.item_count,
-            change_events.c.status,
         )
         .where(change_events.c.created_at >= since)
         .order_by(change_events.c.created_at, change_events.c.id)
@@ -1168,6 +1187,7 @@ def _driftlines(
     runs_30: Sequence[Any],
     events_30: Sequence[Any],
     now: datetime,
+    open_by_source: Mapping[int, Mapping[str, int]] | None = None,
 ) -> tuple[DriftRow, ...]:
     """One strip per source: per check up to 31 checks in 30 days, else one mark per UTC day.
 
@@ -1203,7 +1223,20 @@ def _driftlines(
         else:
             noun = "check" if count == 1 else "checks"
         meta += f", {number(count)} {noun} in 30 days"
-        row = DriftRow(source.name, source.href, meta, f"dl-{source.id}", tuple(checks), per_day)
+        open_counts = (open_by_source or {}).get(source.id, {})
+        worst = next((s for s in reversed(SEVERITIES) if open_counts.get(s)), "")
+        row = DriftRow(
+            source.name,
+            source.href,
+            meta,
+            f"dl-{source.id}",
+            tuple(checks),
+            per_day,
+            source_type=source.type,
+            open_items=sum(open_counts.values()),
+            worst_open=worst,
+            health=source.kind,
+        )
         rows.append(row)
     return tuple(rows)
 
@@ -1220,8 +1253,6 @@ def _check_of(event: Any | None, failed: bool, age: float) -> dict[str, Any]:
             "severity": str(event.max_severity),
             "summary": str(event.summary),
             "href": f"/changes/{int(event.id)}",
-            "items": int(event.item_count),
-            "open": str(event.status) == "open",
         }
     return {"kind": "failed" if failed else "ok", "age": age}
 
