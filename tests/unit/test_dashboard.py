@@ -873,8 +873,6 @@ def test_the_drift_lines_mark_each_check_or_each_day(
         "severity": "critical",
         "summary": "3 changes in 2 resource types, highest severity critical",
         "href": f"/changes/{seeded['critical']}",
-        "items": 3,
-        "open": True,
     }
     xo = lines["office-xo"]
     assert xo.per_day and len(xo.checks) == 10 and xo.meta.endswith("40 checks in 30 days")
@@ -1310,27 +1308,37 @@ def test_the_dashboard_with_the_thousand_object_fixture_renders_in_under_half_a_
 # ---- the 3D drift field (scenes.js) ----------------------------------------------------------
 
 
-def test_the_drift_field_stage_is_hidden_and_reads_the_marks_of_the_drift_lines(
-    client: TestClient, auth: AuthService, seeded: dict[str, int]
+def test_the_lab_is_a_hidden_block_and_each_drift_line_carries_its_source(
+    client: TestClient, auth: AuthService, seeded: dict[str, int], service: DashboardService
 ) -> None:
     text = client.get("/", headers=sign_in(client, auth)).text
     head = text.split("</head>", 1)[0]
     assert '<script type="module" src="/static/scenes.js"></script>' in head
-    stage = text.split('id="drift-scene"', 1)[1].split('<div class="driftlines">', 1)[0]
-    assert text.split('id="drift-scene"', 1)[0].endswith('<div class="card scene" ')
-    assert stage.startswith(' data-scene="drift" hidden>')
+    block = text.split('id="lab-scene"', 1)[1].split('<div class="driftlines">', 1)[0]
+    assert text.split('id="lab-scene"', 1)[0].endswith('<div class="card scene" ')
+    assert block.startswith(' data-scene="lab" hidden>')
     for part in ("scene__toggle", "scene__stage", "scene__turn-left", "scene__reset"):
-        assert part in stage
-    # the change mark of the critical event carries what the scene draws
-    mark = re.search(rf'<a href="/changes/{seeded["critical"]}" aria-label[^>]*>', text)
-    assert mark is not None
+        assert part in block
+    # every drift line row says what the lab draws: type, open items, worst open, health
+    rows = {row.name: row for row in service.load().driftlines}
+    lab = rows["lab-controller"]
+    assert lab.open_items > 0 and lab.worst_open == "critical" and lab.source_type == "push"
+    strips = re.findall(r'<div class="driftline"[^>]*>', text)
+    assert len(strips) == len(rows)
+    first = next(s for s in strips if f'data-open-items="{lab.open_items}"' in s)
     for attribute in (
-        'data-kind="change"',
-        'data-severity="critical"',
-        'data-items="3"',
-        'data-status="open"',
+        'data-source-type="push"',
+        'data-worst-open="critical"',
+        f'data-health="{lab.health}"',
     ):
-        assert attribute in mark.group(0)
+        assert attribute in first
+
+
+def test_a_source_with_nothing_open_has_no_worst_severity(
+    service: DashboardService, seeded: dict[str, int]
+) -> None:
+    quiet = [row for row in service.load().driftlines if row.open_items == 0]
+    assert quiet and all(row.worst_open == "" for row in quiet)
 
 
 def test_the_empty_dashboard_loads_no_scene(
@@ -1339,4 +1347,4 @@ def test_the_empty_dashboard_loads_no_scene(
     with store.write() as connection:
         connection.execute(sa.delete(sources))
     text = client.get("/", headers=sign_in(client, auth)).text
-    assert "scenes.js" not in text and "drift-scene" not in text
+    assert "scenes.js" not in text and "lab-scene" not in text
