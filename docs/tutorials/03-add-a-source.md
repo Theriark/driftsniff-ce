@@ -50,7 +50,7 @@ every interval.
 Select the source name. Its page shows the drift line, the change replay, coverage by resource and
 the recent runs. Coverage tells you which resources answered and how many objects each has.
 
-![A source page: the drift line, the change replay, coverage by resource and recent runs](../images/source-page-1440-full.png)
+![A source page: the drift line, the change replay with its 3D view, coverage by resource and recent runs](../images/source-page-1440-full.png)
 
 ## A push source instead
 

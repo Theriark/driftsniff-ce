@@ -15,7 +15,7 @@ matrix shows how many change items each resource type had per day; a ringed cell
 item. The panel under the matrix lists the chosen day by resource type and severity, and **Open the
 changes of** that day leads to them.
 
-![The change replay at 768 px in the dark theme: the 7, 30 and 90 day choice, the summary, the day controls, the matrix and the chosen day's panel](../images/source-replay-768-dark.png)
+![The change replay at 768 px in the dark theme: the 7, 30 and 90 day choice, the summary, the day controls, the 3D view, the matrix and the chosen day's panel](../images/source-replay-768-dark.png)
 
 With reduced motion on, the replay moves only when you step or drag.
 

@@ -39,7 +39,7 @@ choose Sign out. The sign-in page then confirms "Signed out".
 The start page answers two questions: what changed across your sources in the last 30 days, and
 what still needs a decision.
 
-![The full dashboard at 1440 px: stat cards, open items by severity, Needs attention, drift lines, change items per day, where the open items are, and the activity timeline](images/dashboard-1440-full.png)
+![The full dashboard at 1440 px: stat cards, open items by severity, Needs attention, the 3D drift field above the drift lines, change items per day, where the open items are, and the activity timeline](images/dashboard-1440-full.png)
 
 From the top:
 
@@ -122,7 +122,7 @@ and a short drift line.
 
 Select a source to open its page.
 
-![A source page at 1440 px: status badges, the drift line, the change replay, coverage by resource, recent runs, About this source and Delete this source](images/source-page-1440-full.png)
+![A source page at 1440 px: status badges, the drift line, the change replay with its 3D view, coverage by resource, recent runs, About this source and Delete this source](images/source-page-1440-full.png)
 
 - **Drift line** of the last 30 days, full width.
 - **Change replay.** Choose 7, 30 or 90 days, then step through the days with Previous day and Next
