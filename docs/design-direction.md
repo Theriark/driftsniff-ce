@@ -73,7 +73,10 @@ Rules:
   frame is drawn only when something changed, never while the page is hidden or the stage is
   out of view.
 - Changes a few hours apart keep 0.6 units between their columns. The drift line keeps the
-  exact times.
+  exact times. The lanes stretch with the number of sources (at least 18 units, 2.86 units per
+  source), so a deep field still fills the wide stage and its columns spread out.
+- The camera fits the whole field, lanes and blocks, for the current turn and stage size; the
+  view starts slightly turned (yaw -0.28) and looks down at about 45 degrees.
 - The colours come from the stylesheet tokens (`surface`, `paper`, `surface-2`, `slate`, `ink`,
   the four severities), so the field follows the light and dark themes.
 - Without script the block stays hidden. With script the stylesheet keeps its room
