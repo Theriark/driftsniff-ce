@@ -6,10 +6,11 @@ files are identical to those of build `63eaa6ad764955d1d57124ca7727e7bfcb49ddc9`
 `sha256:53ee8584…`), on which the application behaviour was verified; the candidate differs from
 that build only in the CI workflow and a CI test, which the image does not contain. Build
 `63eaa6ad` in turn differs from the earlier build `36f78cc95919b115103af19bd10773d9d69a7386` only
-in the hint under the push source form. The push form screenshot was taken on `63eaa6ad` at
-`https://ce-dev-driftsniff.theriark.dev` on 28 October 2026; the other screenshots were taken
-there on build `36f78cc9` on 26 October 2026 and show pages that neither later build changes. No
-screenshot was taken on `40963ddf`. All captures hold synthetic test data only. The
+in the hint under the push source form. All screenshots were retaken at
+`https://ce-dev-driftsniff.theriark.dev` on 14 November 2026 on the later Development build
+`63112500`, after the web UI revamp (the Inter typeface, the page change, the 3D drift field of
+the dashboard and the 3D change replay of a source page), so they show that build rather than
+the candidate above. All captures hold synthetic test data only. The
 [documentation manifest](documentation-manifest.json) lists every file with its SHA-256 and, for
 every screenshot, the build it was taken on.
 
@@ -80,5 +81,6 @@ package; the screenshots in this documentation show the built product.
 All screenshots are in the `images` folder next to this file. Each one is listed in the
 [documentation manifest](documentation-manifest.json) with the page, the role that was signed in,
 the viewport, the theme, the capture time (Europe/Lisbon) and the documents that use it. Where a
-capture shows the names or first characters of the revoked Development test tokens, those entries
-are blurred; the manifest marks each blurred capture.
+capture shows the names or first characters of the revoked Development test tokens, or the user
+name of the owner's own Development account, those entries are blurred; the manifest marks each
+blurred capture.
