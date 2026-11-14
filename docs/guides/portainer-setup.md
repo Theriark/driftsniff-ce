@@ -5,9 +5,11 @@ groups, tags, Edge groups, stacks, users, teams, registries and the Portainer se
 
 ## Read this first
 
-- **No lab Portainer has been used.** The API paths and fields come from the Portainer source and
-  documentation, read on 2026-11-12 (`docs/vendor-notes/portainer.md`). The collector is tested
-  against a fake Portainer on localhost (`tests/contract/fake_portainer.py`), not a real server.
+- **Checked on a lab Portainer Business Edition 2.45.3 (2026-11-13)** with an administrator's
+  access token: all ten resources answered, and a change to a stack file was reported. When the
+  Edge compute features are off, Portainer refuses the Edge groups with 503; driftsniff then
+  reads them as empty instead of failing the check. The API paths and fields otherwise come from
+  the Portainer source and documentation (`docs/vendor-notes/portainer.md`).
 - driftsniff **only reads**: it sends `GET` requests and nothing else. The token still has every
   right of its user, so the role you give that user is the real limit.
 
@@ -43,7 +45,8 @@ Portainer CE has two user roles, administrator and standard user, and no read-on
 ## Steps
 
 1. In Portainer, sign in as the user driftsniff will use, open **My account**, then **Access
-   tokens**, and select **Add access token**. Copy the token: Portainer shows it once.
+   tokens**, and select **Add access token**. Portainer asks for the current password of that
+   user. Copy the token: Portainer shows it once.
 2. In driftsniff, select **Add source**, choose **Portainer**, and enter a name, the `https://`
    address of the Portainer server (for example `https://portainer.example.invalid:9443`, with no
    path), the access token, the interval, the resources and the TLS mode.

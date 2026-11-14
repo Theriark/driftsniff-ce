@@ -21,6 +21,7 @@ at the top of the form.
 | UniFi Network | a name, the `https://` address of the UniFi Network application, a read-only API key, the check interval, the resources to read and the TLS mode |
 | Xen Orchestra | a name, the `https://` address of the XO server, an authentication token, optionally the date the token expires (driftsniff warns 14 days before), the interval, the resources and the TLS mode |
 | Portainer | a name, the `https://` address of the Portainer server, an access token, the interval, the resources and the TLS mode |
+| TrueNAS | a name, the `https://` address of the TrueNAS system (25.04 or later, no path), the user name and API key of a user with the Read-Only Administrator privilege, the interval, the resources and the TLS mode |
 | QNAP QTS / QuTS hero | a name, the `https://` address of the NAS, the user name and password of an administrator account without 2-step verification, the interval, the resources and the TLS mode |
 | Synology DSM | a name, the `https://` address of the NAS (usually port 5001), the user name and password of a dedicated DSM administrator without 2-step verification, the interval, the resources and the TLS mode |
 | Grafana | a name, the `https://` address of the Grafana server, a service account token (role Admin for full coverage), the interval, the resources and the TLS mode |
@@ -48,7 +49,7 @@ without a colon or without fields is refused with that example in the error text
 - The TLS modes are explained in [configuration.md](configuration.md#certificate-checks-of-a-source).
 
 Prepare the account on the controller first: [UniFi](guides/unifi-setup.md),
-[Xen Orchestra](guides/xo-setup.md), [Portainer](guides/portainer-setup.md), [QNAP](guides/qnap-setup.md), [Synology DSM](guides/synology-setup.md), [Grafana](guides/grafana-setup.md), [Prometheus](guides/prometheus-setup.md), [UniFi Protect](guides/unifi-protect-setup.md), [Checkmk](guides/checkmk-setup.md), [Home Assistant](guides/homeassistant-setup.md), [Proxmox VE](guides/proxmox-setup.md), [Redfish](guides/redfish-setup.md), [Zabbix](guides/zabbix-setup.md). The step-by-step version is the tutorial
+[Xen Orchestra](guides/xo-setup.md), [Portainer](guides/portainer-setup.md), [TrueNAS](guides/truenas-setup.md), [QNAP](guides/qnap-setup.md), [Synology DSM](guides/synology-setup.md), [Grafana](guides/grafana-setup.md), [Prometheus](guides/prometheus-setup.md), [UniFi Protect](guides/unifi-protect-setup.md), [Checkmk](guides/checkmk-setup.md), [Home Assistant](guides/homeassistant-setup.md), [Proxmox VE](guides/proxmox-setup.md), [Redfish](guides/redfish-setup.md), [Zabbix](guides/zabbix-setup.md). The step-by-step version is the tutorial
 [Add a source](tutorials/03-add-a-source.md).
 
 ### A push source's sender key

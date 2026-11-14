@@ -7,9 +7,13 @@ TrueNAS and the driftsniff admin.
 
 ## Read this first
 
-- **No lab TrueNAS has been used.** Method and field names come from the vendor's API reference
-  for 25.10 (`docs/vendor-notes/truenas.md`, read 2026-11-12). Statements about the TrueNAS side
-  are labelled **NOT VERIFIED** where they were not in that reference.
+- **Checked on a lab TrueNAS 25.04.2.6 (2026-11-13)** with a user that holds only the Read-Only
+  Administrator privilege: all 18 resources answered, and a change to an SMB share and its revert
+  were reported. Steps 1 and 2 are **VERIFIED on 25.04.2.6**. Field names of what the lab system
+  did not have (NFS, iSCSI, replication, cloud sync, cron) still come from the 25.10 reference
+  (`docs/vendor-notes/truenas.md`) and are labelled **NOT VERIFIED** where they matter.
+- TrueNAS gives a read-only user a fixed placeholder instead of password hashes, so a password
+  change is not visible with such a user.
 - The client and the pipeline are tested against a fake TrueNAS on localhost
   (`tests/contract/fake_truenas.py`). That shows how driftsniff behaves for the names it expects,
   not that a real TrueNAS answers with them.
@@ -33,13 +37,13 @@ TrueNAS and the driftsniff admin.
 ## Steps
 
 1. **Create a read-only user on TrueNAS.** Credentials > Users > Add, for example `driftsniff`,
-   with password login disabled. Add it to a group that has the privilege **Read-only
-   Administrator** (Credentials > Groups; TrueNAS ships `builtin_readonly_administrators` or lets
-   you create a privilege). NOT VERIFIED: the menu names and the built-in group name on your
-   version.
-2. **Create an API key for that user.** Credentials > Users > the user > API keys (or the API Keys
-   page in the top bar menu), then copy the key: TrueNAS shows it once. NOT VERIFIED: where the
-   page sits on your version.
+   with **Disable Password** on. Under **Auxiliary Groups** add `truenas_readonly_administrators`,
+   the group behind the built-in privilege **Read-Only Administrator** (Credentials > Groups >
+   Privileges shows it). Untick **SMB User**, which is on by default, and keep the shell
+   `nologin` and no home directory. VERIFIED on 25.04.2.6.
+2. **Create an API key for that user.** Credentials > Users > **API Keys** (top right) > Add: a
+   name such as `driftsniff`, the user from step 1, and **Non-expiring** or a date. Copy the key:
+   TrueNAS shows it once. VERIFIED on 25.04.2.6.
 3. **Add the source in driftsniff.** Sources > Add a source > TrueNAS.
    - Address: `https://nas.example.invalid` (no path, no user name).
    - User name: the TrueNAS user, for example `driftsniff`. API key: the key, for example `1-AbC...`.

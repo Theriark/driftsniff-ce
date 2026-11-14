@@ -8,7 +8,7 @@ configuration. It is written for the person who runs the controller and the drif
 - **One real controller has been read** (2026-11-13): a UDM Pro Max running UniFi Network
   10.6.109, with an API key made by an **owner** account. What that reading settled is labelled
   **VERIFIED on 10.6.109** below; everything else is still labelled **NOT VERIFIED**. Dependency D5
-  (the vendor reference) is open and `docs/lab-evidence.md` does not exist yet. Do not rely on a
+  (the vendor reference) is open and the lab checks are recorded in `docs/lab-evidence.md`. Do not rely on a
   NOT VERIFIED statement for a production controller until it has been checked and dated here.
 - Names of menus and roles in the controller can differ from this guide. Field names come from the
   10.6.109 reading (`docs/vendor-notes/unifi.md`); other versions may differ.

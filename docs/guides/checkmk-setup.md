@@ -5,9 +5,10 @@ host, service and contact groups, users, time periods, the password store and no
 
 ## Read this first
 
-- **No lab Checkmk site has been used.** The API paths and fields come from the Checkmk source and
-  documentation, read on 2026-11-12 (`docs/vendor-notes/checkmk.md`). The collector is tested
-  against a fake Checkmk on localhost (`tests/contract/fake_checkmk.py`), not a real site.
+- **Checked on a lab Checkmk 2.5.0p14 Community site (2026-11-13)** with an automation user whose
+  only role is a copy of `admin` without **Make changes, perform actions**: all nine collections
+  answered, and a change to a contact group and its revert were reported. The API paths and fields
+  otherwise come from the Checkmk source and documentation (`docs/vendor-notes/checkmk.md`).
 - driftsniff **only reads**: it sends `GET` requests and nothing else. It never activates
   changes. The user still has every right its roles give, so the role is the real limit.
 - driftsniff reads the Setup configuration, not monitoring states. Rules of rulesets and pending
@@ -50,7 +51,10 @@ notification rules in its API shows `404`.
 
 1. In Checkmk, open **Setup > Users > Users**, select **Add user**, give it an id such as
    `driftsniff`, choose **Automation secret for machine accounts**, generate a secret and copy it,
-   and give it the role prepared above. Activate the change.
+   and give it the role prepared above. The quickest role with full coverage is a copy of
+   `admin` (Setup > Users > Roles & permissions > clone) with **Make changes, perform actions** set
+   to *no*: it can read everything driftsniff reads and change nothing. On 2.5.0p14 the REST API
+   accepted the new automation user as soon as it was saved, before the change was activated.
 2. In driftsniff, select **Add source**, choose **Checkmk**, and enter a name, the address of the
    site including the site name (for example `https://checkmk.example.invalid/mysite`, without
    `/check_mk`), the user name, the automation secret, the interval, the resources and the TLS

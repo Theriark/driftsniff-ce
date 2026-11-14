@@ -9,7 +9,7 @@ import pytest
 from driftsniff.core.normalize import FieldClass
 from driftsniff.rules.loader import load_rules
 
-SCHEDULE = "41cc9ca4-ccbe-4612-8baf-e7dbd64fcd18"
+SCHEDULE = "00000000-0000-4000-8000-000000000001"
 
 REAL_PATHS = [
     *(

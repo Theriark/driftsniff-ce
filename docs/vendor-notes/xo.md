@@ -7,7 +7,7 @@ statement is in our own words, with its source and the date it was read.
 
 ## Lab check: two Xen Orchestra 5 servers (2026-11-13)
 
-Two local Xen Orchestra servers (XO-01, XO-02) were read with an administrator's authentication
+Two lab Xen Orchestra servers that manage one pool were read with an administrator's authentication
 token in the `authenticationToken` cookie.
 
 - `GET /rest/v0` no longer answers JSON: it redirects to the API documentation (`/rest/v0/docs/`,
