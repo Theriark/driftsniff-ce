@@ -2,7 +2,9 @@
    of checks, each at its time between 30 days ago (left) and today (right). A thin tick is a check without change, a hollow tick a failed
    or partial run, a severity shape a check that found changes (it links to the event and names
    it in its title). The labels under the strip are HTML text, so they never shrink below 14 px.
-   checks is a list of {kind: ok|failed|change, age (days before now), severity, summary, href}; id_prefix makes the
+   checks is a list of {kind: ok|failed|change, age (days before now), severity, summary, href,
+   items, open}; every mark carries data-kind and data-age, a change also data-severity,
+   data-items and data-status, which the 3D drift field of the dashboard reads; id_prefix makes the
    title and desc ids unique on a page with several strips.
    A strip with change links is a named group, not an image: an image's children are
    presentational, so links inside one are nested interactive controls that a screen reader
@@ -25,11 +27,11 @@
       <line class="axis" x1="0" y1="30" x2="{{ width }}" y2="30"/>
       {% for mark in marks %}
       {% if mark.kind == "ok" %}
-      <line class="tick" x1="{{ mark.x | int }}" y1="14" x2="{{ mark.x | int }}" y2="26"><title>Check, no change</title></line>
+      <line class="tick" x1="{{ mark.x | int }}" y1="14" x2="{{ mark.x | int }}" y2="26" data-kind="ok" data-age="{{ '%.3f' | format(mark.age) }}"><title>Check, no change</title></line>
       {% elif mark.kind == "failed" %}
-      <rect class="tick--hollow" x="{{ (mark.x - 3) | int }}" y="12" width="6" height="14"><title>Check failed or partial</title></rect>
+      <rect class="tick--hollow" x="{{ (mark.x - 3) | int }}" y="12" width="6" height="14" data-kind="failed" data-age="{{ '%.3f' | format(mark.age) }}"><title>Check failed or partial</title></rect>
       {% else %}
-      <a href="{{ mark.href }}" aria-label="{{ severity_labels[mark.severity] }}: {{ mark.summary }}">
+      <a href="{{ mark.href }}" aria-label="{{ severity_labels[mark.severity] }}: {{ mark.summary }}" data-kind="change" data-age="{{ '%.3f' | format(mark.age) }}" data-severity="{{ mark.severity }}" data-items="{{ mark.items }}" data-status="{{ 'open' if mark.open else 'closed' }}">
         {%- if mark.severity == "low" %}<circle class="mark mark--low" cx="{{ mark.x | int }}" cy="18" r="6"/>{% else %}<path class="mark mark--{{ mark.severity }}" d="{{ mark.d }}"/>{% endif -%}
         <title>{{ severity_labels[mark.severity] }}: {{ mark.summary }}</title>
       </a>

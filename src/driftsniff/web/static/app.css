@@ -3458,3 +3458,83 @@ textarea.input {
 ::view-transition-old(root) {
   animation-duration: var(--t-fast);
 }
+
+/* The 3D views (scenes.js), first the drift field of the dashboard. Without script a block stays hidden;
+   with script its room is kept before the module runs, so nothing below it moves when the
+   scene appears. A browser without WebGL 2 gets is-unavailable and the block goes. */
+@media (scripting: enabled) {
+  .scene[hidden]:not(.is-unavailable) {
+    display: block;
+  }
+}
+
+.scene.is-unavailable,
+.scene [hidden] {
+  display: none;
+}
+
+.scene {
+  margin-bottom: var(--sp-4);
+}
+
+.scene__bar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-4);
+}
+
+.scene__lead {
+  margin: 0;
+  max-width: 72ch;
+  color: var(--text-2);
+  font-size: var(--fs-14);
+}
+
+.scene__toggle {
+  flex: none;
+}
+
+.scene__stage {
+  position: relative;
+  height: clamp(260px, 38vw, 420px);
+  margin-top: var(--sp-4);
+  overflow: hidden;
+  border-radius: var(--radius-s);
+  background: var(--surface);
+}
+
+.scene.is-closed .scene__stage {
+  display: none;
+}
+
+.scene__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: pan-y;
+}
+
+.scene__canvas.is-pointing {
+  cursor: pointer;
+}
+
+.scene__tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+}
+
+.scene__detail {
+  min-height: 1.5em;
+  margin: var(--sp-3) 0 0;
+  color: var(--text-2);
+  font-size: var(--fs-14);
+}
+
+@media (max-width: 767px) {
+  .scene__bar {
+    flex-direction: column;
+  }
+}

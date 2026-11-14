@@ -118,7 +118,7 @@ def test_a_drift_line_with_change_links_is_a_group_whose_links_name_themselves()
         assert svg["aria-labelledby"] == "dl-1-t dl-1-d"
         assert {"dl-1-t", "dl-1-d"} <= tree.ids
         links = [a for a in tree.find("a") if a.get("href") == "/changes/7"]
-        assert links == [
+        assert [{k: v for k, v in a.items() if not k.startswith("data-")} for a in links] == [
             {"href": "/changes/7", "aria-label": f"{SEVERITY_LABELS['high']}: 2 objects changed"}
         ]
         # the links take the focus, so the strip itself is no extra tab stop

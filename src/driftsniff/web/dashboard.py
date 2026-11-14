@@ -1019,6 +1019,8 @@ def _events_since(connection: Connection, since: str) -> list[Any]:
             change_events.c.created_at,
             change_events.c.max_severity,
             change_events.c.summary,
+            change_events.c.item_count,
+            change_events.c.status,
         )
         .where(change_events.c.created_at >= since)
         .order_by(change_events.c.created_at, change_events.c.id)
@@ -1218,6 +1220,8 @@ def _check_of(event: Any | None, failed: bool, age: float) -> dict[str, Any]:
             "severity": str(event.max_severity),
             "summary": str(event.summary),
             "href": f"/changes/{int(event.id)}",
+            "items": int(event.item_count),
+            "open": str(event.status) == "open",
         }
     return {"kind": "failed" if failed else "ok", "age": age}
 

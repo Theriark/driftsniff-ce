@@ -13,6 +13,7 @@
 {% from "components/driftline.html" import drift_line %}
 {% from "components/details.html" import time_tag %}
 {% from "components/charts.html" import posture_ring, trend_chart, bar_list %}
+{% block head %}{% if dashboard.driftlines %}<script type="module" src="/static/scenes.js"></script>{% endif %}{% endblock %}
 {% block content %}
 {# One timeline entry: text, the named target (a link when it has a page), the tail, the time. #}
 {% macro activity_entry(entry) -%}
@@ -69,6 +70,22 @@
   <div class="section-head">
     <h2 id="drift-h">Drift line, last 30 days</h2>
     <span class="hint">One mark per check; one per day for a source with more than 31 checks. Hover or focus a mark to read the event.</span>
+  </div>
+  {# The 3D drift field (scenes.js) draws the drift lines below as lanes. Hidden until the
+     script has seen WebGL 2, so without it the page is the drift lines alone; the scene reads the
+     data attributes of the marks, the lines stay the record and the keyboard path. #}
+  <div class="card scene" id="drift-scene" data-scene="drift" hidden>
+    <div class="scene__bar">
+      <p class="scene__lead">The same 30 days in 3D: a lane per source, a column per change. Taller is more change items; the shape and colour are the severity, pale once acknowledged or resolved. The block at the end of a lane is the source: all its items, coloured by its worst open change.</p>
+      <button type="button" class="btn btn--small scene__toggle" hidden>Hide the 3D view</button>
+    </div>
+    <div class="scene__stage"></div>
+    <div class="scene__tools" hidden>
+      <button type="button" class="btn btn--small scene__turn-left">Turn left</button>
+      <button type="button" class="btn btn--small scene__turn-right">Turn right</button>
+      <button type="button" class="btn btn--small scene__reset">Reset view</button>
+    </div>
+    <p class="scene__detail" aria-live="polite"></p>
   </div>
   <div class="card">
     <div class="driftlines">
