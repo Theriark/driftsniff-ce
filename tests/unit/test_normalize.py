@@ -31,7 +31,7 @@ PROPERTY_SETTINGS = settings(
 # The output for PINNED_RAW under PINNED_TABLE, written out once. If a test below fails
 # because this text no longer matches, normalisation output has changed: bump
 # NORMALISER_VERSION, set PINNED_VERSION to it, and replace PINNED_TEXT and PINNED_SHA256.
-PINNED_VERSION = 2
+PINNED_VERSION = 3
 PINNED_TEXT = (
     '{"_id":"n-1","dns":["9.9.9.9","1.1.1.1"],"empty":[],"flag":false,'
     '"name":"Büro-LAN é́","nested":{"b":{}},"ratio":0.5,'

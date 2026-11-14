@@ -28,6 +28,10 @@ token in the `authenticationToken` cookie.
   `rpm_patch_installation_time`, which change on a reboot or an agent restart and are ignore
   (test X1 for those keys). VM and template `blockedOperations` is a config subtree.
   `tests/unit/test_xo_real_shapes.py` holds the paths.
+- A pool's `otherConfig` holds one `xo:clientInfo:<random id>` entry per XO instance that ever
+  connected: a JSON text with `lastConnected` and that instance's network interfaces, rewritten
+  every hour. It raised a medium change every hour on both servers, so the collector drops those
+  keys (normaliser version 3: the first reading after the upgrade is a new baseline).
 
 ## Status in one paragraph
 

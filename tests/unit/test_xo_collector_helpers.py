@@ -218,3 +218,24 @@ def test_an_unusable_address_is_refused_and_an_ordinary_one_passes() -> None:
         check_address("https://xo.example.test", lambda host: ["not-an-address"])
     assert caught.value.error_class == ERROR_BLOCKED_ADDRESS
     check_address("https://xo.example.test", lambda host: ["192.0.2.10", "2001:db8::10"])
+
+
+def test_the_xo_heartbeats_of_a_pool_are_dropped_and_its_settings_kept() -> None:
+    # Every XO instance writes xo:clientInfo:<id> into the pool every hour (two real XO 5 servers).
+    pool: JsonValue = {
+        "id": "pool-1",
+        "otherConfig": {
+            "xo:clientInfo:977ve86yszt": '{"lastConnected":1794600000000}',
+            "xo:clientInfo:zdstr268u": '{"lastConnected":1794603600000}',
+            "xo:migrationNetwork": "net-1",
+            "auto_poweron": "true",
+        },
+    }
+    (cleaned,) = prepare_objects("pools", [pool])
+    assert cleaned["otherConfig"] == {"xo:migrationNetwork": "net-1", "auto_poweron": "true"}
+
+
+def test_other_config_of_other_collections_is_left_alone() -> None:
+    host: JsonValue = {"id": "host-1", "otherConfig": {"xo:clientInfo:abc": "{}"}}
+    (cleaned,) = prepare_objects("hosts", [host])
+    assert cleaned["otherConfig"] == {"xo:clientInfo:abc": "{}"}

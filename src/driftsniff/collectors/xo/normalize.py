@@ -9,6 +9,10 @@
   the scanner rule for ``scheme://user:password@host``).
 * Templates that are built in are dropped (notes, decision 3). The marker field is unverified; an
   object without it is a template the administrator made and stays.
+* The ``xo:clientInfo:<id>`` entries of a pool's ``otherConfig`` are dropped: every Xen Orchestra
+  instance that connects writes its own heartbeat there (``lastConnected`` and its network
+  interfaces), every hour, under a key that holds a random id (two real XO 5 servers,
+  2026-11-13). They are not configuration, and a type table cannot name a key with an id in it.
 
 Everything else is raw: redaction, normalisation and keying belong to the pipeline.
 """
@@ -22,6 +26,9 @@ from driftsniff.core.canonical import JsonValue
 
 RESOURCE_BACKUP_REPOSITORIES: Final = "backup-repositories"
 RESOURCE_VM_TEMPLATES: Final = "vm-templates"
+RESOURCE_POOLS: Final = "pools"
+OTHER_CONFIG_FIELD: Final = "otherConfig"
+CLIENT_INFO_PREFIX: Final = "xo:clientInfo:"
 URL_FIELD: Final = "url"
 _AUTHORITY_END: Final = frozenset("/?#\"'<> \t\r\n")
 
@@ -75,6 +82,14 @@ def prepare_objects(name: str, raw: Sequence[JsonValue]) -> list[dict[str, JsonV
             address = item.get(URL_FIELD)
             if isinstance(address, str):
                 item[URL_FIELD] = strip_url_credentials(address, whole_value=True)
+        if name == RESOURCE_POOLS:
+            other = item.get(OTHER_CONFIG_FIELD)
+            if isinstance(other, dict):
+                item[OTHER_CONFIG_FIELD] = {
+                    key: value
+                    for key, value in other.items()
+                    if not key.startswith(CLIENT_INFO_PREFIX)
+                }
         objects.append(item)
     objects.sort(key=_object_id)
     return objects
