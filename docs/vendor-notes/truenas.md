@@ -29,7 +29,7 @@ them; it does not show that a real TrueNAS answers with them. Every field name i
 
 ## Lab check: TrueNAS 25.04.2.6 (2026-11-13)
 
-The lab system DELTA (TrueNAS Community Edition 25.04.2.6) was read by a driftsniff source with a
+A lab system (TrueNAS Community Edition 25.04.2.6) was read by a driftsniff source with a
 dedicated local user that holds only the built-in Read-Only Administrator privilege (group
 `truenas_readonly_administrators`), password login off, and an API key of its own.
 
@@ -45,13 +45,13 @@ dedicated local user that holds only the built-in Read-Only Administrator privil
   group of a user as an object (`group.id`, `group.bsdgrp_*`); the `schedule` object of snapshot
   tasks; `service_announcement` and `activity` of the network settings; certificate subject
   fields, `extensions`, and flags TrueNAS derives from the type (`CA_type_*`, `cert_type_*`).
-  `tests/unit/test_truenas_real_shapes.py` holds every path DELTA answered and checks none is
+  `tests/unit/test_truenas_real_shapes.py` holds every path the lab system answered and checks none is
   unclassified.
 - `unixhash`, `smbhash` and `password_history`: every one of the 60 users had the same
   fingerprint for each field, so TrueNAS gives a read-only user a fixed placeholder, not the real
   hashes (statement 9 for users). A consequence: a password change is not visible with a
   read-only user.
-- Not seen on DELTA, so still unverified: NFS shares, iSCSI, replication, cloud sync, cloud
+- Not seen on the lab system, so still unverified: NFS shares, iSCSI, replication, cloud sync, cloud
   credentials and cron jobs (none configured), the `options` shape of SMB shares on 25.10 and
   later, and the role name `FULL_ADMIN` beyond the built-in users that carry it.
 

@@ -16,7 +16,7 @@ available. Names marked **UNVERIFIED** were not found in the code that builds th
 
 ## Lab check: Checkmk 2.5.0p14 Community (2026-11-13)
 
-A local site `fortpt` running Checkmk 2.5.0p14 Community was read by a driftsniff source with an
+A lab site running Checkmk 2.5.0p14 Community was read by a driftsniff source with an
 automation user whose only role is a copy of `admin` without `wato.edit` ("Make changes, perform
 actions"). That role is enough: all nine collections answered 200 (statement 14 holds).
 

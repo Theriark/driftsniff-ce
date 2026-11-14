@@ -132,7 +132,7 @@ def test_folder_permissions_floor_only_added_and_removed(index: RuleIndex) -> No
     ("path", "before", "after", "severity"),
     [
         # A real Grafana 13.3.0 rename (2026-11-13) rated high here before; access did not change.
-        ("title", "FortPT", "FortPT (driftsniff test)", "low"),
+        ("title", "Operations", "Operations (driftsniff test)", "low"),
         ("permissions.permission", 1, 4, "high"),
         ("permissions.role", "Viewer", "Editor", "high"),
     ],

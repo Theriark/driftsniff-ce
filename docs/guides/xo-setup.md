@@ -15,7 +15,7 @@ is written for the person who runs XO and the driftsniff admin.
   credential on `/rest/v0/pools` instead. XO caps how long a token may live, so enter its expiry
   date on the source to be warned before it runs out.
 - Before that check, no lab Xen Orchestra had been used. The vendor reference was not read for this guide, and
-  `docs/lab-evidence.md` does not exist yet (Phase 0 tests X1 to X4 are open). Every statement about
+  `docs/lab-evidence.md` did not exist yet (Phase 0 tests X1 to X4 were open); it now records the lab check above. Every statement about
   the XO side below is labelled **NOT VERIFIED** unless it says otherwise. Do not rely on a statement
   with that label for a production XO until it has been checked and dated here.
 - Names of menus, roles, collections and fields can differ from this guide. The names come from our

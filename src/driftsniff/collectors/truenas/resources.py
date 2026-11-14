@@ -40,7 +40,7 @@ class TruenasResource:
 _DATASET_OPTIONS: Final[list[JsonValue]] = [
     [],
     # retrieve_children must stay on: TrueNAS 25.04.2.6 answered only the pool root datasets with
-    # it off (lab DELTA, 2026-11-13). flat keeps every dataset a top-level object of its own.
+    # it off (lab system, 2026-11-13). flat keeps every dataset a top-level object of its own.
     {"extra": {"flat": True, "retrieve_user_props": False}},
 ]
 

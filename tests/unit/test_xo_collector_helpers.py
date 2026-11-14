@@ -225,8 +225,8 @@ def test_the_xo_heartbeats_of_a_pool_are_dropped_and_its_settings_kept() -> None
     pool: JsonValue = {
         "id": "pool-1",
         "otherConfig": {
-            "xo:clientInfo:977ve86yszt": '{"lastConnected":1794600000000}',
-            "xo:clientInfo:zdstr268u": '{"lastConnected":1794603600000}',
+            "xo:clientInfo:a1b2c3d4e5": '{"lastConnected":1794600000000}',
+            "xo:clientInfo:f6g7h8i9": '{"lastConnected":1794603600000}',
             "xo:migrationNetwork": "net-1",
             "auto_poweron": "true",
         },
