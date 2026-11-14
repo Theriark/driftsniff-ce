@@ -18,7 +18,8 @@
 {% from "sources/_replay.html" import change_replay %}
 {% block head %}<link rel="stylesheet" href="/static/summary-head.css">
 <link rel="stylesheet" href="/static/replay.css">
-<script src="/static/replay.js" defer></script>{% endblock %}
+<script src="/static/replay.js" defer></script>
+{% if replay and not replay.empty %}<script type="module" src="/static/scenes.js"></script>{% endif %}{% endblock %}
 {% block content %}
 {% set view = detail.view %}
 {% set health = detail.health %}

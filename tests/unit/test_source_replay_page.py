@@ -200,3 +200,22 @@ def test_the_page_loads_the_script_from_its_own_origin_and_inlines_nothing(site:
     assert served.status_code == 200
     assert "javascript" in served.headers["content-type"]
     assert site.client.get("/static/replay.css").status_code == 200
+
+
+def test_the_3d_replay_is_a_hidden_block_that_loads_its_module(site: Site) -> None:
+    text = site.get("/sources/1").text
+    assert '<script type="module" src="/static/scenes.js"></script>' in text.split("</head>", 1)[0]
+    block = text.split('id="replay-scene"', 1)[1].split("</p>", 2)[0]
+    assert block.startswith(' data-scene="replay" hidden>')
+    block = text.split('id="replay-scene"', 1)[1].split('<p class="scene__detail"', 1)[0]
+    for part in ("scene__toggle", "scene__stage", "scene__turn-right", "scene__reset"):
+        assert part in block
+    # the scene reads the cells and the cursor of the map, which keep their data attributes
+    assert "data-replay-cursor" in text and 'data-counts="' in text
+
+
+def test_an_empty_replay_has_no_3d_view(store: Database) -> None:
+    built = build(store)
+    with built.client:
+        text = built.get("/sources/1").text
+    assert "scenes.js" not in text and "replay-scene" not in text

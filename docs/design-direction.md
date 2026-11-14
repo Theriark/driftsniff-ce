@@ -81,6 +81,23 @@ Rules:
   downloaded. The hide button keeps its choice in this browser only (`localStorage`
   `ds-scenes`), and leaving the page disposes every geometry, material and the renderer.
 
+### The change replay (3D)
+
+On a source page the change replay has the same kind of 3D view above its heat map
+(`data-scene="replay"` in `sources/_replay.html`, the same module):
+
+| Element | Drawing | Meaning |
+|---|---|---|
+| Track | a thin `surface-2` strip per resource type | a row of the heat map |
+| Bar | square segments stacked from critical at the foot to low on top, each in its severity colour, the whole height from the log of the cell's change items | the change items of one resource type on one day |
+| Pane | a 12 % `ink` slab across every row | the day the replay shows; the bars after it are pale, as the heat map dims the days after its cursor |
+
+The scene reads the cells (`data-day-index`, `data-row`, `data-counts`, the cell's `title`) and
+follows the cursor of the heat map through its `x` attribute, so Previous day, Next day, Play and
+the slider move the pane without any other wiring. Pointing at a cell of the map lights its bar;
+selecting a bar opens the changes of that day and resource type. The rules of the drift field
+apply.
+
 ## 3. Logo and clear space
 
 Files are the supplied brand assets in `brand/` (byte-for-byte copies of the Nextcloud folder,
