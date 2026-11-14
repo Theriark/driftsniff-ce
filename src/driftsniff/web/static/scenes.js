@@ -193,7 +193,7 @@ function buildStage(THREE, root, spec, data, options) {
     const along = Math.abs(extent.wide * Math.sin(view.yaw)) + Math.abs(extent.deep * Math.cos(view.yaw));
     const tall = along * Math.sin(view.pitch) + extent.tall * Math.cos(view.pitch);
     const half = Math.tan((camera.fov * Math.PI) / 360);
-    const distance = 1.08 * Math.max(across / 2 / (half * camera.aspect), tall / 2 / half) + along / 2;
+    const distance = Math.max((1.12 * across) / 2 / (half * camera.aspect), (1.2 * tall) / 2 / half) + along * 0.22;
     camera.position.set(
       center.x + distance * Math.cos(view.pitch) * Math.sin(view.yaw),
       center.y + distance * Math.sin(view.pitch),
@@ -467,16 +467,18 @@ const DRIFT = {
   build(kit) {
     const { scene, material, prism, box, pickable } = kit;
     const lanes = kit.data.lanes;
+    // the lanes stretch with the number of sources, so a deep field still fills a wide stage
+    const length = Math.max(LANE_LENGTH, lanes.length * LANE_GAP * 2.2);
     let tallest = 1;
     lanes.forEach((lane, index) => {
       const z = (index - (lanes.length - 1) / 2) * LANE_GAP;
-      const strip = box("strip", LANE_LENGTH, 0.02, 0.7);
+      const strip = box("strip", length, 0.02, 0.7);
       strip.material = material("lane");
       scene.add(strip);
       strip.position.set(0, 0, z);
       let next = Infinity;
       const placed = lane.checks
-        .map((check) => ({ check, x: LANE_LENGTH / 2 - (Math.min(DRIFT_DAYS, Math.max(0, check.age)) / DRIFT_DAYS) * LANE_LENGTH }))
+        .map((check) => ({ check, x: length / 2 - (Math.min(DRIFT_DAYS, Math.max(0, check.age)) / DRIFT_DAYS) * length }))
         .sort((a, b) => b.x - a.x);
       placed.forEach((item) => {
         if (item.check.kind === "change") {
@@ -508,13 +510,13 @@ const DRIFT = {
       const block = lane.worst ? prism(lane.worst, 0.5, tall) : box("block-none", 0.8, 1, 0.8);
       block.scale.y = tall;
       block.material = material(lane.worst || "none");
-      block.position.set(LANE_LENGTH / 2 + 1.3, 0.02, z);
+      block.position.set(length / 2 + 1.3, 0.02, z);
       pickable(block, { label: lane.label, href: lane.href, element: lane.element });
       scene.add(block);
     });
     return {
-      extent: { wide: LANE_LENGTH + 3, deep: lanes.length * LANE_GAP, tall: tallest, x: 0.6 },
-      home: { yaw: -0.5, pitch: 0.62 },
+      extent: { wide: length + 3, deep: lanes.length * LANE_GAP, tall: tallest, x: 0.6 },
+      home: { yaw: -0.28, pitch: 0.78 },
       hint: "Point at a column or a block to read it; select it to open the change or the source.",
       info: () => ({ lanes: lanes.length }),
     };
