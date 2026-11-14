@@ -19,6 +19,15 @@ token in the `authenticationToken` cookie.
   tolerated, and the expiry date the administrator enters on the source is used.
 - The collections themselves (`/rest/v0/<collection>?fields=...&ndjson=true`) answer without a
   redirect.
+- With the probe fixed, all twenty collections answered 200 on both servers (495 and 375 objects).
+  Every object carries `href` (its REST link): ignore. Backup job `settings` is a map keyed by
+  schedule id plus an empty key for the job defaults (statement 12 holds), so `settings`, the VM
+  selection pattern `vms` and `remotes` are subtrees of the class config. Host `otherConfig`,
+  pool `otherConfig` and network `other_config` are config subtrees too, except the host
+  timestamps `boot_time`, `agent_start_time`, `last_blob_sync_time` and
+  `rpm_patch_installation_time`, which change on a reboot or an agent restart and are ignore
+  (test X1 for those keys). VM and template `blockedOperations` is a config subtree.
+  `tests/unit/test_xo_real_shapes.py` holds the paths.
 
 ## Status in one paragraph
 

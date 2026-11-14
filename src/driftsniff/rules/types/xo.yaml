@@ -21,10 +21,9 @@
 # The settings of a backup job are nested fields of the backup job (decision of Core on THE-359,
 # 2026-10-22): there is no derived resource. A table names only fixed field paths, so the keys
 # below are the settings names the plan lists, written under settings. Xen Orchestra keeps one
-# settings map per schedule id inside the job (vendor notes, statement 12, unverified); a key of
-# that shape is not named here, stays unclassified and shows as a fingerprint until a real answer
-# or the vendor reference allows the Backend Developer to classify it and the Code Reviewer to
-# agree. The run pipeline scans the whole settings map for secrets as it does every value.
+# settings map per schedule id inside the job (seen on two real XO 5 servers, 2026-11-13), so
+# settings, the VM selection pattern and the remotes are subtrees of the class config. The run
+# pipeline scans the whole settings map for secrets as it does every value.
 #
 # Security sensitive objects (XO servers, backup repositories, users, groups, ACL roles) have the
 # object floor high. The only fields classed secret are the sign in methods of a user and the device
@@ -87,6 +86,9 @@ types:
       snapshots: ignore
       VDIs: ignore
       parent: ignore
+      href: ignore  # the REST link of the object, added by XO to every answer
+    subtrees:
+      blockedOperations: config
     lists:
       tags: set
       boot.order: ordered-scalar
@@ -139,6 +141,8 @@ types:
       VDIs: ignore
       parent: ignore
       isDefaultTemplate: ignore
+    subtrees:
+      blockedOperations: config
     lists:
       tags: set
       boot.order: ordered-scalar
@@ -174,6 +178,13 @@ types:
       current_operations: ignore
       rebootRequired: ignore
       residentVms: ignore
+      certificates.fingerprint: config
+      otherConfig.agent_start_time: ignore
+      otherConfig.boot_time: ignore
+      otherConfig.last_blob_sync_time: ignore
+      otherConfig.rpm_patch_installation_time: ignore
+    subtrees:
+      otherConfig: config
     lists:
       supplementalPacks: set
       certificates: set
@@ -196,6 +207,8 @@ types:
       type: ignore
       _xapiRef: ignore
       current_operations: ignore
+    subtrees:
+      otherConfig: config
     lists:
       haSrs: set
   - resource: networks
@@ -219,6 +232,9 @@ types:
       $pool: ignore
       $poolId: ignore
       current_operations: ignore
+      href: ignore  # the REST link of the object, added by XO to every answer
+    subtrees:
+      other_config: config
   - resource: pifs
     key_field: id
     fields:
@@ -237,6 +253,7 @@ types:
       _xapiRef: ignore
       $pool: ignore
       $poolId: ignore
+      href: ignore  # the REST link of the object, added by XO to every answer
   - resource: pbds
     key_field: id
     fields:
@@ -249,6 +266,7 @@ types:
       _xapiRef: ignore
       $pool: ignore
       $poolId: ignore
+      href: ignore  # the REST link of the object, added by XO to every answer
   - resource: srs
     key_field: id
     name_field: name_label
@@ -272,6 +290,7 @@ types:
       $poolId: ignore
       current_operations: ignore
       VDIs: ignore
+      href: ignore  # the REST link of the object, added by XO to every answer
   - resource: vifs
     key_field: id
     fields:
@@ -291,6 +310,7 @@ types:
       _xapiRef: ignore
       $pool: ignore
       $poolId: ignore
+      href: ignore  # the REST link of the object, added by XO to every answer
     lists:
       allowedIpv4Addresses: set
       allowedIpv6Addresses: set
@@ -311,6 +331,7 @@ types:
       $pool: ignore
       $poolId: ignore
       parent: ignore
+      href: ignore  # the REST link of the object, added by XO to every answer
   - resource: vdis
     key_field: id
     name_field: name_label
@@ -331,6 +352,7 @@ types:
       current_operations: ignore
       snapshots: ignore
       parent: ignore
+      href: ignore  # the REST link of the object, added by XO to every answer
   - resource: backup-jobs
     key_field: id
     name_field: name
@@ -356,6 +378,10 @@ types:
       settings.fullInterval: config
       settings.checkpointSnapshot: config
       userId: ignore
+    subtrees:
+      settings: config
+      vms: config
+      remotes: config
     lists:
       remotes: set
       srs: set
@@ -372,6 +398,7 @@ types:
       enabled: config
       name: config
       timezone: config
+      href: ignore  # the REST link of the object, added by XO to every answer
   - resource: backup-repositories
     key_field: id
     name_field: name
@@ -407,6 +434,7 @@ types:
       enabled: config
       status: ignore
       error: ignore
+      href: ignore  # the REST link of the object, added by XO to every answer
   - resource: users
     key_field: id
     name_field: email
@@ -419,6 +447,7 @@ types:
       groups: config
       authProviders: secret
       last_uses: ignore
+      href: ignore  # the REST link of the object, added by XO to every answer
     lists:
       groups: set
   - resource: groups
@@ -431,6 +460,7 @@ types:
       provider: config
       users: config
       aclRoleIds: config
+      href: ignore  # the REST link of the object, added by XO to every answer
     lists:
       users: set
       aclRoleIds: set
@@ -441,6 +471,7 @@ types:
     fields:
       id: config
       name: config
+      href: ignore  # the REST link of the object, added by XO to every answer
   # Collected only when the credential can reach it (coverage 403 or 404 otherwise). No field name
   # of a privilege is known, so only the key is classified (notes, section "Open items").
   - resource: acl-privileges
@@ -448,3 +479,4 @@ types:
     floor: high
     fields:
       id: config
+      href: ignore  # the REST link of the object, added by XO to every answer
