@@ -7,10 +7,11 @@ files are identical to those of build `63eaa6ad764955d1d57124ca7727e7bfcb49ddc9`
 that build only in the CI workflow and a CI test, which the image does not contain. Build
 `63eaa6ad` in turn differs from the earlier build `36f78cc95919b115103af19bd10773d9d69a7386` only
 in the hint under the push source form. All screenshots were retaken at
-`https://ce-dev-driftsniff.theriark.dev` on 14 November 2026 on the later Development build
-`63112500`, after the web UI revamp (the Inter typeface, the page change, the 3D drift field of
-the dashboard and the 3D change replay of a source page), so they show that build rather than
-the candidate above. All captures hold synthetic test data only. The
+`https://ce-dev-driftsniff.theriark.dev` on 14 November 2026 after the web UI revamp (the Inter
+typeface, the page change and the 3D change replay of a source page) on the later Development
+build `63112500`; the dashboard pictures were taken again the same day on build `41b511db`, which
+replaced the dashboard's 3D lane field with the 3D lab of sources and the ferret. They show those
+builds rather than the candidate above. All captures hold synthetic test data only. The
 [documentation manifest](documentation-manifest.json) lists every file with its SHA-256 and, for
 every screenshot, the build it was taken on.
 
