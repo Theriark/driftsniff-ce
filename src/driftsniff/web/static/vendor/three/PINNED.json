@@ -25,24 +25,6 @@
   },
   "usedBy": "src/driftsniff/web/static/scenes.js (the 3D views), imported only after a WebGL 2 check",
   "addons": {
-    "addons/GLTFLoader.js": {
-      "from": "examples/jsm/loaders/GLTFLoader.js",
-      "sourceSha256": "131c0f78c01d19368ae495caa65b3adaa10487810a36a05bb5901b769a35ac16",
-      "sha256": "ad114074806b6d4ef28b7b3744cb19c30d4be3d2a08b178181572ec22f76ba0b",
-      "bytes": 117569
-    },
-    "addons/BufferGeometryUtils.js": {
-      "from": "examples/jsm/utils/BufferGeometryUtils.js",
-      "sourceSha256": "9fb63427ce6641fa14fd0baff9cc4d1b5f9c3d85fd084bf2e90e803c44ec1797",
-      "sha256": "ce6b8c82f29e4ad7e8e330ce2bccd921de6c36a5c05c8f50f9a8b039596b8551",
-      "bytes": 37725
-    },
-    "addons/SkeletonUtils.js": {
-      "from": "examples/jsm/utils/SkeletonUtils.js",
-      "sourceSha256": "b1632a703206c3d830de9fcbe515696770d04b71a15ee6b50afa6d2c3298c86f",
-      "sha256": "6ed06893a413aea61b6031867cb145a2e6f79b92a4f70f5cb24b403c262e9308",
-      "bytes": 11548
-    },
     "addons/RoundedBoxGeometry.js": {
       "from": "examples/jsm/geometries/RoundedBoxGeometry.js",
       "sourceSha256": "c5feab96123858ed8823c889b238dc8734adab7e760e3cfd21e7f3f2f3e348e3",
@@ -56,5 +38,5 @@
       "bytes": 4973
     }
   },
-  "addonsNote": "Five files of examples/jsm from the same three@0.186.1 tarball (its build/three.module.js and three.core.js match the hashes above). The only change: each import specifier is made relative ('three' -> '../three.module.js', '../utils/X.js' -> './X.js'), because the content security policy blocks the inline import map that would otherwise resolve 'three'. sourceSha256 is the file as published."
+  "addonsNote": "Two files of examples/jsm from the same three@0.186.1 tarball (its build/three.module.js and three.core.js match the hashes above). The only change: each import specifier is made relative ('three' -> '../three.module.js'), because the content security policy blocks the inline import map that would otherwise resolve 'three'. sourceSha256 is the file as published."
 }

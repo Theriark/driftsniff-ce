@@ -10,7 +10,7 @@ in the hint under the push source form. All screenshots were retaken at
 `https://ce-dev-driftsniff.theriark.dev` on 14 November 2026 after the web UI revamp (the Inter
 typeface, the page change and the 3D change replay of a source page) on the later Development
 build `63112500`; the dashboard pictures were taken again the same day on build `41b511db`, which
-replaced the dashboard's 3D lane field with the 3D lab of sources and the ferret, and the two
+replaced the dashboard's 3D lane field with the 3D lab of sources, and the two
 pictures of the change replay on build `6077f78d`, which shows the replay's day on the source's
 own device. They show those builds rather than the candidate above. All captures hold synthetic test data only. The
 [documentation manifest](documentation-manifest.json) lists every file with its SHA-256 and, for

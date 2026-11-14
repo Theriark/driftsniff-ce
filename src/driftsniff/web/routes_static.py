@@ -20,8 +20,6 @@ CACHE_CONTROL: Final = "public, max-age=600"
 
 # Python 3.12 does not know these web types, and the slim image has no system type table
 mimetypes.add_type("font/woff2", ".woff2")
-mimetypes.add_type("image/webp", ".webp")
-mimetypes.add_type("model/gltf+json", ".gltf")
 
 router = APIRouter()
 

@@ -1,8 +1,0 @@
-The Driftsniff ferret (ferret.gltf, ferret.bin and the three .webp textures).
-
-Generated for Theriark with Meshy (image-to-3D, paid plan: the output is owned by the subscriber with
-no attribution required), then slimmed, painted, rigged and animated by Theriark in Blender. It is the
-same model as the Theriark website's ferret, converted for this product with glTF-Transform 4: the
-Draco mesh decoded and quantized (KHR_mesh_quantization), the textures kept as separate WebP files
-(EXT_texture_webp) and only two clips kept, idle_sniff and look_around. Plain glTF, so it loads under
-the product's content security policy without WebAssembly, workers or blob URLs.

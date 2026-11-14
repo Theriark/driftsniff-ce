@@ -55,12 +55,12 @@ From the top:
   colour and shape of its highest severity. Point at or focus a mark to read the change; select it
   to open it.
 - **The 3D view** above the drift lines shows your sources as a small lab: each device is a
-  source (servers in a rack, NAS units, network gear, a camera, monitoring screens, a hub). The
-  shape above a device is its worst open change, in the same shapes as everywhere else; a grey
-  ring is a source that is failing or stale. The ferret sniffs at the source that needs you most.
-  Point at a device to read it and select it to open the source; turn the lab with Turn left,
-  Turn right or a drag. Hide the 3D view puts it away in this browser until you show it again. A
-  browser without WebGL 2 shows only the drift lines.
+  source (servers in a rack, NAS units, network gear, a camera, monitoring screens, a hub). Its
+  status lights show its worst open change (red critical, orange high, amber medium, blue low),
+  green when nothing is open, and dark when the source is failing or stale. Point at a device to
+  read it and select it to open the source;
+  turn the lab with Turn left, Turn right or a drag. Hide the 3D view puts it away in this browser
+  until you show it again. A browser without WebGL 2 shows only the drift lines.
 - **Change items per day.** Thirty days stacked by severity. "Show the numbers as a table" gives
   the same numbers as text.
 - **Where the open items are.** Open items by source and by resource type.
@@ -131,7 +131,8 @@ Select a source to open its page.
   ringed cell holds a critical item. The panel under it lists the chosen day by resource type and
   severity, with a link to those changes. With reduced motion on, the replay moves only when you
   step. Above the matrix, the 3D view shows the chosen day on this source's device: every resource
-  type that changed that day rises out of it as a card, marked with the shape of its worst item.
+  type that changed that day rises out of it as a card in the colour of its worst item, and the
+  device's lights show the day's worst change.
   Point at a card to read it and select it to open those changes. It follows Previous day, Next
   day, Play and the slider.
 - **Coverage by resource.** For each resource: the last answer of the controller, the number of

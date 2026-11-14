@@ -35,15 +35,6 @@ def test_htmx_and_its_licence_are_served(client: TestClient) -> None:
     assert "Zero-Clause BSD" in licence.text
 
 
-def test_the_ferret_model_is_served_with_its_types(client: TestClient) -> None:
-    model = client.get("/static/models/ferret/ferret.gltf")
-    assert model.status_code == 200 and model.headers["content-type"].startswith("model/gltf+json")
-    texture = client.get("/static/models/ferret/ferret-ferret-base.webp")
-    assert texture.status_code == 200 and texture.headers["content-type"] == "image/webp"
-    loader = client.get("/static/vendor/three/addons/GLTFLoader.js")
-    assert loader.status_code == 200 and "javascript" in loader.headers["content-type"]
-
-
 def test_the_inter_font_is_served_as_a_web_font(client: TestClient) -> None:
     font = client.get("/static/vendor/inter/inter-latin-opsz-normal.woff2")
     assert font.status_code == 200
