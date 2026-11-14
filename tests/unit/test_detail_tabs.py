@@ -362,7 +362,11 @@ def test_each_object_group_says_how_many_items_it_holds() -> None:
 def test_the_change_detail_loads_the_detail_head_sheet() -> None:
     links = Parsed(render_change()).find("link")
     sheets = [a.get("href") for a in links if a.get("rel") == "stylesheet"]
-    assert sheets == ["/static/app.css", "/static/summary-head.css"]
+    assert sheets == [
+        "/static/vendor/inter/inter.css",
+        "/static/app.css",
+        "/static/summary-head.css",
+    ]
 
 
 # ---- the sheet --------------------------------------------------------------------------------

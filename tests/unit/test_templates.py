@@ -413,8 +413,11 @@ def test_the_shell_sends_the_csrf_value_in_the_htmx_header_and_configures_htmx()
     assert '"allowEval": false' in str(config["content"])
     assert '"selfRequestsOnly": true' in str(config["content"])
     assert '"includeIndicatorStyles": false' in str(config["content"])
+    # no defer: the script holds the parser until the stylesheets are in (the page change)
     scripts = parsed.find("script")
-    assert scripts == [{"src": "/static/htmx.min.js", "defer": None}]
+    assert scripts == [{"src": "/static/htmx.min.js"}]
+    sheets = [attrs["href"] for attrs in parsed.find("link") if attrs.get("rel") == "stylesheet"]
+    assert sheets == ["/static/vendor/inter/inter.css", "/static/app.css"]
 
 
 def test_the_csrf_value_is_escaped_in_the_header_attribute_and_the_form() -> None:
@@ -900,6 +903,24 @@ def test_the_stylesheet_and_htmx_are_shipped_with_a_licence_file() -> None:
     assert 'version:"2.0.4"' in htmx
     licence = (static / "htmx.min.js.LICENSE.txt").read_text(encoding="utf-8")
     assert "Zero-Clause BSD" in licence and "2.0.4" in licence
+
+
+def test_inter_ships_with_its_licence_and_leads_the_interface_stack() -> None:
+    inter = Path(TEMPLATES_DIR).parent / "static" / "vendor" / "inter"
+    assert "SIL Open Font License, Version 1.1" in (inter / "LICENSE").read_text(encoding="utf-8")
+    faces = (inter / "inter.css").read_text(encoding="utf-8")
+    for name in ("inter-latin-opsz-normal.woff2", "inter-latin-ext-opsz-normal.woff2"):
+        assert f'url("{name}")' in faces and (inter / name).is_file()
+    assert "http" not in faces.split("*/", 1)[1], "a face loaded from outside"
+    css = (inter.parent.parent / "app.css").read_text(encoding="utf-8")
+    assert '--font-sans: "Inter Variable", Inter,' in css
+
+
+def test_the_page_change_is_asked_for_only_without_reduced_motion() -> None:
+    css = (Path(TEMPLATES_DIR).parent / "static" / "app.css").read_text(encoding="utf-8")
+    assert css.count("@view-transition") == 1
+    block = css.split("@media (prefers-reduced-motion: no-preference) {", 1)[1]
+    assert block.lstrip().startswith("@view-transition {")
 
 
 # ---- the helpers ----------------------------------------------------------------------------

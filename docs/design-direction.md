@@ -80,12 +80,15 @@ smaller than 32 px.
 
 The brand guide sets the pairing and the sizes: Inter (or the system sans) bold at 32, 24 and
 20 px for headings, 16 px body, and JetBrains Mono (or the system mono) at 14 px for code and
-values. The interface uses exactly those families and sizes. No font file ships and no font
-licence is carried: each stack names the guide's face first and falls back to the system face
-the guide allows, so the first installed family is used.
+values. The interface uses exactly those families and sizes. Inter ships with the application:
+`static/vendor/inter` holds the variable upright face (weight and optical size axes) from the npm
+package `@fontsource-variable/inter` 5.3.0, the Latin file and the Latin Extended file (fetched
+only by a page that needs it), with `inter.css` and the SIL Open Font Licence 1.1 beside them.
+Nothing is loaded from outside, so the content security policy stays `default-src 'self'`. No
+mono file ships: that stack names the guide's face first and falls back to the system mono.
 
 ```
---font-sans: Inter, "Helvetica Neue", "Liberation Sans", Arial, "Segoe UI", sans-serif;
+--font-sans: "Inter Variable", Inter, "Helvetica Neue", "Liberation Sans", Arial, "Segoe UI", sans-serif;
 --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
 ```
 
@@ -185,7 +188,12 @@ secondary columns, badges keep shape and colour with the word for screen readers
 
 Motion: 120 ms for hover and focus, 180 ms for open and close, `cubic-bezier(0.2, 0.7, 0.2, 1)`,
 all zero under `prefers-reduced-motion`. The loading skeleton shimmer is the only ambient motion
-and it stops under reduced motion too.
+and it stops under reduced motion too. A page change cross-fades the page column in 220 ms on
+`cubic-bezier(0.16, 1, 0.3, 1)` (a cross-document view transition, the `@view-transition` rule at
+the end of `app.css`); the sidebar and the top bar keep their place. It is asked for only without
+reduced motion, and a browser without view transitions changes page as before. `base.html`
+links htmx without `defer` so the parser waits for the stylesheets before it reaches `<body>`,
+where the browser reads that rule.
 
 ## 7. Designed states and copy
 

@@ -15,7 +15,8 @@ guide wins over both for typography and logo use.
 | `src/driftsniff/web/templates/page_header.html` | the page header macro: breadcrumb, title, purpose line, actions |
 | `src/driftsniff/web/templates/components/*.html` | the component macros (section 3) |
 | `src/driftsniff/web/static/app.css` | the one stylesheet: the design tokens of `docs/design-colours.json` (the contrast test fails when they drift) and the component styles carried over from the P10-T1 mock-ups |
-| `src/driftsniff/web/static/htmx.min.js` | htmx 2.0.4, unmodified; `htmx.min.js.LICENSE.txt` holds the version, the source, the file hashes and the Zero-Clause BSD licence text |
+| `src/driftsniff/web/static/vendor/inter/` | Inter, the variable upright face from `@fontsource-variable/inter` 5.3.0, unmodified: two `woff2` files, `inter.css` with the two faces, and `LICENSE` (SIL Open Font Licence 1.1); `base.html` links `inter.css` before `app.css` |
+| `src/driftsniff/web/static/htmx.min.js` | htmx 2.0.4, unmodified, linked without `defer` (the page change, `docs/design-direction.md` section 6); `htmx.min.js.LICENSE.txt` holds the version, the source, the file hashes and the Zero-Clause BSD licence text |
 | `src/driftsniff/web/static/brand/` | byte-for-byte copies of the brand files (the image copies only `src/`, so the running application never reads `brand/`) |
 | `src/driftsniff/web/routes_static.py` | `GET /static/{path}`: one explicit route in the route table, serving only files inside the static folder |
 | `src/driftsniff/web/preferences.py` | the row density cookie and the safe return path |

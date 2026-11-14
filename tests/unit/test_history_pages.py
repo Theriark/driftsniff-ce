@@ -457,10 +457,15 @@ def test_the_history_pages_load_their_own_stylesheet() -> None:
     def sheets(text: str) -> list[str | None]:
         return [a.get("href") for a in Parsed(text).find("link") if a.get("rel") == "stylesheet"]
 
-    assert sheets(render_picker("viewer", [])) == ["/static/app.css", "/static/history.css"]
+    assert sheets(render_picker("viewer", [])) == [
+        "/static/vendor/inter/inter.css",
+        "/static/app.css",
+        "/static/history.css",
+    ]
     # the two pages of one source also load the detail head sheet, for the source tabs (THE-1161)
     for text in (render_history(history_view(())), render_configuration(config_view())):
         assert sheets(text) == [
+            "/static/vendor/inter/inter.css",
             "/static/app.css",
             "/static/history.css",
             "/static/summary-head.css",
