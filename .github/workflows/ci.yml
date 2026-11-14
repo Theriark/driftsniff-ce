@@ -155,7 +155,9 @@ jobs:
     name: Tests
     needs: gate
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    # the suite (about 5,600 tests with coverage) takes 15 to 20 minutes on a hosted runner; at 20
+    # a slow runner was cut at 96 % and 97 % with no failure (PRs 157 and 159)
+    timeout-minutes: 30
 
     steps:
       - name: Checkout repository
