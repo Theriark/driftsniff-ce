@@ -27,7 +27,9 @@ from driftsniff.core.canonical import JsonValue, canonical_dumps
 
 # 2 (2026-11-13): UniFi firewall policies of controller origin are placed between their zone pair's
 # ordering lists; the first reading after the upgrade is a new baseline, not a flood of moves.
-NORMALISER_VERSION = 2
+# 3 (2026-11-14): the XO collector drops the hourly xo:clientInfo:<id> heartbeats from a pool's
+# otherConfig; the first reading after the upgrade is a new baseline, not one removal per key.
+NORMALISER_VERSION = 3
 
 
 class FieldClass(StrEnum):
