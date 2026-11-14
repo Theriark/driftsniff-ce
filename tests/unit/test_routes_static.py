@@ -35,6 +35,16 @@ def test_htmx_and_its_licence_are_served(client: TestClient) -> None:
     assert "Zero-Clause BSD" in licence.text
 
 
+def test_the_inter_font_is_served_as_a_web_font(client: TestClient) -> None:
+    font = client.get("/static/vendor/inter/inter-latin-opsz-normal.woff2")
+    assert font.status_code == 200
+    assert font.headers["content-type"] == "font/woff2"
+    assert font.content[:4] == b"wOF2"
+    faces = client.get("/static/vendor/inter/inter.css")
+    assert faces.headers["content-type"].startswith("text/css")
+    assert client.get("/static/vendor/inter/LICENSE").status_code == 200
+
+
 @pytest.mark.parametrize(
     "path",
     [

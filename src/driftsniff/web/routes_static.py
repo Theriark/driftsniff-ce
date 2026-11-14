@@ -1,4 +1,4 @@
-"""The static files of the interface: the stylesheet, the vendored htmx and the brand copies.
+"""The static files of the interface: stylesheets, scripts, vendored files and brand copies.
 
 One explicit route instead of a mounted application, so it sits in the route table of the
 security suite like every other route. A path is served only when it resolves to a file inside
@@ -7,6 +7,7 @@ link that leaves the folder. The middleware leaves ``/static/`` out of its ``no-
 route sets a short public cache time instead.
 """
 
+import mimetypes
 from pathlib import Path
 from typing import Final
 
@@ -16,6 +17,9 @@ from fastapi.responses import FileResponse
 STATIC_DIR: Final = (Path(__file__).parent / "static").resolve()
 STATIC_PREFIX: Final = "/static/"
 CACHE_CONTROL: Final = "public, max-age=600"
+
+# Python 3.12 does not know the web font type, and the slim image has no system type table
+mimetypes.add_type("font/woff2", ".woff2")
 
 router = APIRouter()
 

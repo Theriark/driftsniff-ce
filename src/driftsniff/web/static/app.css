@@ -43,11 +43,12 @@
   --diff-added: #E3E3D9;
   --header-bg: #F5F5F0;
 
-  /* type: the brand guide's pairing, Inter (or the system sans) for the interface and
-     JetBrains Mono (or the system mono) for values; no font file ships, the first installed
-     family of each stack is used. Sizes are the guide's: 32, 24 and 20 for headings, 16 body,
+  /* type: the brand guide's pairing, Inter for the interface and JetBrains Mono (or the system
+     mono) for values. Inter ships with the application (vendor/inter, SIL Open Font Licence),
+     so every browser draws the guide's face; the system sans is only the fallback while the
+     file loads. No mono file ships: the first installed family of that stack is used. Sizes are the guide's: 32, 24 and 20 for headings, 16 body,
      14 for code and the smallest interface text. */
-  --font-sans: Inter, "Helvetica Neue", "Liberation Sans", Arial, "Segoe UI", sans-serif;
+  --font-sans: "Inter Variable", Inter, "Helvetica Neue", "Liberation Sans", Arial, "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
   --fs-14: 0.875rem;
   --fs-16: 1rem;
@@ -78,6 +79,9 @@
   --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
   --t-fast: 120ms;
   --t-base: 180ms;
+  /* a page change: the column settles in on a curve that starts fast */
+  --ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
+  --t-page: 220ms;
 
   /* layout */
   --content-max: 1280px;
@@ -3425,4 +3429,32 @@ textarea.input {
     display: block;
     margin-top: var(--sp-1);
   }
+}
+
+/* A page change cross-fades the page column (a cross-document view transition). The sidebar
+   and the top bar are the same parts on both pages, so each is its own group and stays where
+   it is; a browser without view transitions changes page as before, and under reduced motion
+   the change is not asked for. A browser reads this rule when it meets <body>, so base.html
+   links htmx without defer and the parser waits there until the stylesheets are in. */
+@media (prefers-reduced-motion: no-preference) {
+  @view-transition {
+    navigation: auto;
+  }
+}
+
+.app--signed-in > .sidebar {
+  view-transition-name: ds-sidebar;
+}
+
+.app--signed-in > .topbar {
+  view-transition-name: ds-topbar;
+}
+
+::view-transition-group(*) {
+  animation-duration: var(--t-page);
+  animation-timing-function: var(--ease-enter);
+}
+
+::view-transition-old(root) {
+  animation-duration: var(--t-fast);
 }

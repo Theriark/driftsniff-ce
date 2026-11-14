@@ -21,8 +21,13 @@
 <title>{% block title %}{{ shell.title }}{% endblock %}, driftsniff</title>
 <link rel="icon" href="/static/brand/favicon-32x32.png" sizes="32x32" type="image/png">
 <link rel="apple-touch-icon" href="/static/brand/favicon-180x180.png">
+<link rel="stylesheet" href="/static/vendor/inter/inter.css">
 <link rel="stylesheet" href="/static/app.css">
-<script src="/static/htmx.min.js" defer></script>
+{# htmx without defer on purpose: a browser decides whether a page change is animated when it
+   reaches <body> (the @view-transition rule at the end of app.css), and a script that blocks the
+   parser here holds it until the stylesheets above are in. htmx starts on DOMContentLoaded, so
+   it does not need defer. #}
+<script src="/static/htmx.min.js"></script>
 {% block head %}{% endblock %}
 </head>
 <body class="{{ 'app app--signed-in' if shell.user_name else 'app' }}"{% if shell.csrf_token %} hx-headers='{{ {"X-CSRF-Token": shell.csrf_token} | tojson }}'{% endif %}>

@@ -577,7 +577,12 @@ def test_every_field_of_the_page_has_a_label(kit: Kit) -> None:
 def test_the_page_loads_its_stylesheet_after_the_shell(kit: Kit) -> None:
     text = show(kit, kit.new_session("admin")).text
     sheets = re.findall(r'<link rel="stylesheet" href="([^"]+)">', text)
-    assert sheets == ["/static/app.css", "/static/summary-head.css", "/static/settings.css"]
+    assert sheets == [
+        "/static/vendor/inter/inter.css",
+        "/static/app.css",
+        "/static/summary-head.css",
+        "/static/settings.css",
+    ]
     css = kit.client.get("/static/settings.css")
     assert css.status_code == 200
     for rule in (".settings-pair", ".meter__fill", ".settings-form__fields", ".settings-sub"):
