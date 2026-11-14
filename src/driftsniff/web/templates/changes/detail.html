@@ -16,7 +16,7 @@
 {% from "components/badges.html" import severity_badge, status_badge %}
 {% from "components/details.html" import time_tag, tab_strip %}
 {% from "changes/_item.html" import change_item with context %}
-{% block head %}<link rel="stylesheet" href="/static/summary-head.css">{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ static_url('summary-head.css') }}">{% endblock %}
 {% block content %}
 <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/changes">Changes</a> / <a href="/sources/{{ change.source_id }}">{{ change.source_name }}</a> / Change {{ number(change.id) }}</nav>
 <div class="summary-head">

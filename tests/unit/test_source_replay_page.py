@@ -32,6 +32,7 @@ from driftsniff.sources.service import SourceService
 from driftsniff.web.auth import SESSION_COOKIE, AuthService, make_password_hasher
 from driftsniff.web.replay import ReplayService
 from driftsniff.web.source_pages import SourcePages
+from driftsniff.web.templating import static_url
 
 ORIGIN = "http://testserver"
 MASTER = MasterKey(bytes(range(32)))
@@ -193,7 +194,7 @@ def test_a_source_without_items_shows_the_empty_replay(store: Database) -> None:
 def test_the_page_loads_the_script_from_its_own_origin_and_inlines_nothing(site: Site) -> None:
     text = site.get("/sources/1").text
     scripts = re.findall(r"<script\b([^>]*)>(.*?)</script>", text, re.S)
-    assert ' src="/static/replay.js" defer' in [attrs for attrs, _ in scripts]
+    assert f' src="{static_url("replay.js")}" defer' in [attrs for attrs, _ in scripts]
     assert all(body.strip() == "" for _, body in scripts)
     assert re.search(r"<[a-z][^>]*\sstyle=", text) is None
     served = site.client.get("/static/replay.js")
@@ -204,7 +205,10 @@ def test_the_page_loads_the_script_from_its_own_origin_and_inlines_nothing(site:
 
 def test_the_3d_replay_is_a_hidden_block_that_loads_its_module(site: Site) -> None:
     text = site.get("/sources/1").text
-    assert '<script type="module" src="/static/scenes.js"></script>' in text.split("</head>", 1)[0]
+    assert (
+        f'<script type="module" src="{static_url("scenes.js")}"></script>'
+        in text.split("</head>", 1)[0]
+    )
     block = text.split('id="replay-scene"', 1)[1].split("</p>", 2)[0]
     assert block.startswith(' data-scene="replay" hidden>')
     block = text.split('id="replay-scene"', 1)[1].split('<p class="scene__detail"', 1)[0]

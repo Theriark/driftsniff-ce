@@ -33,7 +33,7 @@ from driftsniff.web import change_pages
 from driftsniff.web.dashboard import DriftRow, SourceHealth, parse_stamp, resource_label
 from driftsniff.web.history_pages import configuration_href, ledger_mark, range_text, size_text
 from driftsniff.web.source_pages import CoverageRow, RunEntry, SourceDetail
-from driftsniff.web.templating import TEMPLATES_DIR, Shell, render
+from driftsniff.web.templating import TEMPLATES_DIR, Shell, render, static_url
 
 NOW = datetime(2026, 10, 24, 21, 0, tzinfo=UTC)
 CSRF = "CANARY-csrf-value"
@@ -363,9 +363,9 @@ def test_the_change_detail_loads_the_detail_head_sheet() -> None:
     links = Parsed(render_change()).find("link")
     sheets = [a.get("href") for a in links if a.get("rel") == "stylesheet"]
     assert sheets == [
-        "/static/vendor/inter/inter.css",
-        "/static/app.css",
-        "/static/summary-head.css",
+        static_url("vendor/inter/inter.css"),
+        static_url("app.css"),
+        static_url("summary-head.css"),
     ]
 
 

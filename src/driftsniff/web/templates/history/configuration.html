@@ -13,7 +13,7 @@
 {% from "components/table.html" import pager as pager_bar %}
 {% from "components/forms.html" import search_box %}
 {% from "components/details.html" import time_tag %}
-{% block head %}<link rel="stylesheet" href="/static/history.css"><link rel="stylesheet" href="/static/summary-head.css">{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ static_url('history.css') }}"><link rel="stylesheet" href="{{ static_url('summary-head.css') }}">{% endblock %}
 {% block content %}
 {% if unreadable %}
 {% call source_head("Configuration", "/configuration", source, "configuration") %}

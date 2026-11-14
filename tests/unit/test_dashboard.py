@@ -65,7 +65,7 @@ from driftsniff.web.dashboard import (
     width_class,
     window_text,
 )
-from driftsniff.web.templating import drift_marks
+from driftsniff.web.templating import drift_marks, static_url
 
 ORIGIN = "http://testserver"
 BROWSER = {"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"}
@@ -1313,7 +1313,7 @@ def test_the_lab_is_a_hidden_block_and_each_drift_line_carries_its_source(
 ) -> None:
     text = client.get("/", headers=sign_in(client, auth)).text
     head = text.split("</head>", 1)[0]
-    assert '<script type="module" src="/static/scenes.js"></script>' in head
+    assert f'<script type="module" src="{static_url("scenes.js")}"></script>' in head
     block = text.split('id="lab-scene"', 1)[1].split('<div class="driftlines">', 1)[0]
     assert text.split('id="lab-scene"', 1)[0].endswith('<div class="card scene" ')
     assert block.startswith(' data-scene="lab" hidden>')

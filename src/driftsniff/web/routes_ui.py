@@ -9,8 +9,6 @@ designed empty state.
 """
 
 import json
-import os
-import re
 from datetime import UTC, datetime
 from typing import Annotated, Literal
 from urllib.parse import parse_qs
@@ -53,6 +51,7 @@ from driftsniff.web.pages import (
     wants_html,
 )
 from driftsniff.web.preferences import parse_density, safe_next, set_density_cookie
+from driftsniff.web.templating import build_commit
 
 router = APIRouter()
 
@@ -62,20 +61,6 @@ MAX_FORM_BYTES = 16 * 1024
 MAX_FORM_FIELDS = 64
 _FORM_CONTENT_TYPE = "application/x-www-form-urlencoded"
 _JSON_CONTENT_TYPE = "application/json"
-
-COMMIT_ENV = "DRIFTSNIFF_COMMIT"
-UNKNOWN_COMMIT = "unknown"
-# The image build sets the full 40-character commit SHA; other short tokens (for example the
-# smoke test value) are passed through. Anything else is reported as unknown.
-_COMMIT_TOKEN = re.compile(r"[0-9A-Za-z._-]{1,64}")
-
-
-def build_commit() -> str:
-    """Return the commit this image was built from, or "unknown" when unset or malformed."""
-    value = os.environ.get(COMMIT_ENV, "").strip()
-    if _COMMIT_TOKEN.fullmatch(value) and value != UNKNOWN_COMMIT:
-        return value
-    return UNKNOWN_COMMIT
 
 
 class Healthz(BaseModel):
