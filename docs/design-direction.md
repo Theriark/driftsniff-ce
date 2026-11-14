@@ -90,20 +90,23 @@ Rules:
 
 ### The change replay (3D)
 
-On a source page the change replay has the same kind of 3D view above its heat map
-(`data-scene="replay"` in `sources/_replay.html`, the same module):
+On a source page the change replay shows its chosen day in 3D above the heat map
+(`data-scene="replay"` in `sources/_replay.html`, the same module and the lab's studio light). It
+replaced a 3D chart of the heat map's cells on 14 November 2026, for the same reason as the lab.
 
 | Element | Drawing | Meaning |
 |---|---|---|
-| Track | a thin `surface-2` strip per resource type | a row of the heat map |
-| Bar | square segments stacked from critical at the foot to low on top, each in its severity colour, the whole height from the log of the cell's change items | the change items of one resource type on one day |
-| Pane | a 12 % `ink` slab across every row | the day the replay shows; the bars after it are pale, as the heat map dims the days after its cursor |
+| Device | the lab's device for this source's type; a racked server stands in a short rack of its own | the source of the page |
+| Card | a rounded panel with a stripe in the severity colour, three grey lines and the severity shape beside it, larger with more change items, joined to the device by a dashed line; the cards of a day stand in an arc over the device, the worst in the middle, and turn to the viewer together | one resource type that changed on the replay's day; its worst item gives the colour and the shape |
+| Ferret | the Driftsniff ferret beside the device, `idle_sniff` on a day with changes, `look_around` on a quiet day | |
 
-The scene reads the cells (`data-day-index`, `data-row`, `data-counts`, the cell's `title`) and
-follows the cursor of the heat map through its `x` attribute, so Previous day, Next day, Play and
-the slider move the pane without any other wiring. Pointing at a cell of the map lights its bar;
-selecting a bar opens the changes of that day and resource type. The rules of the lab apply
-(without the studio light and the ferret).
+The scene reads the cells (`data-day-index`, `data-counts`, the cell's `title`) and the source's
+type (`data-source-type` on the replay section), and follows the cursor of the heat map through its
+`x` attribute, so Previous day, Next day, Play and the slider change the day with no other wiring.
+On a new day the cards rise out of the device in 380 ms (immediately under reduced motion).
+Pointing at a card says its day, resource type and counts; selecting it opens those changes.
+Pointing at a cell of the heat map lights its card when that cell is on the shown day. The rules
+of the lab apply.
 
 ## 3. Logo and clear space
 

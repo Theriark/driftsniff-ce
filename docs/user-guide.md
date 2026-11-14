@@ -130,9 +130,10 @@ Select a source to open its page.
   day or the slider. The matrix shows how many change items each resource type had per day; a
   ringed cell holds a critical item. The panel under it lists the chosen day by resource type and
   severity, with a link to those changes. With reduced motion on, the replay moves only when you
-  step. Above the matrix, the 3D view draws the same cells as bars, stacked by severity, with a
-  pane on the day the replay shows; the days after it fade. Point at a bar to read it and select
-  it to open those changes. It follows Previous day, Next day, Play and the slider.
+  step. Above the matrix, the 3D view shows the chosen day on this source's device: every resource
+  type that changed that day rises out of it as a card, marked with the shape of its worst item.
+  Point at a card to read it and select it to open those changes. It follows Previous day, Next
+  day, Play and the slider.
 - **Coverage by resource.** For each resource: the last answer of the controller, the number of
   objects and the last good read. A resource that the controller refused or does not have says so.
 - **Recent runs.** The newest checks or pushes and their outcome.

@@ -77,8 +77,12 @@ def test_every_scene_kind_on_a_page_has_its_builder() -> None:
     for page in templates.rglob("*.html"):
         kinds.update(re.findall(r'data-scene="([a-z]+)"', page.read_text(encoding="utf-8")))
     assert kinds == {"lab", "replay"}
-    # the replay scene follows the cursor of the 2D map and stops watching when it is put away
+    # the replay scene follows the cursor of the 2D map and stops watching when it is put away;
+    # the cards of an earlier day leave the picking list when they leave the scene
     assert 'attributeFilter: ["x"]' in code and "watch.disconnect()" in code
+    assert "kit.unpickable(card.group)" in code
+    # both scenes draw the same devices
+    assert code.count("workshop(kit)") == 3  # the definition and the two scenes
 
 
 def test_the_addons_are_the_pinned_release_with_only_their_imports_made_relative() -> None:

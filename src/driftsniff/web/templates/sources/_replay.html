@@ -27,8 +27,8 @@
 </div>
 {%- endmacro %}
 
-{% macro change_replay(view, source_id) %}
-<section class="jump-target replay" id="replay" aria-labelledby="replay-h"{% if view and not view.empty %} data-replay data-first-day="{{ view.first_day }}" data-days="{{ view.columns | length }}" data-cursor="{{ view.cursor_index }}" data-pitch="{{ view.pitch }}" data-source="{{ source_id }}"{% endif %}>
+{% macro change_replay(view, source_id, source_type="") %}
+<section class="jump-target replay" id="replay" aria-labelledby="replay-h"{% if view and not view.empty %} data-replay data-first-day="{{ view.first_day }}" data-days="{{ view.columns | length }}" data-cursor="{{ view.cursor_index }}" data-pitch="{{ view.pitch }}" data-source="{{ source_id }}" data-source-type="{{ source_type }}"{% endif %}>
   <div class="section-head"><h2 id="replay-h">Change replay</h2>{% if view %}<span class="hint">{{ view.window_text }}</span>{% endif %}</div>
   <div class="card replay-card">
     {% if not view %}
@@ -72,12 +72,12 @@
       <p class="replay-reduced" data-replay-reduced hidden>Reduced motion is on, so the replay moves only when you step or drag the slider.</p>
     </div>
 
-    {# The 3D replay (scenes.js): the cells of the map below as bars on a field of days and
-       resource types, with a pane on the day of the replay. Hidden until the script has seen
-       WebGL 2; the map stays the record and the keyboard path. #}
+    {# The 3D replay (scenes.js): this source's device on a desk, and the resource types that
+       changed on the replay's day rising out of it as cards with their worst severity shape.
+       Hidden until the script has seen WebGL 2; the map stays the record and the keyboard path. #}
     <div class="scene scene--inset" id="replay-scene" data-scene="replay" hidden>
       <div class="scene__bar">
-        <p class="scene__lead">The same days in 3D: a bar per day and resource type, taller with more change items, stacked by severity from critical at the foot. The pane is the day of the replay; the days after it fade.</p>
+        <p class="scene__lead">The replay's day in 3D: this source's device, with every resource type that changed that day rising out of it as a card, larger with more change items, marked with the shape of its worst one. Previous day, Next day, Play and the slider move it.</p>
         <button type="button" class="btn btn--small scene__toggle" hidden>Hide the 3D view</button>
       </div>
       <div class="scene__stage"></div>
