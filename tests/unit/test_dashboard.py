@@ -873,6 +873,8 @@ def test_the_drift_lines_mark_each_check_or_each_day(
         "severity": "critical",
         "summary": "3 changes in 2 resource types, highest severity critical",
         "href": f"/changes/{seeded['critical']}",
+        "items": 3,
+        "open": True,
     }
     xo = lines["office-xo"]
     assert xo.per_day and len(xo.checks) == 10 and xo.meta.endswith("40 checks in 30 days")
@@ -1303,3 +1305,38 @@ def test_the_dashboard_with_the_thousand_object_fixture_renders_in_under_half_a_
     stats = [a for a in parsed.find("a") if a.get("class") == "card metric"]
     assert len(stats) == 4  # an admin's storage card links to /settings#about too
     assert len(parsed.find("li")) >= 20
+
+
+# ---- the 3D drift field (scenes.js) ----------------------------------------------------------
+
+
+def test_the_drift_field_stage_is_hidden_and_reads_the_marks_of_the_drift_lines(
+    client: TestClient, auth: AuthService, seeded: dict[str, int]
+) -> None:
+    text = client.get("/", headers=sign_in(client, auth)).text
+    head = text.split("</head>", 1)[0]
+    assert '<script type="module" src="/static/scenes.js"></script>' in head
+    stage = text.split('id="drift-scene"', 1)[1].split('<div class="driftlines">', 1)[0]
+    assert text.split('id="drift-scene"', 1)[0].endswith('<div class="card scene" ')
+    assert stage.startswith(' data-scene="drift" hidden>')
+    for part in ("scene__toggle", "scene__stage", "scene__turn-left", "scene__reset"):
+        assert part in stage
+    # the change mark of the critical event carries what the scene draws
+    mark = re.search(rf'<a href="/changes/{seeded["critical"]}" aria-label[^>]*>', text)
+    assert mark is not None
+    for attribute in (
+        'data-kind="change"',
+        'data-severity="critical"',
+        'data-items="3"',
+        'data-status="open"',
+    ):
+        assert attribute in mark.group(0)
+
+
+def test_the_empty_dashboard_loads_no_scene(
+    store: Database, client: TestClient, auth: AuthService
+) -> None:
+    with store.write() as connection:
+        connection.execute(sa.delete(sources))
+    text = client.get("/", headers=sign_in(client, auth)).text
+    assert "scenes.js" not in text and "drift-scene" not in text

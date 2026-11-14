@@ -15,6 +15,8 @@ guide wins over both for typography and logo use.
 | `src/driftsniff/web/templates/page_header.html` | the page header macro: breadcrumb, title, purpose line, actions |
 | `src/driftsniff/web/templates/components/*.html` | the component macros (section 3) |
 | `src/driftsniff/web/static/app.css` | the one stylesheet: the design tokens of `docs/design-colours.json` (the contrast test fails when they drift) and the component styles carried over from the P10-T1 mock-ups |
+| `src/driftsniff/web/static/scenes.js` | the 3D views, one ES module for every `[data-scene]` block (the drift field of the dashboard, `docs/design-direction.md` section 2), loaded only by a page that has one; each block offers `block.scene` with `info()`, `draw()`, `show()` and `hide()` for a test |
+| `src/driftsniff/web/static/vendor/three/` | three.js r186 (`three.module.js`, `three.core.js`, MIT `LICENSE`), unmodified from the npm tarball named in `PINNED.json` with the hashes `tests/unit/test_scenes.py` checks |
 | `src/driftsniff/web/static/vendor/inter/` | Inter, the variable upright face from `@fontsource-variable/inter` 5.3.0, unmodified: two `woff2` files, `inter.css` with the two faces, and `LICENSE` (SIL Open Font Licence 1.1); `base.html` links `inter.css` before `app.css` |
 | `src/driftsniff/web/static/htmx.min.js` | htmx 2.0.4, unmodified, linked without `defer` (the page change, `docs/design-direction.md` section 6); `htmx.min.js.LICENSE.txt` holds the version, the source, the file hashes and the Zero-Clause BSD licence text |
 | `src/driftsniff/web/static/brand/` | byte-for-byte copies of the brand files (the image copies only `src/`, so the running application never reads `brand/`) |

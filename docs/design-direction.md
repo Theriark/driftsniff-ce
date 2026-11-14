@@ -45,6 +45,42 @@ and on the change detail as the short version (strip only, the event is the last
 
 Later phases keep the same strip; the only data that changes is the list of checks.
 
+### The drift field (3D)
+
+On the dashboard the drift lines are also drawn as a 3D field above them
+(`static/scenes.js`, three.js r186 vendored in `static/vendor/three` with `PINNED.json`).
+There is one lane per source, 30 days ago at the far end and today near the viewer's right:
+
+| Element | Drawing | Meaning |
+|---|---|---|
+| Tick | a thin `slate` slab | a check without change |
+| Stub | a low `ink` block | a failed or partial run |
+| Column | a prism with the severity cross-section (circle, triangle, diamond, octagon) in the severity colour; height grows with the log of the change items | a check that found changes; pale (32 % opacity) once the event is acknowledged or resolved |
+| Block | a wider prism at the end of the lane, height from all change items of the 30 days, shape and colour of the worst open severity, a grey box when nothing is open | the source |
+
+Rules:
+
+- The scene reads its facts from the data attributes of the drift line marks (`data-kind`,
+  `data-age`, and for a change `data-severity`, `data-items`, `data-status`), so it never
+  disagrees with the page and makes no request.
+- The drift lines stay the record and the keyboard path. The canvas is `aria-hidden`, and
+  nothing is written inside the scene.
+- Pointing at a column or a block shows its words in the detail line under the stage, and
+  selecting it opens the change or the source. Pointing at a mark or a name of a drift line
+  lights its column or block.
+- Turn left, Turn right and Reset view turn the field 22.5 degrees around its middle (a drag
+  turns it too). The turn is immediate under reduced motion. Nothing moves by itself, and a
+  frame is drawn only when something changed, never while the page is hidden or the stage is
+  out of view.
+- Changes a few hours apart keep 0.6 units between their columns. The drift line keeps the
+  exact times.
+- The colours come from the stylesheet tokens (`surface`, `paper`, `surface-2`, `slate`, `ink`,
+  the four severities), so the field follows the light and dark themes.
+- Without script the block stays hidden. With script the stylesheet keeps its room
+  (`@media (scripting: enabled)`), and without WebGL 2 the block goes and three.js is never
+  downloaded. The hide button keeps its choice in this browser only (`localStorage`
+  `ds-scenes`), and leaving the page disposes every geometry, material and the renderer.
+
 ## 3. Logo and clear space
 
 Files are the supplied brand assets in `brand/` (byte-for-byte copies of the Nextcloud folder,

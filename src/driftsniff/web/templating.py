@@ -158,6 +158,10 @@ class DriftMark:
     summary: str = ""
     href: str = ""
     d: str = ""
+    # for the 3D drift field (scenes.js): days before now, change items, still open
+    age: float = 0.0
+    items: int = 0
+    open: bool = False
 
 
 def number(value: int) -> str:
@@ -272,9 +276,10 @@ def drift_marks(checks: Iterable[Mapping[str, Any]]) -> list[DriftMark]:
             raise ValueError(f"unknown drift line check kind {kind!r}")
         if "age" not in check:
             raise ValueError("a drift line check needs its age in days")
-        x = drift_x(float(check["age"]))
+        age = float(check["age"])
+        x = drift_x(age)
         if kind != "change":
-            marks.append(DriftMark(kind, x))
+            marks.append(DriftMark(kind, x, age=age))
             continue
         severity = str(check.get("severity", "low"))
         if severity not in SEVERITIES:
@@ -287,6 +292,9 @@ def drift_marks(checks: Iterable[Mapping[str, Any]]) -> list[DriftMark]:
                 summary=str(check.get("summary", "")),
                 href=str(check.get("href", "")),
                 d=_mark_path(severity, x),
+                age=age,
+                items=int(check.get("items", 0)),
+                open=bool(check.get("open", False)),
             )
         )
     return sorted(marks, key=lambda mark: mark.kind == "change")

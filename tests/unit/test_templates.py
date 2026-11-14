@@ -840,7 +840,15 @@ def test_drift_line_draws_every_check_kind_and_describes_itself() -> None:
     assert "Drift line of lab-controller, last 30 days" in text
     assert len([a for a in parsed.find("line") if a.get("class") == "tick"]) == 1
     assert parsed.find("rect") == [
-        {"class": "tick--hollow", "x": "207", "y": "12", "width": "6", "height": "14"}
+        {
+            "class": "tick--hollow",
+            "x": "207",
+            "y": "12",
+            "width": "6",
+            "height": "14",
+            "data-kind": "failed",
+            "data-age": "20.000",
+        }
     ]
     assert parsed.find("circle") == [{"class": "mark mark--low", "cx": "410", "cy": "18", "r": "6"}]
     paths = [attrs["class"] for attrs in parsed.find("path")]

@@ -54,6 +54,12 @@ From the top:
   with no change, a hollow tick a failed or partial check, and a coloured shape a change in the
   colour and shape of its highest severity. Point at or focus a mark to read the change; select it
   to open it.
+- **The 3D view** above the drift lines draws the same 30 days as a field: a lane per source, a
+  column per change (taller with more change items, in the shape and colour of its severity, pale
+  once acknowledged or resolved), and at the end of each lane a block for the source, coloured by
+  its worst open change. Point at a column or a block to read it, select it to open it, and turn
+  the field with Turn left, Turn right or a drag. Hide the 3D view puts it away in this browser
+  until you show it again. A browser without WebGL 2 shows only the drift lines.
 - **Change items per day.** Thirty days stacked by severity. "Show the numbers as a table" gives
   the same numbers as text.
 - **Where the open items are.** Open items by source and by resource type.
