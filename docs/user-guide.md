@@ -51,7 +51,7 @@ Open the user menu and choose Account. There you can:
 The start page answers two questions: what changed across your sources in the last 30 days, and
 what still needs a decision.
 
-![The full dashboard at 1440 px: stat cards, open items by severity, Needs attention, the 3D lab of your sources above the drift lines, change items per day, where the open items are, and the activity timeline](images/dashboard-1440-full.png)
+![The full dashboard at 1440 px: stat cards, open items by severity and where they are beside Needs attention, the 3D lab of your sources, the drift lines, change items per day and the activity timeline](images/dashboard-1440-full.png)
 
 From the top:
 
@@ -59,23 +59,23 @@ From the top:
   sources that are healthy, and the storage used. Each card links to the list behind its number.
 - **Open items by severity.** The ring counts the open change items per severity. It is a count,
   not a score. Each row opens the matching filtered change list.
+- **Where the open items are**, under the ring: open items by source and by resource type.
 - **Needs attention.** Open critical and high changes first, newest first, then every source that
   is failing, stale, partial, unsupported, has an expiring credential or has certificate checks
   off. Each row has one action: Review or Open source.
-- **Drift line, last 30 days.** One strip per source, today at the right end. A thin tick is a check
-  with no change, a hollow tick a failed or partial check, and a coloured shape a change in the
-  colour and shape of its highest severity. Point at or focus a mark to read the change; select it
-  to open it.
-- **The 3D view** above the drift lines shows your sources as a small lab: each device is a
+- **Your lab**, the 3D view, shows your sources as a small lab: each device is a
   source (a server rack, a NAS, a router, a camera, monitoring screens, a Raspberry Pi, small PCs). Its
   status lights show its worst open change (red critical, orange high, amber medium, blue low),
   green when nothing is open, and dark when the source is failing or stale. Point at a device to
   read it and select it to open the source;
   turn the lab with Turn left, Turn right or a drag. Hide the 3D view puts it away in this browser
   until you show it again. A browser without WebGL 2 shows only the drift lines.
+- **Drift line, last 30 days.** One strip per source, today at the right end. A thin tick is a check
+  with no change, a hollow tick a failed or partial check, and a coloured shape a change in the
+  colour and shape of its highest severity. Point at or focus a mark to read the change; select it
+  to open it.
 - **Change items per day.** Thirty days stacked by severity. "Show the numbers as a table" gives
   the same numbers as text.
-- **Where the open items are.** Open items by source and by resource type.
 - **Activity.** The 20 newest events: changes, acknowledgements, notes, finished checks and admin
   actions.
 

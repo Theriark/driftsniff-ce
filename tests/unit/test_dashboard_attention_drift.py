@@ -140,6 +140,15 @@ def test_the_drift_line_meta_wraps_inside_its_column() -> None:
         for body in _top_level_rules(".driftline")
     ]
     assert [found.group(1) for found in tracks if found] == ["160px 150px 1fr"]
+    # the dashboard's own rows are wider from 1024 px, so the meta takes two lines, not four
+    css = (Path(__file__).resolve().parents[2] / "src/driftsniff/web/static/app.css").read_text(
+        encoding="utf-8"
+    )
+    assert re.search(
+        r"@media \(min-width: 1024px\) \{\s*\.driftlines \.driftline \{\s*"
+        r"grid-template-columns: 180px 240px 1fr;",
+        css,
+    )
     meta = "".join(_top_level_rules(".driftline__meta"))
     assert "nowrap" not in meta
     assert re.search(r"min-width:\s*0", meta)

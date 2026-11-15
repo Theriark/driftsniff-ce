@@ -39,11 +39,24 @@
   {% endfor %}
 </div>
 
-<div class="section grid-5-7">
+<div class="section grid-5-7 dash-row">
+  <div class="dash-column">
   <section class="card" aria-labelledby="posture-h">
     <h2 id="posture-h">Open items by severity</h2>
     {{ posture_ring(dashboard.posture, "ring") }}
   </section>
+  <section class="card" aria-labelledby="breakdown-h">
+    <h2 id="breakdown-h">Where the open items are</h2>
+    {% if dashboard.by_source %}
+    <h3 class="bars-title">By source</h3>
+    {{ bar_list(dashboard.by_source, "Open items by source", ink=true) }}
+    <h3 class="bars-title">By resource type</h3>
+    {{ bar_list(dashboard.by_resource, "Open items by resource type") }}
+    {% else %}
+    {{ state("empty", "No open change items.", "When a check finds a change, this card says which source and which resource type it touched.", inline=true) }}
+    {% endif %}
+  </section>
+  </div>
 
   <section class="card" aria-labelledby="attention-h">
     <h2 id="attention-h">Needs attention</h2>
@@ -66,18 +79,18 @@
   </section>
 </div>
 
-<section class="section" aria-labelledby="drift-h">
-  <div class="section-head">
-    <h2 id="drift-h">Drift line, last 30 days</h2>
-    <span class="hint">One mark per check; one per day for a source with more than 31 checks. Hover or focus a mark to read the event.</span>
-  </div>
+<section class="section" aria-labelledby="lab-h">
   {# The 3D lab (scenes.js): every source as a device on a desk, its status lights in the colour
-     of its worst open change. Hidden until
-     the script has seen WebGL 2; the scene reads the data attributes of the drift lines below,
-     which stay the record and the keyboard path. #}
+     of its worst open change. Its own section above the drift lines, with its heading inside the
+     card, so a browser without WebGL 2 shows no heading over nothing. Hidden until the script has
+     seen WebGL 2; the scene reads the data attributes of the drift lines below, which stay the
+     record and the keyboard path. #}
   <div class="card scene" id="lab-scene" data-scene="lab" hidden>
     <div class="scene__bar">
+      <div class="scene__words">
+      <h2 id="lab-h" class="scene__title">Your lab</h2>
       <p class="scene__lead">Your sources as a lab: each device is a source. Its status lights show its worst open change (red critical, orange high, amber medium, blue low), green when nothing is open and dark when the source is failing or stale.</p>
+      </div>
       <button type="button" class="btn btn--small scene__toggle" hidden>Hide the 3D view</button>
     </div>
     <div class="scene__stage"></div>
@@ -87,6 +100,13 @@
       <button type="button" class="btn btn--small scene__reset">Reset view</button>
     </div>
     <p class="scene__detail" aria-live="polite"></p>
+  </div>
+</section>
+
+<section class="section" aria-labelledby="drift-h">
+  <div class="section-head">
+    <h2 id="drift-h">Drift line, last 30 days</h2>
+    <span class="hint">One mark per check; one per day for a source with more than 31 checks. Hover or focus a mark to read the event.</span>
   </div>
   <div class="card">
     <div class="driftlines">
@@ -104,7 +124,7 @@
   </div>
 </section>
 
-<div class="section grid-2 grid-2--chart">
+<div class="section">
   <section class="card" aria-labelledby="trend-h">
     <h2 id="trend-h">Change items per day</h2>
     {% if dashboard.trend.total %}
@@ -123,17 +143,6 @@
       <p class="trend-empty__title">No change items in the last 30 days</p>
       <p class="quiet">When a check finds a change, this chart shows one bar per day, stacked by severity, with the same numbers as a table.</p>
     </div>
-    {% endif %}
-  </section>
-  <section class="card" aria-labelledby="breakdown-h">
-    <h2 id="breakdown-h">Where the open items are</h2>
-    {% if dashboard.by_source %}
-    <h3 class="bars-title">By source</h3>
-    {{ bar_list(dashboard.by_source, "Open items by source", ink=true) }}
-    <h3 class="bars-title">By resource type</h3>
-    {{ bar_list(dashboard.by_resource, "Open items by resource type") }}
-    {% else %}
-    {{ state("empty", "No open change items.", "When a check finds a change, this card says which source and which resource type it touched.", inline=true) }}
     {% endif %}
   </section>
 </div>
@@ -161,5 +170,6 @@
     {% endif %}
   </div>
 </section>
+
 {% endif %}
 {% endblock %}
