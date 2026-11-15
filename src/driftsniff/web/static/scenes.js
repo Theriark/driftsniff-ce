@@ -947,17 +947,29 @@ const REPLAY = {
     scene.add(device);
     const deviceBox = new THREE.Box3().setFromObject(device);
     const deviceTop = deviceBox.max.y;
-    // Where the cards' lines end: the middle of the device's top front edge, a fixed point of the
-    // room. At the top's centre they seemed to meet in the air above a deep rack, whose dark top
-    // hides behind its front edge (Ruben, 15 November 2026, on DELTA).
-    // The point is found on the model itself, by a ray down near the front: the model's bounding
-    // box can stand above its visible roof (on DELTA the lines still met a little above it).
-    const probe = new THREE.Raycaster(
-      new THREE.Vector3(0, deviceTop + 1, deviceBox.max.z - 0.03),
-      new THREE.Vector3(0, -1, 0)
-    );
-    const roof = probe.intersectObject(device, true)[0];
-    const anchor = roof ? roof.point.clone() : new THREE.Vector3(0, deviceTop, deviceBox.max.z - 0.01);
+    // Where the cards' lines end, a fixed point of the room on the device's own top: rays straight
+    // down along its middle, back to front; the highest surface they meet, then its front-most
+    // point (a rack's roof at its front edge, a monitor's top edge, a Pi's board). A single ray
+    // near the front missed a monitor's thin screen and met its stand's foot (Ruben, 15 November
+    // 2026), and the bounding box can stand above the visible roof.
+    const probe = new THREE.Raycaster();
+    const hits = [];
+    for (let k = 0; k <= 16; k += 1) {
+      const z = deviceBox.min.z + ((deviceBox.max.z - deviceBox.min.z) * k) / 16;
+      probe.set(new THREE.Vector3(0, deviceTop + 1, z), new THREE.Vector3(0, -1, 0));
+      const hit = probe.intersectObject(device, true)[0];
+      if (hit) {
+        hits.push(hit.point);
+      }
+    }
+    const highest = Math.max(...hits.map((point) => point.y));
+    const anchor = hits.length
+      ? hits.filter((point) => point.y >= highest - 0.02).reduce((a, b) => (b.z > a.z ? b : a)).clone()
+      : new THREE.Vector3(0, deviceTop, 0);
+    // The lines are aimed in the scene's own before-render step: it runs after the matrices are
+    // updated and before anything is uploaded, so the frame drawn is the frame aimed. A line's
+    // onBeforeRender runs after the upload, and a scene drawn only once kept stale ends.
+    scene.onBeforeRender = () => cards.forEach((card) => card.aim());
     w.shade(w.makeDesk(2.8, 1.7, 0.05));
     w.paint();
     const rest = device.position.y;
@@ -1022,8 +1034,8 @@ const REPLAY = {
         bar.position.set(-width * 0.12 + (i ? -0.04 * size : 0), height / 2 - 0.06 * size - i * 0.032 * size, 0.002);
         g.add(bar);
       }
-      // a dashed line down to the device; its lower end is set before every frame, in the card's
-      // own frame, from the fixed anchor: the deck turns with the view and the cards rise and grow
+      // a dashed line down to the device; aim() sets its lower end on the anchor, in the card's
+      // own frame, before every frame (the deck turns with the view, the cards rise and grow)
       const line = new THREE.Line(
         new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, -height / 2, 0), new THREE.Vector3(-x, deviceTop - y, 0)]),
         new THREE.LineDashedMaterial({ color: colour, dashSize: 0.012, gapSize: 0.01 })
@@ -1032,7 +1044,7 @@ const REPLAY = {
       line.frustumCulled = false;
       const start = new THREE.Vector3(0, -height / 2, 0);
       const end = new THREE.Vector3();
-      line.onBeforeRender = () => {
+      const aim = () => {
         g.worldToLocal(end.copy(anchor));
         const points = line.geometry.attributes.position;
         if (points.getX(1) !== end.x || points.getY(1) !== end.y || points.getZ(1) !== end.z) {
@@ -1061,7 +1073,7 @@ const REPLAY = {
           part.castShadow = true;
         }
       });
-      return { group: g, x, y };
+      return { group: g, x, y, aim };
     }
 
     // The day's cards in an arc over the device, the worst first in the middle, a little larger
