@@ -648,10 +648,10 @@ function workshop(kit) {
     if (source.worst) {
       device.updateMatrixWorld(true);
       const box = new THREE.Box3().setFromObject(device);
-      const pool = new THREE.PointLight(colour, 0.09, 0.19, 2);
-      // in the device's own frame: on the desk in front of it, too far and too short to light
-      // the device itself (a NAS front facing it took the whole colour)
-      pool.position.copy(device.worldToLocal(new THREE.Vector3((box.min.x + box.max.x) / 2, 0.05, box.max.z + 0.2)));
+      const pool = new THREE.PointLight(colour, 0.07, 0.11, 2);
+      // in the device's own frame: on the desk at its foot, too short to reach its front (a NAS
+      // front facing it took the whole colour)
+      pool.position.copy(device.worldToLocal(new THREE.Vector3((box.min.x + box.max.x) / 2, 0.04, box.max.z + 0.12)));
       device.add(pool);
       pools.set(device, pool);
     }
