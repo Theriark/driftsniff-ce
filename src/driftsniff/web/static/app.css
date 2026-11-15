@@ -1312,11 +1312,18 @@ textarea.input {
 
 .driftline {
   display: grid;
-  /* wide enough that a source's name and its product line ("Checkmk 2.5.0p14.community, 442
-     checks in 30 days") take two lines at most, not four */
-  grid-template-columns: 180px 240px 1fr;
+  grid-template-columns: 160px 150px 1fr;
   align-items: center;
   gap: var(--sp-4);
+}
+
+/* On the wide dashboard a source's name and its product line ("Checkmk 2.5.0p14.community, 442
+   checks in 30 days") take two lines at most, not four (Ruben, 15 November 2026); the other pages
+   and the narrower widths keep their own columns. */
+@media (min-width: 1024px) {
+  .driftlines .driftline {
+    grid-template-columns: 180px 240px 1fr;
+  }
 }
 
 /* the name wraps rather than ending in an ellipsis, so the whole name is always on screen: at
