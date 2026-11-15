@@ -82,6 +82,18 @@ ACTION_USER_CREATED: Final = "user.created"
 ACTION_USER_LOCKED: Final = "user.locked"
 ACTION_USER_DISABLED: Final = "user.disabled"
 ACTION_USER_ENABLED: Final = "user.enabled"
+ACTION_PROFILE_CHANGED: Final = "user.profile_changed"
+ACTION_PASSWORD_CHANGED: Final = "user.password_changed"  # noqa: S105 (an audit action name)
+# The account page (docs/auth.md, Account): the shown name, the picture and the theme.
+THEMES: Final = ("light", "dark", "system")
+MAX_DISPLAY_NAME_CHARS: Final = 80
+MAX_PICTURE_BYTES: Final = 512 * 1024
+# A picture is recognised by its first bytes, never by its name or the type the browser sends:
+# PNG, JPEG and WebP only, so nothing else is ever served back.
+_PICTURE_SIGNATURES: Final = (
+    (b"\x89PNG\r\n\x1a\n", "image/png"),
+    (b"\xff\xd8\xff", "image/jpeg"),
+)
 
 _TIME_FORMAT: Final = "%Y-%m-%dT%H:%M:%SZ"
 _ACCOUNT_COLUMNS: Final = (
@@ -101,6 +113,10 @@ _SESSION_COLUMNS: Final = (
     users.c.username,
     users.c.role,
     users.c.disabled,
+    users.c.display_name,
+    users.c.avatar_type,
+    users.c.avatar_version,
+    users.c.theme,
 )
 _USERNAME: Final = re.compile(r"[a-z0-9][a-z0-9._@+-]{2,63}")
 
@@ -145,6 +161,14 @@ class LastAdminError(AuthError):
     """The change would leave no enabled admin."""
 
 
+class AccountInputError(AuthError, ValueError):
+    """A value of the account page breaks its rule; ``field`` names the form it came from."""
+
+    def __init__(self, field: str, message: str) -> None:
+        super().__init__(message)
+        self.field = field
+
+
 @dataclass(frozen=True, slots=True)
 class UserSummary:
     """A user as an admin may list them: never the password hash."""
@@ -166,6 +190,11 @@ class Principal:
     role: str
     session_id: int
     csrf_token: str = field(repr=False)
+    # the account page: the shown name (empty shows the user name), the picture's version
+    # (0 when there is no picture) and the theme
+    display_name: str = ""
+    picture_version: int = 0
+    theme: str = "system"
 
 
 @dataclass(frozen=True, slots=True)
@@ -194,6 +223,16 @@ def check_password_policy(password: str) -> None:
         )
     if len(password) > MAX_PASSWORD_CHARS:
         raise PasswordPolicyError(f"the password must have at most {MAX_PASSWORD_CHARS} characters")
+
+
+def picture_type_of(data: bytes) -> str | None:
+    """The media type of a picture by its first bytes, or None when it is no picture we take."""
+    for signature, media_type in _PICTURE_SIGNATURES:
+        if data.startswith(signature):
+            return media_type
+    if len(data) > 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    return None
 
 
 def normalise_username(raw: str) -> str:
@@ -526,7 +565,16 @@ class AuthService:
                     .where(sessions.c.id == row.id)
                     .values(last_seen_at=stamp(now))
                 )
-        return Principal(row.user_id, row.username, row.role, row.id, row.csrf_token)
+        return Principal(
+            row.user_id,
+            row.username,
+            row.role,
+            row.id,
+            row.csrf_token,
+            display_name=row.display_name or "",
+            picture_version=int(row.avatar_version) if row.avatar_type else 0,
+            theme=row.theme if row.theme in THEMES else "system",
+        )
 
     def logout(self, cookie_value: str) -> None:
         """Delete the session of the cookie value (nothing happens when there is none)."""
@@ -534,6 +582,120 @@ class AuthService:
             connection.execute(
                 sa.delete(sessions).where(sessions.c.token_hash == hash_cookie_value(cookie_value))
             )
+
+    # -- the account of the signed-in user ----------------------------------------------------
+
+    def set_display_name(self, principal: Principal, raw: str) -> None:
+        """Save the shown name (spaces folded; empty shows the user name again)."""
+        name = " ".join(raw.split())
+        if len(name) > MAX_DISPLAY_NAME_CHARS:
+            raise AccountInputError(
+                "name", f"the name must have at most {MAX_DISPLAY_NAME_CHARS} characters"
+            )
+        if any(ord(char) < 32 or ord(char) == 127 for char in name):
+            raise AccountInputError("name", "the name must not hold control characters")
+        self._update_account(principal, {"display_name": name or None}, {"field": "display_name"})
+
+    def set_theme(self, principal: Principal, theme: str) -> None:
+        """Save the theme: light, dark or system (the device's own setting)."""
+        if theme not in THEMES:
+            raise AccountInputError("theme", "the theme must be light, dark or system")
+        self._update_account(principal, {"theme": theme}, None)
+
+    def set_picture(self, principal: Principal, data: bytes) -> None:
+        """Save a PNG, JPEG or WebP picture of at most 512 KB, recognised by its first bytes."""
+        if len(data) > MAX_PICTURE_BYTES:
+            raise AccountInputError(
+                "picture", f"the picture must be at most {MAX_PICTURE_BYTES // 1024} KB"
+            )
+        media_type = picture_type_of(data)
+        if media_type is None:
+            raise AccountInputError("picture", "the picture must be a PNG, JPEG or WebP image")
+        values = {
+            "avatar": data,
+            "avatar_type": media_type,
+            "avatar_version": users.c.avatar_version + 1,
+        }
+        self._update_account(principal, values, {"field": "picture", "bytes": str(len(data))})
+
+    def remove_picture(self, principal: Principal) -> None:
+        """Remove the picture; the shell shows the initials again."""
+        values = {"avatar": None, "avatar_type": None, "avatar_version": users.c.avatar_version + 1}
+        self._update_account(principal, values, {"field": "picture", "removed": "true"})
+
+    def picture(self, user_id: int) -> tuple[bytes, str] | None:
+        """The picture of a user and its media type, or None."""
+        with self._db.read() as connection:
+            row = connection.execute(
+                sa.select(users.c.avatar, users.c.avatar_type).where(users.c.id == user_id)
+            ).first()
+        if row is None or row.avatar is None or row.avatar_type is None:
+            return None
+        return bytes(row.avatar), str(row.avatar_type)
+
+    def change_password(self, principal: Principal, current: str, new: str) -> None:
+        """Change the password after checking the current one; every other session ends.
+
+        A wrong current password raises AccountInputError (field ``password``) and counts like a
+        failed sign-in for the user name, so the form cannot be used to guess it faster.
+        """
+        key = f"user:{principal.username[:_MAX_NAME_KEY_CHARS]}"  # the key a sign-in uses
+        wait = self._throttle.retry_after(key)
+        if wait > 0:
+            raise LoginThrottledError(wait)
+        with self._db.read() as connection:
+            stored = connection.execute(
+                sa.select(users.c.password_hash).where(users.c.id == principal.user_id)
+            ).scalar_one()
+        if len(current) > MAX_PASSWORD_CHARS or not self._verify(stored, current):
+            self._throttle.record_failure(key)
+            raise AccountInputError("password", "the current password is not right")
+        try:
+            check_password_policy(new)
+        except PasswordPolicyError as error:
+            raise AccountInputError("password", f"the new {error}") from error
+        if new.lower() == principal.username:
+            raise AccountInputError("password", "the new password must not be the user name")
+        password_hash = self._hasher.hash(new)
+        now = self._clock()
+        with self._db.write() as connection:
+            connection.execute(
+                sa.update(users)
+                .where(users.c.id == principal.user_id)
+                .values(password_hash=password_hash)
+            )
+            connection.execute(
+                sa.delete(sessions).where(
+                    sessions.c.user_id == principal.user_id,
+                    sessions.c.id != principal.session_id,
+                )
+            )
+            _audit(
+                connection,
+                now,
+                principal.username,
+                ACTION_PASSWORD_CHANGED,
+                principal.username,
+                None,
+            )
+
+    def _update_account(
+        self, principal: Principal, values: dict[str, Any], detail: dict[str, str] | None
+    ) -> None:
+        now = self._clock()
+        with self._db.write() as connection:
+            connection.execute(
+                sa.update(users).where(users.c.id == principal.user_id).values(**values)
+            )
+            if detail is not None:
+                _audit(
+                    connection,
+                    now,
+                    principal.username,
+                    ACTION_PROFILE_CHANGED,
+                    principal.username,
+                    detail,
+                )
 
     # -- first-run setup -----------------------------------------------------------------------
 

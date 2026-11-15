@@ -50,6 +50,13 @@ const WORDS = {
   closed: "The 3D view is off. The view below shows the same facts.",
 };
 
+// Dark when the user chose it on the Account page (data-theme on the html element), or when the
+// theme is "system" and the device is dark: the same rule as the stylesheet.
+function prefersDark() {
+  const chosen = document.documentElement.getAttribute("data-theme");
+  return chosen ? chosen === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+}
+
 function supportsWebGL2() {
   try {
     const context = document.createElement("canvas").getContext("webgl2");
@@ -528,7 +535,7 @@ const UNHEALTHY = new Set(["failing", "partial", "stale", "unsupported"]);
 function workshop(kit) {
   const { THREE, scene, addons } = kit;
   const RoundedBox = addons.RoundedBoxGeometry;
-  const isDark = () => window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const isDark = () => prefersDark();
   const tokenColour = (severity) => (isDark() ? TOKEN_DARK : SEVERITY_LIGHT)[severity];
   const m = (options) => new THREE.MeshStandardMaterial(options);
   const mat = {
@@ -963,7 +970,7 @@ const REPLAY = {
     const cardFace = m({ roughness: 0.55 });
     const cardLine = m({ roughness: 0.8 });
     function paintCards() {
-      const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      const dark = prefersDark();
       cardFace.color.setHex(dark ? 0x2a2b33 : 0xffffff);
       cardLine.color.setHex(dark ? 0x6b6f7a : 0xb8bcc4);
     }

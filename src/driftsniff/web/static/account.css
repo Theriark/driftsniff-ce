@@ -1,0 +1,46 @@
+/* The Account page (templates/account.html): three cards side by side where they fit, the
+   identity at the top of the profile card, and the theme as three choices. The cards, forms and
+   fields are the settings page's own (settings.css). */
+.account-grid {
+  display: grid;
+  gap: var(--sp-6);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  align-items: start;
+  margin-top: var(--sp-6);
+}
+
+.account-identity {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+}
+
+.account-identity__name {
+  font-size: var(--fs-20);
+  font-weight: 700;
+  line-height: var(--lh-tight);
+  overflow-wrap: anywhere;
+}
+
+.account-themes {
+  display: grid;
+  gap: var(--sp-2);
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.account-theme {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-s);
+  cursor: pointer;
+}
+
+.account-theme:has(input:checked) {
+  border-color: var(--ink);
+  background: var(--surface-2);
+}

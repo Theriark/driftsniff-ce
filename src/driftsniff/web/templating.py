@@ -118,6 +118,11 @@ class Shell:
     density: str = "comfortable"
     environment_label: str = ""
     path: str = "/"
+    # the account page: the shown name (the user name when none is chosen), the address of the
+    # picture (empty: the initials show) and the theme (light, dark or system)
+    display_name: str = ""
+    picture_url: str = ""
+    theme: str = "system"
 
 
 @dataclass(frozen=True, slots=True)

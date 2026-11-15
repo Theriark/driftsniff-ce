@@ -10,8 +10,18 @@
    any script. Signed out (sign-in, setup, an error page), only the logo and the badge show.
 
    No inline script and no style attribute anywhere: the content security policy blocks both. #}
+{# The logo lockup: the light file on a light page, the dark one on a dark page; with the theme
+   "system" the picture element asks the device, as the stylesheet does. #}
+{% macro brand_logo(theme) -%}
+{% if theme == "dark" %}<picture><img class="brand__logo" src="/static/brand/logo-horizontal-dark-1200x400.png" alt="driftsniff" width="144" height="48"></picture>
+{%- elif theme == "light" %}<picture><img class="brand__logo" src="/static/brand/logo-horizontal-1200x400.png" alt="driftsniff" width="144" height="48"></picture>
+{%- else %}<picture>
+  <source srcset="/static/brand/logo-horizontal-dark-1200x400.png" media="(prefers-color-scheme: dark)">
+  <img class="brand__logo" src="/static/brand/logo-horizontal-1200x400.png" alt="driftsniff" width="144" height="48">
+</picture>{% endif %}
+{%- endmacro %}
 <!doctype html>
-<html lang="en">
+<html lang="en"{% if shell.theme in ("light", "dark") %} data-theme="{{ shell.theme }}"{% endif %}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -36,10 +46,7 @@
 {% if shell.user_name %}
 <header class="sidebar">
   <a class="brand" href="/" aria-label="driftsniff, dashboard">
-    <picture>
-      <source srcset="/static/brand/logo-horizontal-dark-1200x400.png" media="(prefers-color-scheme: dark)">
-      <img class="brand__logo" src="/static/brand/logo-horizontal-1200x400.png" alt="driftsniff" width="144" height="48">
-    </picture>
+    {{ brand_logo(shell.theme) }}
   </a>
   <details class="menu-toggle">
     <summary aria-label="Navigation"><svg width="20" height="20" aria-hidden="true" focusable="false"><use href="#i-menu"/></svg></summary>
@@ -57,9 +64,10 @@
     {% endfor %}
   </nav>
   <details class="user-menu">
-    <summary><span class="avatar" aria-hidden="true">{{ initials(shell.user_name) }}</span><span class="user-id"><span class="user-name">{{ shell.user_name }}</span><span class="user-role"><span class="visually-hidden">, </span>{{ shell.user_role }}</span></span><span class="visually-hidden">, account menu</span></summary>
+    <summary>{% if shell.picture_url %}<img class="avatar avatar--picture" src="{{ shell.picture_url }}" alt="" width="32" height="32">{% else %}<span class="avatar" aria-hidden="true">{{ initials(shell.display_name or shell.user_name) }}</span>{% endif %}<span class="user-id"><span class="user-name">{{ shell.display_name or shell.user_name }}</span><span class="user-role"><span class="visually-hidden">, </span>{{ shell.user_role }}</span></span><span class="visually-hidden">, account menu</span></summary>
     <div class="user-menu__list">
       <p class="user-menu__who">Signed in as {{ shell.user_name }}, {{ shell.user_role }}</p>
+      <a href="/account">Account</a>
       <form method="post" action="/logout">
         <input type="hidden" name="csrf_token" value="{{ shell.csrf_token }}">
         <button type="submit">Sign out</button>
@@ -100,10 +108,7 @@
 <header class="app-header">
   <div class="app-header__inner">
     <a class="brand" href="/" aria-label="driftsniff, dashboard">
-      <picture>
-        <source srcset="/static/brand/logo-horizontal-dark-1200x400.png" media="(prefers-color-scheme: dark)">
-        <img class="brand__logo" src="/static/brand/logo-horizontal-1200x400.png" alt="driftsniff" width="144" height="48">
-      </picture>
+      {{ brand_logo(shell.theme) }}
     </a>
     {% if shell.environment_label %}
     <div class="header-tools">

@@ -69,10 +69,32 @@ restart clears them; the lock is stored with the user and survives a restart.
 4. As soon as any user with the role `admin` exists (a disabled admin still counts), `/setup`
    answers **404** like an unknown route.
 
+## Account
+
+Every user has an Account page (`/account`, from the user menu), as in Revrook: each person changes
+only their own account (`driftsniff.web.routes_account`, migration 0007).
+
+- **Display name**: shown in the sidebar instead of the user name; at most 80 characters, spaces
+  folded, no control characters. Empty shows the user name again. Signing in still uses the user
+  name, which only an admin sets.
+- **Picture**: PNG, JPEG or WebP of at most 512 KB, recognised by its first bytes, never by its
+  name or the type the browser sends; stored in the `users` row and served by
+  `GET /account/picture/{user_id}` to signed-in users, with `X-Content-Type-Options: nosniff`.
+  The picture's address carries a version, so a new one shows at once. account.js sends the file
+  as the request body with the session's CSRF value in the `X-CSRF-Token` header, because the
+  browser-write check reads a form body only up to 16 KB; without script the form is not offered.
+- **Password**: the current password, then the new one twice (the rules of a new user, and not the
+  user name). A wrong current password counts like a failed sign-in of the user name (the same
+  waits). A change ends every other session of the user; the one that made it stays.
+- **Theme**: light, dark, or the same as the device (the default). It is kept in the `users` row,
+  so it follows the person to every browser; the page carries it as `data-theme` on the html
+  element, which the stylesheet, the logo and the 3D views read.
+
 ## Logs and audit
 
 Passwords, cookie values and setup codes are never written to a log. The audit log records
-`setup.completed`, `user.created`, `user.locked`, `user.disabled` and `user.enabled` (actor and
+`setup.completed`, `user.created`, `user.locked`, `user.disabled`, `user.enabled`,
+`user.profile_changed` (the field, never its value) and `user.password_changed` (actor and
 target are user names; no secret). A user added or disabled from the settings routes is audited
 with the admin as the actor; the two admin settings have their own actions (`docs/settings.md`).
 
@@ -83,7 +105,7 @@ with the admin as the actor; the two admin settings have their own actions (`doc
 | The setup and login pages, the user menu | built in P10-T2 and P10-T3, see `docs/web-interface.md` sections 2 and 8; a browser (`Accept: text/html`) gets the pages, every other client the JSON answers above |
 | CSRF value check, Origin check, security headers | built in P9-T2, see `docs/csrf-and-headers.md` |
 | API tokens (`/api/v1`, Bearer) | built in P9-T3, see `docs/api-access.md`; a session cookie is not an API credential |
-| Admin routes to list, add, disable and enable users | built in P10-T8 slice A, see `docs/settings.md`; the screen is the Users card of `/settings` (slice B). Changing a role and resetting a password are not built |
+| Admin routes to list, add, disable and enable users | built in P10-T8 slice A, see `docs/settings.md`; the screen is the Users card of `/settings` (slice B). Changing a role and an admin resetting another user's password are not built; each user changes their own password on the Account page |
 | Route table test that every route states its role | P9-T6 |
 
 ## Limits

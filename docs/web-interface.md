@@ -146,6 +146,7 @@ request without it (the test client, curl, scripts, the API) keeps the JSON answ
 | `GET /login` | anyone | the sign-in page; a signed-in user goes to `/`; with no admin yet, to `/setup`. `?next=` (a local path only) is carried in a hidden field; `?signed-out=1` shows the success banner "Signed out". |
 | `POST /login` | anyone | one generic failure banner whatever the reason (401), the wait banner after five failures (429); success is 303 to `next` (a local path, else `/`). |
 | `POST /logout` | signed in, with the CSRF value | ends the session and answers 303 to `/login?signed-out=1`. |
+| `GET /account`, `POST /account/name`, `/account/password`, `/account/theme`, `/account/picture`, `/account/picture/remove`, `GET /account/picture/{user_id}` | signed in (any role), each on their own account | the Account page from the user menu: display name, picture, password and theme (`docs/auth.md`, Account). A saved form answers 303 to `/account?done=...`; a refused one draws the page again with the form marked (422, 429 while the password form must wait). The picture is the request body with the CSRF value in the header (`static/account.js`) and answers JSON. |
 
 **Status pages.** The application's `HTTPException` handler (`handle_http_exception`) turns,
 for a browser and outside `/api/v1`, a 401 into the sign-in redirect above, a 403 into the

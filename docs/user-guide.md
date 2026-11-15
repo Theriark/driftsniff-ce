@@ -34,6 +34,18 @@ choose Sign out. The sign-in page then confirms "Signed out".
 
 ![The sign-in page after signing out, with the Signed out banner](images/signed-out-1440.png)
 
+## Your account
+
+Open the user menu and choose Account. There you can:
+
+- set the **display name** the sidebar shows (empty shows your user name; you still sign in with
+  your user name);
+- upload a **picture** (PNG, JPEG or WebP, at most 512 KB), shown in a circle, or remove it;
+- change your **password**: type the current one, then the new one twice. Your sessions in other
+  browsers end; this one stays signed in;
+- choose the **theme**: light, dark or the same as this device. It is kept with your account, so it
+  follows you to every browser.
+
 ## The dashboard
 
 The start page answers two questions: what changed across your sources in the last 30 days, and
@@ -160,7 +172,8 @@ search within it. Secret values are shown as fingerprints only.
 
 ## Themes, screens and keyboard
 
-- driftsniff follows the light or dark setting of your system.
+- driftsniff follows the light or dark setting of your system, unless you chose light or dark on
+  your [Account](#your-account) page.
 
 | Light | Dark |
 |---|---|

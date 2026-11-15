@@ -97,6 +97,12 @@ users = sa.Table(
     sa.Column("failed_logins", sa.Integer, nullable=False, server_default=sa.text("0")),
     sa.Column("locked_until", sa.Text),
     sa.Column("created_at", sa.Text, nullable=False),
+    # the account page (migration 0007): the shown name, the picture and the theme
+    sa.Column("display_name", sa.Text),
+    sa.Column("avatar", sa.LargeBinary),
+    sa.Column("avatar_type", sa.Text),
+    sa.Column("avatar_version", sa.Integer, nullable=False, server_default=sa.text("0")),
+    sa.Column("theme", sa.Text, nullable=False, server_default=sa.text("'system'")),
     sa.UniqueConstraint("username", name="uq_users_username"),
     sa.CheckConstraint(_in("role", USER_ROLES), name="role"),
 )
