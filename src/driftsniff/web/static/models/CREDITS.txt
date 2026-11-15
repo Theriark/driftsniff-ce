@@ -1,8 +1,8 @@
 3D models of the dashboard lab and the source page replay
 
-Every model here is a work licensed under Creative Commons Attribution 4.0 International
-(CC BY 4.0, https://creativecommons.org/licenses/by/4.0/), downloaded from Sketchfab on
-14 November 2026. Changes made by Theriark for driftsniff, for every model: converted to
+Every model here except nas/ is a work licensed under Creative Commons Attribution 4.0
+International (CC BY 4.0, https://creativecommons.org/licenses/by/4.0/), downloaded from
+Sketchfab on 14 November 2026. Changes made by Theriark for driftsniff, for every model: converted to
 plain glTF (separate .bin, WebP textures of at most 512 px), scaled to the lab's desk scale,
 turned to face the viewer, origin at the bottom centre. Further changes are named per model.
 
@@ -29,6 +29,11 @@ nuc/       "7th Gen Intel NUC" by Trinware (csumm1)
 
 gateway/   "3D Router" by Grand Dog Studio (SanForge)
            https://sketchfab.com/3d-models/3d-router-fc90c018647c4fd1a3a9f62559bf67f0
+
+nas/       A two-bay desktop NAS made for driftsniff by Theriark on 15 November 2026 with Meshy
+           (a reference image from a text prompt, then image to 3D, on Theriark's paid Meshy
+           plan, whose output belongs to Theriark; no third-party model or brand). Changed:
+           reduced to 12,000 triangles, textures at most 512 px.
 
 The names above are the authors' own titles; driftsniff is not affiliated with them or with
 the makers of the devices the models depict.

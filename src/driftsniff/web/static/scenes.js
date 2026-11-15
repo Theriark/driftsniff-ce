@@ -511,9 +511,9 @@ const KIND_OF = {
   homeassistant: "pi", portainer: "nuc",
 };
 const kindOf = (type) => KIND_OF[type] || "nuc";
-// The model of each kind (static/models/<name>/<name>.gltf, real models under CC BY 4.0, see
-// static/models/CREDITS.txt). The NAS has no licence-clean model yet and stands as a small PC.
-const MODEL_OF = { rack: "rack", nas: "nuc", gateway: "gateway", camera: "camera", screen: "screen", pi: "pi", nuc: "nuc" };
+// The model of each kind (static/models/<name>/<name>.gltf, real models: CC BY 4.0, and the
+// NAS made for driftsniff with Meshy; see static/models/CREDITS.txt).
+const MODEL_OF = { rack: "rack", nas: "nas", gateway: "gateway", camera: "camera", screen: "screen", pi: "pi", nuc: "nuc" };
 // The room a kind takes in its row (metres) and the row it stands in.
 const FOOTPRINT = { rack: 0.72, nas: 0.36, screen: 0.56, camera: 0.36, gateway: 0.4, pi: 0.36, nuc: 0.36 };
 const BACK_ROW = new Set(["rack", "nas", "screen"]);
@@ -648,9 +648,10 @@ function workshop(kit) {
     if (source.worst) {
       device.updateMatrixWorld(true);
       const box = new THREE.Box3().setFromObject(device);
-      const pool = new THREE.PointLight(colour, 0.09, 0.32, 2);
-      // in the device's own frame: low, just in front of it
-      pool.position.copy(device.worldToLocal(new THREE.Vector3((box.min.x + box.max.x) / 2, 0.06, box.max.z + 0.07)));
+      const pool = new THREE.PointLight(colour, 0.09, 0.19, 2);
+      // in the device's own frame: on the desk in front of it, too far and too short to light
+      // the device itself (a NAS front facing it took the whole colour)
+      pool.position.copy(device.worldToLocal(new THREE.Vector3((box.min.x + box.max.x) / 2, 0.05, box.max.z + 0.2)));
       device.add(pool);
       pools.set(device, pool);
     }
@@ -702,6 +703,9 @@ function workshop(kit) {
       g.add(strip);
     } else if (kind === "screen") {
       leds(g, box.max.x - 0.04, box.max.y * 0.43, box.max.z * 0.3, 1, 0, OK);
+    } else if (kind === "nas") {
+      // at the head of the NAS's own column of lights, beside the drive trays
+      leds(g, box.max.x - 0.03, box.max.y * 0.8, box.max.z + 0.002, 1, 0, OK);
     } else if (kind !== "camera" && kind !== "gateway") {
       leds(g, box.max.x - 0.04, box.max.y + 0.004, box.max.z - 0.02, 1, 0, OK);
     }
