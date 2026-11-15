@@ -860,6 +860,20 @@ code,
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 530px), 1fr));
 }
 
+/* the dashboard's left column beside Needs attention: the severity ring, then where the open
+   items are, so the column is not a short card above an empty hole (Ruben, 15 November 2026) */
+.dash-column {
+  display: grid;
+  gap: var(--sp-6);
+  grid-template-rows: auto 1fr;
+  min-width: 0;
+}
+
+/* the cards of a dashboard row end on one line: the shorter one grows, no hole under it */
+.section.dash-row {
+  align-items: stretch;
+}
+
 /* ---- buttons and forms ----------------------------------------------------------------- */
 
 /* A colour transition lives on the hover rule, never on the resting rule (THE-1351): when the
@@ -1298,7 +1312,9 @@ textarea.input {
 
 .driftline {
   display: grid;
-  grid-template-columns: 160px 150px 1fr;
+  /* wide enough that a source's name and its product line ("Checkmk 2.5.0p14.community, 442
+     checks in 30 days") take two lines at most, not four */
+  grid-template-columns: 180px 240px 1fr;
   align-items: center;
   gap: var(--sp-4);
 }
@@ -3482,6 +3498,12 @@ textarea.input {
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--sp-4);
+}
+
+.scene__title {
+  font-size: var(--fs-16);
+  font-weight: 700;
+  margin: 0 0 var(--sp-1);
 }
 
 .scene__lead {
