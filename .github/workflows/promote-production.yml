@@ -189,7 +189,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          docker buildx imagetools create --tag "${IMAGE}:production" "${IMAGE_REF}"
+          docker buildx imagetools create --prefer-index=false --tag "${IMAGE}:production" "${IMAGE_REF}"
 
       - name: Advance the production branch to the promoted commit
         if: ${{ env.MODE == 'promotion' }}

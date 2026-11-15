@@ -267,7 +267,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          docker buildx imagetools create --tag "${IMAGE}:stage" "${IMAGE_REF}"
+          # --prefer-index=false: a carbon copy, so the alias has the approved digest (by default a
+          # single-platform image is wrapped in a new index with another digest)
+          docker buildx imagetools create --prefer-index=false --tag "${IMAGE}:stage" "${IMAGE_REF}"
           alias_digest="$(docker buildx imagetools inspect "${IMAGE}:stage" --format '{{.Manifest.Digest}}')"
           [[ "${alias_digest}" == "${DIGEST}" ]] || {
             echo "::error::${IMAGE}:stage resolves to ${alias_digest}, not ${DIGEST}"

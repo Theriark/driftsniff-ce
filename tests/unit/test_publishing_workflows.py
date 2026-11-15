@@ -163,3 +163,14 @@ def test_finalize_needs_no_deployment_environment() -> None:
     jobs = load("finalize-release.yml")["jobs"]
     assert list(jobs) == ["finalize"]
     assert "environment" not in jobs["finalize"]
+
+
+def test_every_image_alias_is_a_carbon_copy_of_the_approved_digest() -> None:
+    """Without --prefer-index=false, buildx wraps a single-platform image in a new index, so the
+    alias gets another digest and the check after it refuses the run (Stage, 15 November 2026)."""
+    for name in ("promote-stage.yml", "promote-production.yml", "finalize-release.yml"):
+        text = (WORKFLOWS / name).read_text(encoding="utf-8")
+        creates = re.findall(r"docker buildx imagetools create[^\n]*", text)
+        assert creates, name
+        for line in creates:
+            assert "--prefer-index=false" in line, (name, line)
