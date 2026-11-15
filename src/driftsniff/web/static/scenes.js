@@ -1038,10 +1038,12 @@ const REPLAY = {
       // own frame, before every frame (the deck turns with the view, the cards rise and grow)
       const line = new THREE.Line(
         new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, -height / 2, 0), new THREE.Vector3(-x, deviceTop - y, 0)]),
-        new THREE.LineDashedMaterial({ color: colour, dashSize: 0.012, gapSize: 0.01 })
+        // drawn over the device: a Pi's pin header and ports hid the lines' last part
+        new THREE.LineDashedMaterial({ color: colour, dashSize: 0.012, gapSize: 0.01, depthTest: false, depthWrite: false })
       );
       line.computeLineDistances();
       line.frustumCulled = false;
+      line.renderOrder = 2;
       const start = new THREE.Vector3(0, -height / 2, 0);
       const end = new THREE.Vector3();
       const aim = () => {
