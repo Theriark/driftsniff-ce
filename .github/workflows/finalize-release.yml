@@ -243,7 +243,7 @@ jobs:
             }
             echo "::notice::${IMAGE}:${STABLE_TAG} already points at ${DIGEST}; reused"
           else
-            docker buildx imagetools create --tag "${IMAGE}:${STABLE_TAG}" "${IMAGE_REF}"
+            docker buildx imagetools create --prefer-index=false --tag "${IMAGE}:${STABLE_TAG}" "${IMAGE_REF}"
             created="$(docker buildx imagetools inspect "${IMAGE}:${STABLE_TAG}" --format '{{.Manifest.Digest}}')"
             [[ "${created}" == "${DIGEST}" ]] || {
               echo "::error::${IMAGE}:${STABLE_TAG} resolves to ${created}, not ${DIGEST}"
