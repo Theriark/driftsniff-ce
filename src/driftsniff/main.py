@@ -17,6 +17,7 @@ from driftsniff.secrets.keys import MasterKey
 from driftsniff.sources.retention import RetentionJob
 from driftsniff.sources.scheduler import Scheduler
 from driftsniff.web import (
+    routes_account,
     routes_api,
     routes_changes,
     routes_history,
@@ -155,6 +156,7 @@ def create_app(
     app.include_router(routes_history.router)
     app.include_router(routes_replay.router)
     app.include_router(routes_settings.router)
+    app.include_router(routes_account.router)
     app.include_router(routes_static.router)
     app.include_router(routes_push.router)
     app.include_router(routes_api.router)

@@ -47,6 +47,14 @@ ROUTE_TABLE: dict[tuple[str, str], Access] = {
     ("POST", "/logout"): Access.PUBLIC,
     ("GET", "/static/{path:path}"): Access.PUBLIC,
     ("POST", "/preferences/density"): Access.VIEWER,
+    # The account page: every role changes its own account only; a picture is seen by every role.
+    ("GET", "/account"): Access.VIEWER,
+    ("POST", "/account/name"): Access.VIEWER,
+    ("POST", "/account/password"): Access.VIEWER,
+    ("POST", "/account/theme"): Access.VIEWER,
+    ("POST", "/account/picture"): Access.VIEWER,
+    ("POST", "/account/picture/remove"): Access.VIEWER,
+    ("GET", "/account/picture/{user_id}"): Access.VIEWER,
     # The sources pages (P10-T5): a viewer reads, an operator also runs now, an admin changes.
     ("GET", "/sources"): Access.VIEWER,
     ("GET", "/sources/new"): Access.ADMIN,

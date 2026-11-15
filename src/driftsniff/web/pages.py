@@ -101,7 +101,17 @@ def shell_for(
         density=density_from_cookie(request.cookies.get(DENSITY_COOKIE)),
         environment_label=settings.environment_label,
         path=current_path(request),
+        display_name="" if principal is None else principal.display_name or principal.username,
+        picture_url=picture_url(principal),
+        theme="system" if principal is None else principal.theme,
     )
+
+
+def picture_url(principal: Principal | None) -> str:
+    """The address of the user's picture, with its version so a new one shows at once."""
+    if principal is None or not principal.picture_version:
+        return ""
+    return f"/account/picture/{principal.user_id}?v={principal.picture_version}"
 
 
 def page(

@@ -90,8 +90,10 @@
   --sidebar-w: 248px;
 }
 
+/* Dark: chosen on the Account page (data-theme="dark" on the html element), or the device's
+   own setting when the theme is "system" (no attribute). Both blocks hold the same values. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --paper: #16161A;
     --surface: #1E1E24;
     --surface-2: #27272E;
@@ -127,6 +129,43 @@
     --elev-1: 0 1px 2px rgba(0, 0, 0, 0.4);
     --elev-2: 0 6px 18px rgba(0, 0, 0, 0.5);
   }
+}
+
+:root[data-theme="dark"] {
+  --paper: #16161A;
+  --surface: #1E1E24;
+  --surface-2: #27272E;
+  --border: #3B3B44;
+  --slate: #9CA3AF;
+  --ink: #F5F5F0;
+  --text: #F5F5F0;
+  --text-2: #B9BEC7;
+  --primary: #F5F5F0;
+  --on-primary: #1E1E24;
+  --alert: #E8665D;
+  --success: #7CC48A;
+  --info: #9DB6DC;
+  --focus: #F5F5F0;
+  --sev-low: #A3B6D4;
+  --sev-medium: #DDAE45;
+  --sev-high: #EB9068;
+  --sev-critical: #E8665D;
+  --on-critical: #1E1E24;
+  --heat-1: #6C6C75;
+  --heat-2: #9A9AA2;
+  --heat-3: #C7C7C8;
+  --heat-4: #F5F5F0;
+  --on-heat-1: #F5F5F0;
+  --on-heat: #1E1E24;
+  --sev-low-tint: #262C38;
+  --sev-medium-tint: #332B14;
+  --sev-high-tint: #3A251C;
+  --sev-critical-tint: #3B2120;
+  --diff-removed: #27272E;
+  --diff-added: #2F2F37;
+  --header-bg: #1E1E24;
+  --elev-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --elev-2: 0 6px 18px rgba(0, 0, 0, 0.5);
 }
 
 @media (max-width: 767px) {
@@ -433,6 +472,17 @@ code,
   font-weight: 700;
   display: inline-grid;
   place-items: center;
+}
+
+.avatar--picture {
+  object-fit: cover;
+  background: var(--surface-2);
+}
+
+.avatar--large {
+  width: 64px;
+  height: 64px;
+  font-size: var(--fs-20);
 }
 
 .user-menu__list {
@@ -2475,7 +2525,7 @@ textarea.input {
 
 /* ---- additions of P10-T2 (not in the mock-ups) --------------------------------------- */
 
-/* the user menu names the account; it is text, not a link to a page that does not exist */
+/* the user menu names the account, then links to the Account page */
 .user-menu__who {
   padding: var(--sp-2) var(--sp-3);
   font-size: var(--fs-14);

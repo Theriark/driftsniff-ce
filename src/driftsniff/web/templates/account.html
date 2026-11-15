@@ -1,0 +1,100 @@
+{# The Account page (driftsniff.web.routes_account, docs/auth.md Account): the signed-in user's own
+   shown name, picture, password and theme, one card each, every form posting on its own. A saved
+   change comes back with a notice; a refused form comes back marked, with focus on its message.
+
+   The picture is sent by account.js (the body is the file, the CSRF value in the X-CSRF-Token
+   header), so its form only shows with script; without script the page says so. Password fields
+   are never filled back in. No inline script and no style attribute: the policy blocks both. #}
+{% extends "base.html" %}
+{% from "page_header.html" import page_header %}
+{% from "components/forms.html" import text_field %}
+{% from "components/states.html" import banner, success_banner %}
+{% block head %}<link rel="stylesheet" href="{{ static_url('settings.css') }}">
+<link rel="stylesheet" href="{{ static_url('account.css') }}">
+<script src="{{ static_url('account.js') }}" defer></script>{% endblock %}
+
+{% block content %}
+{{ page_header("Account", "Your name, picture, password and theme.") }}
+
+{% if done %}
+<div class="settings-banners">{{ success_banner(done) }}</div>
+{% endif %}
+
+<div class="account-grid">
+<section class="card settings-card" id="profile" aria-labelledby="profile-h">
+  <div class="settings-card__head">
+    <h2 id="profile-h">Profile</h2>
+  </div>
+  <div class="account-identity">
+    {% if shell.picture_url %}<img class="avatar avatar--large" src="{{ shell.picture_url }}" alt="" width="64" height="64">{% else %}<span class="avatar avatar--large" aria-hidden="true">{{ initials(shell.display_name) }}</span>{% endif %}
+    <div>
+      <p class="account-identity__name">{{ shell.display_name }}</p>
+      <p class="hint">Signs in as <strong>{{ username }}</strong>, {{ role }}</p>
+    </div>
+  </div>
+  <form class="settings-form" method="post" action="/account/name" novalidate aria-labelledby="name-h">
+    <input type="hidden" name="csrf_token" value="{{ shell.csrf_token }}">
+    <h3 id="name-h" class="visually-hidden">Display name</h3>
+    {% if errors.get("name") %}<div class="page-banner" tabindex="-1" autofocus>{{ banner("error", "The name was not saved", errors.get("name")) }}</div>{% endif %}
+    <div class="settings-form__fields">
+      {{ text_field("display-name", "display_name", "Display name", value=name_value, help="Shown in the sidebar. Empty shows your user name. At most " ~ max_name ~ " characters.", error=errors.get("name", ""), autocomplete="name") }}
+    </div>
+    <div class="form-row"><button class="btn" type="submit">Save name</button></div>
+  </form>
+  <form class="settings-form account-picture" method="post" action="/account/picture" data-account-picture data-max-bytes="{{ max_picture_kb * 1024 }}" hidden aria-labelledby="picture-h">
+    <input type="hidden" name="csrf_token" value="{{ shell.csrf_token }}">
+    <h3 id="picture-h" class="visually-hidden">Picture</h3>
+    <div class="field">
+      <label for="picture">Picture</label>
+      <input class="input" id="picture" name="picture" type="file" accept="image/png,image/jpeg,image/webp" required aria-describedby="picture-help picture-error">
+      <span class="help" id="picture-help">PNG, JPEG or WebP, at most {{ max_picture_kb }} KB. Shown in a circle.</span>
+      <span class="error" id="picture-error" data-account-picture-error{% if not errors.get("picture") %} hidden{% endif %}>{{ errors.get("picture", "") }}</span>
+    </div>
+    <div class="form-row"><button class="btn" type="submit">Upload picture</button></div>
+  </form>
+  <noscript><p class="hint">Uploading a picture needs script in this browser.</p></noscript>
+  {% if has_picture %}
+  <form method="post" action="/account/picture/remove">
+    <input type="hidden" name="csrf_token" value="{{ shell.csrf_token }}">
+    <button class="btn btn--quiet btn--small" type="submit">Remove picture</button>
+  </form>
+  {% endif %}
+</section>
+
+<section class="card settings-card" id="password" aria-labelledby="password-h">
+  <div class="settings-card__head">
+    <h2 id="password-h">Password</h2>
+    <p class="hint">Changing it ends your sessions in other browsers; this one stays signed in.</p>
+  </div>
+  <form class="settings-form" method="post" action="/account/password" novalidate aria-labelledby="password-h">
+    <input type="hidden" name="csrf_token" value="{{ shell.csrf_token }}">
+    <input type="text" name="username" value="{{ username }}" autocomplete="username" hidden>
+    {% if errors.get("password") %}<div class="page-banner" tabindex="-1" autofocus>{{ banner("error", "The password was not changed", errors.get("password")) }}</div>{% endif %}
+    <div class="settings-form__fields">
+      {{ text_field("current-password", "current_password", "Current password", type="password", autocomplete="current-password", required=true) }}
+      {{ text_field("new-password", "new_password", "New password", type="password", help="At least " ~ min_password ~ " characters.", autocomplete="new-password", required=true) }}
+      {{ text_field("confirm-password", "confirm_password", "New password again", type="password", autocomplete="new-password", required=true) }}
+    </div>
+    <div class="form-row"><button class="btn" type="submit">Change password</button></div>
+  </form>
+</section>
+
+<section class="card settings-card" id="theme" aria-labelledby="theme-h">
+  <div class="settings-card__head">
+    <h2 id="theme-h">Theme</h2>
+    <p class="hint">Kept with your account, so it follows you to every browser.</p>
+  </div>
+  <form class="settings-form" method="post" action="/account/theme" aria-labelledby="theme-h">
+    <input type="hidden" name="csrf_token" value="{{ shell.csrf_token }}">
+    {% if errors.get("theme") %}<div class="page-banner" tabindex="-1" autofocus>{{ banner("error", "The theme was not saved", errors.get("theme")) }}</div>{% endif %}
+    <fieldset class="account-themes">
+      <legend class="visually-hidden">Theme</legend>
+      {% for value, word in (("light", "Light"), ("dark", "Dark"), ("system", "Same as this device")) %}
+      <label class="account-theme"><input type="radio" name="theme" value="{{ value }}"{% if shell.theme == value %} checked{% endif %}><span>{{ word }}</span></label>
+      {% endfor %}
+    </fieldset>
+    <div class="form-row"><button class="btn btn--quiet" type="submit">Save theme</button></div>
+  </form>
+</section>
+</div>
+{% endblock %}
