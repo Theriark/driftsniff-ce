@@ -947,9 +947,10 @@ const REPLAY = {
     scene.add(device);
     const deviceBox = new THREE.Box3().setFromObject(device);
     const deviceTop = deviceBox.max.y;
-    // the lines end on the top's edge toward the viewer (the deck turns with the camera, so its
-    // +z points at the viewer); ending at the top's centre, they met in the air above a deep rack
-    const deviceEdge = 0.9 * Math.min(deviceBox.max.x, deviceBox.max.z, -deviceBox.min.x, -deviceBox.min.z);
+    // Where the cards' lines end: the middle of the device's top front edge, a fixed point of the
+    // room. At the top's centre they seemed to meet in the air above a deep rack, whose dark top
+    // hides behind its front edge (Ruben, 15 November 2026, on DELTA).
+    const anchor = new THREE.Vector3(0, deviceTop + 0.003, deviceBox.max.z - 0.01);
     w.shade(w.makeDesk(2.8, 1.7, 0.05));
     w.paint();
     const rest = device.position.y;
@@ -1014,12 +1015,28 @@ const REPLAY = {
         bar.position.set(-width * 0.12 + (i ? -0.04 * size : 0), height / 2 - 0.06 * size - i * 0.032 * size, 0.002);
         g.add(bar);
       }
-      // a dashed line down to the device
+      // a dashed line down to the device; its lower end is set before every frame, in the card's
+      // own frame, from the fixed anchor: the deck turns with the view and the cards rise and grow
       const line = new THREE.Line(
-        new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, -height / 2, 0), new THREE.Vector3(-x, deviceTop - y + 0.005, deviceEdge)]),
+        new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, -height / 2, 0), new THREE.Vector3(-x, deviceTop - y, 0)]),
         new THREE.LineDashedMaterial({ color: colour, dashSize: 0.012, gapSize: 0.01 })
       );
       line.computeLineDistances();
+      line.frustumCulled = false;
+      const start = new THREE.Vector3(0, -height / 2, 0);
+      const end = new THREE.Vector3();
+      line.onBeforeRender = () => {
+        g.worldToLocal(end.copy(anchor));
+        const points = line.geometry.attributes.position;
+        if (points.getX(1) !== end.x || points.getY(1) !== end.y || points.getZ(1) !== end.z) {
+          points.setXYZ(1, end.x, end.y, end.z);
+          points.needsUpdate = true;
+          // the dash pattern runs along the line's new length (in place: no new buffer a frame)
+          const distances = line.geometry.attributes.lineDistance;
+          distances.setX(1, start.distanceTo(end));
+          distances.needsUpdate = true;
+        }
+      };
       g.add(line);
       g.position.set(x, y, 0);
       deck.add(g);
