@@ -55,7 +55,7 @@ From the top:
   colour and shape of its highest severity. Point at or focus a mark to read the change; select it
   to open it.
 - **The 3D view** above the drift lines shows your sources as a small lab: each device is a
-  source (a server rack, a router, a camera, monitoring screens, a Raspberry Pi, small PCs). Its
+  source (a server rack, a NAS, a router, a camera, monitoring screens, a Raspberry Pi, small PCs). Its
   status lights show its worst open change (red critical, orange high, amber medium, blue low),
   green when nothing is open, and dark when the source is failing or stale. Point at a device to
   read it and select it to open the source;

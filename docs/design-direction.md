@@ -53,12 +53,14 @@ Above the drift lines the dashboard draws the sources as a small lab on a desk
 direction on 14 November 2026 over a 3D chart of the drift lines, which added nothing the strips
 did not say. The same day he rejected devices built in code ("both look garbage ... get the
 models ... from the internet"): the devices are real 3D models under CC BY 4.0, prepared in
-Blender and kept in `static/models/` with their credits in `static/models/CREDITS.txt`.
+Blender and kept in `static/models/` with their credits in `static/models/CREDITS.txt`. No
+licence-clean NAS model existed, so the NAS was made for driftsniff with Meshy on 15 November
+2026 (Theriark's paid plan; no brand on it).
 
 | Element | Drawing | Meaning |
 |---|---|---|
-| Device | a real model by source type: a server rack (Proxmox VE, Xen Orchestra, TrueNAS, Redfish), a router (UniFi Network), a camera on a mast (UniFi Protect), a desktop monitor with the product's own small chart on its screen (Grafana, Checkmk, Zabbix, Prometheus), a Raspberry Pi (Home Assistant), a small PC (Portainer, a push source and anything else); a NAS (Synology, QNAP) stands as the small PC until a licence-clean NAS model exists | a source |
-| Status lights | the model's own lit parts (the router's LEDs, the camera's glass) and a status LED where the model has none (a strip on the rack's front, a bead on the monitor's bezel and on the Pi and the small PC) in the colour of the worst open change: red `#E5392F` critical, orange `#F07A2A` high, amber `#E8B02A` medium, blue `#5F8FD6` low, with a faint glow of that colour on the desk; green when nothing is open | the worst open change of the source |
+| Device | a real model by source type: a server rack (Proxmox VE, Xen Orchestra, TrueNAS, Redfish), a router (UniFi Network), a camera on a mast (UniFi Protect), a desktop monitor with the product's own small chart on its screen (Grafana, Checkmk, Zabbix, Prometheus), a Raspberry Pi (Home Assistant), a two-bay NAS (Synology, QNAP), a small PC (Portainer, a push source and anything else) | a source |
+| Status lights | the model's own lit parts (the router's LEDs, the camera's glass) and a status LED where the model has none (a strip on the rack's front, a bead on the monitor's bezel, at the head of the NAS's own column of lights, and on the Pi and the small PC) in the colour of the worst open change: red `#E5392F` critical, orange `#F07A2A` high, amber `#E8B02A` medium, blue `#5F8FD6` low, with a faint glow of that colour on the desk; green when nothing is open | the worst open change of the source |
 | Dark lights | the LEDs dark grey, no glow | a source that is failing, partial, stale, unsupported, or not checked yet |
 
 Rules:
@@ -67,8 +69,8 @@ Rules:
   the front row, like with like and by name within a kind; each source has a device of its own.
   A row wraps past 4.6 m.
 - The models are plain glTF (a `.bin` and WebP textures of at most 512 px, no Draco), because
-  the content security policy allows no inline script, worker or `blob:` decoder; about 1.2 MB
-  for the six. A page fetches only the models of the kinds it shows, with the build's version on
+  the content security policy allows no inline script, worker or `blob:` decoder; about 1.7 MB
+  for the seven. A page fetches only the models of the kinds it shows, with the build's version on
   the address; a model that fails to load stands as a plain box.
 - The scene reads its facts from the data attributes of the drift line rows
   (`data-source-type`, `data-open-items`, `data-worst-open`, `data-health`), so it never disagrees
