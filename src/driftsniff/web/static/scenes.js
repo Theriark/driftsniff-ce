@@ -950,7 +950,14 @@ const REPLAY = {
     // Where the cards' lines end: the middle of the device's top front edge, a fixed point of the
     // room. At the top's centre they seemed to meet in the air above a deep rack, whose dark top
     // hides behind its front edge (Ruben, 15 November 2026, on DELTA).
-    const anchor = new THREE.Vector3(0, deviceTop + 0.003, deviceBox.max.z - 0.01);
+    // The point is found on the model itself, by a ray down near the front: the model's bounding
+    // box can stand above its visible roof (on DELTA the lines still met a little above it).
+    const probe = new THREE.Raycaster(
+      new THREE.Vector3(0, deviceTop + 1, deviceBox.max.z - 0.03),
+      new THREE.Vector3(0, -1, 0)
+    );
+    const roof = probe.intersectObject(device, true)[0];
+    const anchor = roof ? roof.point.clone() : new THREE.Vector3(0, deviceTop, deviceBox.max.z - 0.01);
     w.shade(w.makeDesk(2.8, 1.7, 0.05));
     w.paint();
     const rest = device.position.y;
