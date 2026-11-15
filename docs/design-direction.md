@@ -60,8 +60,8 @@ licence-clean NAS model existed, so the NAS was made for driftsniff with Meshy o
 | Element | Drawing | Meaning |
 |---|---|---|
 | Device | a real model by source type: a server rack (Proxmox VE, Xen Orchestra, TrueNAS, Redfish), a router (UniFi Network), a camera on a mast (UniFi Protect), a desktop monitor with the product's own small chart on its screen (Grafana, Checkmk, Zabbix, Prometheus), a Raspberry Pi (Home Assistant), a two-bay NAS (Synology, QNAP), a small PC (Portainer, a push source and anything else) | a source |
-| Status lights | the model's own lit parts (the router's LEDs, the camera's glass) and a status LED where the model has none (a strip on the rack's front, a bead on the monitor's bezel, at the head of the NAS's own column of lights, and on the Pi and the small PC) in the colour of the worst open change: red `#E5392F` critical, orange `#F07A2A` high, amber `#E8B02A` medium, blue `#5F8FD6` low, with a faint glow of that colour on the desk; green when nothing is open | the worst open change of the source |
-| Dark lights | the LEDs dark grey, no glow | a source that is failing, partial, stale, unsupported, or not checked yet |
+| Status lights | the model's own lit parts (the router's LEDs, the camera's glass) and a status LED where the model has none (a strip on the rack's front, a bead on the monitor's bezel, at the head of the NAS's own column of lights, and on the Pi and the small PC) in the colour of the worst open change: red `#E5392F` critical, orange `#F07A2A` high, amber `#E8B02A` medium, blue `#5F8FD6` low; green when nothing is open. Nothing is drawn under a device: on 15 November 2026 Ruben asked what the coloured patches on the desk meant, and the device's own lights already say it | the worst open change of the source |
+| Dark lights | the LEDs dark grey | a source that is failing, partial, stale, unsupported, or not checked yet |
 
 Rules:
 

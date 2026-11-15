@@ -628,7 +628,6 @@ function workshop(kit) {
     }
     return UNHEALTHY.has(source.health) || source.health === "open" ? STATUS_OFF : OK;
   }
-  const pools = new Map();
   function light(device, source) {
     const colour = statusColour(source);
     const off = colour === STATUS_OFF;
@@ -641,20 +640,6 @@ function workshop(kit) {
         part.material.emissiveIntensity = off ? 0.05 : 1.4;
       }
     });
-    if (pools.has(device)) {
-      device.remove(pools.get(device));
-      pools.delete(device);
-    }
-    if (source.worst) {
-      device.updateMatrixWorld(true);
-      const box = new THREE.Box3().setFromObject(device);
-      const pool = new THREE.PointLight(colour, 0.07, 0.11, 2);
-      // in the device's own frame: on the desk at its foot, too short to reach its front (a NAS
-      // front facing it took the whole colour)
-      pool.position.copy(device.worldToLocal(new THREE.Vector3((box.min.x + box.max.x) / 2, 0.04, box.max.z + 0.12)));
-      device.add(pool);
-      pools.set(device, pool);
-    }
   }
 
   // The device of one source: its kind's model, cloned. `kit.models` holds the loaded models
@@ -955,6 +940,9 @@ const REPLAY = {
     scene.add(device);
     const deviceBox = new THREE.Box3().setFromObject(device);
     const deviceTop = deviceBox.max.y;
+    // the lines end on the top's edge toward the viewer (the deck turns with the camera, so its
+    // +z points at the viewer); ending at the top's centre, they met in the air above a deep rack
+    const deviceEdge = 0.9 * Math.min(deviceBox.max.x, deviceBox.max.z, -deviceBox.min.x, -deviceBox.min.z);
     w.shade(w.makeDesk(2.8, 1.7, 0.05));
     w.paint();
     const rest = device.position.y;
@@ -1021,7 +1009,7 @@ const REPLAY = {
       }
       // a dashed line down to the device
       const line = new THREE.Line(
-        new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, -height / 2, 0), new THREE.Vector3(-x, deviceTop - y + 0.01, 0)]),
+        new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, -height / 2, 0), new THREE.Vector3(-x, deviceTop - y + 0.005, deviceEdge)]),
         new THREE.LineDashedMaterial({ color: colour, dashSize: 0.012, gapSize: 0.01 })
       );
       line.computeLineDistances();
