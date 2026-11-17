@@ -7,14 +7,14 @@ run-name: ${{ inputs.dry_run && 'Release (dry run)' || 'Release' }}
 # (its /healthz must report that commit and the image must be the one published for it) and the
 # release candidate tag at that commit. scripts/release_version.py gives the stable version; while
 # 27.0.0 is unreleased that is v27.0.0. In this order it creates the registry tag <version> on the
-# same digest, the annotated stable tag v<version>, a GitHub Release whose notes list the pull
-# requests merged since the previous stable release (scripts/release_notes.py), and merges stage
-# into main with a merge commit whose files are exactly Stage's. It never merges main into
-# development and never deploys: Driftsniff-CE has no Production deployment
-# (promote-production.yml is not part of this path).
-# Idempotent: each of the four results is checked first and reused when it already matches; a
+# same digest, the annotated stable tag v<version> and a GitHub Release whose notes list the pull
+# requests merged since the previous stable release (scripts/release_notes.py). It never moves a
+# branch: the gate script merges stage into main right before it dispatches this workflow (the
+# Actions token may not move a branch to a commit that changes workflow files). It never deploys:
+# Driftsniff-CE has no Production deployment (promote-production.yml is not part of this path).
+# Idempotent: each of the three results is checked first and reused when it already matches; a
 # result that exists but differs fails the run without changing it.
-# dry_run=true runs every check and changes nothing: no tag, no image tag, no release, no merge.
+# dry_run=true runs every check and changes nothing: no tag, no image tag, no release.
 
 on:
   workflow_dispatch:
@@ -75,8 +75,7 @@ jobs:
           done
           git fetch --force --tags origin \
             +refs/heads/development:refs/remotes/origin/development \
-            +refs/heads/stage:refs/remotes/origin/stage \
-            +refs/heads/main:refs/remotes/origin/main
+            +refs/heads/stage:refs/remotes/origin/stage
           stage_sha="$(git rev-parse refs/remotes/origin/stage)"
           git merge-base --is-ancestor "${stage_sha}" refs/remotes/origin/development || fail "stage ${stage_sha} is not in development history"
           echo "STAGE_SHA=${stage_sha}" >> "${GITHUB_ENV}"
@@ -182,24 +181,16 @@ jobs:
             grep -qi 'release not found' "${errors}" || fail "could not read release ${STABLE_TAG}"
             release_state=create
           fi
-          if git merge-base --is-ancestor "${STAGE_SHA}" refs/remotes/origin/main; then
-            main_state=exists
-          else
-            main_state=create
-          fi
-          protected="$(gh api "repos/${GITHUB_REPOSITORY}/branches/main" --jq '.protected')"
           python3 scripts/release_notes.py "${STABLE_TAG}" "${STAGE_SHA}" > "${RUNNER_TEMP}/release-notes.md"
           {
             echo "TAG_STATE=${tag_state}"
             echo "IMAGE_STATE=${image_state}"
             echo "RELEASE_STATE=${release_state}"
-            echo "MAIN_STATE=${main_state}"
           } >> "${GITHUB_ENV}"
           {
             echo "- Check: registry tag \`${IMAGE}:${VERSION}\`: ${image_state}"
             echo "- Check: annotated tag \`${STABLE_TAG}\`: ${tag_state}"
             echo "- Check: GitHub Release \`${STABLE_TAG}\`: ${release_state} ($(grep -c '^- .*(#' "${RUNNER_TEMP}/release-notes.md" || true) pull requests in the notes)"
-            echo "- Check: stage merged into main: ${main_state} (main protected: ${protected})"
           } >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Create the registry version tag on the same digest
@@ -252,35 +243,12 @@ jobs:
           } >> "${notes}"
           gh release create "${STABLE_TAG}" --verify-tag --title "Driftsniff-CE ${STABLE_TAG}" --notes-file "${notes}"
 
-      - name: Merge stage into main
-        if: ${{ !inputs.dry_run && env.MAIN_STATE == 'create' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          # A merge commit with main and stage as parents and Stage's tree, so main ends with exactly
-          # Stage's files. main is moved without force: if it changed meanwhile the update fails.
-          main_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq '.object.sha')"
-          tree="$(git rev-parse "${STAGE_SHA}^{tree}")"
-          merge="$(gh api --method POST "repos/${GITHUB_REPOSITORY}/git/commits" \
-            -f message="Release ${STABLE_TAG}: merge stage into main" \
-            -f tree="${tree}" \
-            -f "parents[]=${main_sha}" \
-            -f "parents[]=${STAGE_SHA}" \
-            --jq '.sha')"
-          gh api --method PATCH "repos/${GITHUB_REPOSITORY}/git/refs/heads/main" \
-            -f sha="${merge}" -F force=false > /dev/null
-          [[ "$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq '.object.sha')" == "${merge}" ]] || {
-            echo "::error::main did not move to the merge commit ${merge}"
-            exit 1
-          }
-          echo "- Merged stage into main: \`${merge}\`" >> "${GITHUB_STEP_SUMMARY}"
-
       - name: Record the result
         if: ${{ always() }}
         shell: bash
         run: |
           if [[ "${DRY_RUN}" == "true" ]]; then
-            result="dry run: no tag, image tag, release or merge was made"
+            result="dry run: no tag, image tag or release was made"
           else
             result="released"
           fi
@@ -292,5 +260,5 @@ jobs:
             echo "- Stable version: \`${STABLE_TAG:-not computed}\` from candidate \`${RC_TAG:-none}\`"
             echo "- Source commit (stage head): \`${STAGE_SHA:-not read}\`"
             echo "- Immutable image: \`${IMAGE_REF:-not read}\`"
-            echo "- Rebuild performed: no; Production deployment: none (CE)"
+            echo "- Rebuild performed: no; Production deployment: none (CE); branch moved: none (the gate script merges stage into main)"
           } >> "${GITHUB_STEP_SUMMARY}"
