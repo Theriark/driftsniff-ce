@@ -385,7 +385,7 @@ def test_the_shell_header_uses_the_horizontal_logo_at_48_px_with_a_dark_source()
     sources = parsed.find("source")
     assert sources == [
         {
-            "srcset": "/static/brand/logo-horizontal-dark-1200x400.png",
+            "srcset": "/static/logo-horizontal-dark-plain-1200x400.png",
             "media": "(prefers-color-scheme: dark)",
         }
     ]

@@ -118,13 +118,15 @@ listed in `brand/MANIFEST.sha256`). The running application serves copies from
 
 The brand guide assigns the horizontal logo files to the site header and keeps the wordmark
 files for text-only placements, and it rules that on a dark background the mark sits on a light
-rounded tile. The header follows both: one image per theme, the guide's own file, so the mark
-is never placed bare on the dark header.
+rounded tile. The header used one image per theme, the guide's own files. On 17 November 2026
+Ruben asked for the mark without the white tile, like the other products' icons: the dark theme
+now uses a copy of the guide's dark lockup with the tile replaced by the transparent mark (its
+light fur reads on the dark header). The brand files themselves stay untouched.
 
 | Use | File | Size |
 |---|---|---|
 | Header lockup, light theme (paper `#F5F5F0`) | `logo-horizontal-1200x400.png` (mark and wordmark on paper) | 48 px tall, 144 px wide; the ferret mark inside the file is about 38 px, above the guide's 32 px floor |
-| Header lockup, dark theme (`#1E1E24`) | `logo-horizontal-dark-1200x400.png` (the mark on its light rounded tile, light wordmark) | the same |
+| Header lockup, dark theme (`#1E1E24`) | `static/logo-horizontal-dark-plain-1200x400.png`: the brand's dark lockup (`logo-horizontal-dark-1200x400.png`) with its light tile replaced by the transparent mark on `#1E1E24`; the wordmark is the brand file's own | the same |
 | Header below 768 px (56 px header) | the same files | 40 px tall, 120 px wide; mark about 32 px, at the floor; the lockup is never dropped, the environment badge and the user name are |
 | Empty state companion | `logo-mark-512x512.png` on paper or surface, never on a dark surface without a tile | 96 by 96 px |
 | Favicon and tiles | `favicon-32x32.png`, `favicon-180x180.png`, `favicon-512x512.png`, `favicon-tile-180x180.png` | as named |

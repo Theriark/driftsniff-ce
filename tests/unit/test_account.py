@@ -151,7 +151,7 @@ def test_the_theme_is_saved_and_set_on_every_page(client: TestClient, auth: Auth
     assert response.status_code == 303
     page = client.get("/", headers=headers).text
     assert '<html lang="en" data-theme="dark">' in page
-    assert "logo-horizontal-dark-1200x400.png" in page and "prefers-color-scheme" not in page
+    assert "logo-horizontal-dark-plain-1200x400.png" in page and "prefers-color-scheme" not in page
     refused = client.post("/account/theme", data={"theme": "neon"}, headers=headers)
     assert refused.status_code == 422
 
