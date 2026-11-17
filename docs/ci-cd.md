@@ -5,11 +5,19 @@ Four workflows. GitHub Actions builds and deploys; no other controller deploys t
 | Workflow | Trigger | What it does |
 |---|---|---|
 | `CI` (`ci.yml`) | `ci-go` label on a pull request, push to `development`, manual dispatch | Tests and scans; builds one image; scans, smoke-tests and SBOMs that image; on push to `development` pushes that same image as `sha-<12>`, deploys its digest to Development and verifies runtime; `mode=lock` compiles hashed requirements |
-| `Promote - Stage` (`promote-stage.yml`) | one button from `development` (Gate 2), optional `dry_run` | Takes the commit Development runs and its image, requires its successful `CI` push run, runs the test suite at that commit, tags the next release candidate, deploys the same digest to Stage, verifies `/healthz`, tags the image `stage` and moves the `stage` branch. No rebuild. Fails at its first job until `PROMOTE_STAGE_ENABLED=true` |
-| `Release` (`release.yml`) | one button from `development` (Gate 3), optional `dry_run` | Releases what Stage runs: the registry tag `<version>` on the same digest, the annotated tag `v<version>`, a GitHub Release with the pull requests since the last release, and a merge commit of `stage` into `main`. No rebuild, no deployment |
+| `Promote - Stage` (`promote-stage.yml`) | one button from `development` (Gate 2), optional `dry_run` | Takes the commit Development runs and its image, requires its successful `CI` push run, runs the test suite at that commit, tags the next release candidate, deploys the same digest to Stage, verifies `/healthz` and tags the image `stage`. No rebuild, no branch move. Fails at its first job until `PROMOTE_STAGE_ENABLED=true` |
+| `Release` (`release.yml`) | one button from `development` (Gate 3), optional `dry_run` | Releases what Stage runs: the registry tag `<version>` on the same digest, the annotated tag `v<version>` and a GitHub Release with the pull requests since the last release. No rebuild, no deployment, no branch move |
 | `Promote - Production` (`promote-production.yml`) | manual dispatch only | Not part of the release path: Driftsniff-CE has no Production deployment. Fails at its first job until `PROMOTE_PRODUCTION_ENABLED=true` |
 
 `prepare-rc.yml` and `finalize-release.yml` are retired: `Promote - Stage` computes the candidate itself and `Release` replaces `Finalize release`.
+
+## Branches: the gate script moves them
+
+The workflows deploy, tag and publish only. They never push, update, merge or force-move `stage` or `main`: GitHub's Actions token may not move a branch to a commit that changes workflow files, so such a move would fail (the Revrook-CE `Promote - Stage` dry run refused for that reason). The gate script moves both with the operator token:
+
+- `stage`: after a successful `Promote - Stage` run, the gate script fast-forwards `stage` to the new candidate tag. Where `stage` is before the run (behind, ahead or diverged) never stops a promotion; the summary only reports it.
+- `main`: right before it dispatches `Release`, the gate script merges `stage` into `main` (a merge commit with Stage's files). `Release` does not read or check `main`.
+- `tests/unit/test_publishing_workflows.py` fails CI if either workflow, or a script it calls, could write a branch: every `git push` must push a `refs/tags/` ref, and git ref, commit, merge and branch API calls, `git merge`, `git update-ref` and `gh pr merge` are refused.
 
 ## Versions
 
@@ -24,10 +32,10 @@ Four workflows. GitHub Actions builds and deploys; no other controller deploys t
 
 ## One button: `dry_run` and re-runs
 
-- Rollback: the summary of `Promote - Stage` records the image Stage ran before; the `stage` branch is never forced.
-- `dry_run=true` runs every check and writes nothing: no tag, image tag, deployment, branch move, release or merge. The job summary lists each check, the computed candidate (`Promote - Stage`) or the stable version (`Release`), and what a real run would create.
+- Rollback: the summary of `Promote - Stage` records the image Stage ran before.
+- `dry_run=true` runs every check and writes nothing: no tag, image tag, deployment or release. The job summary lists each check, the computed candidate (`Promote - Stage`) or the stable version (`Release`), and what a real run would create.
 - `Release` checks each result first and reuses it when it already matches, so a re-run after a complete release changes nothing. A tag, image tag or release that exists but differs fails the run.
-- `Release` merges `stage` into `main` with the REST git data API: a commit with parents `main` and `stage` and Stage's tree, then a non-forced update of `main`. It never merges `main` into `development`.
+- `Release` never merges `main` into `development`.
 - GitHub dispatches only workflows that `main` knows. The pre-flight route `workflow_register` copies reviewed workflow files from `development` to `main`; it must include `release.yml` (see the pull request that introduced this file).
 
 ## Switches and secrets
