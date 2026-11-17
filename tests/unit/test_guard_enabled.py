@@ -5,6 +5,7 @@ import re
 from pathlib import Path
 
 import pytest
+import yaml
 
 from guard_enabled import is_enabled, main
 
@@ -69,15 +70,19 @@ def test_guard_job_comes_first_and_the_deploy_job_waits_for_it(name: str, variab
     text = read_workflow(name)
     assert f"python3 scripts/guard_enabled.py {variable}" in text
     assert variable + ": ${{ vars." + variable + " }}" in text
-    jobs = "\n" + text.split("\njobs:\n", 1)[1]
-    start = jobs.index("\n  promote:")
-    guard_part = jobs[:start]
-    promote_part = jobs[start:]
-    assert "\n  guard:" in guard_part
-    assert "dokploy_release.py" not in guard_part
-    header = promote_part.split("    steps:", 1)[0]
-    assert "needs: guard" in header
-    assert "\n    if:" not in header
+    jobs = yaml.safe_load(text)["jobs"]
+    names = list(jobs)
+    assert names[0] == "guard"
+    assert "dokploy_release.py" not in str(jobs["guard"])
+
+    def depends_on_guard(job: str) -> bool:
+        needs = jobs[job].get("needs", [])
+        needs = [needs] if isinstance(needs, str) else needs
+        return "guard" in needs or any(depends_on_guard(other) for other in needs)
+
+    for job in names[1:]:
+        assert depends_on_guard(job), job
+        assert "if" not in jobs[job], job
 
 
 @pytest.mark.parametrize(("name", "variable"), PROMOTIONS)

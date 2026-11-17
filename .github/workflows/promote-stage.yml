@@ -1,51 +1,29 @@
 name: Promote - Stage
 
-run-name: publishing:${{ inputs.request_id }}
+run-name: ${{ inputs.dry_run && 'Promote - Stage (dry run)' || 'Promote - Stage' }}
 
-# Promotes the reviewed release candidate (RC) of a tested commit to Stage; never rebuilds and
-# never creates or moves an RC. The private publisher dispatches this workflow after the separate
-# native Promote to Stage approval, passing the exact RC it approved. The run verifies that the
-# annotated RC tag points at source_commit and that its JSON message (sourceCommit, imageDigest,
-# developmentRunId, documentationManifestSha256) matches the inputs, then deploys that same digest
-# to the existing Stage application. The newest Development image is never substituted.
-# Execution ref: development (the registered ref), or stage once the publisher has advanced it to
-# source_commit without force. A run from stage must be at exactly source_commit.
-# NOT enabled by default: the first job (guard) fails the run before any deploy step unless the
-# repository variable PROMOTE_STAGE_ENABLED is exactly 'true'. It stays unset until Stage
-# promotion is separately authorised, and it must be 'true' for an approved dispatch to proceed.
-# Rollback is this workflow run again with the RC of an earlier approved candidate.
+# One button, run from development (Gate 2 approval dispatches it with no inputs). It takes the
+# exact commit Development runs (its /healthz commit and the digest the Development app runs),
+# requires the successful CI push run of that commit, runs the test suite at that commit, then
+# tags the next release candidate v27.<minor>.<patch>-rc.<n> (scripts/release_version.py
+# computes it from the existing tags), deploys that same digest to the Stage application,
+# verifies health and commit, tags the image stage and moves the stage branch to the commit.
+# It never rebuilds. A commit that already carries a candidate of the current line keeps it, so a
+# re-run after a partial failure finishes the same promotion.
+# dry_run=true runs every check and changes nothing: no tag, no image tag, no deploy, no branch move.
+# The first job (guard) fails a real run unless the repository variable PROMOTE_STAGE_ENABLED is
+# exactly 'true'; a dry run only reports the switch.
+# The summary records the image Stage ran before, the rollback target; the stage branch is never
+# forced.
 
 on:
   workflow_dispatch:
     inputs:
-      request_id:
-        description: Publisher request identifier (also the run name)
-        required: true
-        type: string
-      version:
-        description: Version of the candidate, for example 27.1.0 or v27.1.0-rc.1
-        required: true
-        type: string
-      source_commit:
-        description: Full commit SHA the RC tag points at
-        required: true
-        type: string
-      image:
-        description: Immutable image of the RC, ghcr.io/theriark/driftsniff-ce@sha256:<digest> or sha256:<digest>
-        required: true
-        type: string
-      development_run_id:
-        description: Run ID of the successful Development run recorded in the RC
-        required: true
-        type: string
-      documentation_manifest_sha256:
-        description: SHA-256 of the reviewed documentation manifest recorded in the RC
-        required: true
-        type: string
-      rc_tag:
-        description: Existing annotated RC tag, v27.<minor>.<patch>-rc.<number>
-        required: true
-        type: string
+      dry_run:
+        description: Check everything and change nothing
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -65,6 +43,7 @@ jobs:
 
     env:
       PROMOTE_STAGE_ENABLED: ${{ vars.PROMOTE_STAGE_ENABLED }}
+      DRY_RUN: ${{ inputs.dry_run }}
 
     steps:
       - name: Checkout guard script
@@ -76,34 +55,192 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 scripts/guard_enabled.py PROMOTE_STAGE_ENABLED
+          if [[ "${DRY_RUN}" == "true" ]]; then
+            state=on
+            python3 scripts/guard_enabled.py PROMOTE_STAGE_ENABLED || state="off (a real run would stop here)"
+            echo "- Check: switch PROMOTE_STAGE_ENABLED is ${state}" >> "${GITHUB_STEP_SUMMARY}"
+          else
+            python3 scripts/guard_enabled.py PROMOTE_STAGE_ENABLED
+          fi
+
+  resolve:
+    name: Resolve the commit Development runs and the next candidate
+    needs: guard
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    permissions:
+      actions: read
+      contents: read
+      packages: read
+
+    outputs:
+      commit: ${{ steps.commit.outputs.commit }}
+      ci_run: ${{ steps.ci.outputs.run }}
+      digest: ${{ steps.image.outputs.digest }}
+      candidate: ${{ steps.candidate.outputs.tag }}
+      new_tag: ${{ steps.candidate.outputs.new }}
+
+    env:
+      IMAGE: ghcr.io/theriark/driftsniff-ce
+      DEVELOPMENT_HOST: ce-dev-driftsniff.theriark.dev
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Checkout pipeline code with history and tags
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Read the commit Development runs
+        id: commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          fail() {
+            echo "::error::$1"
+            exit 1
+          }
+          [[ "${GITHUB_REF}" == "refs/heads/development" ]] || fail "Stage promotion runs from development; received ${GITHUB_REF}"
+          health="$(curl -fsS --max-time 20 "https://${DEVELOPMENT_HOST}/healthz")" || fail "https://${DEVELOPMENT_HOST}/healthz did not answer"
+          commit="$(jq -r 'select(.status == "ok") | .commit // empty' <<< "${health}")"
+          [[ "${commit}" =~ ^[0-9a-f]{40}$ ]] || fail "Development /healthz is not ok with a full commit: ${health}"
+          git cat-file -e "${commit}^{commit}" || fail "${commit} does not exist in this repository"
+          git merge-base --is-ancestor "${commit}" refs/remotes/origin/development || fail "${commit} is not in development history"
+          echo "commit=${commit}" >> "${GITHUB_OUTPUT}"
+          echo "- Check: Development /healthz is ok and reports \`${commit}\` (in development history)" >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Find the successful CI push run of that commit
+        id: ci
+        shell: bash
+        env:
+          COMMIT: ${{ steps.commit.outputs.commit }}
+        run: |
+          set -euo pipefail
+          run="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?branch=development&event=push&status=success&head_sha=${COMMIT}&per_page=1" --jq '.workflow_runs[0].id // empty')"
+          [[ "${run}" =~ ^[1-9][0-9]*$ ]] || {
+            echo "::error::no successful CI push run on development for ${COMMIT}"
+            exit 1
+          }
+          echo "run=${run}" >> "${GITHUB_OUTPUT}"
+          echo "- Check: CI push run ${run} on development succeeded for the commit" >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Log in to GitHub Container Registry (read only)
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+
+      - name: Resolve the image published for the commit
+        id: image
+        shell: bash
+        env:
+          COMMIT: ${{ steps.commit.outputs.commit }}
+        run: |
+          set -euo pipefail
+          digest="$(docker buildx imagetools inspect "${IMAGE}:sha-${COMMIT::12}" --format '{{.Manifest.Digest}}')"
+          [[ "${digest}" =~ ^sha256:[0-9a-f]{64}$ ]] || {
+            echo "::error::no published image ${IMAGE}:sha-${COMMIT::12}"
+            exit 1
+          }
+          echo "digest=${digest}" >> "${GITHUB_OUTPUT}"
+          echo "- Check: image \`${IMAGE}:sha-${COMMIT::12}\` is \`${digest}\` (no rebuild)" >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Compute the release candidate
+        id: candidate
+        shell: bash
+        env:
+          COMMIT: ${{ steps.commit.outputs.commit }}
+          DIGEST: ${{ steps.image.outputs.digest }}
+        run: |
+          set -euo pipefail
+          fail() {
+            echo "::error::$1"
+            exit 1
+          }
+          read -r tag state < <(python3 scripts/release_version.py candidate "${COMMIT}") || true
+          tag="${tag:-}"
+          state="${state:-}"
+          [[ "${tag}" =~ ^v27\.[0-9]+\.[0-9]+-rc\.[1-9][0-9]*$ ]] || fail "unexpected candidate ${tag}"
+          if [[ "${state}" == "existing" ]]; then
+            [[ "$(git cat-file -t "refs/tags/${tag}")" == "tag" ]] || fail "${tag} is not an annotated tag"
+            recorded="$(git tag -l --format='%(contents)' "${tag}" | jq -r '.imageDigest // empty' 2> /dev/null || true)"
+            [[ -z "${recorded}" || "${recorded}" == "${DIGEST}" ]] || fail "${tag} records ${recorded}, not ${DIGEST}"
+            new=false
+          else
+            git ls-remote --exit-code --tags origin "refs/tags/${tag}" > /dev/null && fail "${tag} already exists on the remote"
+            new=true
+          fi
+          {
+            echo "tag=${tag}"
+            echo "new=${new}"
+          } >> "${GITHUB_OUTPUT}"
+          echo "- Computed candidate: \`${tag}\` (${state} tag)" >> "${GITHUB_STEP_SUMMARY}"
+
+  tests:
+    name: Test suite at the promoted commit
+    needs: resolve
+    runs-on: ubuntu-24.04
+    # the suite takes 15 to 20 minutes on a hosted runner (see ci.yml)
+    timeout-minutes: 30
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout the promoted commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.resolve.outputs.commit }}
+          persist-credentials: false
+
+      - name: Install locked dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv .venv
+          .venv/bin/python -m pip install --require-hashes --no-deps -r requirements-dev.txt
+          .venv/bin/python -m pip check
+
+      - name: Run the automated tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          .venv/bin/python -m pytest -q --ignore=tests/e2e --ignore=tests/image_first_run
+          echo "- Check: test suite passed at \`$(git rev-parse HEAD)\`" >> "${GITHUB_STEP_SUMMARY}"
 
   promote:
     name: Promote image to Stage
-    needs: guard
+    needs:
+      - resolve
+      - tests
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment: stage
 
     permissions:
-      actions: read
       contents: write
       packages: write
 
     env:
       IMAGE: ghcr.io/theriark/driftsniff-ce
-      REQUEST_ID: ${{ inputs.request_id }}
-      VERSION_INPUT: ${{ inputs.version }}
-      SOURCE_COMMIT: ${{ inputs.source_commit }}
-      IMAGE_INPUT: ${{ inputs.image }}
-      DEVELOPMENT_RUN_ID: ${{ inputs.development_run_id }}
-      DOCUMENTATION_MANIFEST_SHA256: ${{ inputs.documentation_manifest_sha256 }}
-      RC_TAG: ${{ inputs.rc_tag }}
+      DRY_RUN: ${{ inputs.dry_run }}
+      SOURCE_COMMIT: ${{ needs.resolve.outputs.commit }}
+      DIGEST: ${{ needs.resolve.outputs.digest }}
+      IMAGE_REF: ghcr.io/theriark/driftsniff-ce@${{ needs.resolve.outputs.digest }}
+      RC_TAG: ${{ needs.resolve.outputs.candidate }}
+      CI_RUN_ID: ${{ needs.resolve.outputs.ci_run }}
       GH_TOKEN: ${{ github.token }}
       DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
       DOKPLOY_API_KEY: ${{ secrets.DOKPLOY_API_KEY }}
       CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
       CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+      DOKPLOY_DEVELOPMENT_APPLICATION_ID: VmPHofibLNZ_eYa6y6r8R
       DOKPLOY_STAGE_APPLICATION_ID: lhB_AOqk4FTEaHhEQcPKj
       STAGE_HOST: ce-stg-driftsniff.theriark.dev
 
@@ -113,7 +250,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Validate inputs, execution ref and source commit
+      - name: Check the run, the secrets and the stage branch
         shell: bash
         run: |
           set -euo pipefail
@@ -121,107 +258,68 @@ jobs:
             echo "::error::$1"
             exit 1
           }
-          [[ "${REQUEST_ID}" =~ ^[A-Za-z0-9._:-]{1,128}$ ]] || fail "request_id has unexpected characters"
-          [[ "${SOURCE_COMMIT}" =~ ^[0-9a-f]{40}$ ]] || fail "source_commit must be a full 40-character commit SHA"
-          [[ "${DEVELOPMENT_RUN_ID}" =~ ^[1-9][0-9]{0,17}$ ]] || fail "development_run_id must be a run ID integer"
-          [[ "${DOCUMENTATION_MANIFEST_SHA256}" =~ ^[0-9a-f]{64}$ ]] || fail "documentation_manifest_sha256 must be 64 lowercase hex characters"
-          [[ "${RC_TAG}" =~ ^v27\.[0-9]+\.[0-9]+-rc\.[0-9]+$ ]] || fail "rc_tag must look like v27.<minor>.<patch>-rc.<number>"
-          [[ "${VERSION_INPUT}" =~ ^v?27\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]] || fail "version must be 27.<minor>.<patch> or an RC of it"
-          version_base="${VERSION_INPUT#v}"
-          version_base="${version_base%%-rc.*}"
-          rc_base="${RC_TAG#v}"
-          rc_base="${rc_base%%-rc.*}"
-          [[ "${version_base}" == "${rc_base}" ]] || fail "version ${VERSION_INPUT} does not belong to ${RC_TAG}"
-          digest="${IMAGE_INPUT#"${IMAGE}@"}"
-          [[ "${digest}" =~ ^sha256:[0-9a-f]{64}$ ]] || fail "image must be ${IMAGE}@sha256:<64 lowercase hex characters>"
-          case "${GITHUB_REF}" in
-            refs/heads/development) ;;
-            refs/heads/stage)
-              [[ "${GITHUB_SHA}" == "${SOURCE_COMMIT}" ]] || fail "a run from stage must be at ${SOURCE_COMMIT}; found ${GITHUB_SHA}"
-              ;;
-            *) fail "Stage promotion must run from development or stage; received ${GITHUB_REF}" ;;
-          esac
+          [[ "${GITHUB_REF}" == "refs/heads/development" ]] || fail "Stage promotion runs from development; received ${GITHUB_REF}"
+          [[ "${SOURCE_COMMIT}" =~ ^[0-9a-f]{40}$ && "${DIGEST}" =~ ^sha256:[0-9a-f]{64}$ ]] || fail "resolve gave no commit or digest"
           for required in DOKPLOY_URL DOKPLOY_API_KEY CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET; do
             [[ -n "${!required}" ]] || fail "${required} is missing"
           done
-          git fetch origin +refs/heads/development:refs/remotes/origin/development
-          git cat-file -e "${SOURCE_COMMIT}^{commit}" || fail "${SOURCE_COMMIT} does not exist in this repository"
-          git merge-base --is-ancestor "${SOURCE_COMMIT}" refs/remotes/origin/development || fail "${SOURCE_COMMIT} is not in development history"
+          git fetch origin +refs/heads/stage:refs/remotes/origin/stage
+          stage_sha="$(git rev-parse refs/remotes/origin/stage)"
+          if [[ "${stage_sha}" == "${SOURCE_COMMIT}" ]]; then
+            move="none (stage is already at the commit)"
+            advance=false
+          elif git merge-base --is-ancestor "${stage_sha}" "${SOURCE_COMMIT}"; then
+            move="fast-forward from ${stage_sha}"
+            advance=true
+          elif git merge-base --is-ancestor "${SOURCE_COMMIT}" "${stage_sha}"; then
+            move="none (stage ${stage_sha} is ahead: rollback, never forced)"
+            advance=false
+          else
+            fail "stage ${stage_sha} and ${SOURCE_COMMIT} have diverged; refusing to move stage"
+          fi
+          echo "ADVANCE=${advance}" >> "${GITHUB_ENV}"
           {
-            echo "DIGEST=${digest}"
-            echo "IMAGE_REF=${IMAGE}@${digest}"
-          } >> "${GITHUB_ENV}"
+            echo "- Check: the four Dokploy secrets are present"
+            echo "- Check: stage branch move: ${move}"
+          } >> "${GITHUB_STEP_SUMMARY}"
 
-      - name: Verify and consume the existing reviewed RC
+      - name: Confirm Development runs this image and read what Stage runs
         shell: bash
         run: |
           set -euo pipefail
-          python3 - <<'PY'
+          python3 .github/scripts/dokploy_release.py assert-image \
+            --application-id "${DOKPLOY_DEVELOPMENT_APPLICATION_ID}" \
+            --image "${IMAGE_REF}"
+          python3 .github/scripts/dokploy_release.py show-image \
+            --application-id "${DOKPLOY_STAGE_APPLICATION_ID}" | tee "${RUNNER_TEMP}/stage-image.txt"
+          {
+            echo "- Check: the Development app runs \`${IMAGE_REF}\`"
+            echo "- Stage app before: $(cat "${RUNNER_TEMP}/stage-image.txt")"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Create and push the annotated release candidate tag
+        if: ${{ !inputs.dry_run && needs.resolve.outputs.new_tag == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          message="${RUNNER_TEMP}/rc-tag.json"
+          python3 - > "${message}" <<'PY'
           import json
           import os
-          import subprocess
-          import sys
 
-
-          def fail(message):
-              print("::error::" + message)
-              sys.exit(1)
-
-
-          def run(*args):
-              return subprocess.run(args, check=True, capture_output=True, text=True).stdout.strip()
-
-
-          tag = os.environ["RC_TAG"]
-          source = os.environ["SOURCE_COMMIT"]
-          digest = os.environ["DIGEST"]
-          development_run = int(os.environ["DEVELOPMENT_RUN_ID"])
-          manifest = os.environ["DOCUMENTATION_MANIFEST_SHA256"]
-          repository = os.environ["GITHUB_REPOSITORY"]
-          ref = "refs/tags/" + tag
-
-          try:
-              kind = run("git", "cat-file", "-t", ref)
-          except subprocess.CalledProcessError:
-              fail("RC tag " + tag + " does not exist; this workflow never creates an RC")
-          if kind != "tag":
-              fail("RC tag " + tag + " is not an annotated tag")
-          if run("git", "rev-parse", ref + "^{commit}") != source:
-              fail("RC tag " + tag + " does not point at " + source)
-          try:
-              meta = json.loads(run("git", "tag", "-l", "--format=%(contents)", tag))
-          except ValueError:
-              fail("the message of " + tag + " is not JSON")
-          if not isinstance(meta, dict):
-              fail("the message of " + tag + " is not a JSON object")
-          expected = {
-              "sourceCommit": source,
-              "imageDigest": digest,
-              "developmentRunId": development_run,
-              "documentationManifestSha256": manifest,
-          }
-          for key, value in expected.items():
-              found = meta.get(key)
-              if found != value or type(found) is not type(value):
-                  fail("RC tag " + tag + " field " + key + " does not match the dispatch inputs")
-
-          try:
-              release = json.loads(run("gh", "release", "view", tag, "--json", "isDraft,isPrerelease"))
-          except (subprocess.CalledProcessError, ValueError):
-              fail("no GitHub prerelease found for " + tag)
-          if release.get("isDraft") or not release.get("isPrerelease"):
-              fail("the GitHub release of " + tag + " must be a published prerelease")
-
-          try:
-              dev = json.loads(run("gh", "api", "repos/" + repository + "/actions/runs/" + str(development_run)))
-          except (subprocess.CalledProcessError, ValueError):
-              fail("Development run " + str(development_run) + " was not found in this repository")
-          if dev.get("status") != "completed" or dev.get("conclusion") != "success":
-              fail("Development run " + str(development_run) + " did not complete successfully")
-          if dev.get("head_sha") != source:
-              fail("Development run " + str(development_run) + " did not run " + source)
-          print("RC " + tag + " verified for " + source + " at " + digest)
+          print(json.dumps({
+              "sourceCommit": os.environ["SOURCE_COMMIT"],
+              "imageDigest": os.environ["DIGEST"],
+              "developmentRunId": int(os.environ["CI_RUN_ID"]),
+              "workflowRunId": int(os.environ["GITHUB_RUN_ID"]),
+          }, sort_keys=True, separators=(",", ":")))
           PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "${RC_TAG}" "${SOURCE_COMMIT}" -F "${message}"
+          [[ "$(git rev-parse "refs/tags/${RC_TAG}^{commit}")" == "${SOURCE_COMMIT}" ]]
+          git push origin "refs/tags/${RC_TAG}"
+          echo "- Created annotated tag \`${RC_TAG}\` at \`${SOURCE_COMMIT}\`" >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
@@ -233,24 +331,8 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
 
-      - name: Confirm the RC digest is the image published for the commit
-        shell: bash
-        run: |
-          set -euo pipefail
-          tag="sha-${SOURCE_COMMIT::12}"
-          resolved="$(docker buildx imagetools inspect "${IMAGE}:${tag}" --format '{{.Manifest.Digest}}')"
-          [[ "${resolved}" =~ ^sha256:[0-9a-f]{64}$ ]] || {
-            echo "::error::no published image ${IMAGE}:${tag} for ${SOURCE_COMMIT}"
-            exit 1
-          }
-          [[ "${resolved}" == "${DIGEST}" ]] || {
-            echo "::error::RC digest ${DIGEST} does not match the image published for ${SOURCE_COMMIT} (${resolved})"
-            exit 1
-          }
-          docker buildx imagetools inspect "${IMAGE_REF}" > /dev/null
-          echo "Resolved ${IMAGE_REF}"
-
       - name: Deploy exact digest to Stage and verify runtime
+        if: ${{ !inputs.dry_run }}
         shell: bash
         run: |
           set -euo pipefail
@@ -264,6 +346,7 @@ jobs:
             --noop-ok
 
       - name: Tag the promoted image as stage
+        if: ${{ !inputs.dry_run }}
         shell: bash
         run: |
           set -euo pipefail
@@ -277,40 +360,36 @@ jobs:
           }
 
       - name: Advance the stage branch to the promoted commit
+        if: ${{ !inputs.dry_run && env.ADVANCE == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
-          git fetch origin +refs/heads/stage:refs/remotes/origin/stage
-          stage_sha="$(git rev-parse refs/remotes/origin/stage)"
-          if [[ "${stage_sha}" == "${SOURCE_COMMIT}" ]]; then
-            echo "stage already at ${SOURCE_COMMIT}"
-          elif git merge-base --is-ancestor "${stage_sha}" "${SOURCE_COMMIT}"; then
-            gh api --method PATCH "repos/${GITHUB_REPOSITORY}/git/refs/heads/stage" \
-              -f sha="${SOURCE_COMMIT}" -F force=false > /dev/null
-            stage_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/stage" --jq '.object.sha')"
-            [[ "${stage_sha}" == "${SOURCE_COMMIT}" ]] || {
-              echo "::error::stage branch did not advance to ${SOURCE_COMMIT}"
-              exit 1
-            }
-          elif git merge-base --is-ancestor "${SOURCE_COMMIT}" "${stage_sha}"; then
-            echo "::warning::stage branch is ahead of ${SOURCE_COMMIT} (rollback); the branch is not moved and never forced"
-          else
-            echo "::error::stage branch ${stage_sha} diverges from ${SOURCE_COMMIT}; refusing to move it"
+          gh api --method PATCH "repos/${GITHUB_REPOSITORY}/git/refs/heads/stage" \
+            -f sha="${SOURCE_COMMIT}" -F force=false > /dev/null
+          stage_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/stage" --jq '.object.sha')"
+          [[ "${stage_sha}" == "${SOURCE_COMMIT}" ]] || {
+            echo "::error::stage branch did not advance to ${SOURCE_COMMIT}"
             exit 1
-          fi
+          }
 
-      - name: Record immutable Stage result
+      - name: Record the result
+        if: ${{ always() }}
         shell: bash
         run: |
+          if [[ "${DRY_RUN}" == "true" ]]; then
+            result="dry run: no tag, image tag, deployment or branch move was made"
+          else
+            result="promoted"
+          fi
           {
-            echo "## driftsniff-ce Stage promotion completed"
             echo
-            echo "- Request: \`${REQUEST_ID}\`"
+            echo "## driftsniff-ce Stage promotion"
+            echo
+            echo "- Result: ${result} (job status: ${{ job.status }})"
+            echo "- Candidate: \`${RC_TAG}\`"
             echo "- Source commit: \`${SOURCE_COMMIT}\`"
-            echo "- RC tag: \`${RC_TAG}\`"
             echo "- Immutable image: \`${IMAGE_REF}\`"
-            echo "- Development run: \`${DEVELOPMENT_RUN_ID}\`"
-            echo "- Documentation manifest SHA-256: \`${DOCUMENTATION_MANIFEST_SHA256}\`"
+            echo "- CI push run: \`${CI_RUN_ID}\`"
             echo "- Stage URL: https://${STAGE_HOST}/"
             echo "- Rebuild performed: no"
           } >> "${GITHUB_STEP_SUMMARY}"
