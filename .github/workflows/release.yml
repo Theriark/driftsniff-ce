@@ -1,0 +1,296 @@
+name: Release
+
+run-name: ${{ inputs.dry_run && 'Release (dry run)' || 'Release' }}
+
+# One button, run from development (Gate 3 approval dispatches it with no inputs). It releases
+# exactly what Stage runs and never rebuilds: the stage branch head, the image the Stage app runs
+# (its /healthz must report that commit and the image must be the one published for it) and the
+# release candidate tag at that commit. scripts/release_version.py gives the stable version; while
+# 27.0.0 is unreleased that is v27.0.0. In this order it creates the registry tag <version> on the
+# same digest, the annotated stable tag v<version>, a GitHub Release whose notes list the pull
+# requests merged since the previous stable release (scripts/release_notes.py), and merges stage
+# into main with a merge commit whose files are exactly Stage's. It never merges main into
+# development and never deploys: Driftsniff-CE has no Production deployment
+# (promote-production.yml is not part of this path).
+# Idempotent: each of the four results is checked first and reused when it already matches; a
+# result that exists but differs fails the run without changing it.
+# dry_run=true runs every check and changes nothing: no tag, no image tag, no release, no merge.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Check everything and change nothing
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: driftsniff-ce-pipeline
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Release what Stage runs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    # Only to read the Stage application with the Dokploy secrets; nothing is deployed.
+    environment: stage
+
+    permissions:
+      contents: write
+      packages: write
+
+    env:
+      IMAGE: ghcr.io/theriark/driftsniff-ce
+      DRY_RUN: ${{ inputs.dry_run }}
+      GH_TOKEN: ${{ github.token }}
+      DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
+      DOKPLOY_API_KEY: ${{ secrets.DOKPLOY_API_KEY }}
+      CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+      CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+      DOKPLOY_STAGE_APPLICATION_ID: lhB_AOqk4FTEaHhEQcPKj
+      STAGE_HOST: ce-stg-driftsniff.theriark.dev
+
+    steps:
+      - name: Checkout pipeline code with history and tags
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Read the stage branch head
+        shell: bash
+        run: |
+          set -euo pipefail
+          fail() {
+            echo "::error::$1"
+            exit 1
+          }
+          [[ "${GITHUB_REF}" == "refs/heads/development" ]] || fail "the release runs from development; received ${GITHUB_REF}"
+          for required in DOKPLOY_URL DOKPLOY_API_KEY CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET; do
+            [[ -n "${!required}" ]] || fail "${required} is missing"
+          done
+          git fetch --force --tags origin \
+            +refs/heads/development:refs/remotes/origin/development \
+            +refs/heads/stage:refs/remotes/origin/stage \
+            +refs/heads/main:refs/remotes/origin/main
+          stage_sha="$(git rev-parse refs/remotes/origin/stage)"
+          git merge-base --is-ancestor "${stage_sha}" refs/remotes/origin/development || fail "stage ${stage_sha} is not in development history"
+          echo "STAGE_SHA=${stage_sha}" >> "${GITHUB_ENV}"
+          echo "- Check: stage branch head \`${stage_sha}\` is in development history" >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Read the image the Stage app runs and its health
+        id: stage
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/dokploy_release.py show-image --application-id "${DOKPLOY_STAGE_APPLICATION_ID}"
+          python3 .github/scripts/dokploy_release.py health \
+            --health-url "https://${STAGE_HOST}/healthz" \
+            --expected-commit "${STAGE_SHA}" \
+            --timeout 120
+          echo "- Check: https://${STAGE_HOST}/healthz is ok and reports the stage branch head" >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+
+      - name: Check the Stage image is the one published for the commit
+        shell: bash
+        env:
+          IMAGE_REF: ${{ steps.stage.outputs.image }}
+        run: |
+          set -euo pipefail
+          digest="${IMAGE_REF#"${IMAGE}@"}"
+          [[ "${digest}" =~ ^sha256:[0-9a-f]{64}$ ]] || {
+            echo "::error::the Stage app runs ${IMAGE_REF}, not an immutable ${IMAGE} digest"
+            exit 1
+          }
+          published="$(docker buildx imagetools inspect "${IMAGE}:sha-${STAGE_SHA::12}" --format '{{.Manifest.Digest}}')"
+          [[ "${published}" == "${digest}" ]] || {
+            echo "::error::the Stage app runs ${digest}, but the image published for ${STAGE_SHA} is ${published}"
+            exit 1
+          }
+          {
+            echo "DIGEST=${digest}"
+            echo "IMAGE_REF=${IMAGE}@${digest}"
+          } >> "${GITHUB_ENV}"
+          echo "- Check: the Stage app runs \`${IMAGE}@${digest}\`, the image published for the commit (no rebuild)" >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Compute the stable version from the candidate at the commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          fail() {
+            echo "::error::$1"
+            exit 1
+          }
+          read -r stable rc < <(python3 scripts/release_version.py release "${STAGE_SHA}") || true
+          [[ "${stable:-}" =~ ^v27\.[0-9]+\.[0-9]+$ && "${rc:-}" == v27.*-rc.* ]] || fail "no release candidate tag of the current line at ${STAGE_SHA}"
+          [[ "$(git cat-file -t "refs/tags/${rc}")" == "tag" ]] || fail "${rc} is not an annotated tag"
+          recorded="$(git tag -l --format='%(contents)' "${rc}" | jq -r '.imageDigest // empty' 2> /dev/null || true)"
+          [[ -z "${recorded}" || "${recorded}" == "${DIGEST}" ]] || fail "${rc} records ${recorded}, but Stage runs ${DIGEST}"
+          if [[ "${rc%-rc.*}" != "${stable}" ]]; then
+            echo "::warning::the candidate at the commit is ${rc}, numbered outside the line; the release is ${stable}"
+          fi
+          {
+            echo "STABLE_TAG=${stable}"
+            echo "VERSION=${stable#v}"
+            echo "RC_TAG=${rc}"
+          } >> "${GITHUB_ENV}"
+          echo "- Stable version: \`${stable}\` from candidate \`${rc}\`" >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Check what already exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          fail() {
+            echo "::error::$1"
+            exit 1
+          }
+          status=0
+          git ls-remote --exit-code --tags origin "refs/tags/${STABLE_TAG}" > /dev/null || status=$?
+          case "${status}" in
+            0)
+              [[ "$(git cat-file -t "refs/tags/${STABLE_TAG}")" == "tag" ]] || fail "${STABLE_TAG} exists but is not annotated"
+              [[ "$(git rev-parse "refs/tags/${STABLE_TAG}^{commit}")" == "${STAGE_SHA}" ]] || fail "${STABLE_TAG} exists on another commit"
+              tag_state=exists
+              ;;
+            2) tag_state=create ;;
+            *) fail "could not read the remote tags" ;;
+          esac
+          if existing="$(docker buildx imagetools inspect "${IMAGE}:${VERSION}" --format '{{.Manifest.Digest}}' 2> /dev/null)"; then
+            [[ "${existing}" == "${DIGEST}" ]] || fail "${IMAGE}:${VERSION} already points at ${existing}, not ${DIGEST}"
+            image_state=exists
+          else
+            image_state=create
+          fi
+          errors="${RUNNER_TEMP}/release-view.err"
+          if state="$(gh release view "${STABLE_TAG}" --json isDraft,isPrerelease --jq '[.isDraft,.isPrerelease]|map(tostring)|join(",")' 2> "${errors}")"; then
+            [[ "${state}" == "false,false" ]] || fail "release ${STABLE_TAG} exists as a draft or prerelease (${state})"
+            release_state=exists
+          else
+            grep -qi 'release not found' "${errors}" || fail "could not read release ${STABLE_TAG}"
+            release_state=create
+          fi
+          if git merge-base --is-ancestor "${STAGE_SHA}" refs/remotes/origin/main; then
+            main_state=exists
+          else
+            main_state=create
+          fi
+          protected="$(gh api "repos/${GITHUB_REPOSITORY}/branches/main" --jq '.protected')"
+          python3 scripts/release_notes.py "${STABLE_TAG}" "${STAGE_SHA}" > "${RUNNER_TEMP}/release-notes.md"
+          {
+            echo "TAG_STATE=${tag_state}"
+            echo "IMAGE_STATE=${image_state}"
+            echo "RELEASE_STATE=${release_state}"
+            echo "MAIN_STATE=${main_state}"
+          } >> "${GITHUB_ENV}"
+          {
+            echo "- Check: registry tag \`${IMAGE}:${VERSION}\`: ${image_state}"
+            echo "- Check: annotated tag \`${STABLE_TAG}\`: ${tag_state}"
+            echo "- Check: GitHub Release \`${STABLE_TAG}\`: ${release_state} ($(grep -c '^- .*(#' "${RUNNER_TEMP}/release-notes.md" || true) pull requests in the notes)"
+            echo "- Check: stage merged into main: ${main_state} (main protected: ${protected})"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Create the registry version tag on the same digest
+        if: ${{ !inputs.dry_run && env.IMAGE_STATE == 'create' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # --prefer-index=false: a carbon copy, so the tag has the released digest
+          docker buildx imagetools create --prefer-index=false --tag "${IMAGE}:${VERSION}" "${IMAGE_REF}"
+          created="$(docker buildx imagetools inspect "${IMAGE}:${VERSION}" --format '{{.Manifest.Digest}}')"
+          [[ "${created}" == "${DIGEST}" ]] || {
+            echo "::error::${IMAGE}:${VERSION} resolves to ${created}, not ${DIGEST}"
+            exit 1
+          }
+
+      - name: Create and push the annotated stable tag
+        if: ${{ !inputs.dry_run && env.TAG_STATE == 'create' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          message="${RUNNER_TEMP}/stable-tag.json"
+          python3 - > "${message}" <<'PY'
+          import json
+          import os
+
+          print(json.dumps({
+              "sourceCommit": os.environ["STAGE_SHA"],
+              "imageDigest": os.environ["DIGEST"],
+              "rcTag": os.environ["RC_TAG"],
+              "workflowRunId": int(os.environ["GITHUB_RUN_ID"]),
+          }, sort_keys=True, separators=(",", ":")))
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "${STABLE_TAG}" "${STAGE_SHA}" -F "${message}"
+          git push origin "refs/tags/${STABLE_TAG}"
+
+      - name: Create the GitHub Release
+        if: ${{ !inputs.dry_run && env.RELEASE_STATE == 'create' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          notes="${RUNNER_TEMP}/release-notes.md"
+          {
+            echo
+            echo "Released from candidate ${RC_TAG} without a rebuild."
+            echo
+            echo "- Source commit: ${STAGE_SHA}"
+            echo "- Immutable image: ${IMAGE_REF} (also ${IMAGE}:${VERSION})"
+          } >> "${notes}"
+          gh release create "${STABLE_TAG}" --verify-tag --title "Driftsniff-CE ${STABLE_TAG}" --notes-file "${notes}"
+
+      - name: Merge stage into main
+        if: ${{ !inputs.dry_run && env.MAIN_STATE == 'create' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # A merge commit with main and stage as parents and Stage's tree, so main ends with exactly
+          # Stage's files. main is moved without force: if it changed meanwhile the update fails.
+          main_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq '.object.sha')"
+          tree="$(git rev-parse "${STAGE_SHA}^{tree}")"
+          merge="$(gh api --method POST "repos/${GITHUB_REPOSITORY}/git/commits" \
+            -f message="Release ${STABLE_TAG}: merge stage into main" \
+            -f tree="${tree}" \
+            -f "parents[]=${main_sha}" \
+            -f "parents[]=${STAGE_SHA}" \
+            --jq '.sha')"
+          gh api --method PATCH "repos/${GITHUB_REPOSITORY}/git/refs/heads/main" \
+            -f sha="${merge}" -F force=false > /dev/null
+          [[ "$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq '.object.sha')" == "${merge}" ]] || {
+            echo "::error::main did not move to the merge commit ${merge}"
+            exit 1
+          }
+          echo "- Merged stage into main: \`${merge}\`" >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Record the result
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          if [[ "${DRY_RUN}" == "true" ]]; then
+            result="dry run: no tag, image tag, release or merge was made"
+          else
+            result="released"
+          fi
+          {
+            echo
+            echo "## Driftsniff-CE release"
+            echo
+            echo "- Result: ${result} (job status: ${{ job.status }})"
+            echo "- Stable version: \`${STABLE_TAG:-not computed}\` from candidate \`${RC_TAG:-none}\`"
+            echo "- Source commit (stage head): \`${STAGE_SHA:-not read}\`"
+            echo "- Immutable image: \`${IMAGE_REF:-not read}\`"
+            echo "- Rebuild performed: no; Production deployment: none (CE)"
+          } >> "${GITHUB_STEP_SUMMARY}"
