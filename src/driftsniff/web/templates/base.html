@@ -13,10 +13,10 @@
 {# The logo lockup: the light file on a light page, the dark one on a dark page; with the theme
    "system" the picture element asks the device, as the stylesheet does. #}
 {% macro brand_logo(theme) -%}
-{% if theme == "dark" %}<picture><img class="brand__logo" src="/static/brand/logo-horizontal-dark-1200x400.png" alt="driftsniff" width="144" height="48"></picture>
+{% if theme == "dark" %}<picture><img class="brand__logo" src="/static/logo-horizontal-dark-plain-1200x400.png" alt="driftsniff" width="144" height="48"></picture>
 {%- elif theme == "light" %}<picture><img class="brand__logo" src="/static/brand/logo-horizontal-1200x400.png" alt="driftsniff" width="144" height="48"></picture>
 {%- else %}<picture>
-  <source srcset="/static/brand/logo-horizontal-dark-1200x400.png" media="(prefers-color-scheme: dark)">
+  <source srcset="/static/logo-horizontal-dark-plain-1200x400.png" media="(prefers-color-scheme: dark)">
   <img class="brand__logo" src="/static/brand/logo-horizontal-1200x400.png" alt="driftsniff" width="144" height="48">
 </picture>{% endif %}
 {%- endmacro %}
