@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Stdlib-only helper: deploy an immutable image to a Dokploy application and verify it.
 
-Subcommands: deploy, assert-image, health. Secrets come from the environment only
-(DOKPLOY_URL, DOKPLOY_API_KEY, CF_ACCESS_CLIENT_ID, CF_ACCESS_CLIENT_SECRET) and are
-never printed.
+Subcommands: deploy, assert-image, show-image (read only), health. Secrets come from the
+environment only (DOKPLOY_URL, DOKPLOY_API_KEY, CF_ACCESS_CLIENT_ID, CF_ACCESS_CLIENT_SECRET)
+and are never printed.
 """
 
 from __future__ import annotations
@@ -279,6 +279,14 @@ def assert_image(args: argparse.Namespace) -> None:
     emit(f"PASS: {args.application_id} runs {observed}")
 
 
+def show_image(args: argparse.Namespace) -> None:
+    """Read only: print the immutable image the application runs and write it as output image."""
+    observed = current_image(args.application_id)
+    validate_image(observed)
+    write_output("image", observed)
+    emit(f"{args.application_id} runs {observed}")
+
+
 def health(args: argparse.Namespace) -> None:
     wait_health(args.health_url, args.timeout, args.expected_commit)
 
@@ -302,6 +310,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--application-id", required=True)
     p.add_argument("--image", required=True)
     p.set_defaults(func=assert_image)
+
+    p = sub.add_parser("show-image")
+    p.add_argument("--application-id", required=True)
+    p.set_defaults(func=show_image)
 
     p = sub.add_parser("health")
     p.add_argument("--health-url", required=True)
