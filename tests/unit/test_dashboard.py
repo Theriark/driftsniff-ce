@@ -684,7 +684,7 @@ def test_the_trend_row_stacks_before_its_cards_are_too_narrow_for_the_chart() ->
 
 
 def test_the_breakdown_bars_have_a_visible_fill() -> None:
-    """The track and fill of "Where the open items are" are spans; inline, the fill ignored its
+    """The track and fill of "Where the open changes are" are spans; inline, the fill ignored its
     width class and height, so every bar showed as an empty track on Development."""
     rules = _css_rules()
     for selector in (".bars .track", ".bars .fill"):
@@ -1120,6 +1120,7 @@ def test_the_dashboard_page_renders_every_section_with_text_alternatives(
     text = "".join(parsed.text)
     for heading in (
         "Open changes by severity",
+        "open changes",
         "Needs attention",
         "Drift line, last 30 days",
         "Change items per day",
