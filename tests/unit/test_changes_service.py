@@ -253,6 +253,19 @@ def test_filters_narrow_the_list(store: Database) -> None:
     assert listed_ids(store, source_id=1, severities=("critical",)) == [critical]
 
 
+def test_the_reading_filter_keeps_the_changes_one_reading_found(store: Database) -> None:
+    """DRS-465: the history's "Changes found" link opens only that reading's changes."""
+    first = add_event(store, items=({"resource": "networks"},))
+    add_event(store, items=({"resource": "vms"},), created_at="2026-10-21T10:00:00Z")
+    with store.read() as connection:
+        reading = connection.execute(
+            sa.select(change_events.c.snapshot_id).where(change_events.c.id == first)
+        ).scalar_one()
+    assert listed_ids(store, source_id=1, snapshot_id=int(reading)) == [first]
+    assert parse_filters({"snapshot": [str(reading)]}).snapshot_id == reading
+    assert parse_filters({"snapshot": ["x"]}).snapshot_id is None
+
+
 def test_search_matches_the_summary_and_the_object_name_literally(store: Database) -> None:
     firewall = add_event(
         store,

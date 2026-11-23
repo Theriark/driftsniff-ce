@@ -32,11 +32,8 @@ MASTER = MasterKey(bytes(range(32)))
 SEVERITIES = {"low", "medium", "high", "critical"}
 
 
-def settings_for(url: str, label: str = "") -> Settings:
-    env = {"DRIFTSNIFF_BASE_URL": url}
-    if label:
-        env["DRIFTSNIFF_ENVIRONMENT_LABEL"] = label
-    return Settings.from_env(env)
+def settings_for(url: str) -> Settings:
+    return Settings.from_env({"DRIFTSNIFF_BASE_URL": url})
 
 
 def count(database: Database, table: sa.Table) -> int:
@@ -165,11 +162,6 @@ def test_it_never_seeds_a_stage_production_or_local_address(
     assert count(store, tables.sources) == 1
     assert count(store, tables.runs) == 0
     assert "fixture" not in caplog.text
-
-
-def test_it_never_seeds_another_environment_badge(store: Database) -> None:
-    assert seed_fixture_at_startup(settings_for(DEV_URL, label="Stage"), store, MASTER) is None
-    assert count(store, tables.sources) == 1
 
 
 def test_it_survives_a_database_failure(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:

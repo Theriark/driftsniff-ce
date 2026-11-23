@@ -21,10 +21,13 @@
 {% endcall %}
 <div class="section">{{ state("error", unreadable[0], unreadable[1], retry_href) }}</div>
 {% else %}
+{# an older reading (DRS-465) keeps its id in the search; the newest needs none #}
+{% set reading = view.snapshot.id if view.snapshot and not view.snapshot.is_newest else none %}
 {% call source_head("Configuration", "/configuration", view.source, "configuration") %}
 <span>{{ type_label }}{% if not view.source.enabled %}, disabled{% endif %}</span>
 {% if view.snapshot %}
-<span>Newest reading {{ time_tag(parse_stamp(view.snapshot.taken_at), now) }}{% if view.snapshot.kind == "baseline" %}, a baseline{% endif %}</span>
+<span>{{ "Newest reading" if view.snapshot.is_newest else "Reading" }} {{ time_tag(parse_stamp(view.snapshot.taken_at), now) }}{% if view.snapshot.kind == "baseline" %}, a baseline{% endif %}</span>
+{% if not view.snapshot.is_newest %}<span><a href="/configuration/{{ view.source.id }}">Show the newest reading</a></span>{% endif %}
 {% if view.snapshot.controller_version %}<span>Controller <span class="mono">{{ view.snapshot.controller_version }}</span></span>{% endif %}
 {% endif %}
 {% endcall %}
@@ -61,6 +64,7 @@
       </div>
       <form class="objects__search" method="get" action="/configuration/{{ view.source.id }}" role="search" aria-label="Search {{ resource_label(view.selected_resource) | lower }}" hx-get="/configuration/{{ view.source.id }}" hx-target="#config-browser" hx-select="#config-browser" hx-swap="outerHTML" hx-push-url="true" hx-indicator="#config-browser">
         <input type="hidden" name="resource" value="{{ view.selected_resource }}">
+        {% if reading %}<input type="hidden" name="snapshot" value="{{ reading }}">{% endif %}
         {{ search_box("config-q", "q", "Search names, keys, field paths and shown values", value=view.search, placeholder="Search this resource") }}
         <button class="btn" type="submit">Search</button>
       </form>

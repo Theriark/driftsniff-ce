@@ -86,7 +86,7 @@
 {% macro bar_list(rows, label, ink=false) %}
 <ul class="bars" aria-label="{{ label }}">
   {% for row in rows %}
-  <li><a href="{{ row.href }}">{{ row.label }}</a><span class="track" aria-hidden="true"><span class="fill{% if ink %} fill--ink{% endif %} {{ row.width_class }}"></span></span><span class="value num">{{ number(row.count) }}</span></li>
+  <li><a href="{{ row.href }}" title="{{ row.label }}">{{ row.label }}</a><span class="track" aria-hidden="true"><span class="fill{% if ink %} fill--ink{% endif %} {{ row.width_class }}"></span></span><span class="value num">{{ number(row.count) }}</span></li>
   {% endfor %}
 </ul>
 {%- endmacro %}

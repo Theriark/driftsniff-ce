@@ -6,9 +6,9 @@ real browser. The passwords are not made here: the deployment controller generat
 ``DRIFTSNIFF_DEV_<ROLE>_PASSWORD``. Rules, and why:
 
 - At start-up the application seeds the accounts by itself, but only when all three password
-  variables are set and ``DRIFTSNIFF_BASE_URL`` is a ``ce-dev-<name>.theriark.dev`` address (and no
-  other environment badge is set). Stage and Production are prepared from the same manifest, so
-  the address, not the presence of the variables, decides; their addresses are refused.
+  variables are set and ``DRIFTSNIFF_BASE_URL`` is a ``ce-dev-<name>.theriark.dev`` address.
+  Stage and Production are prepared from the same manifest, so the address, not the presence
+  of the variables, decides; their addresses are refused.
 - The command ``driftsniff seed-dev-accounts`` does the same on request and additionally needs
   ``DRIFTSNIFF_DEV_SEED=development-only`` in its own environment (nothing in the repository sets
   it). ``--reset-passwords`` puts the configured passwords on accounts that already exist.
@@ -97,11 +97,6 @@ def _check_address(settings: Settings, *, allow_local: bool) -> None:
             "refused: DRIFTSNIFF_BASE_URL is not a Development address "
             f"(expected {_DEV_HOST_PREFIX}<name>{_DEV_HOST_SUFFIX}"
             f"{' or localhost' if allow_local else ''})"
-        )
-    label = settings.environment_label.lower()
-    if label and "dev" not in label:
-        raise DevSeedRefusedError(
-            "refused: DRIFTSNIFF_ENVIRONMENT_LABEL names an environment other than Development"
         )
 
 

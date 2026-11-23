@@ -86,7 +86,12 @@ def history_href(source_id: int, page: int = 1) -> str:
 
 
 def configuration_href(
-    source_id: int, *, resource: str | None = None, search: str = "", page: int = 1
+    source_id: int,
+    *,
+    resource: str | None = None,
+    search: str = "",
+    page: int = 1,
+    snapshot: int | None = None,
 ) -> str:
     """The configuration of a source with the resource, the search and the page given.
 
@@ -94,6 +99,8 @@ def configuration_href(
     address bar; an empty value is left out.
     """
     values: dict[str, str | int] = {}
+    if snapshot is not None:
+        values["snapshot"] = snapshot
     if resource:
         values["resource"] = resource
     if search:

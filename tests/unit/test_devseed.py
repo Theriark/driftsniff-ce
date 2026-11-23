@@ -80,7 +80,6 @@ def development(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     monkeypatch.setenv("DRIFTSNIFF_DATA_DIR", str(data_dir))
     monkeypatch.setenv(MARKER_VARIABLE, MARKER_VALUE)
     monkeypatch.delenv("DRIFTSNIFF_BASE_URL", raising=False)
-    monkeypatch.delenv("DRIFTSNIFF_ENVIRONMENT_LABEL", raising=False)
     for name, value in configured_env().items():
         monkeypatch.setenv(name, value)
     return data_dir
@@ -174,15 +173,6 @@ def test_refuses_a_stage_or_production_address_even_with_the_marker(
     assert not development.exists()
 
 
-def test_refuses_an_environment_badge_that_is_not_development(
-    development: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    monkeypatch.setenv("DRIFTSNIFF_ENVIRONMENT_LABEL", "Stage")
-    assert main(["seed-dev-accounts"]) == 1
-    assert "ENVIRONMENT_LABEL" in capsys.readouterr().err
-    assert not development.exists()
-
-
 def test_refuses_without_the_configured_passwords(
     development: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -200,11 +190,6 @@ def test_refuses_without_the_configured_passwords(
 )
 def test_accepts_the_development_addresses(base_url: str) -> None:
     settings = Settings.from_env({"DRIFTSNIFF_BASE_URL": base_url})
-    check_development_only(settings, {MARKER_VARIABLE: MARKER_VALUE})
-
-
-def test_accepts_a_development_badge() -> None:
-    settings = Settings.from_env({"DRIFTSNIFF_ENVIRONMENT_LABEL": "Development"})
     check_development_only(settings, {MARKER_VARIABLE: MARKER_VALUE})
 
 
@@ -231,12 +216,6 @@ PREVIOUS_ENV = [
     {"name": "DRIFTSNIFF_DATA_DIR", "kind": "literal", "value": "/data"},
     {"name": "DRIFTSNIFF_KEY_FILE", "kind": "literal", "value": "/keys/master.key"},
 ]
-# The header badge of the Development installation (docs/deploy-development.md).
-ENVIRONMENT_LABEL_ENV = {
-    "name": "DRIFTSNIFF_ENVIRONMENT_LABEL",
-    "kind": "literal",
-    "value": "Development",
-}
 
 
 def manifest() -> dict[str, object]:
@@ -256,19 +235,10 @@ def test_the_manifest_keeps_the_database_the_volumes_and_every_earlier_setting()
     assert env[: len(PREVIOUS_ENV)] == PREVIOUS_ENV
 
 
-def test_the_manifest_declares_the_development_environment_badge_once() -> None:
-    env = manifest()["env"]
-    assert isinstance(env, list)
-    assert env.count(ENVIRONMENT_LABEL_ENV) == 1
-    assert [item for item in env if item["name"] == "DRIFTSNIFF_ENVIRONMENT_LABEL"] == [
-        ENVIRONMENT_LABEL_ENV
-    ]
-
-
 def test_the_generated_passwords_are_declared_without_a_value() -> None:
     env = manifest()["env"]
     assert isinstance(env, list)
-    declared = [item for item in env if item not in PREVIOUS_ENV and item != ENVIRONMENT_LABEL_ENV]
+    declared = [item for item in env if item not in PREVIOUS_ENV]
     assert declared == [
         {"name": password_variable_for(role), "kind": "token24"} for role in SEED_ROLES
     ]
@@ -544,11 +514,8 @@ def test_the_output_names_the_user_names(
 # -- the start-up hook -----------------------------------------------------------------------
 
 
-def settings_for(url: str, label: str = "") -> Settings:
-    env = {"DRIFTSNIFF_BASE_URL": url}
-    if label:
-        env["DRIFTSNIFF_ENVIRONMENT_LABEL"] = label
-    return Settings.from_env(env)
+def settings_for(url: str) -> Settings:
+    return Settings.from_env({"DRIFTSNIFF_BASE_URL": url})
 
 
 def user_names(database: Database) -> set[str]:
@@ -613,12 +580,6 @@ def test_startup_never_seeds_a_stage_production_or_local_address(
     assert user_names(migrated) == set()
     assert "not a Development address" in caplog.text
     assert "CANARY" not in caplog.text
-
-
-def test_startup_never_seeds_another_environment_badge(migrated: Database) -> None:
-    settings = settings_for(DEV_URL, label="Stage")
-    assert seed_at_startup(settings, configured_env(), migrated) is None
-    assert user_names(migrated) == set()
 
 
 def test_startup_with_an_incomplete_configuration_logs_the_names_and_changes_nothing(

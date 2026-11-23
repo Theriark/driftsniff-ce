@@ -347,7 +347,7 @@ files from `../../brand/`); switch the system colour scheme to see the dark them
 - P10-T2 (THE-845) built the shell and the components from this brief; where this document
   was silent it chose: the header logo is one `picture` element (dark source for the dark
   theme) instead of two images; the user menu names the account in text and has no account
-  page link; the environment badge reads `DRIFTSNIFF_ENVIRONMENT_LABEL`; the density switch
+  page link; the density switch
   is its own form next to the filter bar (`.toolbar`), not inside it. See
   `docs/web-interface.md`.
 - P10-T3 (THE-856) built the setup, sign-in and status pages as the empty state composition

@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from functools import cache
 from typing import Any, Final
+from urllib.parse import urlencode
 
 import sqlalchemy as sa
 
@@ -52,8 +53,10 @@ from driftsniff.sources.service import (
     interval_of,
 )
 from driftsniff.web.dashboard import (
+    SOURCE_TYPE_LABELS,
     STATE_TOKEN_EXPIRING,
     STATE_UNSUPPORTED,
+    STATUS_TEXT,
     DriftRow,
     SourceHealth,
     parse_stamp,
@@ -219,6 +222,98 @@ class SourceRow:
 class SourceListing:
     now: datetime
     rows: tuple[SourceRow, ...]
+
+
+# ---- the filter and the order of the source list (DRS-464) --------------------------------
+
+# The columns the list sorts by, each in the order a reader looks for first.
+SOURCE_SORTS: Final = ("name", "status", "last", "version")
+# worst first: the sources that need a look lead the status order
+_HEALTH_ORDER: Final = ("failing", "partial", "stale", "unsupported", "warn", "open", "ok")
+DISABLED: Final = "disabled"
+
+
+@dataclass(frozen=True, slots=True)
+class SourceQuery:
+    """The kind, the status and the order of the source list, from its query string."""
+
+    source_type: str = ""
+    health: str = ""
+    sort: str = "name"
+
+    @classmethod
+    def from_params(cls, params: Mapping[str, str]) -> "SourceQuery":
+        """Unknown values are dropped, so a stale or hand-made link still shows the list."""
+        source_type = params.get("type", "")
+        health = params.get("status", "")
+        sort = params.get("sort", "name")
+        return cls(
+            source_type if source_type in SOURCE_TYPE_LABELS else "",
+            health if health in STATUS_TEXT or health == DISABLED else "",
+            sort if sort in SOURCE_SORTS else "name",
+        )
+
+    def href(self, **changes: str) -> str:
+        """The list address with ``changes`` applied; defaults are left out of the address."""
+        values = {"type": self.source_type, "status": self.health, "sort": self.sort} | changes
+        pairs = {key: value for key, value in values.items() if value and value != "name"}
+        return "/sources" + (f"?{urlencode(pairs)}" if pairs else "")
+
+    def keeps(self, row: SourceRow) -> bool:
+        if self.source_type and row.health.type != self.source_type:
+            return False
+        if self.health == DISABLED:
+            return not row.health.enabled
+        if self.health:
+            return row.health.enabled and row.health.kind == self.health
+        return True
+
+
+def _sort_key(sort: str) -> Callable[[SourceRow], tuple[Any, ...]]:
+    def name(row: SourceRow) -> str:
+        return row.health.name.casefold()
+
+    if sort == "status":
+        return lambda row: (
+            not row.health.enabled,
+            _HEALTH_ORDER.index(row.health.kind) if row.health.kind in _HEALTH_ORDER else 99,
+            name(row),
+        )
+    if sort == "last":
+        # newest first; a source never checked goes last
+        return lambda row: (
+            row.last_attempt is None,
+            -(row.last_attempt.timestamp() if row.last_attempt else 0),
+            name(row),
+        )
+    if sort == "version":
+        return lambda row: (
+            row.health.version is None,
+            (row.health.version or "").casefold(),
+            name(row),
+        )
+    return lambda row: (name(row),)
+
+
+def query_rows(rows: Sequence[SourceRow], query: SourceQuery) -> tuple[SourceRow, ...]:
+    """The rows the filter keeps, in the chosen order."""
+    return tuple(sorted((row for row in rows if query.keeps(row)), key=_sort_key(query.sort)))
+
+
+def type_options(rows: Sequence[SourceRow]) -> list[dict[str, str]]:
+    """Any kind, then the kinds this installation has, by their label."""
+    present = sorted({row.health.type for row in rows}, key=source_type_label)
+    return [{"value": "", "label": "Any kind"}] + [
+        {"value": kind, "label": source_type_label(kind)} for kind in present
+    ]
+
+
+def status_options() -> list[dict[str, str]]:
+    return (
+        [{"value": "", "label": "Any status"}]
+        + [{"value": kind, "label": STATUS_TEXT[kind]} for kind in _HEALTH_ORDER]
+        + [{"value": DISABLED, "label": "Disabled"}]
+    )
 
 
 @dataclass(frozen=True, slots=True)

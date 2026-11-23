@@ -23,7 +23,7 @@ Reads write nothing and write no audit event; the viewer role is the route's che
 """
 
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from functools import cache
 from typing import Final
 
@@ -32,7 +32,7 @@ from sqlalchemy import Connection
 
 from driftsniff.core.canonical import JsonValue, canonical_dumps
 from driftsniff.core.normalize import CollectionMode, FieldClass, StaticTypeTable
-from driftsniff.core.snapshots import Manifest, StoredSnapshot, latest_snapshot
+from driftsniff.core.snapshots import Manifest, StoredSnapshot, latest_snapshot, snapshot_of
 from driftsniff.core.states import StoredDataError, get_state
 from driftsniff.db.engine import Database
 from driftsniff.db.tables import objects
@@ -244,8 +244,12 @@ class ConfigurationQueries:
         resource: str | None = None,
         search: str = "",
         page: int = 1,
+        snapshot_id: int | None = None,
     ) -> ConfigurationView | None:
         """The configuration of the newest snapshot; None for an unknown source.
+
+        ``snapshot_id`` shows that older reading of the source instead (DRS-465); None when the
+        source has no such reading.
 
         ``resource`` names the resource type to browse; none, or one the snapshot does not hold,
         selects the first. ``search`` keeps the objects whose key, name, field path or shown value
@@ -261,8 +265,17 @@ class ConfigurationQueries:
                     return None
                 latest = latest_snapshot(connection, source_id)
                 if latest is None:
-                    return _empty(source, None, needle)
-                return self._view(connection, source, latest, resource, needle, page)
+                    return None if snapshot_id is not None else _empty(source, None, needle)
+                shown = latest
+                if snapshot_id is not None and snapshot_id != latest.snapshot_id:
+                    older = snapshot_of(connection, source_id, snapshot_id)
+                    if older is None:
+                        return None
+                    shown = older
+                view = self._view(connection, source, shown, resource, needle, page)
+                if shown is latest or view.snapshot is None:
+                    return view
+                return replace(view, snapshot=replace(view.snapshot, is_newest=False))
         except StoredDataError as error:
             raise StoredConfigurationError(_UNREADABLE) from error
 

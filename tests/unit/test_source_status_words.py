@@ -118,7 +118,7 @@ def client(store: Database) -> Iterator[TestClient]:
     auth.create_user("viewer", CORRECT, "viewer")
     service = SourceService(store, CredentialCipher.from_master(MASTER))
     app = create_app(
-        Settings.from_env({"DRIFTSNIFF_BASE_URL": ORIGIN, "DRIFTSNIFF_ENVIRONMENT_LABEL": "Test"}),
+        Settings.from_env({"DRIFTSNIFF_BASE_URL": ORIGIN}),
         master_key=MASTER,
         auth=auth,
         sources=SourcePages(store, service, clock=lambda: NOW),

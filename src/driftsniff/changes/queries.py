@@ -88,6 +88,8 @@ def _conditions(filters: ChangeFilters) -> list[sa.ColumnElement[bool]]:
     found: list[sa.ColumnElement[bool]] = []
     if filters.source_id is not None:
         found.append(change_events.c.source_id == filters.source_id)
+    if filters.snapshot_id is not None:
+        found.append(change_events.c.snapshot_id == filters.snapshot_id)
     if filters.severities:
         found.append(change_events.c.max_severity.in_(filters.severities))
     if filters.status is not None:

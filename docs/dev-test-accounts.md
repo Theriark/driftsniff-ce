@@ -33,7 +33,7 @@ The Test Engineer then signs in with the registered names in the real browser; r
 The start-up seed runs only when **both** hold:
 
 1. All three password variables are set. With none set (every Production start) it does nothing and logs nothing.
-2. `DRIFTSNIFF_BASE_URL` is a `ce-dev-<name>.theriark.dev` address. Stage and Production are prepared from the same manifest and may receive the same variables, so the address decides: a Stage address (`ce-stg-...`), a production address, `localhost` or any other host is refused with one warning that names no value, and nothing is created. A `DRIFTSNIFF_ENVIRONMENT_LABEL` that does not name Development (it must contain `dev`) also refuses.
+2. `DRIFTSNIFF_BASE_URL` is a `ce-dev-<name>.theriark.dev` address. Stage and Production are prepared from the same manifest and may receive the same variables, so the address decides: a Stage address (`ce-stg-...`), a production address, `localhost` or any other host is refused with one warning that names no value, and nothing is created.
 
 An incomplete configuration (some variables missing, or a password shorter than 12 characters) creates nothing and logs an error that names the variables only. A failure of the seed is logged and never stops the application from starting.
 

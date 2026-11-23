@@ -115,3 +115,11 @@ def test_the_version_keeps_only_plain_text() -> None:
     )
     assert version_text({"RedfishVersion": "1.6.0", "Vendor": "<b>x</b>"}, None) == "Redfish 1.6.0"
     assert version_text({}, None) is None
+
+
+def test_the_version_names_the_vendor_once_when_the_product_repeats_it() -> None:
+    """DRS-463: "Contoso" and "Contoso BMC" read "Contoso Contoso BMC"."""
+    root: Any = {"Vendor": "Contoso", "Product": "Contoso BMC", "RedfishVersion": "1.17.0"}
+    assert version_text(root, "2.14.0") == "Contoso BMC 2.14.0 (Redfish 1.17.0)"
+    root = {"Vendor": "HPE", "Product": "iLO 5", "RedfishVersion": "1.6.0"}
+    assert version_text(root, None) == "HPE iLO 5 (Redfish 1.6.0)"

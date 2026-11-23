@@ -4,7 +4,7 @@
 
    Signed in, the page is a sidebar and a column: the sidebar (the one banner landmark) holds the
    logo, the grouped navigation and the user menu; the top bar of the column holds where the page
-   sits, the change search, the environment badge and at most one action, drawn as a secondary
+   sits, the change search and at most one action, drawn as a secondary
    button so the page's own primary button stays the only one on the screen. Below 1024 px
    the sidebar folds into a bar whose navigation opens with a details toggle, so it works without
    any script. Signed out (sign-in, setup, an error page), only the logo and the badge show.
@@ -38,6 +38,7 @@
    parser here holds it until the stylesheets above are in. htmx starts on DOMContentLoaded, so
    it does not need defer. #}
 <script src="{{ static_url('htmx.min.js') }}"></script>
+{% if shell.user_name %}<script src="{{ static_url('menus.js') }}" defer></script>{% endif %}
 {% block head %}{% endblock %}
 </head>
 <body class="{{ 'app app--signed-in' if shell.user_name else 'app' }}"{% if shell.csrf_token %} hx-headers='{{ {"X-CSRF-Token": shell.csrf_token} | tojson }}'{% endif %}>
@@ -95,9 +96,6 @@
     </form>
   </search>
   {% endblock %}
-  {% if shell.environment_label %}
-  <span class="env-badge">{{ shell.environment_label }}</span>
-  {% endif %}
   {% if action %}
   {# under 480 px the label is visually hidden and the button keeps only its icon, so the trail,
      the badge and the action share one row (THE-1416, F5); the label still names the link #}
@@ -110,11 +108,6 @@
     <a class="brand" href="/" aria-label="driftsniff, dashboard">
       {{ brand_logo(shell.theme) }}
     </a>
-    {% if shell.environment_label %}
-    <div class="header-tools">
-      <span class="env-badge">{{ shell.environment_label }}</span>
-    </div>
-    {% endif %}
   </div>
 </header>
 {% endif %}

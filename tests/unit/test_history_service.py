@@ -734,3 +734,22 @@ def test_the_service_builds_both_reads_on_one_database(store: Database) -> None:
     assert [row.name for row in sources] == ["lab-controller"]
     view = service.configuration.current(SOURCE_ID)
     assert view is not None and view.selected_resource == FIREWALL
+
+
+def test_an_older_reading_opens_with_the_values_it_stored(store: Database) -> None:
+    """DRS-465: every row of the history opens the configuration that reading stored."""
+    older = save(store, collection(vlan=20), T1).snapshot_id
+    newest = save(store, collection(vlan=30), T2).snapshot_id
+    assert older is not None and newest is not None
+    current = config_view(store, resource=NETWORKS)
+    assert current.snapshot is not None and current.snapshot.is_newest
+    assert field_of(current.objects[0], "vlan").value == "30"
+    past = config_view(store, resource=NETWORKS, snapshot_id=older)
+    assert past.snapshot is not None and past.snapshot.id == older
+    assert not past.snapshot.is_newest
+    assert field_of(past.objects[0], "vlan").value == "20"
+    # the newest asked by its id is the newest; another source's reading is not found
+    named = config_view(store, resource=NETWORKS, snapshot_id=newest)
+    assert named.snapshot is not None and named.snapshot.is_newest
+    queries = ConfigurationQueries(store, FINGERPRINTER, TABLES)
+    assert queries.current(SOURCE_ID, snapshot_id=newest + 100) is None

@@ -138,7 +138,7 @@ def make_world(store: Database, *, with_service: bool = True) -> World:
     }
     pages = ChangePages(store, clock=lambda: NOW)
     app = create_app(
-        Settings.from_env({"DRIFTSNIFF_BASE_URL": ORIGIN, "DRIFTSNIFF_ENVIRONMENT_LABEL": "Test"}),
+        Settings.from_env({"DRIFTSNIFF_BASE_URL": ORIGIN}),
         master_key=MASTER,
         auth=auth,
         change_pages=pages if with_service else None,

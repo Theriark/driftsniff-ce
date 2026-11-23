@@ -219,6 +219,23 @@ class SnapshotOutcome:
     manifest_bytes: int = 0
 
 
+def snapshot_of(connection: Connection, source_id: int, snapshot_id: int) -> StoredSnapshot | None:
+    """Return one snapshot of the source by its id, or None when the source has no such one."""
+    row = connection.execute(
+        sa.select(
+            snapshots.c.id,
+            snapshots.c.taken_at,
+            snapshots.c.kind,
+            snapshots.c.manifest_hash,
+            snapshots.c.manifest_zstd,
+        ).where(snapshots.c.source_id == source_id, snapshots.c.id == snapshot_id)
+    ).first()
+    if row is None:
+        return None
+    manifest = load_manifest(row.manifest_zstd, row.manifest_hash)
+    return StoredSnapshot(row.id, row.taken_at, row.kind, manifest)
+
+
 def latest_snapshot(connection: Connection, source_id: int) -> StoredSnapshot | None:
     """Return the newest snapshot of the source (by ``taken_at``, then id), or None."""
     row = connection.execute(

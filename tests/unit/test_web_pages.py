@@ -89,7 +89,7 @@ def auth(store: Database) -> AuthService:
 @pytest.fixture
 def client(auth: AuthService) -> Iterator[TestClient]:
     app = create_app(
-        Settings.from_env({"DRIFTSNIFF_BASE_URL": ORIGIN, "DRIFTSNIFF_ENVIRONMENT_LABEL": "Test"}),
+        Settings.from_env({"DRIFTSNIFF_BASE_URL": ORIGIN}),
         auth=auth,
     )
     with TestClient(app, base_url=ORIGIN, follow_redirects=False) as built:
@@ -266,10 +266,9 @@ def test_the_sign_in_page_has_the_mark_the_sentence_and_the_one_action(
     username = parsed.input("username")
     assert username["autocomplete"] == "username" and "autofocus" in username
     assert parsed.input("password")["autocomplete"] == "current-password"
-    # no navigation, no user menu and no CSRF header before sign-in; the badge stays
+    # no navigation, no user menu and no CSRF header before sign-in
     assert not any(attrs.get("aria-label") == "Main" for attrs in parsed.find("nav"))
     assert "hx-headers" not in parsed.find("body")[0]
-    assert '<span class="env-badge">Test</span>' in response.text
     assert banner_of(parsed) is None
 
 

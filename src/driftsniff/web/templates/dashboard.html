@@ -42,18 +42,18 @@
 <div class="section grid-5-7 dash-row">
   <div class="dash-column">
   <section class="card" aria-labelledby="posture-h">
-    <h2 id="posture-h">Open items by severity</h2>
+    <h2 id="posture-h">Open changes by severity</h2>
     {{ posture_ring(dashboard.posture, "ring") }}
   </section>
   <section class="card" aria-labelledby="breakdown-h">
-    <h2 id="breakdown-h">Where the open items are</h2>
+    <h2 id="breakdown-h">Where the open changes are</h2>
     {% if dashboard.by_source %}
     <h3 class="bars-title">By source</h3>
-    {{ bar_list(dashboard.by_source, "Open items by source", ink=true) }}
+    {{ bar_list(dashboard.by_source, "Open changes by source", ink=true) }}
     <h3 class="bars-title">By resource type</h3>
-    {{ bar_list(dashboard.by_resource, "Open items by resource type") }}
+    {{ bar_list(dashboard.by_resource, "Open changes by resource type") }}
     {% else %}
-    {{ state("empty", "No open change items.", "When a check finds a change, this card says which source and which resource type it touched.", inline=true) }}
+    {{ state("empty", "No open changes.", "When a check finds a change, this card says which source and which resource type it touched.", inline=true) }}
     {% endif %}
   </section>
   </div>

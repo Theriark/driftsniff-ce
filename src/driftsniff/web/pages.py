@@ -8,7 +8,7 @@ codes, the same cookies, the same checks.
 Three things live here:
 
 * :func:`shell_for` builds the :class:`~driftsniff.web.templating.Shell` of a request (who is
-  signed in, the density cookie, the environment badge, the current path).
+  signed in, the density cookie, the current path).
 * :func:`render_login` and :func:`render_setup` draw the two pre-session pages in every state
   (plain, signed out, failed, throttled, field errors).
 * :func:`handle_http_exception` is the application's handler for ``HTTPException``: for a
@@ -90,8 +90,7 @@ def current_path(request: Request) -> str:
 def shell_for(
     request: Request, principal: Principal | None, title: str, nav_current: str = ""
 ) -> Shell:
-    """The shell of a page: the signed-in user (if any), the cookie preferences, the badge."""
-    settings = request.app.state.settings
+    """The shell of a page: the signed-in user (if any) and the cookie preferences."""
     return Shell(
         title=title,
         nav_current=nav_current,
@@ -99,7 +98,6 @@ def shell_for(
         user_role="" if principal is None else principal.role,
         csrf_token="" if principal is None else principal.csrf_token,
         density=density_from_cookie(request.cookies.get(DENSITY_COOKIE)),
-        environment_label=settings.environment_label,
         path=current_path(request),
         display_name="" if principal is None else principal.display_name or principal.username,
         picture_url=picture_url(principal),

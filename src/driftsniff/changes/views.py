@@ -41,12 +41,14 @@ class ChangeFilters:
     ``search`` matches the summary of a change and the object names of its items, ignoring
     case. ``severities`` are the highest severity of a change (any of them), ``status`` is
     ``open`` or ``acknowledged``, ``resource`` is a resource type of at least one item.
-    ``created_from`` and ``created_to`` are UTC dates, both included. ``include_muted`` shows
+    ``snapshot_id`` keeps the changes one reading found (DRS-465). ``created_from`` and
+    ``created_to`` are UTC dates, both included. ``include_muted`` shows
     the changes whose every item is muted; by default they are hidden (a mute deletes nothing).
     """
 
     search: str = ""
     source_id: int | None = None
+    snapshot_id: int | None = None
     severities: tuple[str, ...] = ()
     status: str | None = None
     resource: str | None = None

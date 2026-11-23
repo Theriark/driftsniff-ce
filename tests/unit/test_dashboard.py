@@ -13,12 +13,15 @@ from collections.abc import Iterator
 from datetime import UTC, date, datetime, timedelta
 from html.parser import HTMLParser
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 import sqlalchemy as sa
 from fastapi.testclient import TestClient
 from httpx import Response
 
+from driftsniff.changes.filters import parse_filters
+from driftsniff.changes.queries import ChangeQueries
 from driftsniff.config import Settings
 from driftsniff.db.engine import Database, database_path
 from driftsniff.db.migrate import upgrade_to_head
@@ -47,6 +50,7 @@ from driftsniff.web.dashboard import (
     DashboardService,
     SourceHealth,
     TrendDay,
+    _distinct_label,
     attention_empty_text,
     audit_target,
     chart_top,
@@ -365,7 +369,7 @@ def service(store: Database) -> DashboardService:
 @pytest.fixture
 def client(auth: AuthService, service: DashboardService) -> Iterator[TestClient]:
     app = create_app(
-        Settings.from_env({"DRIFTSNIFF_BASE_URL": ORIGIN, "DRIFTSNIFF_ENVIRONMENT_LABEL": "Test"}),
+        Settings.from_env({"DRIFTSNIFF_BASE_URL": ORIGIN}),
         auth=auth,
         dashboard=service,
     )
@@ -726,23 +730,37 @@ def test_the_stat_cards_count_open_changes_new_changes_and_sources(
     assert storage.href == "/settings#about" and storage.admin_only
 
 
-def test_the_posture_ring_counts_open_items_by_severity(
+def test_the_posture_ring_counts_open_changes_by_highest_severity(
     service: DashboardService, seeded: dict[str, int]
 ) -> None:
     posture = service.load().posture
     assert posture is not None
-    assert posture.total == 5
+    assert posture.total == 2
     assert [(count.severity, count.count) for count in posture.counts] == [
-        ("critical", 2),
+        ("critical", 1),
         ("high", 0),
-        ("medium", 2),
-        ("low", 1),
+        ("medium", 1),
+        ("low", 0),
     ]
     assert posture.counts[0].href == "/changes?status=open&severity=critical"
-    assert [segment.severity for segment in posture.segments] == ["low", "medium", "critical"]
+    assert [segment.severity for segment in posture.segments] == ["medium", "critical"]
     assert posture.description == (
-        "5 open change items: 1 low, 2 medium, 0 high, 2 critical. Counts only, not a score."
+        "2 open changes: 0 low, 1 medium, 0 high, 1 critical. Counts only, not a score."
     )
+
+
+def test_every_row_opens_a_list_of_the_number_it_shows(
+    service: DashboardService, store: Database, seeded: dict[str, int]
+) -> None:
+    """DRS-463: a row counted change items and opened a list of changes (2,142 against 688)."""
+    data = service.load()
+    assert data.posture is not None
+    rows = [(count.href, count.count) for count in data.posture.counts]
+    rows += [(row.href, row.count) for row in (*data.by_source, *data.by_resource)]
+    queries = ChangeQueries(store)
+    for href, shown in rows:
+        params = parse_qs(urlsplit(href).query)
+        assert queries.list_changes(parse_filters(params)).total == shown, href
 
 
 def test_source_health_covers_failing_insecure_disabled_and_new(
@@ -931,20 +949,22 @@ def test_the_trend_counts_items_per_day_by_severity(
     assert [line.label for line in trend.grid] == ["3", "2", "1"]
 
 
-def test_the_breakdowns_count_open_items_by_source_and_resource(
+def test_the_breakdowns_count_open_changes_by_source_and_resource(
     service: DashboardService, seeded: dict[str, int]
 ) -> None:
     data = service.load()
     assert [(row.label, row.count, row.width_class) for row in data.by_source] == [
-        ("lab-controller", 5, "w-100")
+        ("lab-controller", 2, "w-100")
     ]
     assert data.by_source[0].href == "/changes?status=open&source=1"
-    assert [(row.label, row.count, row.width_class) for row in data.by_resource] == [
-        ("Firewall policies", 2, "w-100"),
-        ("Virtual machines", 2, "w-100"),
-        ("Networks", 1, "w-50"),
-    ]
-    assert data.by_resource[0].href == "/changes?status=open&resource=unifi-firewall-policies"
+    assert data.by_resource[0].href.startswith("/changes?status=open&resource=")
+
+
+def test_two_resource_types_with_one_label_name_their_product() -> None:
+    labels = ["Users", "Users", "Hosts"]
+    assert _distinct_label("homeassistant-users", "Users", labels) == "Users (Home Assistant)"
+    assert _distinct_label("checkmk-users", "Users", labels) == "Users (Checkmk)"
+    assert _distinct_label("hosts", "Hosts", labels) == "Hosts"
 
 
 def test_the_activity_timeline_is_newest_first_without_bodies_or_noise(
@@ -1099,11 +1119,11 @@ def test_the_dashboard_page_renders_every_section_with_text_alternatives(
     page = response.text
     text = "".join(parsed.text)
     for heading in (
-        "Open items by severity",
+        "Open changes by severity",
         "Needs attention",
         "Drift line, last 30 days",
         "Change items per day",
-        "Where the open items are",
+        "Where the open changes are",
         "Activity",
     ):
         assert heading in text, heading

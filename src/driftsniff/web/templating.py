@@ -116,7 +116,6 @@ class Shell:
     user_role: str = ""
     csrf_token: str = ""  # noqa: S105 (an empty default, not a value)
     density: str = "comfortable"
-    environment_label: str = ""
     path: str = "/"
     # the account page: the shown name (the user name when none is chosen), the address of the
     # picture (empty: the initials show) and the theme (light, dark or system)
