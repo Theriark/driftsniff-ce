@@ -169,7 +169,11 @@ def version_text(root: Mapping[str, JsonValue], firmware: JsonValue) -> str | No
 
     The BMC chooses these texts, so a part with other characters is left out rather than shown.
     """
-    parts = [_safe(root.get("Vendor")), _safe(root.get("Product")), _safe(firmware)]
+    vendor, product = _safe(root.get("Vendor")), _safe(root.get("Product"))
+    # most BMCs repeat the vendor in the product ("Contoso" and "Contoso BMC"): say it once
+    if vendor and product and product.lower().startswith(vendor.lower()):
+        vendor = None
+    parts = [vendor, product, _safe(firmware)]
     text = " ".join(part for part in parts if part)
     redfish = _safe(root.get("RedfishVersion"))
     if redfish:

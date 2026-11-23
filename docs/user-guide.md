@@ -57,9 +57,10 @@ From the top:
 
 - **Stat cards.** Open changes with the number new this week, open critical and high changes,
   sources that are healthy, and the storage used. Each card links to the list behind its number.
-- **Open items by severity.** The ring counts the open change items per severity. It is a count,
-  not a score. Each row opens the matching filtered change list.
-- **Where the open items are**, under the ring: open items by source and by resource type.
+- **Open changes by severity.** The ring counts the open changes by their highest severity. It
+  is a count, not a score. Each row opens the matching filtered change list, with the same number.
+- **Where the open changes are**, under the ring: open changes by source and by resource type.
+  Two resource types with the same name carry their product, for example "Users (Checkmk)".
 - **Needs attention.** Open critical and high changes first, newest first, then every source that
   is failing, stale, partial, unsupported, has an expiring credential or has certificate checks
   off. Each row has one action: Review or Open source.
@@ -129,7 +130,9 @@ it](tutorials/02-review-a-change.md).
 ## Sources
 
 **Sources** lists every watched system with its status, its last attempt, the version it reports
-and a short drift line.
+and a short drift line. Filter it by kind and status (Disabled is a status of its own), and sort it
+by a column heading: name, status (the ones that need a look first), last attempt (newest first)
+or version. The address keeps the filter and the order, so the list can be shared.
 
 ![The sources list with two push sources, one stale and one with nothing pushed yet](images/sources-1440.png)
 
@@ -163,11 +166,13 @@ sidebar.
 
 History lists the stored readings, newest first. A reading is stored only when the configuration
 differs from the one before. The baseline is where comparison starts; nothing is compared across
-it. "Changes found" links to the change that reading produced.
+it. Select a reading to open the configuration it stored, and its "Changes found" to see only the
+changes that reading produced.
 
 ![The configuration of a source: the resource rail on the left and the two devices of the Devices resource on the right](images/configuration-1440.png)
 
-Configuration shows the newest reading, one resource at a time. Choose a resource in the rail, and
+Configuration shows the newest reading, one resource at a time (an older reading opened from the
+History says so and links back to the newest). Choose a resource in the rail, and
 search within it. Secret values are shown as fingerprints only.
 
 ## Themes, screens and keyboard

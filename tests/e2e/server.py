@@ -127,7 +127,6 @@ def start_app(work_dir: Path) -> LiveApp:
         "DRIFTSNIFF_BASE_URL": base_url,
         "DRIFTSNIFF_DATA_DIR": str(data_dir),
         "DRIFTSNIFF_KEY_FILE": str(key_file),
-        "DRIFTSNIFF_ENVIRONMENT_LABEL": "Journeys",
     }
     process = subprocess.Popen(
         [sys.executable, "-c", SERVE],

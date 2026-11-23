@@ -227,7 +227,7 @@ def make_world(store: Database, *, probe: bool = True, scheduler: bool = True) -
     pages = SourcePages(store, service, probe_factory=factory if probe else None, clock=lambda: NOW)
     fake = FakeScheduler()
     app = create_app(
-        Settings.from_env({"DRIFTSNIFF_BASE_URL": ORIGIN, "DRIFTSNIFF_ENVIRONMENT_LABEL": "Test"}),
+        Settings.from_env({"DRIFTSNIFF_BASE_URL": ORIGIN}),
         master_key=MASTER,
         auth=auth,
         sources=pages,
@@ -881,3 +881,39 @@ def test_disable_and_enable_change_the_source_and_tell_the_scheduler(world: Worl
     enabled = world.post(f"/sources/{source_id}/enable", {}, html=False)
     assert enabled.status_code == 200 and enabled.json()["source"]["enabled"] is True
     assert world.scheduler.synced == synced + 2
+
+
+def test_the_list_filters_by_kind_and_status_and_sorts_by_its_columns(world: World) -> None:
+    """DRS-464: the list had no filter and no sort, and a disabled source said "No check yet"."""
+    gateway = add_unifi(world, name="zz-gateway")
+    world.service.set_enabled(gateway, False, actor="test")
+    xo = world.service.create(
+        name="aa-pool",
+        source_type="xo",
+        actor="test",
+        base_url="https://xo.example",
+        credential=XO_CANARY,
+    )
+    every = assert_page(world.get("/sources", role="viewer"))
+    names = [
+        a.get("href") for a in every.find("a") if str(a.get("href", "")).startswith("/sources/")
+    ]
+    assert names.index(f"/sources/{xo.id}") < names.index(f"/sources/{gateway}")
+    assert {"id": "f-type", "name": "type", "class": "input"} in every.find("select")
+    sorts = [a.get("href") for a in every.find("a") if "sort=" in str(a.get("href", ""))]
+    assert sorts == ["/sources?sort=status", "/sources?sort=last", "/sources?sort=version"]
+    assert {"scope": "col", "class": "primary-cell", "aria-sort": "ascending"} in every.find("th")
+
+    disabled = assert_page(world.get("/sources?status=disabled", role="viewer"))
+    text = disabled.joined()
+    assert "zz-gateway" in text and "aa-pool" not in text and "Disabled" in text
+    assert "1 of 3 sources" in text
+
+    by_kind = assert_page(world.get("/sources?type=xo&sort=status", role="viewer"))
+    assert "aa-pool" in by_kind.joined() and "zz-gateway" not in by_kind.joined()
+    assert {"scope": "col", "aria-sort": "other"} in by_kind.find("th")
+
+    nothing = assert_page(world.get("/sources?type=xo&status=failing", role="viewer"))
+    assert "No source matches these filters." in nothing.joined()
+    # an unknown value is dropped rather than refused
+    assert world.get("/sources?type=nope&status=nope&sort=nope", role="viewer").status_code == 200

@@ -199,8 +199,13 @@ async def source_configuration(
     service: History,
     source_id: SourceId,
 ) -> Response:
-    """The newest snapshot of one source: a resource at a time, searchable, 50 objects a page."""
+    """The newest snapshot of one source, or the reading in ``?snapshot=`` (DRS-465): a resource
+    at a time, searchable, 50 objects a page."""
     params = request.query_params
+    snapshot_text = params.get("snapshot", "")
+    snapshot_id = (
+        int(snapshot_text) if snapshot_text.isdecimal() and len(snapshot_text) < 10 else None
+    )
     resource = params.get("resource", "")[:RESOURCE_MAX_CHARS] or None
     search = params.get("q", "")[:SEARCH_MAX_CHARS]
     page_number = _page_of(request)
@@ -208,7 +213,11 @@ async def source_configuration(
     try:
         view = await run_in_threadpool(
             lambda: service.configuration.current(
-                source_id, resource=resource, search=search, page=page_number
+                source_id,
+                resource=resource,
+                search=search,
+                page=page_number,
+                snapshot_id=snapshot_id,
             )
         )
     except StoredConfigurationError as error:
@@ -216,15 +225,20 @@ async def source_configuration(
             raise HTTPException(status_code=500, detail=str(error)) from error
         return await _unreadable(request, user, service, source_id)
     if view is None:
-        raise HTTPException(status_code=404, detail="there is no such source")
+        missing = "source" if snapshot_id is None else "source or reading"
+        raise HTTPException(status_code=404, detail=f"there is no such {missing}")
     if not html:
         return JSONResponse({"configuration": _json(view)})
+    # an older reading keeps its id in every link of the page; the newest needs none
+    reading = None if view.snapshot is None or view.snapshot.is_newest else view.snapshot.id
     selected = view.selected_resource
     shown_search = view.search
     summary = next((row for row in view.resources if row.resource == selected), None)
 
     def href(number: int) -> str:
-        return configuration_href(source_id, resource=selected, search=shown_search, page=number)
+        return configuration_href(
+            source_id, resource=selected, search=shown_search, page=number, snapshot=reading
+        )
 
     shell = shell_for(request, user, f"Configuration of {view.source.name}", "configuration")
     return page(
@@ -235,8 +249,8 @@ async def source_configuration(
         now=utc_now(),
         pager=page_links(view.page, view.pages, href),
         summary=range_text(view.total, view.page, view.page_size, "object"),
-        clear_href=configuration_href(source_id, resource=selected),
-        resource_href=lambda name: configuration_href(source_id, resource=name),
+        clear_href=configuration_href(source_id, resource=selected, snapshot=reading),
+        resource_href=lambda name: configuration_href(source_id, resource=name, snapshot=reading),
         history_href=history_href(source_id),
         unreadable=None,
         field_state=field_state,

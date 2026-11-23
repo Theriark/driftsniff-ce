@@ -7,7 +7,7 @@ trend chart is computed here too, so the template carries no arithmetic and the 
 it on plain values.
 
 What the dashboard shows, top to bottom (dev work plan part B, section 18, P10-T4): four stat
-cards; the posture ring of open change items by severity (counts only, never a score); the
+cards; the posture ring of open changes by highest severity (counts only, never a score); the
 needs-attention list (open critical and high events, then the sources that are failing, partial,
 stale, unsupported, insecure, never checked or whose credential is expiring), with a sentence
 that matches the state of the sources when the list is empty; one drift line per source; the
@@ -503,7 +503,9 @@ class SourceHealth:
 
     @property
     def status_text(self) -> str:
-        """The status badge text, in push words for a push source."""
+        """The badge text, in push words for a push source; a disabled one says so (DRS-464)."""
+        if not self.enabled:
+            return "Disabled"
         return status_text(self.kind, self.type)
 
 
@@ -910,7 +912,6 @@ class DashboardService:
                 return Dashboard(now=now, has_sources=False)
             names = {int(row.id): str(row.name) for row in source_rows}
             open_events = _open_events_by_severity(connection)
-            open_items = _open_items_by_severity(connection)
             recent = _events_per_day(connection, day_start(today - timedelta(days=13)))
             last_runs = _last_runs(connection)
             runs_30 = _runs_since(connection, day_start(today - timedelta(days=DRIFT_DAYS)))
@@ -934,7 +935,7 @@ class DashboardService:
             stats=_stats(
                 open_events, recent, health, now, storage_bytes(self._db.path), warning_bytes
             ),
-            posture=_posture(open_items),
+            posture=_posture(open_events),
             attention=attention,
             driftlines=_driftlines(health, runs_30, events_30, now, open_by_source),
             trend=trend,
@@ -961,16 +962,6 @@ def _open_events_by_severity(connection: Connection) -> dict[str, int]:
 
 def _items_of_events() -> sa.FromClause:
     return change_items.join(change_events, change_items.c.event_id == change_events.c.id)
-
-
-def _open_items_by_severity(connection: Connection) -> dict[str, int]:
-    rows = connection.execute(
-        sa.select(change_items.c.severity, sa.func.count())
-        .select_from(_items_of_events())
-        .where(change_events.c.status == "open")
-        .group_by(change_items.c.severity)
-    ).all()
-    return {str(row[0]): int(row[1]) for row in rows}
 
 
 def _open_items_by_source(connection: Connection) -> dict[int, Counter[str]]:
@@ -1120,13 +1111,14 @@ def _stats(
     )
 
 
-def _posture(open_items: Mapping[str, int]) -> Posture:
-    total = sum(open_items.get(severity, 0) for severity in SEVERITIES)
+def _posture(open_events: Mapping[str, int]) -> Posture:
+    """Open changes per highest severity: the same count the change list shows for each link."""
+    total = sum(open_events.get(severity, 0) for severity in SEVERITIES)
     counts = tuple(
         SeverityCount(
             severity,
             SEVERITY_LABELS[severity],
-            open_items.get(severity, 0),
+            open_events.get(severity, 0),
             SEVERITY_SHARE[severity],
             f"/changes?status=open&severity={severity}",
         )
@@ -1134,10 +1126,10 @@ def _posture(open_items: Mapping[str, int]) -> Posture:
     )
     parts = ", ".join(f"{count.count} {count.severity}" for count in reversed(counts))
     if total:
-        description = f"{number(total)} open change items: {parts}. Counts only, not a score."
+        description = f"{number(total)} open changes: {parts}. Counts only, not a score."
     else:
-        description = "No open change items."
-    return Posture(total, counts, ring_segments(open_items), description)
+        description = "No open changes."
+    return Posture(total, counts, ring_segments(open_events), description)
 
 
 def _attention(
@@ -1340,10 +1332,10 @@ def _trend(connection: Connection, now: datetime) -> Trend:
 def _breakdowns(
     connection: Connection, names: Mapping[int, str]
 ) -> tuple[tuple[BarRow, ...], tuple[BarRow, ...]]:
-    count = sa.func.count()
+    # changes, not items: each row opens the change list, which counts changes (DRS-463)
+    count = sa.func.count(sa.distinct(change_events.c.id))
     by_source_rows = connection.execute(
         sa.select(change_events.c.source_id, count)
-        .select_from(_items_of_events())
         .where(change_events.c.status == "open")
         .group_by(change_events.c.source_id)
         .order_by(count.desc(), change_events.c.source_id)
@@ -1368,16 +1360,25 @@ def _breakdowns(
         )
         for row in by_source_rows
     )
+    labels = [resource_label(str(row[0])) for row in by_resource_rows]
     by_resource = tuple(
         BarRow(
-            resource_label(str(row[0])),
+            _distinct_label(str(row[0]), label, labels),
             f"/changes?status=open&resource={quote(str(row[0]), safe='')}",
             int(row[1]),
             width_class(int(row[1]), largest_resource),
         )
-        for row in by_resource_rows
+        for row, label in zip(by_resource_rows, labels, strict=True)
     )
     return by_source, by_resource
+
+
+def _distinct_label(resource: str, label: str, labels: Sequence[str]) -> str:
+    """A label two resource types share gets its product, so the rows can be told apart."""
+    if labels.count(label) < 2:
+        return label
+    product = SOURCE_TYPE_LABELS.get(resource.split("-", 1)[0])
+    return f"{label} ({product})" if product else label
 
 
 def _activity(connection: Connection, names: Mapping[int, str]) -> tuple[Activity, ...]:

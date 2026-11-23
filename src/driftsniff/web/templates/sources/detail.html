@@ -26,7 +26,7 @@
 <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/sources">Sources</a> / {{ view.name }}</nav>
 <div class="summary-head summary-head--wrap">
   <div>
-    <div class="badges">{{ status_badge(health.kind, detail.status_text) }}{% for badge in detail.badges %} {{ status_badge(badge.kind, badge.text) }}{% endfor %} {% if view.enabled %}{{ status_badge("ok", "Enabled") }}{% else %}{{ status_badge("open", "Disabled") }}{% endif %}</div>
+    <div class="badges">{{ status_badge(health.kind, detail.status_text) }}{% for badge in detail.badges %} {{ status_badge(badge.kind, badge.text) }}{% endfor %} {% if view.enabled %}{{ status_badge("ok", "Enabled") }}{% endif %}</div>
     <h1>{{ view.name }}</h1>
     <div class="meta">
       <span>{{ detail.type_label }}{% if view.controller_version %} <span class="num">{{ view.controller_version }}</span>{% endif %}</span>

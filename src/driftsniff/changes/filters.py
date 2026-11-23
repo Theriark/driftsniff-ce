@@ -56,6 +56,7 @@ def parse_filters(params: Mapping[str, Sequence[str]]) -> ChangeFilters:
     return ChangeFilters(
         search=_first(params, "q"),
         source_id=_number(_first(params, "source"), MAX_SOURCE_ID),
+        snapshot_id=_number(_first(params, "snapshot"), MAX_SOURCE_ID),
         severities=tuple(severities),
         status=status if status in EVENT_STATUSES else None,
         resource=resource if 0 < len(resource) <= MAX_RESOURCE_CHARS else None,

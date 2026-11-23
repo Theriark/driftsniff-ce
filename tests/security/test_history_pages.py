@@ -8,6 +8,7 @@ The role rules themselves are rows of ``ROUTE_TABLE`` and are called as every ki
 ``test_route_table.py``. Everything is synthetic; text that must never travel starts with CANARY-.
 """
 
+import re
 from html.parser import HTMLParser
 from typing import Any
 
@@ -83,8 +84,13 @@ def test_the_history_page_marks_the_baseline_and_the_current_reading(kit: Kit) -
     # once in the key above the table, once on the reading itself
     assert text.count('class="mark mark--baseline"') == 2
     assert text.count('class="mark mark--current"') == 2
-    assert '<span class="ledger__word">Baseline</span>' in text
-    assert '<span class="ledger__word">Current</span>' in text
+    # each reading is a link to the configuration it stored (DRS-465)
+    assert re.search(
+        r'<a class="ledger__word" href="/configuration/1\?snapshot=\d+">Baseline<', text
+    )
+    assert re.search(
+        r'<a class="ledger__word" href="/configuration/1\?snapshot=\d+">Current<', text
+    )
     assert "Nothing is compared across it" in text
 
 

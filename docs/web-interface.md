@@ -36,7 +36,6 @@ A page extends `base.html`, fills the `content` block and receives a `Shell`:
 | `user_name`, `user_role` | the signed-in user; empty on the sign-in and setup pages, which then show no navigation and no user menu |
 | `csrf_token` | the session's CSRF value: it goes into the hidden `csrf_token` field of every form and into the `X-CSRF-Token` request header of every HTMX request (through `hx-headers` on `body`) |
 | `density` | the row density of data tables, from the cookie (section 4) |
-| `environment_label` | the badge next to the user menu, from `DRIFTSNIFF_ENVIRONMENT_LABEL` (section 5) |
 | `path` | the current path with its query, the place a preference form sends the user back to |
 
 The header shows the guide's horizontal logo file at 48 px (40 px below 768 px) through a
@@ -89,9 +88,7 @@ Pages read the cookie with `density_from_cookie`; an absent or odd value is comf
 
 ## 5. Settings
 
-| Variable | Default | Meaning |
-|---|---|---|
-| `DRIFTSNIFF_ENVIRONMENT_LABEL` | unset (no badge) | the badge in the header, 1 to 24 ASCII letters, digits, spaces or hyphens, for example `Development`. Platform sets it per environment in `deploy/dokploy.json` as a literal. |
+The web interface has no settings of its own; see [configuration.md](configuration.md).
 
 ## 6. Static files
 
@@ -183,11 +180,11 @@ application built without it (some tests) shows the empty state.
 | Part | What it shows | Where the numbers come from |
 |---|---|---|
 | Stat cards | open changes (events with status open) with the count of events created in the last 7 UTC days, the difference to the 7 days before and a sparkline of those days; critical and high open events; sources healthy out of all sources; storage used | `change_events` grouped by status and by day; the source health below; the size of `driftsniff.db` plus its `-wal` file |
-| Posture ring | open change items by severity, counts only, never a score; each row links to the filtered change list | `change_items` of open events grouped by severity |
+| Posture ring | open changes by highest severity, counts only, never a score; each row links to the filtered change list and shows its number (DRS-463) | open `change_events` grouped by `max_severity` |
 | Needs attention | the open critical and high events (critical first, newest first, at most 8), then every source that is failing, partial, stale, unsupported or whose credential is expiring, and every source with certificate checks off | `change_events`; the source health below |
 | Drift lines | one strip per source, in name order | `runs` of the last 30 days (status ok, partial or failed; a skipped run is not a check) matched to the event the run wrote (`change_events.created_at` equals `runs.finished_at`, the pipeline writes both from one clock reading) |
 | Trend | change items per UTC day for 30 days, stacked by severity, with the table behind a disclosure | `change_items` joined to their event, grouped by day and severity |
-| Breakdowns | open items by source and by resource type (at most 8 rows each), bars in tenths | the same join grouped by source and by resource; the labels are our own table `RESOURCE_LABELS` |
+| Breakdowns | open changes by source and by resource type (at most 8 rows each), bars in tenths; each count is the total of the list its row opens | distinct open `change_events` grouped by source, and by the resource of their items; the labels are our own table `RESOURCE_LABELS`, with the product added when two types share a label |
 | Activity | the 20 newest of: events, acknowledgements, notes, finished runs and audit events | each table, 20 newest, merged and cut; refused token calls and enrichments are left out |
 
 **Source health** (`SourceHealth.kind`), in this order: disabled; `state` is `unsupported`;

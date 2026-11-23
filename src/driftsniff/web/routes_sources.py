@@ -81,10 +81,14 @@ from driftsniff.web.source_pages import (
     TLS_MODE_LABELS,
     SourceDetail,
     SourcePages,
+    SourceQuery,
     expiry_date,
     probe_rows,
+    query_rows,
     resources_of,
     resources_off,
+    status_options,
+    type_options,
 )
 from driftsniff.web.templating import Shell, render
 
@@ -546,12 +550,17 @@ async def list_sources(
         views = await run_in_threadpool(pages.service.list_sources)
         return JSONResponse({"sources": [_view_json(view) for view in views]})
     listing = await run_in_threadpool(pages.listing)
+    query = SourceQuery.from_params(request.query_params)
     shell = shell_for(request, user, "Sources", "sources")
     roles = _roles(user)
     return page(
         "sources/list.html",
         shell,
         listing=listing,
+        query=query,
+        shown=query_rows(listing.rows, query),
+        type_options=type_options(listing.rows),
+        status_options=status_options(),
         notice=_notice(request),
         can_operate=roles["can_operate"],
         can_admin=roles["can_admin"],

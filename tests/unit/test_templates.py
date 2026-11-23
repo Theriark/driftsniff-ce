@@ -54,7 +54,6 @@ ADMIN = Shell(
     user_role="admin",
     csrf_token=CSRF,
     density="compact",
-    environment_label="Development",
     path="/changes?status=open",
 )
 NOBODY = Shell(title="Sign in")
@@ -354,7 +353,7 @@ def test_the_top_bar_offers_add_source_to_admins_outside_the_pages_that_lead_wit
 
 
 def test_the_signed_out_shell_keeps_the_plain_header_without_sidebar_or_search() -> None:
-    parsed = Parsed(page(Shell(title="Sign in", environment_label="Stage")))
+    parsed = Parsed(page(Shell(title="Sign in")))
     assert parsed.find("header") == [{"class": "app-header"}]
     assert parsed.find("body")[0]["class"] == "app"
     assert parsed.find("search") == [] and parsed.find("details") == []
@@ -399,7 +398,7 @@ def test_the_shell_user_menu_names_the_user_and_signs_out_with_the_csrf_value() 
     text = page(ADMIN)
     assert "Signed in as r.marques, admin" in text
     assert '<span class="avatar" aria-hidden="true">RM</span>' in text
-    assert '<span class="env-badge">Development</span>' in text
+    assert "env-badge" not in text
     parsed = Parsed(text)
     forms = parsed.find("form")
     assert {"method": "post", "action": "/logout"} in forms
@@ -416,7 +415,11 @@ def test_the_shell_sends_the_csrf_value_in_the_htmx_header_and_configures_htmx()
     assert '"includeIndicatorStyles": false' in str(config["content"])
     # no defer: the script holds the parser until the stylesheets are in (the page change)
     scripts = parsed.find("script")
-    assert scripts == [{"src": static_url("htmx.min.js")}]
+    # menus.js lets Escape close the open menu (DRS-466); deferred, it does not hold the page
+    assert scripts == [
+        {"src": static_url("htmx.min.js")},
+        {"src": static_url("menus.js"), "defer": None},
+    ]
     sheets = [attrs["href"] for attrs in parsed.find("link") if attrs.get("rel") == "stylesheet"]
     assert sheets == [static_url("vendor/inter/inter.css"), static_url("app.css")]
 
@@ -443,9 +446,9 @@ def test_the_shell_without_a_user_has_no_navigation_menu_or_csrf_header() -> Non
     assert_policy_clean(text)
 
 
-def test_the_shell_shows_the_environment_badge_without_a_user_when_set() -> None:
-    text = page(Shell(title="Sign in", environment_label="Stage"))
-    assert '<span class="env-badge">Stage</span>' in text
+def test_no_page_names_the_installation_in_a_badge() -> None:
+    # one image runs on Development, Stage and Production, so the page never says which
+    assert "env-badge" not in page(Shell(title="Sign in")) + page(ADMIN)
 
 
 def test_page_text_is_escaped() -> None:

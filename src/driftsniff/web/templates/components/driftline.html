@@ -18,7 +18,7 @@
 <div class="driftline{% if short %} driftline--short{% endif %}"{% if data %}{% for key, value in data.items() %} data-{{ key }}="{{ value }}"{% endfor %}{% endif %}>
   {% if not short %}
   {% if href %}<a class="driftline__name" href="{{ href }}">{{ name }}</a>{% else %}<span class="driftline__name">{{ name }}</span>{% endif %}
-  <span class="driftline__meta">{{ meta }}</span>
+  <span class="driftline__meta" title="{{ meta }}">{{ meta }}</span>
   {% endif %}
   <div class="driftline__strip"{% if not linked %} tabindex="0" role="group" aria-labelledby="{{ id_prefix }}-t"{% endif %}>
     <svg viewBox="0 0 {{ width }} {{ drift_height }}" role="{{ 'group' if linked else 'img' }}" aria-labelledby="{{ id_prefix }}-t {{ id_prefix }}-d">

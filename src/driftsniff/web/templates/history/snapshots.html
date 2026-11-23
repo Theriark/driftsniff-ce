@@ -57,11 +57,11 @@
           <tr class="ledger__row{% if row.is_baseline %} ledger__row--baseline{% endif %}">
             <th scope="row" class="ledger__mark">
               <span class="mark{% for shape in mark.shapes %} mark--{{ shape }}{% endfor %}" aria-hidden="true"></span>
-              <span class="ledger__word">{{ mark.word }}</span>
+              <a class="ledger__word" href="/configuration/{{ view.source.id }}?snapshot={{ row.id }}">{{ mark.word }}<span class="visually-hidden">, open the configuration of this reading</span></a>
               {% if row.is_baseline %}<span class="sub">Nothing is compared across it</span>{% endif %}
             </th>
             <td>{{ time_tag(parse_stamp(row.taken_at), now) }}</td>
-            <td class="num">{% if row.change_count %}<a href="/changes?source={{ view.source.id }}">{{ number(row.change_count) }}</a>{% else %}<span class="sub">None</span>{% endif %}</td>
+            <td class="num">{% if row.change_count %}<a href="/changes?source={{ view.source.id }}&amp;snapshot={{ row.id }}">{{ number(row.change_count) }}<span class="visually-hidden"> changes found by this reading</span></a>{% else %}<span class="sub">None</span>{% endif %}</td>
             <td class="col-hide-s">{% if row.controller_version %}<span class="mono">{{ row.controller_version }}</span>{% else %}<span class="sub">Not reported</span>{% endif %}</td>
             <td class="num col-hide-m">{{ size_text(row.manifest_bytes) }}</td>
           </tr>

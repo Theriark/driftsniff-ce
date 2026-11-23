@@ -84,12 +84,13 @@ class SnapshotPageView:
 
 @dataclass(frozen=True, slots=True)
 class SnapshotRef:
-    """The snapshot the configuration shows."""
+    """The snapshot the configuration shows; ``is_newest`` is False for an older reading."""
 
     id: int
     taken_at: str
     kind: str
     controller_version: str | None
+    is_newest: bool = True
 
 
 @dataclass(frozen=True, slots=True)

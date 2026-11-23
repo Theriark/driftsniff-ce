@@ -291,6 +291,7 @@ def filter_query(filters: ChangeFilters, **changes: Any) -> str:
     values: dict[str, Any] = {
         "q": filters.search or None,
         "source": filters.source_id,
+        "snapshot": filters.snapshot_id,
         "severity": list(filters.severities) or None,
         "status": filters.status,
         "resource": filters.resource,
@@ -391,6 +392,8 @@ def filter_chips(filters: ChangeFilters, source_names: Mapping[int, str]) -> tup
     if filters.source_id is not None:
         name = source_names.get(filters.source_id, str(filters.source_id))
         chips.append(FilterChip("Source", name, without(source=None)))
+    if filters.snapshot_id is not None:
+        chips.append(FilterChip("Reading", f"number {filters.snapshot_id}", without(snapshot=None)))
     if filters.severities:
         chips.append(FilterChip("Severity", severity_words(filters), without(severity=None)))
     if filters.status:

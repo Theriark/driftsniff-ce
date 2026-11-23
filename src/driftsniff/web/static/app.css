@@ -519,7 +519,7 @@ code,
   background: var(--surface-2);
 }
 
-/* The top bar of the column: where the page sits, the change search, the environment badge and
+/* The top bar of the column: where the page sits, the change search and
    at most one action (a secondary button). Its padding follows the page column, so the trail
    starts where the page title starts at every width. */
 .topbar {
@@ -599,17 +599,7 @@ code,
   flex: none;
 }
 
-.env-badge {
-  flex: none;
-  font-size: var(--fs-14);
-  font-weight: 700;
-  padding: 2px var(--sp-3);
-  border: 1px solid var(--info);
-  border-radius: 999px;
-  color: var(--info);
-}
-
-/* signed out: the logo on the left, the environment badge on the right */
+/* signed out: the logo on the left */
 .app-header {
   position: sticky;
   top: 0;
@@ -627,14 +617,6 @@ code,
   display: flex;
   align-items: center;
   gap: var(--sp-6);
-}
-
-.header-tools {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-  margin-left: auto;
-  flex: none;
 }
 
 @media (max-width: 1023px) {
@@ -1374,6 +1356,16 @@ textarea.input {
   .driftlines .driftline {
     grid-template-columns: 180px 240px 1fr;
   }
+
+  /* a long product line ("Redfish (iDRAC, iLO, Supermicro) Contoso BMC 2.14.0 ...") stops at
+     two lines; its title holds the whole text (DRS-463) */
+  .driftlines .driftline__meta {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+  }
 }
 
 /* the name wraps rather than ending in an ellipsis, so the whole name is always on screen: at
@@ -1830,9 +1822,10 @@ textarea.input {
   margin-top: 0;
 }
 
+/* the name takes the room it needs, up to two lines, and the bar the rest (DRS-466) */
 .bars li {
   display: grid;
-  grid-template-columns: 140px 1fr 40px;
+  grid-template-columns: minmax(0, 1.5fr) minmax(48px, 1fr) auto;
   align-items: center;
   gap: var(--sp-3);
   font-size: var(--fs-14);
@@ -1874,9 +1867,12 @@ textarea.input {
 
 .bars li a {
   text-decoration: none;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .timeline {
@@ -3484,9 +3480,8 @@ textarea.input {
   text-decoration-color: currentColor;
 }
 
-/* a page with its own search leaves the top bar without one: the badge or the action then
+/* a page with its own search leaves the top bar without one: the action then
    keeps to the right, where the search would have pushed it */
-.crumbs + .env-badge,
 .crumbs + .topbar__action {
   margin-left: auto;
 }
@@ -3627,4 +3622,8 @@ textarea.input {
 
 .scene--inset .scene__stage {
   height: clamp(240px, 32vw, 340px);
+}
+
+.table-empty {
+  padding: var(--sp-4);
 }

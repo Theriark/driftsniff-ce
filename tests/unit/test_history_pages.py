@@ -268,7 +268,10 @@ def test_the_ledger_marks_a_baseline_and_the_current_reading_in_words() -> None:
     assert "Current" in words and "Reading" in words and "Baseline" in words
     assert "Nothing is compared across it" in words
     hrefs = {attrs.get("href") for attrs in parsed.find("a")}
-    assert {"/changes?source=2", "/configuration/2", "/sources/2"} <= hrefs
+    assert {"/configuration/2", "/sources/2"} <= hrefs
+    # each reading opens its own configuration, and its count opens only its changes (DRS-465)
+    assert {f"/configuration/2?snapshot={number}" for number in (1, 2, 3)} <= hrefs
+    assert "/changes?source=2&snapshot=3" in hrefs
     assert "4.2 KB" in words and "9.0.114" in words
 
 

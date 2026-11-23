@@ -7,6 +7,7 @@
 {% from "components/states.html" import empty_state, success_banner %}
 {% from "components/badges.html" import status_badge %}
 {% from "components/table.html" import data_table, density_switch %}
+{% from "components/forms.html" import select_field %}
 {% from "components/driftline.html" import drift_line %}
 {% from "components/details.html" import time_tag %}
 {% block banners %}
@@ -26,15 +27,29 @@
 {% call page_header("Sources", "The systems driftsniff watches, and how each one answered its last check.") %}
 {% if can_admin %}<a class="btn btn--primary" href="/sources/new">Add source</a>{% endif %}
 {% endcall %}
+{# a plain GET form: the kind and the status narrow the list, the column links sort it, and the
+   address keeps both, so a filtered list can be shared or reloaded (DRS-464) #}
+<form class="filter-bar" method="get" action="/sources" aria-label="Filter sources">
+  {{ select_field("f-type", "type", "Kind", type_options, selected=query.source_type) }}
+  {{ select_field("f-status", "status", "Status", status_options, selected=query.health) }}
+  {% if query.sort != "name" %}<input type="hidden" name="sort" value="{{ query.sort }}">{% endif %}
+  <button class="btn" type="submit">Apply</button>
+  {% if query.source_type or query.health %}<a class="btn btn--quiet" href="{{ query.href(type='', status='') }}">Clear</a>{% endif %}
+</form>
 <div class="toolbar">
   {# the drift line column names its own 30 days and is hidden below 1024 px, so this line does
      not promise a strip the screen may not show (THE-1416, F7) #}
-  <p class="hint">{{ number(listing.rows | length) }} {{ "source" if listing.rows | length == 1 else "sources" }}. Status follows the last check.</p>
+  <p class="hint" role="status">{% if shown | length != listing.rows | length %}{{ number(shown | length) }} of {{ number(listing.rows | length) }} sources{% else %}{{ number(listing.rows | length) }} {{ "source" if listing.rows | length == 1 else "sources" }}{% endif %}. Status follows the last check.</p>
   {{ density_switch(shell.density, shell.path, shell.csrf_token) }}
 </div>
 <section class="card card--flush" aria-labelledby="sources-cap">
-  {% call data_table("Sources", [{"label": "Source", "class": "primary-cell"}, {"label": "Status"}, {"label": "Last attempt", "class": "col-hide-s"}, {"label": "Version", "class": "col-hide-s"}, {"label": "Drift line, last 30 days", "class": "col-hide-m"}], density=shell.density, caption_id="sources-cap") %}
-  {% for row in listing.rows %}
+  {% call data_table("Sources", [
+      {"label": "Source", "class": "primary-cell", "sort_href": query.href(sort="name"), "sort_dir": "ascending" if query.sort == "name" else none},
+      {"label": "Status", "sort_href": query.href(sort="status"), "sort_dir": "other" if query.sort == "status" else none},
+      {"label": "Last attempt", "class": "col-hide-s", "sort_href": query.href(sort="last"), "sort_dir": "descending" if query.sort == "last" else none},
+      {"label": "Version", "class": "col-hide-s", "sort_href": query.href(sort="version"), "sort_dir": "ascending" if query.sort == "version" else none},
+      {"label": "Drift line, last 30 days", "class": "col-hide-m"}], density=shell.density, caption_id="sources-cap") %}
+  {% for row in shown %}
   <tr>
     <th scope="row" class="primary-cell"><a href="{{ row.health.href }}">{{ row.health.name }}</a><span class="sub">{{ row.type_label }}{% if not row.health.enabled %}, disabled{% endif %}</span></th>
     <td>
@@ -47,6 +62,7 @@
   </tr>
   {% endfor %}
   {% endcall %}
+  {% if not shown %}<p class="quiet table-empty">No source matches these filters. <a href="{{ query.href(type='', status='') }}">Clear the filters</a> to see every source.</p>{% endif %}
 </section>
 {% endif %}
 {% endblock %}
