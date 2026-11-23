@@ -96,7 +96,7 @@ def read_all(client: RedfishClient) -> dict[str, Any]:
 
 def test_a_probe_reads_the_root_signs_in_and_reports_the_bmc_firmware() -> None:
     with connected() as (server, client):
-        assert client.probe() == f"Contoso Contoso BMC {FIRMWARE_VERSION} (Redfish 1.17.0)"
+        assert client.probe() == f"Contoso BMC {FIRMWARE_VERSION} (Redfish 1.17.0)"
         first, login = server.requests[:2]
         assert (first.method, first.path, first.token) == ("GET", f"{ROOT}/", None)
         assert (login.method, login.path, login.token) == ("POST", SESSIONS, None)

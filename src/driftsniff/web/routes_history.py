@@ -225,7 +225,8 @@ async def source_configuration(
             raise HTTPException(status_code=500, detail=str(error)) from error
         return await _unreadable(request, user, service, source_id)
     if view is None:
-        raise HTTPException(status_code=404, detail="there is no such source or reading")
+        missing = "source" if snapshot_id is None else "source or reading"
+        raise HTTPException(status_code=404, detail=f"there is no such {missing}")
     if not html:
         return JSONResponse({"configuration": _json(view)})
     # an older reading keeps its id in every link of the page; the newest needs none
