@@ -16,7 +16,7 @@
     <circle class="ring-seg ring-seg--{{ segment.severity }}" cx="80" cy="80" r="60" stroke-dasharray="{{ segment.dasharray }}" stroke-dashoffset="{{ segment.dashoffset }}" transform="rotate(-90 80 80)"/>
     {% endfor %}
     <text class="ring-value" x="80" y="86" text-anchor="middle">{{ number(posture.total) }}</text>
-    <text class="ring-caption" x="80" y="106" text-anchor="middle">open items</text>
+    <text class="ring-caption" x="80" y="106" text-anchor="middle">open changes</text>
   </svg>
   <div class="posture-list">
     {% for count in posture.counts %}
