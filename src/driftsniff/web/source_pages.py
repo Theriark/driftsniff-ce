@@ -288,16 +288,17 @@ def _sort_key(sort: str) -> Callable[[SourceRow], tuple[Any, ...]]:
             name(row),
         )
     if sort == "version":
-        # by the numbers of the version (2.21.4 before 12.2.1); a version that does not start with a
-        # number, and a source that reports none, go last
-        def by_version(row: SourceRow) -> tuple[object, ...]:
-            version = (row.health.version or "").strip()
-            numbered = version[:1].isdigit()
-            numbers = tuple(int(part) for part in re.findall(r"d+", version)) if numbered else ()
-            return (not version, not numbered, numbers, version.casefold(), name(row))
-
-        return by_version
+        return lambda row: (*version_order(row.health.version), name(row))
     return lambda row: (name(row),)
+
+
+def version_order(version: str | None) -> tuple[bool, bool, tuple[int, ...], str]:
+    """The sort key of a reported version: by its numbers (2.21.4 before 12.2.1); a version that
+    does not start with a number, and none reported, go last."""
+    text = (version or "").strip()
+    numbered = text[:1].isdigit()
+    numbers = tuple(int(part) for part in re.findall(r"\d+", text)) if numbered else ()
+    return (not text, not numbered, numbers, text.casefold())
 
 
 def query_rows(rows: Sequence[SourceRow], query: SourceQuery) -> tuple[SourceRow, ...]:
