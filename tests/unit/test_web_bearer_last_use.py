@@ -1,4 +1,4 @@
-"""A failing write of the last-use time does not refuse a valid token (P9-T6, THE-810)."""
+"""A failing write of the last-use time does not refuse a valid token."""
 
 import logging
 

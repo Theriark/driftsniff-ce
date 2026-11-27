@@ -22,11 +22,14 @@ RUN python -m pip wheel \
 FROM python:3.12-slim-bookworm AS runtime
 
 ARG SOURCE_SHA=unknown
+# The package version (src/driftsniff/__init__.py); CI passes it, a local build says unknown.
+ARG VERSION=unknown
 
 LABEL org.opencontainers.image.title="driftsniff" \
       org.opencontainers.image.source="https://github.com/Theriark/driftsniff-ce" \
       org.opencontainers.image.licenses="MIT" \
-      org.opencontainers.image.revision="${SOURCE_SHA}"
+      org.opencontainers.image.revision="${SOURCE_SHA}" \
+      org.opencontainers.image.version="${VERSION}"
 
 # The build commit is public information; /healthz reports it so a release can verify the runtime.
 ENV PYTHONDONTWRITEBYTECODE=1 \

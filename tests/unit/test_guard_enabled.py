@@ -108,7 +108,6 @@ def test_deployment_notes_list_every_runtime_setting_and_the_smoke_check() -> No
     for volume in manifest["volumes"]:
         assert volume in notes
     for expected in (
-        "https://ce-dev-driftsniff.theriark.dev",
         "512 MB",
         "GET /healthz",
         "previous approved digest",

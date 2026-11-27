@@ -1,4 +1,4 @@
-"""The CE implementation of each extension point (P9-T5, docs/plugin-api.md)."""
+"""The CE implementation of each extension point (docs/plugin-api.md)."""
 
 from collections.abc import Callable, Mapping
 from pathlib import Path

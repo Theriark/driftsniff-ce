@@ -1,4 +1,4 @@
-"""``GET /sources/{id}/replay`` through the real application (WP4a): roles, answers and canaries.
+"""``GET /sources/{id}/replay`` through the real application: roles, answers and canaries.
 
 The role rules themselves are one row of ``ROUTE_TABLE`` (a viewer reads, nobody below does,
 nothing writes) and are called as every kind of caller by ``test_route_table.py``; the tests here

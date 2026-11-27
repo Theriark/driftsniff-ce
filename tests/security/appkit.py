@@ -1,4 +1,4 @@
-"""A complete application for the security suite (P9-T6).
+"""A complete application for the security suite.
 
 ``running_kit`` builds the real application with every service it has (sign-in, API tokens,
 notifications, the change API, a push gateway with no sources, the sources pages with a test

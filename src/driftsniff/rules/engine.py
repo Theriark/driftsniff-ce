@@ -46,7 +46,7 @@ severity yet is not muted either.
 Where it is called
 ------------------
 Nothing calls the engine yet: the rule loader is not run at application start either. The run
-pipeline of P6-T2 loads the rules, compares the manifests, and calls :meth:`RuleEngine.apply` on
+pipeline loads the rules, compares the manifests, and calls :meth:`RuleEngine.apply` on
 every item before the change event is stored with ``RuleIndex.pack_version``.
 """
 

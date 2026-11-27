@@ -65,5 +65,5 @@ def test_scaffold_exposes_nothing_besides_healthz(path: str) -> None:
 
 
 def test_the_start_page_needs_the_sign_in_service() -> None:
-    # P10-T3: "/" is the dashboard; without a sign-in service it answers 503 like every page.
+    # "/" is the dashboard; without a sign-in service it answers 503 like every page.
     assert make_client().get("/").status_code == 503

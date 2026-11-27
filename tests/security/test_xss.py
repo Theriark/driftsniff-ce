@@ -1,10 +1,10 @@
-"""Script text in every stored field (P9-T6).
+"""Script text in every stored field.
 
-There are no HTML pages until P10, so for now the question is whether text that carries script
+The question here is whether text that carries script
 can ever be taken as a page. Script payloads are planted in the source name, the object name, the
 rationale, a note and every field of an enrichment. They must come back unchanged as JSON strings,
 in answers that say they are JSON, that browsers must not sniff into anything else, and that carry
-the content security policy. P10 adds its own page tests (the same payloads must render escaped);
+the content security policy. The pages have their own tests (the same payloads must render escaped);
 ``PAYLOADS`` is the list they reuse.
 
 ``test_template_scan.py`` already fails when a template uses the ``safe`` filter or switches

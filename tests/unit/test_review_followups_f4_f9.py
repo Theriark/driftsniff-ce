@@ -1,4 +1,4 @@
-"""THE-1416: the deferred findings F4, F5 (390 px), F6, F7 and F9 of the THE-1402 review.
+"""The deferred findings F4, F5 (390 px), F6, F7 and F9 of a code review.
 
 Found on Development (d9efea98, still on 95b298bf): the change detail's before and after values
 sat on red and green tints whatever the risk, with the changed part underlined like a link (F4);

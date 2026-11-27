@@ -236,7 +236,7 @@ jobs:
   # volumes on its own 127.0.0.1 port and walks the first-run flow in a real Chromium (setup page,
   # weak password refused, admin created, /setup 404 afterwards). It never builds, pushes or deploys,
   # touches no shared Development or Stage instance and is not a dependency of deploy-development.
-  # The image below is the candidate binding (source 63eaa6ad, THE-1556), distinct from this test
+  # The image below is the candidate binding (source 63eaa6ad), distinct from this test
   # commit. The setup code and the generated password are never printed. Not run on a push.
   first-run-image:
     name: First-run image check
@@ -478,7 +478,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          docker build --build-arg SOURCE_SHA="${GITHUB_SHA}" --tag driftsniff:ci .
+          version="$(grep -m1 '^__version__ = ' src/driftsniff/__init__.py | cut -d '"' -f 2)"
+          [[ -n "${version}" ]] || {
+            echo "::error::no __version__ in src/driftsniff/__init__.py"
+            exit 1
+          }
+          docker build --build-arg SOURCE_SHA="${GITHUB_SHA}" --build-arg VERSION="${version}" \
+            --tag driftsniff:ci .
           docker save driftsniff:ci | gzip --fast > "${RUNNER_TEMP}/driftsniff-ci-image.tar.gz"
 
       - name: Upload image for the scan, smoke, sbom and publish steps
@@ -680,7 +686,7 @@ jobs:
       docs_only: ${{ steps.classify.outputs.docs_only }}
 
     env:
-      DEVELOPMENT_HOST: ce-dev-driftsniff.theriark.dev
+      DEVELOPMENT_HOST: ${{ vars.DEVELOPMENT_HOST }}
 
     steps:
       - name: Checkout full history
@@ -743,8 +749,8 @@ jobs:
     env:
       IMAGE: ghcr.io/theriark/driftsniff-ce
       SOURCE_SHA: ${{ github.sha }}
-      DOKPLOY_DEVELOPMENT_APPLICATION_ID: VmPHofibLNZ_eYa6y6r8R
-      DEVELOPMENT_HOST: ce-dev-driftsniff.theriark.dev
+      DOKPLOY_DEVELOPMENT_APPLICATION_ID: ${{ vars.DOKPLOY_DEVELOPMENT_APPLICATION_ID }}
+      DEVELOPMENT_HOST: ${{ vars.DEVELOPMENT_HOST }}
 
     steps:
       - name: Verify Development source branch
@@ -770,7 +776,7 @@ jobs:
           CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
         run: |
           set -euo pipefail
-          for required in DOKPLOY_URL DOKPLOY_API_KEY CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET; do
+          for required in DOKPLOY_URL DOKPLOY_API_KEY CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET DOKPLOY_DEVELOPMENT_APPLICATION_ID DEVELOPMENT_HOST; do
             [[ -n "${!required}" ]] || {
               echo "::error::${required} is missing"
               exit 1

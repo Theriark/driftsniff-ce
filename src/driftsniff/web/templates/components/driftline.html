@@ -8,7 +8,7 @@
    open severity and health from them).
    A strip with change links is a named group, not an image: an image's children are
    presentational, so links inside one are nested interactive controls that a screen reader
-   cannot reach (axe nested-interactive, THE-1351). Each link names itself with aria-label. A
+   cannot reach (axe nested-interactive). Each link names itself with aria-label. A
    strip without links can scroll on a narrow screen with nothing in it to focus, so the
    scroller itself takes the keyboard focus (axe scrollable-region-focusable). #}
 {% macro drift_line(name, checks, id_prefix, href="", meta="", short=false, data=none) %}

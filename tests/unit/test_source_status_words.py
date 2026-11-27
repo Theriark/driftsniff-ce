@@ -1,4 +1,4 @@
-"""The words of a source's status (THE-991, findings of the P10 live acceptance).
+"""The words of a source's status (findings of a live acceptance check).
 
 F1: a failed test connection gives its reason as a sentence before "Nothing was stored.".
 F2: the sources pages show the last attempt (the newest finished run, failed or not), so the

@@ -1,4 +1,4 @@
-# Reviewed false positives of the secret scanner (P3-T2).
+# Reviewed false positives of the secret scanner.
 #
 # The scanner forces the secret class on a value that looks like a credential. When a field is
 # known to hold harmless text that trips a rule, list its path here instead of loosening the

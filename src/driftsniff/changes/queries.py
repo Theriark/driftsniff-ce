@@ -1,4 +1,4 @@
-"""The change list and the change detail, as SQL (P10-T6, backend slice; docs/changes-service.md).
+"""The change list and the change detail, as SQL (backend slice; docs/changes-service.md).
 
 ``ChangeQueries.list_changes`` answers the list page (search, filters, sort, 50 per page) and
 ``ChangeQueries.get_change`` the detail page. Both read on one read connection and return the

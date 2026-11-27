@@ -1,4 +1,4 @@
-"""THE-1264: the needs-attention rows and the drift line labels at desktop widths.
+"""The needs-attention rows and the drift line labels at desktop widths.
 
 Found on Development (e3e1a746) at 1440 px: each attention row was its own grid, so the text
 started at x 866, 870, 882 or 968 with the width of its badge, and three of four titles ended

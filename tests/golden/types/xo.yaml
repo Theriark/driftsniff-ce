@@ -1,4 +1,4 @@
-# Test-only type tables for the golden table (P5-T4), in the shipped file format.
+# Test-only type tables for the golden table, in the shipped file format.
 #
 # They declare exactly the fields the golden rows name, with the resource names of the shipped
 # Xen Orchestra tables, plus two fields the shipped table deliberately does not collect

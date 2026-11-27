@@ -19,10 +19,16 @@ the rekey is complete and the admin is told to remove the old key file. Exactly 
 is written per rekey: ``fingerprint_rekey`` when it completes with the old key, or
 ``baseline_reestablished`` when the old key is lost.
 
+The run pipeline (:mod:`driftsniff.sources.runs`) does this for every run while a rekey is
+active: it drops the re-stamps with :func:`restamp_items` and, after a clean run, calls
+:func:`record_clean_cycle` in the run's transaction. ``serve`` loads the old key file.
+
 The callers in these functions own the transaction (as in :mod:`driftsniff.secrets.keys`).
 """
 
 import json
+import re
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from enum import StrEnum
 from typing import Any, Self
@@ -31,6 +37,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from driftsniff.core.canonical import JsonValue
+from driftsniff.core.diff import ChangeItem
 from driftsniff.db.engine import Database
 from driftsniff.db.tables import (
     DEFAULT_WORKSPACE_ID,
@@ -112,6 +119,65 @@ def check_fingerprint(
         same = old.matches(stored, resource_type, path, value)
         return FingerprintCheck(Verdict.RESTAMPED if same else Verdict.CHANGED, fresh)
     return FingerprintCheck(Verdict.UNKNOWN, fresh)
+
+
+_MARKER = re.compile(r"fp1:([0-9a-f]{8}):[0-9a-f]{32}")
+_ANY_FINGERPRINT = "fp1:?"
+
+
+@dataclass(frozen=True, slots=True)
+class Restamp:
+    """How one collection run of an active rekey reads the fingerprints stored before it.
+
+    ``old_key_id`` is set only when the old key is at hand; ``twins`` then maps every fingerprint
+    the run made with the current key to the one the old key makes of the same value
+    (:class:`driftsniff.secrets.redact.Twins`).
+    """
+
+    current_key_id: str
+    old_key_id: str | None
+    twins: Mapping[str, str]
+
+
+def _side(value: str | None, fingerprint: str | None) -> str:
+    return f"{value or ''}\x00{fingerprint or ''}"
+
+
+def _blur(text: str, key_ids: set[str]) -> str:
+    return _MARKER.sub(
+        lambda match: _ANY_FINGERPRINT if match.group(1) in key_ids else match.group(0), text
+    )
+
+
+def restamp_items(items: Sequence[ChangeItem], restamp: Restamp) -> tuple[list[ChangeItem], int]:
+    """Drop the items that only re-stamp a fingerprint; return the rest and the re-stamp count.
+
+    This is :func:`check_fingerprint` applied to the items of a run: an item whose before side
+    holds a fingerprint of another key is a re-stamp, not a change, when the after side made
+    with the old key is the same (verdict ``restamped``). When the key that made it is not at
+    hand the fingerprint is re-stamped without a comparison (verdict ``unknown``). Every other
+    item, and a real secret change, is kept.
+    """
+    kept: list[ChangeItem] = []
+    restamped = 0
+    for item in items:
+        before = _side(item.before_value, item.before_fp)
+        stale = [key for key in _MARKER.findall(before) if key != restamp.current_key_id]
+        if not stale:
+            kept.append(item)
+            continue
+        after = _side(item.after_value, item.after_fp)
+        if restamp.old_key_id is not None:
+            after = _MARKER.sub(
+                lambda match: restamp.twins.get(match.group(0), match.group(0)), after
+            )
+        unknown = {key for key in stale if key != restamp.old_key_id}
+        blurred = unknown | {restamp.current_key_id} if unknown else set()
+        if _blur(before, blurred) == _blur(after, blurred):
+            restamped += len(stale)
+        else:
+            kept.append(item)
+    return kept, restamped
 
 
 @dataclass(frozen=True, slots=True)

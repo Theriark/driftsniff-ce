@@ -1,4 +1,4 @@
-"""API tokens (P9-T3): creation, scopes, expiry, revocation, audit and the admin routes.
+"""API tokens: creation, scopes, expiry, revocation, audit and the admin routes.
 
 The tests drive the real application with a migrated database, a cheap argon2 setting and an
 injected clock. A token value must never be recoverable from the database, the list, the audit

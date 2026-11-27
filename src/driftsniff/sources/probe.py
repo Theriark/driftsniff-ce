@@ -1,4 +1,4 @@
-"""Test connection: the read-only probe behind the button of the source forms (P10-T5).
+"""Test connection: the read-only probe behind the button of the source forms.
 
 ``run_probe`` takes a collector that was built from the values of a form (a new source, or the
 edit form of a stored one) and asks it what a run would ask: the version (``probe``), the

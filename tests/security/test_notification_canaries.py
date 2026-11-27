@@ -1,4 +1,4 @@
-"""Canary test of the notifications (P9-T4): no before or after value or path reaches a message.
+"""Canary test of the notifications: no before or after value or path reaches a message.
 
 An event is stored whose items hold a canary in every place a change can carry data: the before
 and after values, the object name and the path. The event is delivered by webhook and by mail

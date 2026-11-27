@@ -1,4 +1,4 @@
-"""The mail sender (P9-T4, docs/notifications.md).
+"""The mail sender (docs/notifications.md).
 
 The mail carries the same fields as the webhook body, as plain text. The connection is always
 encrypted: ``starttls`` (the default; the session is upgraded before the login and the message

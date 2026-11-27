@@ -1,4 +1,4 @@
-"""Canary leak tests (P3-T4): no canary on any surface, and proof that the harness can fail."""
+"""Canary leak tests: no canary on any surface, and proof that the harness can fail."""
 
 import base64
 import logging

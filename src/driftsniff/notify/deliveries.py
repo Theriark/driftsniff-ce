@@ -1,4 +1,4 @@
-"""The notification channel and its deliveries (P9-T4, docs/notifications.md).
+"""The notification channel and its deliveries (docs/notifications.md).
 
 ``NotificationService`` keeps the one channel (a webhook or an SMTP account), decides which change
 events are sent, sends them with retries and stores every attempt.

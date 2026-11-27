@@ -25,7 +25,7 @@ entropy in logs, so file names, host names and module names stay readable.
 import logging
 import re
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from driftsniff.core.canonical import JsonValue
 from driftsniff.core.normalize import FieldClass, TypeTable
@@ -57,6 +57,19 @@ class ForcedSecret:
 
 
 @dataclass(frozen=True, slots=True)
+class Twins:
+    """During a rekey: for every fingerprint made with the current key, the stored form the old
+    key makes of the same value. Only stored forms are kept, never the value.
+    """
+
+    old: Fingerprinter
+    markers: dict[str, str] = field(default_factory=dict)
+
+    def record(self, made: str, resource_type: str, path: str, value: JsonValue) -> None:
+        self.markers[made] = self.old.fingerprint(resource_type, path, value).marker()
+
+
+@dataclass(frozen=True, slots=True)
 class RedactionResult:
     """The redacted object and what the redaction did (never the redacted values)."""
 
@@ -76,11 +89,13 @@ class _Redactor:
         resource_type: str,
         fingerprinter: Fingerprinter,
         overrides: Overrides,
+        twins: Twins | None,
     ) -> None:
         self._type_table = type_table
         self._resource_type = resource_type
         self._fingerprinter = fingerprinter
         self._overrides = overrides
+        self._twins = twins
         self.fingerprints = 0
         self.forced: list[ForcedSecret] = []
 
@@ -110,7 +125,10 @@ class _Redactor:
         if value is None:
             return None
         self.fingerprints += 1
-        return self._fingerprinter.fingerprint(self._resource_type, path, value).marker()
+        marker = self._fingerprinter.fingerprint(self._resource_type, path, value).marker()
+        if self._twins is not None:
+            self._twins.record(marker, self._resource_type, path, value)
+        return marker
 
     def _scan(self, path: str, text: str) -> JsonValue:
         for rule in scan_text(text):
@@ -126,11 +144,16 @@ def redact_object(
     raw: Mapping[str, JsonValue],
     fingerprinter: Fingerprinter,
     overrides: Overrides = NO_OVERRIDES,
+    twins: Twins | None = None,
 ) -> RedactionResult:
-    """Redact one raw controller object of ``resource_type``; the input is not changed."""
+    """Redact one raw controller object of ``resource_type``; the input is not changed.
+
+    ``twins`` is given while a rekey runs with the old key; it records the old-key twin of
+    every fingerprint made (:mod:`driftsniff.secrets.rekey`).
+    """
     if not isinstance(raw, Mapping):
         raise TypeError("a raw object must be a mapping")
-    redactor = _Redactor(type_table, resource_type, fingerprinter, overrides)
+    redactor = _Redactor(type_table, resource_type, fingerprinter, overrides, twins)
     value = redactor.mapping("", raw)
     return RedactionResult(value, redactor.fingerprints, tuple(redactor.forced))
 

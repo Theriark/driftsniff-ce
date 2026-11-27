@@ -1,4 +1,4 @@
-"""The Jinja environment of the web interface and the helpers its templates use (P10-T2).
+"""The Jinja environment of the web interface and the helpers its templates use.
 
 Every page extends ``base.html`` (the app shell: the sidebar with the grouped navigation and the
 user menu, the top bar, skip link, main landmark, footer) and builds its content from the macros
@@ -47,9 +47,9 @@ STATUS_ICONS: Final = {
 DENSITIES: Final = ("comfortable", "compact")
 
 # The navigation of the shell: key, label, path. The key marks the current page. Only pages that
-# exist are listed (Delivery decision on P10-T5): each P10 task added its own entry back, in this
-# order, when its page landed: Changes (/changes, P10-T6), History and Configuration (P10-T7),
-# Settings (/settings, P10-T8).
+# exist are listed (a delivery decision): each interface task added its own entry back, in this
+# order, when its page landed: Changes (/changes), History and Configuration,
+# Settings (/settings).
 NAV_ITEMS: Final = (
     ("dashboard", "Dashboard", "/"),
     ("changes", "Changes", "/changes"),
@@ -59,7 +59,7 @@ NAV_ITEMS: Final = (
     ("settings", "Settings", "/settings"),
 )
 
-# The sidebar groups of the entries above (UI revision WP1, THE-1101): what happened (Monitor),
+# The sidebar groups of the entries above: what happened (Monitor),
 # what is watched (Inventory) and, for admins only, the settings (Admin). A group never shows a
 # link to a page that answers 404, nor one that answers 403 to the reader.
 NAV_GROUPS: Final = (
@@ -90,9 +90,9 @@ TOPBAR_ACTION: Final = ("Add source", "/sources/new")
 # Drift line geometry (docs/design-direction.md section 2): a 32 unit tall strip under the axis
 # "30 days ago ... today", one day every 20 units with 30 days ago at 10 and today at 610, so the
 # strip is 620 wide. A mark sits at the time of its check, never at its place in the list
-# (THE-1402 F2: packed from the left, a change of today read as 30 days old). The pad holds the
+# (packed from the left, a change of today read as 30 days old). The pad holds the
 # widest mark (9 units each side of its centre) and the 2 unit focus stroke around it: the 8 unit
-# pad of the mock-ups cut the critical mark at today by 1 unit, 2 when focused (THE-1416).
+# pad of the mock-ups cut the critical mark at today by 1 unit, 2 when focused.
 DRIFT_STEP: Final = 20
 DRIFT_PAD: Final = 10
 DRIFT_HEIGHT: Final = 32

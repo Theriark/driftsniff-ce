@@ -1,4 +1,4 @@
-"""The static file route (P10-T2): the stylesheet, htmx and the brand copies, nothing else."""
+"""The static file route: the stylesheet, htmx and the brand copies, nothing else."""
 
 from pathlib import Path
 

@@ -1,4 +1,4 @@
-"""The golden table of the rule engine: 23 realistic changes and their expected severity (P5-T4).
+"""The golden table of the rule engine: 23 realistic changes and their expected severity.
 
 Section 15 of the Dev work plan lists the rows. Each row builds two collections of one resource,
 runs the real chain (``compare``, ``compare_order``, the rule engine) against the test-only type
@@ -9,7 +9,7 @@ must produce no item at all.
 
 Rows 1 to 9 are the false positive controls, 10 to 16 the false negative controls, 17 to 19 the
 right-by-luck controls and 21 and 22 the precedence and order controls. Field names of the UniFi
-rows are illustrative until P7-T1 maps them to the vendor reference.
+rows are illustrative until the UniFi type tables map them to the vendor reference.
 """
 
 from dataclasses import dataclass

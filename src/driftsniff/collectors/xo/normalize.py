@@ -1,4 +1,4 @@
-"""What the Xen Orchestra collector does to the objects before the pipeline sees them (P8-T2).
+"""What the Xen Orchestra collector does to the objects before the pipeline sees them.
 
 * Objects are sorted by id: the returned order of a collection is never trusted (notes, statement
   3), so the order the pipeline sees does not depend on it.

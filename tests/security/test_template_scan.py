@@ -1,5 +1,5 @@
-"""Template scan (P9-T2): no template may switch off escaping, and no code may build an
-environment with autoescape off. P10 adds the templates; this test is already in place."""
+"""Template scan: no template may switch off escaping, and no code may build an
+environment with autoescape off."""
 
 import re
 from pathlib import Path

@@ -1,4 +1,4 @@
-"""Resolving the address of a controller and refusing blocked targets (P8-T2, G1).
+"""Resolving the address of a controller and refusing blocked targets (G1).
 
 A collector resolves the host name of its source once, in ``probe()``, and checks every address it
 gets with :func:`~driftsniff.sources.addresses.blocked_reason` (the cloud metadata range,

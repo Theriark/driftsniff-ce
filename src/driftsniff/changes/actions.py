@@ -1,4 +1,4 @@
-"""Acknowledge, note and mute: what a person does to a change (P10-T6, backend slice).
+"""Acknowledge, note and mute: what a person does to a change (backend slice).
 
 Every action needs the ``operator`` role or higher (a viewer reads only); the service checks it
 itself, so a route that forgets the dependency still cannot write. Every action runs in one write

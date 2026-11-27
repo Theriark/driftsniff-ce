@@ -1,4 +1,4 @@
-"""The History and Configuration pages through the real application (P10-T7, frontend slice).
+"""The History and Configuration pages through the real application (frontend slice).
 
 The JSON answers and their status codes are slice A's (``test_history_routes.py``); these tests
 ask the same routes for pages, the way a browser does, and check what a person sees: the baseline
@@ -84,7 +84,7 @@ def test_the_history_page_marks_the_baseline_and_the_current_reading(kit: Kit) -
     # once in the key above the table, once on the reading itself
     assert text.count('class="mark mark--baseline"') == 2
     assert text.count('class="mark mark--current"') == 2
-    # each reading is a link to the configuration it stored (DRS-465)
+    # each reading is a link to the configuration it stored
     assert re.search(
         r'<a class="ledger__word" href="/configuration/1\?snapshot=\d+">Baseline<', text
     )

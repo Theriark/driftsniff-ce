@@ -1,4 +1,4 @@
-"""The source options the forms of P10-T5 add: resources turned off and the XO credential expiry."""
+"""The source options the source forms add: resources turned off and the XO credential expiry."""
 
 from typing import Any
 

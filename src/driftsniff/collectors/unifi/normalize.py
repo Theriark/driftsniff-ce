@@ -1,4 +1,4 @@
-"""What the UniFi collector does to raw objects before the pipeline normalises them (P7-T4).
+"""What the UniFi collector does to raw objects before the pipeline normalises them.
 
 Two jobs, both on raw dictionaries and neither with any vendor knowledge beyond the names in
 ``resources.py`` (verified on UniFi Network 10.6.109, docs/vendor-notes/unifi.md):

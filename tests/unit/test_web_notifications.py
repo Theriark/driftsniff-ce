@@ -1,4 +1,4 @@
-"""The admin routes of the notification channel (P9-T4): roles, CSRF, input, secrets in answers.
+"""The admin routes of the notification channel: roles, CSRF, input, secrets in answers.
 
 The tests drive the real application with a migrated database and a cheap argon2 setting. The
 webhook of the test button is a tiny receiver on 127.0.0.1 in this file.

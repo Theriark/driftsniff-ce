@@ -1,9 +1,9 @@
-"""The settings page through the real application (P10-T8 slice B, frontend).
+"""The settings page through the real application (slice B, frontend).
 
 Slice A's tests (``test_settings_routes.py``, ``test_settings_canaries.py``) ask the routes for
 JSON. These ask them the way a browser does, with ``Accept: text/html`` and plain form posts that
-carry the CSRF value as a field, and check what a person sees. The acceptance checks of P10-T8
-(THE-1262), each with its tests here:
+carry the CSRF value as a field, and check what a person sees. The acceptance checks of the
+settings page, each with its tests here:
 
 1. the page is the admin's; operator and viewer get the not-allowed page, nobody is sent to sign
    in, and no link on the page answers 404: ``test_an_admin_gets_the_page_with_its_five_parts``,
@@ -30,12 +30,12 @@ carry the CSRF value as a field, and check what a person sees. The acceptance ch
 7. the browser check at 1440, 768 and 390 in both themes is evidence of the task, not a test; the
    stylesheet the page loads is checked in ``test_the_page_loads_its_stylesheet_after_the_shell``.
 
-Carry-overs of the PR 107 verdicts (THE-1269, THE-1270): the last-admin guard through the HTTP
+Carry-overs of the PR 107 verdicts: the last-admin guard through the HTTP
 route (``test_the_last_enabled_admin_cannot_be_disabled_through_the_route`` and
 ``test_an_admin_cannot_disable_their_own_account_from_the_page``; there is no route that changes
 a role, see ``test_no_route_changes_a_role``) and the generic text for an unknown field
 (``test_an_unknown_field_is_refused_without_repeating_its_name``). Carry-overs of the PR 108
-review (THE-1269 notes, THE-1278): number fields carry the server's bounds, a refused channel
+review (notes): number fields carry the server's bounds, a refused channel
 does not fill the SMTP login back in, and a show-once answer turns a reload into the plain page.
 Everything is synthetic; text that must never be shown starts with CANARY-.
 """
@@ -245,7 +245,7 @@ def test_revoking_a_token_comes_back_with_a_notice(kit: Kit) -> None:
 
 
 def test_the_tokens_tab_counts_the_tokens_its_table_lists(kit: Kit) -> None:
-    """THE-1402 F8: the tab said API tokens 0 above a table of two revoked tokens."""
+    """The tab said API tokens 0 above a table of two revoked tokens."""
     admin = kit.new_session("admin")
     for info in kit.tokens.list_tokens():
         submit(kit, admin, f"/tokens/{info.token_id}/revoke", {})
@@ -599,7 +599,7 @@ def test_a_user_who_signs_in_after_a_disable_is_refused(kit: Kit) -> None:
     kit.client.cookies.clear()
 
 
-# ---- carry-overs of the PR 108 notes (THE-1269 review, THE-1278) -----------------------------
+# ---- carry-overs of the PR 108 notes (review) -----------------------------
 
 ONCE_SCRIPT = f'<script src="{static_url("settings-once.js")}" defer></script>'
 

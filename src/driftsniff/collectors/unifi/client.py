@@ -1,4 +1,4 @@
-"""The UniFi client: probe, version floor and paging (P7-T2).
+"""The UniFi client: probe, version floor and paging.
 
 ``UnifiClient`` is a :class:`~driftsniff.collectors.base.Collector` for the integration API of the
 UniFi Network application (docs/unifi-client.md has the user view). The header name, the
@@ -21,9 +21,9 @@ resource paths and the firewall ordering shape were verified against UniFi Netwo
 * Raw objects go to the pipeline untouched. Only the paging envelope and the object key are read
   through pydantic (``models.py``).
 
-TLS modes come from ``collectors/tls.py`` (P7-T3): the caller passes the settings of the source.
+TLS modes come from ``collectors/tls.py``: the caller passes the settings of the source.
 
-* Ordering (P7-T4): firewall policies and ACL rules come with a separate ordering document. The
+* Ordering: firewall policies and ACL rules come with a separate ordering document. The
   client reads it for every site and returns the objects in position order, with ``actionType``
   copied from ``action.type`` (``normalize.py``). An object the ordering does not name is appended
   and an id without an object is dropped; the result then carries the warning

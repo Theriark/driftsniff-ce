@@ -1,4 +1,4 @@
-"""The Xen Orchestra client against a fake server on localhost (P8-T2).
+"""The Xen Orchestra client against a fake server on localhost.
 
 Every acceptance check of the plan has a test: flat memory for a large collection (200,000 small
 objects served from a generator), excluded collections never requested, the credential never in a

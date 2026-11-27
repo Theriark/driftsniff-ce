@@ -1,4 +1,4 @@
-"""Small pieces of the notification channel (P9-T4): configuration, message, target check, crypto.
+"""Small pieces of the notification channel: configuration, message, target check, crypto.
 
 The senders and the service have their own tests in ``tests/contract``; this file covers what needs
 no network: field validation, the stored form and the safe view of a configuration, the cleaning of

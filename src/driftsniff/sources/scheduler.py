@@ -110,7 +110,7 @@ class Scheduler:
     """Runs the polled sources of one database on their intervals.
 
     ``collector_factory`` makes the collector for one run of a source (the UniFi and XO
-    collectors of P7 and P8 provide it); it is called in a worker thread and may raise. Every
+    collectors provide it); it is called in a worker thread and may raise. Every
     method except ``__init__`` must be used from the thread of the event loop.
     """
 

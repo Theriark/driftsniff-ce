@@ -1,4 +1,4 @@
-{# The server-drawn charts of the dashboard (P10-T4): the posture ring, the trend chart and the
+{# The server-drawn charts of the dashboard: the posture ring, the trend chart and the
    bar list. Every chart carries a title, a desc and a text alternative (the ring lists its
    counts with the severity badges, the trend chart has its table, the bar list is text), and
    no colour carries a meaning alone. The numbers and the geometry come from
@@ -30,10 +30,10 @@
    a 600 by 154 drawing, and the description. The table behind the disclosure is the text
    alternative; it lists the days that had items. The wrapper scrolls when the card is
    narrower than the drawing and nothing in it can take the focus, so the wrapper itself is a
-   focusable group named by the chart title: a keyboard reaches the scroll (THE-1351). The
+   focusable group named by the chart title: a keyboard reaches the scroll. The
    y-axis labels sit in a column of their own beside the wrapper, as tall as the plot, so they
-   stay in view while the plot scrolls (THE-1371). Both axes are HTML text, not SVG text, so
-   they never scale below 14 px with the drawing (THE-1402 F3); they repeat the table and the
+   stay in view while the plot scrolls. Both axes are HTML text, not SVG text, so
+   they never scale below 14 px with the drawing; they repeat the table and the
    title, so they are hidden from assistive technology. #}
 {% macro trend_chart(trend, id_prefix) %}
 <div class="chart-frame">

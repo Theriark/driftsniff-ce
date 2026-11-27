@@ -1,4 +1,4 @@
-"""The small pieces of the Xen Orchestra collector (P8-T2): paths, field list, clean up, expiry.
+"""The small pieces of the Xen Orchestra collector: paths, field list, clean up, expiry.
 
 No server is needed here; ``tests/contract/test_xo_client.py`` runs the client against a fake one.
 """

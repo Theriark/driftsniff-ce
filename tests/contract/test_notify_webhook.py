@@ -1,4 +1,4 @@
-"""The webhook sender against a local receiver (P9-T4).
+"""The webhook sender against a local receiver.
 
 Covers the signature (a receiver can verify it), the headers, the retry classes, redirects that are
 never followed, and the send-time target check: the cloud metadata range, link-local addresses and

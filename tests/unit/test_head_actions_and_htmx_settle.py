@@ -1,4 +1,4 @@
-"""Two findings of the browser check on Development (THE-1043, fixed in THE-1096).
+"""Two findings of the browser check on Development, since fixed.
 
 1. htmx 2 copies class, style, width and height across a swap by default. The content security
    policy allows no inline style, so each copied style attribute was a violation in the console:

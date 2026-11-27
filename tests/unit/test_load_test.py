@@ -1,4 +1,4 @@
-"""Tests for scripts/load_test.py (P11-T1): the fixture, the verdicts and the container steps.
+"""Tests for scripts/load_test.py: the fixture, the verdicts and the container steps.
 
 The fixture tests are exact. The end-to-end test runs a small fixture through the real pipeline
 (a migrated database, the shipped rules). The container steps run against a fake docker command, so

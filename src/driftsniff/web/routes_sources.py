@@ -1,6 +1,6 @@
-"""The sources pages (P10-T5, docs/web-interface.md section 10): list, add, edit, test, run, delete.
+"""The sources pages (docs/web-interface.md section 10): list, add, edit, test, run, delete.
 
-Roles (P9-T1): a viewer reads the source list and the source page; an operator may also start a
+Roles: a viewer reads the source list and the source page; an operator may also start a
 run now; an admin adds, edits, tests, enables, disables and deletes sources and makes the sender
 key of a push source. The role check is a dependency of each route, so it runs before anything
 else, and the security suite lists every route here in its route table.

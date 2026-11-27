@@ -1,4 +1,4 @@
-"""The admin settings service (P10-T8 slice A): retention window, storage warning, users, About.
+"""The admin settings service (slice A): retention window, storage warning, users, About.
 
 The service runs on a migrated database with a cheap argon2 setting and a frozen clock. Passwords
 are canaries that must never reach an audit event or a listed user.

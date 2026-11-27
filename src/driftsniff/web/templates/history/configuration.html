@@ -1,4 +1,4 @@
-{# The current configuration of one source (P10-T7). view is a
+{# The current configuration of one source. view is a
    driftsniff.history.views.ConfigurationView: the newest reading, one resource at a time, 50
    objects a page. Left the resource rail (name, count, whether its order matters), right the
    object sheets with their fields in the value face. An ordered resource carries the 1-based
@@ -21,7 +21,7 @@
 {% endcall %}
 <div class="section">{{ state("error", unreadable[0], unreadable[1], retry_href) }}</div>
 {% else %}
-{# an older reading (DRS-465) keeps its id in the search; the newest needs none #}
+{# an older reading keeps its id in the search; the newest needs none #}
 {% set reading = view.snapshot.id if view.snapshot and not view.snapshot.is_newest else none %}
 {% call source_head("Configuration", "/configuration", view.source, "configuration") %}
 <span>{{ type_label }}{% if not view.source.enabled %}, disabled{% endif %}</span>

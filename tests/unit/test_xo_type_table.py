@@ -1,4 +1,4 @@
-"""The shipped Xen Orchestra type tables (P8-T1).
+"""The shipped Xen Orchestra type tables.
 
 ``rules/types/xo.yaml`` is loaded from the package, the way the application loads it. The field
 names are unverified (the vendor reference was not read and no lab Xen Orchestra was used), so the
@@ -95,7 +95,7 @@ IGNORED: dict[str, list[str]] = {
     "users": ["last_uses"],
 }
 
-# The collections that the collector never requests (plan, P8-T1). None may have a type table.
+# The collections that the collector never requests (plan). None may have a type table.
 EXCLUDED = (
     "tasks alarms messages backup-logs restore-logs backup-archives events vm-snapshots "
     "vdi-snapshots licenses sms pcis pgpus vm-controller xoa"
@@ -291,7 +291,7 @@ def test_a_bad_hidden_by_xo_list_is_refused(hidden: object) -> None:
 
 
 def test_there_is_no_derived_resource_for_the_backup_job_settings(index: RuleIndex) -> None:
-    # Decision of Core on THE-359: the settings are nested fields of the backup job.
+    # A design decision: the settings are nested fields of the backup job.
     assert "backup-job-settings" not in index.type_tables
     jobs = table(index, "backup-jobs")
     # Settings keyed by schedule id, seen on two real XO 5 servers (2026-11-13), are a subtree.

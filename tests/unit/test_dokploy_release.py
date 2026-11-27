@@ -150,7 +150,7 @@ def test_current_image_rejects_a_non_string_even_when_lenient(
         module.current_image(APP, allow_missing=True)
 
 
-# --- retry behaviour of request_json (THE-640 design, tests added in THE-652) ---------------
+# --- retry behaviour of request_json (design and tests) ---------------------------
 
 
 class FakeResponse:
@@ -448,7 +448,7 @@ def test_success_path_is_unchanged_and_never_sleeps(monkeypatch: pytest.MonkeyPa
     assert sleeps == []
 
 
-# --- HTTP 401 retry on read calls (THE-692) -------------------------------------------------
+# --- HTTP 401 retry on read calls -------------------------------------------------
 
 
 def test_read_retried_after_a_401_then_succeeds(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -685,7 +685,7 @@ def test_post_health_reread_retries_a_401_without_a_second_deployment(
 def test_post_health_reread_survives_a_401_window_longer_than_the_short_budget(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """THE-1033: four 401s over ~33s used to fail a deployment that had worked."""
+    """Four 401s over ~33s used to fail a deployment that had worked."""
     module = load_module()
     fake, sleeps = install_http(
         monkeypatch,
@@ -792,7 +792,7 @@ def test_post_health_reread_does_not_retry_a_404(monkeypatch: pytest.MonkeyPatch
     assert sleeps == []
 
 
-# --- output ordering (THE-1034) -------------------------------------------------------------
+# --- output ordering -------------------------------------------------------------
 
 
 class RecordingStream:

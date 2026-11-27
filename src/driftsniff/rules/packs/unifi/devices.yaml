@@ -1,4 +1,4 @@
-# UniFi rules for adopted devices (P7-T4). The connection state and whether newer firmware exists
+# UniFi rules for adopted devices. The connection state and whether newer firmware exists
 # are ignore class in the type table (they change by themselves) and never reach a rule. The
 # catch-all rule (path **) rates an adopted or removed device medium, with a reason.
 version: 1

@@ -1,4 +1,4 @@
-"""The drawing of the Change Replay on the source page (WP4c of the interface revision).
+"""The drawing of the Change Replay on the source page (interface revision).
 
 ``replay_view`` turns a ``driftsniff.web.replay.Replay`` (the value ``GET /sources/{id}/replay``
 returns as JSON) into plain values that ``sources/_replay.html`` prints: a heat map with one row
@@ -33,13 +33,13 @@ from driftsniff.web.templating import SEVERITIES, number
 WINDOWS: Final = (7, 30, 90)
 LABEL_WIDTH: Final = 128
 # the names end 8 units before the cells; 10 cut the widest name (119.1 px) at a 118 anchor by
-# about 1 px on the left (THE-1416). LABEL_WIDTH cannot grow: the 30 day map fills a 768 screen
+# about 1 px on the left. LABEL_WIDTH cannot grow: the 30 day map fills a 768 screen
 LABEL_GAP: Final = 8
 ROW_HEIGHT: Final = 24
 CELL_HEIGHT: Final = 20
 AXIS_HEIGHT: Final = 24
 # 17 characters of 14 px text: the widest known name cut to 17 measured 119.1 px on Dev
-# (THE-1405), inside the 120 unit anchor (LABEL_WIDTH - LABEL_GAP); Firewall policies stays whole
+# inside the 120 unit anchor (LABEL_WIDTH - LABEL_GAP); Firewall policies stays whole
 LABEL_CHARS: Final = 17
 LEVELS: Final = 4
 # per window: the width of one day column, the gap between two cells, the digits a cell can print

@@ -1,4 +1,4 @@
-"""The change list's search on a phone (THE-1161, from the THE-1138 acceptance of WP2).
+"""The change list's search on a phone (from an acceptance check).
 
 At 390 px the search shared its row with Filters and Apply and was clipped to "Search chang".
 Below 440 px of filter bar the search takes a row of its own. The bar is a size container named

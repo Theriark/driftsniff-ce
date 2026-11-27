@@ -1,4 +1,4 @@
-"""The UniFi rows of the golden table against the shipped pack and type tables (P7-T4).
+"""The UniFi rows of the golden table against the shipped pack and type tables.
 
 ``test_golden_table.py`` runs all 23 rows against test-only tables. Here the rows whose resource is
 a UniFi resource run again, against ``rules/types/unifi.yaml`` and ``rules/packs/unifi`` as the

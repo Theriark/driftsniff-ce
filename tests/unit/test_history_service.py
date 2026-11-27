@@ -1,4 +1,4 @@
-"""The snapshot history and the current configuration (P10-T7, backend slice).
+"""The snapshot history and the current configuration (backend slice).
 
 The tests drive the services against a migrated database. Snapshots are stored through the real
 ``store_if_changed`` (and the object bookkeeping a run does), so the manifests and states are the
@@ -737,7 +737,7 @@ def test_the_service_builds_both_reads_on_one_database(store: Database) -> None:
 
 
 def test_an_older_reading_opens_with_the_values_it_stored(store: Database) -> None:
-    """DRS-465: every row of the history opens the configuration that reading stored."""
+    """Every row of the history opens the configuration that reading stored."""
     older = save(store, collection(vlan=20), T1).snapshot_id
     newest = save(store, collection(vlan=30), T2).snapshot_id
     assert older is not None and newest is not None

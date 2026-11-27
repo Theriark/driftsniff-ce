@@ -1,4 +1,4 @@
-"""The newline delimited JSON reader of the collector base (P8-T2).
+"""The newline delimited JSON reader of the collector base.
 
 It reads a streamed body in chunks and parses it line by line. The limits count bytes while the body
 streams, a bad line fails with a fixed text, and the transport failures are the ones of

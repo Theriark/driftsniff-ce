@@ -13,9 +13,9 @@ promote-stage.yml and release.yml call this so neither needs a typed input. The 
   candidates, else the next feature version 27.<minor + 1>.0.
 - The next candidate is rc.<highest n of the line + 1>. A commit that already carries a
   candidate of the line keeps it (a re-run never creates a second tag for the same commit).
-- The stable version of a commit is the line; the commit must carry a candidate of the line, or
-  (while the line is unreleased) a candidate numbered above it. A commit that already carries a
-  stable tag keeps it, so a re-run of release.yml finds the same version.
+- The stable version of a commit is the line; the commit must carry a candidate of the line. A
+  commit that already carries a stable tag and a candidate of it keeps that version, so a re-run
+  of release.yml finds the same version.
 
 Usage:
   release_version.py candidate COMMIT   prints "<candidate tag> new|existing"
@@ -78,19 +78,13 @@ def release(tags: Sequence[str], at_commit: Iterable[str]) -> tuple[str, str]:
     """(stable tag, candidate tag) for the commit Stage runs; ValueError when there is none."""
     here = _parsed(at_commit)
     stables = sorted(version for version, rc in here if rc is None)
+    # Already released: the re-run reports the same version and changes nothing.
+    current = stables[-1] if stables else line(tags)
+    own = [rc for version, rc in here if rc is not None and version == current]
+    if own:
+        return text(current), text(current, max(own))
     if stables:
-        # Already released: the re-run reports the same version and changes nothing.
-        stable = stables[-1]
-        found = [(version, rc) for version, rc in here if rc is not None and version >= stable]
-        if not found:
-            raise ValueError(f"{text(stable)} is on the commit but no release candidate is")
-        own = [item for item in found if item[0] == stable]
-        return text(stable), text(*max(own or found))
-    current = line(tags)
-    own = [(version, rc) for version, rc in here if rc is not None and version == current]
-    ahead = [(version, rc) for version, rc in here if rc is not None and version > current]
-    if own or ahead:
-        return text(current), text(*max(own or ahead))
+        raise ValueError(f"{text(current)} is on the commit but no release candidate of it is")
     raise ValueError(f"the commit carries no release candidate of {text(current)}")
 
 

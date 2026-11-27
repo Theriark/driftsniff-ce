@@ -1,4 +1,4 @@
-"""Canary leak test of the Xen Orchestra collector, one full run of the pool fixture (P8-T4).
+"""Canary leak test of the Xen Orchestra collector, one full run of the pool fixture.
 
 ``tests/fixtures/xo/pool.json`` has a placeholder in every place a credential can hide: the sign in
 methods of a user and the device configuration of a storage connection (secret class), the user and

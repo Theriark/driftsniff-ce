@@ -1,4 +1,4 @@
-"""The notification service: channel storage, severity filter, retries, stored deliveries (P9-T4).
+"""The notification service: channel storage, severity filter, retries, stored deliveries.
 
 Real webhook and mail senders talk to local receivers; the clock, the sleeps and the resolver are
 fakes, so the retry schedule is checked without waiting. The channel configuration (a URL that

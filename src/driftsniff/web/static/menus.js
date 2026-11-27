@@ -1,4 +1,4 @@
-/* Escape closes the open menu of the shell (DRS-466).
+/* Escape closes the open menu of the shell.
 
    The user menu and the phone navigation are details elements, so they open and close without
    script; a details element has no key of its own to close it. Escape closes whichever is open

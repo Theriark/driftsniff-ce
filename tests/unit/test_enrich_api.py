@@ -1,4 +1,4 @@
-"""The change and enrichment API (P9-T5): lists, details, scopes, limits and the OpenAPI document.
+"""The change and enrichment API: lists, details, scopes, limits and the OpenAPI document.
 
 The tests drive the real application with a migrated database and tokens made by the real token
 service. Changes are written straight into the tables, the way the run pipeline writes them. Text

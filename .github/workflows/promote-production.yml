@@ -70,8 +70,8 @@ jobs:
       DOKPLOY_API_KEY: ${{ secrets.DOKPLOY_API_KEY }}
       CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
       CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
-      DOKPLOY_STAGE_APPLICATION_ID: lhB_AOqk4FTEaHhEQcPKj
-      STAGE_HOST: ce-stg-driftsniff.theriark.dev
+      DOKPLOY_STAGE_APPLICATION_ID: ${{ vars.DOKPLOY_STAGE_APPLICATION_ID }}
+      STAGE_HOST: ${{ vars.STAGE_HOST }}
       DOKPLOY_PRODUCTION_APPLICATION_ID: ${{ vars.DOKPLOY_PRODUCTION_APPLICATION_ID }}
       PRODUCTION_HOST: ${{ vars.PRODUCTION_HOST }}
 
@@ -97,7 +97,7 @@ jobs:
             echo "::error::Production promotion must run from development; received ${GITHUB_REF}"
             exit 1
           }
-          for required in DOKPLOY_URL DOKPLOY_API_KEY CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET DOKPLOY_PRODUCTION_APPLICATION_ID PRODUCTION_HOST; do
+          for required in DOKPLOY_URL DOKPLOY_API_KEY CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET DOKPLOY_STAGE_APPLICATION_ID STAGE_HOST DOKPLOY_PRODUCTION_APPLICATION_ID PRODUCTION_HOST; do
             [[ -n "${!required}" ]] || {
               echo "::error::${required} is missing"
               exit 1

@@ -1,4 +1,4 @@
-"""The UniFi resources the collector reads and where it reads them (P7-T2).
+"""The UniFi resources the collector reads and where it reads them.
 
 Every resource path below answered 200 on a real UniFi Network 10.6.109 controller on 2026-11-13
 (docs/vendor-notes/unifi.md). If a later version moves one, correct :data:`RESOURCES` and nothing
@@ -8,7 +8,7 @@ else has to change.
 table keeps it as a placeholder). A resource that is not listed keeps its previous state in the
 run pipeline, so leaving it out can never report an object as removed.
 
-The ordering lists of firewall policies and ACL rules are separate documents (P7-T4). The firewall
+The ordering lists of firewall policies and ACL rules are separate documents. The firewall
 ordering path and its answer were verified on 10.6.109; the ACL one was not (that controller has no
 ACL rules). ``collectors/unifi/normalize.py`` merges them into the position list of the resource.
 """
@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from typing import Final
 
 # Base paths in the order the probe tries them: the direct integration path, then the console
-# proxy path (plan, P7-T2). Both are unverified.
+# proxy path (plan). Both are unverified.
 BASE_PATHS: Final = ("/integration", "/proxy/network/integration")
 API_VERSION_PREFIX: Final = "/v1"
 INFO_PATH: Final = "/info"

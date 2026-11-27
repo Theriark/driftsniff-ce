@@ -1,4 +1,4 @@
-"""The Change Replay drawing of the source page (UI revision WP4c, THE-1197).
+"""The Change Replay drawing of the source page.
 
 - Nothing is invented: every cell is a day and resource type of the replay, its counts add up to
   the replay's, and a window without items has no map, no facts and no cursor panel.
@@ -172,7 +172,7 @@ def test_a_cell_prints_its_count_only_where_it_fits() -> None:
 
 
 def test_the_map_text_meets_the_14_px_floor_and_fits_its_cells() -> None:
-    """THE-1402 F3: the row and day labels were 13 px and the cell counts 11 px. Both drawings
+    """The row and day labels were 13 px and the cell counts 11 px. Both drawings
     are one unit per CSS pixel, so 14 units are 14 px; a 15 px cell of the 30 day window then
     holds one bold digit."""
     sheet = (STATIC / "replay.css").read_text(encoding="utf-8")
@@ -355,7 +355,7 @@ def test_the_row_names_are_a_drawing_beside_the_scroller_so_they_never_scroll_aw
 
 
 def test_the_widest_row_name_ends_inside_the_name_drawing() -> None:
-    """THE-1416: the names were anchored at x 118 and the widest known name cut to 17 characters
+    """The names were anchored at x 118 and the widest known name cut to 17 characters
     measured 119.1 px at 14 px on Development, so about 1 px of its first letter was cut off."""
     labels = [a for tag, a in Tags(render_section(replay_of(FIXTURE))).tags if tag == "text"]
     xs = {a.get("x") for a in labels if a.get("class") == "replay-label"}
@@ -366,7 +366,7 @@ def test_the_widest_row_name_ends_inside_the_name_drawing() -> None:
 
 
 def test_a_day_without_items_offers_no_link_to_an_empty_list() -> None:
-    """THE-1402 F11: the panel of an empty day still offered Open the changes of that day."""
+    """The panel of an empty day still offered Open the changes of that day."""
     panel = environment().from_string(
         '{% from "sources/_replay.html" import day_panel %}{{ day_panel(summary) }}'
     )

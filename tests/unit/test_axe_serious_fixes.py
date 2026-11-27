@@ -1,4 +1,4 @@
-"""THE-1351: the serious axe findings of the THE-1315 browser journeys, fixed in the product.
+"""The serious axe findings of the browser journeys, fixed in the product.
 
 - D1 nested-interactive: a drift line with change marks drew its links inside an svg with
   role="img", whose children are presentational, so a screen reader could not reach them
@@ -178,8 +178,8 @@ def test_the_trend_chart_scroller_is_a_focusable_group_named_by_the_chart_title(
 
 
 def test_the_trend_chart_y_axis_stays_outside_the_scroller() -> None:
-    """THE-1371: the y-axis labels are their own drawing beside the scroller, so a scroll that
-    opens on today cannot hide them; the scroller keeps its focus and name (THE-1351)."""
+    """The y-axis labels are their own drawing beside the scroller, so a scroll that
+    opens on today cannot hide them; the scroller keeps its focus and name."""
     html = render_macro(
         '{% from "components/charts.html" import trend_chart %}{{ trend_chart(trend, "trend") }}',
         trend=trend(),

@@ -1,9 +1,9 @@
-"""Admin routes for the notification channel (P9-T4, docs/notifications.md).
+"""Admin routes for the notification channel (docs/notifications.md).
 
 Like the token routes these are routes of the interface, not of ``/api/v1``: an admin uses them
 with a session, so a write needs the session CSRF value. They take a form post or a JSON object
-and answer with JSON. A browser that asks for ``text/html`` gets the settings page instead (P10-T8,
-``driftsniff.web.settings_page``). A form can only post, so the page saves the channel with
+and answer with JSON. A browser that asks for ``text/html`` gets the settings page instead
+(``driftsniff.web.settings_page``). A form can only post, so the page saves the channel with
 ``POST /notifications/channel`` (the same as ``PUT``) and removes it with
 ``POST /notifications/channel/remove`` (the same as ``DELETE``).
 

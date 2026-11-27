@@ -1,4 +1,4 @@
-"""The Xen Orchestra rows of the golden table against the shipped pack and type tables (P8-T3).
+"""The Xen Orchestra rows of the golden table against the shipped pack and type tables.
 
 ``test_golden_table.py`` runs all 23 rows against test-only tables. Here the rows whose resource is
 a Xen Orchestra resource run again, against ``rules/types/xo.yaml`` and ``rules/packs/xo`` as the
