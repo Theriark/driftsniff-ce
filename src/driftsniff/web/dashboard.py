@@ -570,6 +570,17 @@ def resource_label(resource: str) -> str:
     return words[:1].upper() + words[1:] if words else resource
 
 
+def resource_filter_label(resource: str) -> str:
+    """A resource type's name for a list across products: "Checkmk hosts", not "Hosts", when
+    another product's type has the same name (DRS-472)."""
+    label = resource_label(resource)
+    product, _, rest = resource.partition("-")
+    shared = sum(1 for other in RESOURCE_LABELS.values() if other == label) > 1
+    if rest and shared and product in SOURCE_TYPE_LABELS:
+        return f"{SOURCE_TYPE_LABELS[product]} {label[:1].lower()}{label[1:]}"
+    return label
+
+
 def source_type_label(source_type: str) -> str:
     return SOURCE_TYPE_LABELS.get(source_type, source_type)
 

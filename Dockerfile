@@ -34,11 +34,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH=/app/src \
     DRIFTSNIFF_COMMIT=${SOURCE_SHA}
 
-# Pick up the Debian security fix for the OpenSSL libraries when the base layer is older than the
-# archive (CVE-2026-84782, fixed in 3.0.22-1~deb12u2). Only these two packages are upgraded, no
-# package is added, and the apt lists are removed so the layer carries no package index.
+# Pick up the Debian security fixes the base layer may be older than: the OpenSSL libraries
+# (CVE-2026-84782, fixed in 3.0.22-1~deb12u2) and Linux-PAM (CVE-2025-6020, fixed in
+# 1.5.2-6+deb12u3). Only these packages are upgraded, no package is added, and the apt lists are
+# removed so the layer carries no package index.
 RUN apt-get update \
     && apt-get install --yes --no-install-recommends --only-upgrade libssl3 openssl \
+        libpam-modules libpam-modules-bin libpam-runtime libpam0g \
     && rm -rf /var/lib/apt/lists/*
 
 # Fixed ids so volume ownership is the same on every host. /keys and /data are the only

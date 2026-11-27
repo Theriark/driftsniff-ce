@@ -26,7 +26,7 @@ from driftsniff.changes.queries import ChangeQueries
 from driftsniff.changes.views import ChangeFilters, ChangePageView, ItemView, MoveView
 from driftsniff.db.engine import Database
 from driftsniff.db.tables import SEVERITIES, change_items, sources
-from driftsniff.web.dashboard import resource_label
+from driftsniff.web.dashboard import resource_filter_label
 from driftsniff.web.templating import SEVERITY_LABELS
 
 LIST_PATH: Final = "/changes"
@@ -399,7 +399,7 @@ def filter_chips(filters: ChangeFilters, source_names: Mapping[int, str]) -> tup
     if filters.status:
         chips.append(FilterChip("Status", STATUS_LABELS[filters.status], without(status=None)))
     if filters.resource:
-        label = resource_label(filters.resource)
+        label = resource_filter_label(filters.resource)
         chips.append(FilterChip("Resource", label, without(resource=None)))
     if filters.created_from or filters.created_to:
         dropped = without(**{"from": None, "to": None})
@@ -461,7 +461,10 @@ class ChangePages:
             ).all()
             resource_rows = connection.execute(sa.select(change_items.c.resource).distinct()).all()
         resources = sorted(
-            (Choice(str(row.resource), resource_label(str(row.resource))) for row in resource_rows),
+            (
+                Choice(str(row.resource), resource_filter_label(str(row.resource)))
+                for row in resource_rows
+            ),
             key=lambda choice: (choice.label.lower(), choice.value),
         )
         return FilterOptions(

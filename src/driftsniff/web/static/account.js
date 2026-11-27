@@ -11,6 +11,13 @@ document.querySelectorAll("[data-account-picture]").forEach((form) => {
     error.textContent = text;
     error.hidden = !text;
     input.setAttribute("aria-invalid", text ? "true" : "false");
+    if (text) {
+      // a refusal ends the earlier success: drop its banner and its ?done= (DRS-470)
+      document.querySelectorAll(".settings-banners").forEach((banner) => banner.remove());
+      if (window.location.search.includes("done=")) {
+        window.history.replaceState(null, "", window.location.pathname);
+      }
+    }
   };
   form.hidden = false;
   form.addEventListener("submit", async (event) => {

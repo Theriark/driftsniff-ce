@@ -14,7 +14,7 @@ def make_client() -> TestClient:
 
 
 def test_version_is_the_first_development_release() -> None:
-    assert __version__ == "0.1.0.dev0"
+    assert __version__ == "27.0.0"
 
 
 def test_factory_builds_the_app_with_the_given_settings() -> None:

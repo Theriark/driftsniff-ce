@@ -41,7 +41,7 @@
     </div>
     <div class="form-row"><button class="btn" type="submit">Save name</button></div>
   </form>
-  <form class="settings-form account-picture" method="post" action="/account/picture" data-account-picture data-max-bytes="{{ max_picture_kb * 1024 }}" hidden aria-labelledby="picture-h">
+  <form class="settings-form account-picture" method="post" action="/account/picture" enctype="multipart/form-data" data-account-picture data-max-bytes="{{ max_picture_kb * 1024 }}" hidden aria-labelledby="picture-h">
     <input type="hidden" name="csrf_token" value="{{ shell.csrf_token }}">
     <h3 id="picture-h" class="visually-hidden">Picture</h3>
     <div class="field">

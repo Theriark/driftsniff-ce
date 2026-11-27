@@ -15,6 +15,7 @@ under the label hidden by XO (``hidden_by_xo`` of the type table).
 Nothing here reads a credential: ``SourceView`` only says whether one is stored.
 """
 
+import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
@@ -287,11 +288,15 @@ def _sort_key(sort: str) -> Callable[[SourceRow], tuple[Any, ...]]:
             name(row),
         )
     if sort == "version":
-        return lambda row: (
-            row.health.version is None,
-            (row.health.version or "").casefold(),
-            name(row),
-        )
+        # by the numbers of the version (2.21.4 before 12.2.1); a version that does not start with a
+        # number, and a source that reports none, go last (DRS-467)
+        def by_version(row: SourceRow) -> tuple[object, ...]:
+            version = (row.health.version or "").strip()
+            numbered = version[:1].isdigit()
+            numbers = tuple(int(part) for part in re.findall(r"d+", version)) if numbered else ()
+            return (not version, not numbered, numbers, version.casefold(), name(row))
+
+        return by_version
     return lambda row: (name(row),)
 
 
