@@ -1,4 +1,4 @@
-"""The Change Replay on the source page (UI revision WP4c, THE-1197) through the real application.
+"""The Change Replay on the source page through the real application.
 
 - Every role that reads the source page (viewer, operator, admin) gets the same replay: the cells
   are the stored change items of the source counted per UTC day and resource type, the same

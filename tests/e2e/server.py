@@ -1,4 +1,4 @@
-"""A real driftsniff process for the browser journeys (P10-T9, THE-1315).
+"""A real driftsniff process for the browser journeys.
 
 The journeys talk to the application the way a person does: ``driftsniff serve`` runs as a
 child process on a free loopback port with a temporary data directory and a temporary key

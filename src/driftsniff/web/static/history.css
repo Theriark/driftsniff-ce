@@ -1,4 +1,4 @@
-/* The History and Configuration pages (P10-T7, slice B). Loaded after app.css by the three
+/* The History and Configuration pages (slice B). Loaded after app.css by the three
    templates of templates/history/ only, through the head block of base.html; it uses the tokens
    of app.css and adds no colour. No style attribute and no inline style element is used: the
    content security policy blocks both. */
@@ -169,7 +169,7 @@
   color: var(--text);
 }
 
-/* the fade sits on the hover rule only, so a colour scheme change is instant (THE-1351) */
+/* the fade sits on the hover rule only, so a colour scheme change is instant */
 .resource-rail a:hover {
   background: var(--surface-2);
   transition: background var(--t-fast) var(--ease-out);
@@ -405,8 +405,8 @@
   }
 }
 
-/* the footnote under the configuration keeps a readable line, under 80 characters (THE-1402
-   F10: it ran about 150 characters wide at 1440) */
+/* the footnote under the configuration keeps a readable line, under 80 characters
+   (it ran about 150 characters wide at 1440) */
 .config-note {
   max-width: 72ch;
 }

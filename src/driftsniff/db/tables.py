@@ -130,7 +130,7 @@ sessions = sa.Table(
     _id(),
     _cascade_fk("user_id", "users.id"),
     sa.Column("token_hash", sa.Text, nullable=False),
-    # Checked on every state-changing request of the interface (P9-T2).
+    # Checked on every state-changing request of the interface.
     sa.Column("csrf_token", sa.Text, nullable=False),
     sa.Column("created_at", sa.Text, nullable=False),
     sa.Column("last_seen_at", sa.Text, nullable=False),

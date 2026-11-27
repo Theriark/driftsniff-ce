@@ -1,4 +1,4 @@
-/* The Change Replay of the source page (UI revision WP4c, THE-1197; sources/_replay.html).
+/* The Change Replay of the source page (sources/_replay.html).
    Only the source page loads this file. The heat map is ink on paper: four ink density steps
    (--heat-1 to --heat-4 of app.css, checked in docs/design-colours.json) shade a cell by its
    share of the busiest cell, a critical item rings the cell in the critical red, and the day

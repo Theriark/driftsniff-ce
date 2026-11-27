@@ -1,4 +1,4 @@
-/* The head of a detail page and what sits under it (THE-1096; UI revision WP3, THE-1161).
+/* The head of a detail page and what sits under it.
    Loaded after app.css through the head block of base.html by the source page, the change
    detail and the History and Configuration pages of a source; it uses the tokens of app.css
    and adds no colour. No style attribute and no inline style element is used: the content
@@ -19,7 +19,7 @@
   }
 }
 
-/* ---- detail pages (UI revision WP3, THE-1161) ------------------------------------------ */
+/* ---- detail pages ------------------------------------------------------------ */
 
 /* The tab strip under a summary head (components/details.html tab_strip): the parts of one
    thing as links on a rule. The current page is underlined in ink; a count sits beside its
@@ -55,7 +55,7 @@
   box-shadow: inset 0 -2px 0 transparent;
 }
 
-/* the fade sits on the hover rule only, so a colour scheme change is instant (THE-1351) */
+/* the fade sits on the hover rule only, so a colour scheme change is instant */
 .tabs a:hover {
   color: var(--text);
   box-shadow: inset 0 -2px 0 var(--slate);
@@ -85,7 +85,7 @@
 
 /* On a phone the strip wraps instead of hiding a tab past its edge. The 12 px gap keeps the five
    source tabs (about 301 px of labels) on one row of a 390 px screen's 354 px; at 16 px
-   Configuration wrapped alone onto a second row (THE-1416, F6). Narrower phones still wrap. */
+   Configuration wrapped alone onto a second row (F6). Narrower phones still wrap. */
 @media (max-width: 767px) {
   .tabs ul {
     flex-wrap: wrap;

@@ -1,4 +1,4 @@
-"""The ordering merge and the derived action field of the UniFi collector (P7-T4)."""
+"""The ordering merge and the derived action field of the UniFi collector."""
 
 from typing import Any
 

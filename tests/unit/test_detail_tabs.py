@@ -1,4 +1,4 @@
-"""The detail pages of the UI revision WP3 (THE-1161, plan THE-1052 section 2): a summary head,
+"""The detail pages of the UI revision: a summary head,
 the tabs under it and the side panel.
 
 - One source reads as one thing: its page (Overview, with Coverage and Runs as parts of it), its
@@ -172,7 +172,7 @@ def test_every_jump_of_the_source_tabs_lands_on_its_part() -> None:
                 assert href.split("#", 1)[1] in ids, href
         sections = parsed.find("section")
         targets = [a.get("id") for a in sections if "jump-target" in str(a.get("class"))]
-        # the replay is a jump target too: its window links land on it (WP4c, THE-1197)
+        # the replay is a jump target too: its window links land on it
         assert targets == ["overview", "replay", "coverage", "runs"]
 
 

@@ -1,4 +1,4 @@
-"""First-run browser check of the published application image (THE-1556, DRS-447).
+"""First-run browser check of the published application image.
 
 The image named by FIRST_RUN_IMAGE (an immutable ``repository@sha256:...`` reference) is pulled and
 started with EMPTY temporary volumes on its own 127.0.0.1 port. A real Chromium then walks the
@@ -254,7 +254,6 @@ def test_first_run_flow_on_published_image() -> None:
     artifacts.mkdir(parents=True, exist_ok=True)
     evidence: dict[str, Any] = {
         "check": "real browser against isolated first-run application image in CI",
-        "ticket": "THE-1556 / DRS-447",
         "shared_development_instance_used": False,
     }
     secrets_used: list[str] = []

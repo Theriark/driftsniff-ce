@@ -1,8 +1,8 @@
-"""The first-run setup, sign-in and sign-out pages and the browser status pages (P10-T3).
+"""The first-run setup, sign-in and sign-out pages and the browser status pages.
 
 The routes are driven through the real application with a migrated database and a cheap argon2
 setting. A browser is a client that asks for ``text/html``; the plain client (``*/*``) must keep
-the JSON answers of P9 (``test_web_auth.py``), so both are asked here. Passwords and codes are
+the JSON answers (``test_web_auth.py``), so both are asked here. Passwords and codes are
 canaries that must never come back in a page.
 """
 
@@ -292,7 +292,7 @@ def test_wrong_credentials_show_the_generic_error_and_keep_the_name(
     assert Parsed(unknown.text).input("username")["value"] == HOSTILE_NAME
     assert "<script>" not in unknown.text
     assert "&lt;script&gt;" in unknown.text
-    # a plain client keeps the JSON answer of P9
+    # a plain client keeps the JSON answer
     plain = client.post("/login", data={"username": "ada", "password": WRONG})
     assert plain.status_code == 401
     assert plain.json() == {"detail": "invalid user name or password"}

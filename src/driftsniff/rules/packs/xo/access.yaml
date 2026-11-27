@@ -1,6 +1,6 @@
-# Xen Orchestra rules for XO servers, users and groups (P5-T3). These resources have the object
+# Xen Orchestra rules for XO servers, users and groups. These resources have the object
 # floor high in rules/types/xo.yaml, so a rule here only matters when it is critical or explains why.
-# The permission values none, user and admin are the ones the plan names and are checked in P8-T1.
+# The permission values none, user and admin are the ones the plan names.
 version: 1
 rules:
   - id: xo.servers.allow_unauthorized

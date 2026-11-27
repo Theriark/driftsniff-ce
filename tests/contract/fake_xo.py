@@ -1,4 +1,4 @@
-"""A fake Xen Orchestra REST interface on localhost for the contract tests (P8-T2).
+"""A fake Xen Orchestra REST interface on localhost for the contract tests.
 
 It serves the shape the collector expects (docs/vendor-notes/xo.md; every name is unverified
 against the vendor reference): ``GET /rest/v0`` as the REST root, ``GET /rest/v0/<collection>`` as

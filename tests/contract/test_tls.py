@@ -1,4 +1,4 @@
-"""TLS modes against a local HTTPS server: trust, pin in the handshake, insecure (P7-T3).
+"""TLS modes against a local HTTPS server: trust, pin in the handshake, insecure.
 
 Certificates are made at test time (``fake_tls``); none is committed. The key of the source is a
 canary sent in a header: the tests that refuse a connection assert that the server received no

@@ -1,4 +1,4 @@
-"""What the history and the current configuration hand to the interface (P10-T7, backend slice).
+"""What the history and the current configuration hand to the interface (backend slice).
 
 Plain frozen dataclasses. The pages, the routes' HTML answers and the templates belong to the
 frontend slice; this module fixes the data contract between the two.

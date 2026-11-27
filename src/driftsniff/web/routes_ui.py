@@ -1,10 +1,10 @@
 """Browser-facing routes: the health check, the start page, setup, sign-in and sign-out.
 
-``GET /setup`` and ``GET /login`` show the forms (P10-T3); the posts take a form post (or a JSON
+``GET /setup`` and ``GET /login`` show the forms; the posts take a form post (or a JSON
 body) and answer with a redirect and a cookie, or with the failure. A browser (one that asks for
 ``text/html``) gets the page again with the failure drawn in; every other client gets the plain
 JSON answer. Every failure text is generic. ``GET /`` is the dashboard: its figures come from
-``driftsniff.web.dashboard`` (P10-T4); without that service, or without a source, it shows the
+``driftsniff.web.dashboard``; without that service, or without a source, it shows the
 designed empty state.
 """
 
@@ -310,7 +310,7 @@ async def set_density(
 ) -> Response:
     """Remember the row density of data tables (comfortable or compact) in a cookie.
 
-    A normal form post from the density switch of P10-T2; ``next`` is the page to go back to
+    A normal form post from the density switch; ``next`` is the page to go back to
     and is only ever a path of this site.
     """
     fields = await read_fields(request)

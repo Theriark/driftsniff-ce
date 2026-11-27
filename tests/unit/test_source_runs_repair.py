@@ -1,4 +1,4 @@
-"""A read that needed a repair is stored and still makes the run partial (P7-T4).
+"""A read that needed a repair is stored and still makes the run partial.
 
 ``FetchResult.success(..., warning_class=...)`` is how a collector says that it had to repair what
 it read (the UniFi ordering lists, class ``ordering_mismatch``). The pipeline keeps the objects and

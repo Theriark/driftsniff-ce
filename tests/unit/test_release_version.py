@@ -10,23 +10,29 @@ import release_version
 from release_notes import previous_stable, pull_requests, render
 from release_version import candidate, line, release
 
-# The tags of Theriark/driftsniff-ce on 17 November 2026: v27.1.0-rc.1 was created by mistake.
-CURRENT = ["v27.0.0-rc.5", "v27.1.0-rc.1"]
+# The release candidates of the first release, before 27.0.0 is tagged.
+CURRENT = ["v27.0.0-rc.5", "v27.0.0-rc.6"]
 RELEASED = [*CURRENT, "v27.0.0"]
 
 
-def test_current_tags_give_rc_6_of_27_0_0() -> None:
-    assert candidate(CURRENT, []) == ("v27.0.0-rc.6", True)
+def test_current_tags_give_the_next_candidate_of_27_0_0() -> None:
+    assert candidate(CURRENT, []) == ("v27.0.0-rc.7", True)
 
 
 def test_no_tags_give_the_first_candidate() -> None:
     assert candidate([], []) == ("v27.0.0-rc.1", True)
 
 
-def test_after_27_0_0_the_feature_line_continues_its_candidates() -> None:
+def test_after_27_0_0_the_next_feature_line_starts() -> None:
     assert line(RELEASED) == (27, 1, 0)
-    assert candidate(RELEASED, []) == ("v27.1.0-rc.2", True)
-    assert candidate(["v27.0.0-rc.5", "v27.0.0"], []) == ("v27.1.0-rc.1", True)
+    assert candidate(RELEASED, []) == ("v27.1.0-rc.1", True)
+
+
+def test_after_27_0_0_a_patch_candidate_opens_the_patch_line() -> None:
+    tags = [*RELEASED, "v27.0.1-rc.1"]
+    assert line(tags) == (27, 0, 1)
+    assert candidate(tags, []) == ("v27.0.1-rc.2", True)
+    assert release(tags, ["v27.0.1-rc.1"]) == ("v27.0.1", "v27.0.1-rc.1")
 
 
 def test_a_candidate_above_the_newest_release_is_the_open_line() -> None:
@@ -46,37 +52,36 @@ def test_any_other_line_is_ignored_until_27_0_0_is_released() -> None:
 )
 def test_tags_outside_the_format_are_ignored(tag: str) -> None:
     assert release_version.parse(tag) is None
-    assert candidate([*CURRENT, tag], []) == ("v27.0.0-rc.6", True)
+    assert candidate([*CURRENT, tag], []) == ("v27.0.0-rc.7", True)
 
 
 def test_a_commit_that_already_has_a_candidate_keeps_it() -> None:
-    tags = [*CURRENT, "v27.0.0-rc.6"]
-    assert candidate(tags, ["v27.0.0-rc.6"]) == ("v27.0.0-rc.6", False)
-    # A candidate of an ignored line on the commit is not reused.
-    assert candidate(CURRENT, ["v27.1.0-rc.1"]) == ("v27.0.0-rc.6", True)
+    assert candidate(CURRENT, ["v27.0.0-rc.6"]) == ("v27.0.0-rc.6", False)
+    # A candidate of another line on the commit is not reused.
+    assert candidate(CURRENT, ["v27.1.0-rc.1"]) == ("v27.0.0-rc.7", True)
 
 
 def test_release_of_a_candidate_of_the_line() -> None:
-    tags = [*CURRENT, "v27.0.0-rc.6"]
-    assert release(tags, ["v27.0.0-rc.6"]) == ("v27.0.0", "v27.0.0-rc.6")
-
-
-def test_release_of_the_commit_stage_runs_today_is_27_0_0() -> None:
-    assert release(CURRENT, ["v27.1.0-rc.1"]) == ("v27.0.0", "v27.1.0-rc.1")
+    assert release(CURRENT, ["v27.0.0-rc.6"]) == ("v27.0.0", "v27.0.0-rc.6")
+    assert release(CURRENT, ["v27.0.0-rc.5", "v27.0.0-rc.6"]) == ("v27.0.0", "v27.0.0-rc.6")
 
 
 def test_release_rerun_after_the_stable_tag_reports_the_same_version() -> None:
     assert release(RELEASED, ["v27.0.0-rc.6", "v27.0.0"]) == ("v27.0.0", "v27.0.0-rc.6")
-    assert release(RELEASED, ["v27.1.0-rc.1", "v27.0.0"]) == ("v27.0.0", "v27.1.0-rc.1")
 
 
 def test_release_refuses_a_commit_without_a_candidate_of_the_line() -> None:
     with pytest.raises(ValueError, match="no release candidate of v27.0.0"):
         release(CURRENT, [])
+    # A candidate numbered above the unreleased line is not a candidate of the line.
+    with pytest.raises(ValueError, match="no release candidate of v27.0.0"):
+        release(CURRENT, ["v27.1.0-rc.1"])
     with pytest.raises(ValueError, match="no release candidate of v27.1.0"):
         release(RELEASED, ["v27.0.0-rc.5"])
-    with pytest.raises(ValueError, match="no release candidate is"):
+    with pytest.raises(ValueError, match="no release candidate of it is"):
         release(RELEASED, ["v27.0.0"])
+    with pytest.raises(ValueError, match="no release candidate of it is"):
+        release(RELEASED, ["v27.0.0", "v27.1.0-rc.1"])
 
 
 def test_previous_stable_is_the_newest_release_below() -> None:
@@ -128,15 +133,15 @@ def test_command_line_on_a_real_repository(
     first = commit(repository, "First (#1)")
     git(repository, "tag", "-a", "v27.0.0-rc.5", "-m", "{}")
     second = commit(repository, "Second (#2)")
-    git(repository, "tag", "-a", "v27.1.0-rc.1", "-m", "{}")
+    git(repository, "tag", "-a", "v27.0.0-rc.6", "-m", "{}")
     head = commit(repository, "Third (#3)")
 
     assert release_version.main(["candidate", head]) == 0
-    assert capsys.readouterr().out == "v27.0.0-rc.6 new\n"
+    assert capsys.readouterr().out == "v27.0.0-rc.7 new\n"
     assert release_version.main(["candidate", first]) == 0
     assert capsys.readouterr().out == "v27.0.0-rc.5 existing\n"
     assert release_version.main(["release", second]) == 0
-    assert capsys.readouterr().out == "v27.0.0 v27.1.0-rc.1\n"
+    assert capsys.readouterr().out == "v27.0.0 v27.0.0-rc.6\n"
     assert release_version.main(["release", head]) == 1
     assert "no release candidate" in capsys.readouterr().err
     assert release_version.main(["release", "HEAD"]) == 2

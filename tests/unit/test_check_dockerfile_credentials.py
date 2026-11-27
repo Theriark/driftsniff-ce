@@ -79,5 +79,6 @@ def test_shipped_dockerfile_declares_the_runtime_contract() -> None:
         'ENTRYPOINT ["python", "-m", "driftsniff", "serve"]',
         '"python", "-m", "driftsniff", "healthcheck"',
         'org.opencontainers.image.licenses="MIT"',
+        'org.opencontainers.image.version="${VERSION}"',
     ):
         assert expected in text

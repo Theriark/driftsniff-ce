@@ -1,4 +1,4 @@
-"""The collection side of ``serve`` against fake controllers (P10, THE-978).
+"""The collection side of ``serve`` against fake controllers.
 
 The real pieces are wired the way ``serve`` wires them (``sources.wiring.build_collection``): the
 source service, the collector factory, the run pipeline with its notifier and the scheduler. A

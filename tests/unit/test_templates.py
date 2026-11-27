@@ -1,4 +1,4 @@
-"""The app shell and the components of the interface, rendered in every state (P10-T2).
+"""The app shell and the components of the interface, rendered in every state.
 
 These tests use the Jinja environment directly, without the application, so they check the
 markup itself: landmarks, labels, aria attributes, the severity signals, and the two rules the
@@ -157,7 +157,7 @@ def test_the_shell_navigation_marks_the_current_page_and_lists_every_entry() -> 
 
 
 def test_the_navigation_lists_only_pages_that_exist() -> None:
-    # History and Configuration came back with P10-T7; /settings came back with P10-T8.
+    # History and Configuration came back with their pages; so did /settings.
     assert [href for _key, _label, href in NAV_ITEMS] == [
         "/",
         "/changes",
@@ -346,7 +346,7 @@ def test_the_top_bar_offers_add_source_to_admins_outside_the_pages_that_lead_wit
 
     # a secondary button, so the page's own primary button stays the only primary one
     assert actions(ADMIN) == [{"class": "btn topbar__action", "href": "/sources/new"}]
-    # the label is its own span, so a phone can hide the words and keep the icon (THE-1416, F5)
+    # the label is its own span, so a phone can hide the words and keep the icon (F5)
     assert '<span class="topbar__action-label">Add source</span></a>' in page(ADMIN)
     for role in ("operator", "viewer"):
         assert actions(dataclasses.replace(ADMIN, user_role=role)) == [], role
@@ -415,7 +415,7 @@ def test_the_shell_sends_the_csrf_value_in_the_htmx_header_and_configures_htmx()
     assert '"includeIndicatorStyles": false' in str(config["content"])
     # no defer: the script holds the parser until the stylesheets are in (the page change)
     scripts = parsed.find("script")
-    # menus.js lets Escape close the open menu (DRS-466); deferred, it does not hold the page
+    # menus.js lets Escape close the open menu; deferred, it does not hold the page
     assert scripts == [
         {"src": static_url("htmx.min.js")},
         {"src": static_url("menus.js"), "defer": None},
@@ -472,9 +472,9 @@ def test_severity_badges_carry_colour_shape_and_word() -> None:
 
 
 def test_a_severity_shape_takes_the_colour_of_its_badge() -> None:
-    """THE-1402 F1: the badge svg had no fill, so its shape rendered black (1.5 to 1 on the dark
+    """The badge svg had no fill, so its shape rendered black (1.5 to 1 on the dark
     tint). The rule must give the svg the badge's text colour, and the shapes of the sprite must
-    have no fill of their own, or they would not inherit it (THE-1416)."""
+    have no fill of their own, or they would not inherit it."""
     css = (TEMPLATES_DIR.parent / "static" / "app.css").read_text(encoding="utf-8")
     block = re.search(r"^\.sev svg \{([^}]*)\}", css, re.MULTILINE)
     assert block is not None and re.search(r"fill:\s*currentColor;", block.group(1), re.I)
@@ -485,7 +485,7 @@ def test_a_severity_shape_takes_the_colour_of_its_badge() -> None:
 
 
 def test_code_fields_stay_mono_and_the_configuration_note_keeps_a_short_line() -> None:
-    """THE-1402 F10: the declared resources textarea (class input mono) was set in the sans face,
+    """The declared resources textarea (class input mono) was set in the sans face,
     because the input rule resets the font after .mono, and the configuration footnote ran about
     150 characters wide."""
     static = TEMPLATES_DIR.parent / "static"
@@ -838,7 +838,7 @@ def test_drift_line_draws_every_check_kind_and_describes_itself() -> None:
     text = drift("lab-controller", CHECKS, "dl1", href="/sources/1", meta="6 checks")
     parsed = Parsed(text)
     svg = parsed.find("svg")[0]
-    # it holds change links, so it is a group, not an image (axe nested-interactive, THE-1351)
+    # it holds change links, so it is a group, not an image (axe nested-interactive)
     assert svg["role"] == "group" and svg["aria-labelledby"] == "dl1-t dl1-d"
     assert svg["viewbox"] == f"0 0 {DRIFT_WIDTH} 32"  # the parser lowercases names
     assert "Drift line of lab-controller, last 30 days" in text
@@ -978,7 +978,7 @@ def test_drift_marks_and_width() -> None:
 
 
 def test_a_drift_mark_sits_at_the_time_of_its_check_not_at_its_place_in_the_list() -> None:
-    """THE-1402 F2: the marks were packed from the left (x = 8 + 20 * index) under the axis
+    """The marks were packed from the left (x = 8 + 20 * index) under the axis
     "30 days ago ... today", so the only check of a source, made an hour ago, was drawn at
     30 days ago and a narrow strip that opens on today opened empty."""
     hour = 1 / 24
@@ -998,7 +998,7 @@ def test_a_drift_mark_sits_at_the_time_of_its_check_not_at_its_place_in_the_list
 def test_every_drift_mark_and_its_focus_stroke_fit_inside_the_strip(
     age: float, severity: str
 ) -> None:
-    """THE-1416: with an 8 unit pad the critical mark at today reached x 617 of a 616 wide
+    """With an 8 unit pad the critical mark at today reached x 617 of a 616 wide
     viewBox (618 with the 2 unit focus stroke), so its right edge was cut off."""
     check = {"kind": "change", "age": age, "severity": severity, "href": "/c/1"}
     (mark,) = drift_marks([check])

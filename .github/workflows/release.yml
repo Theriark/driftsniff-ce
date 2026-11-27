@@ -52,8 +52,8 @@ jobs:
       DOKPLOY_API_KEY: ${{ secrets.DOKPLOY_API_KEY }}
       CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
       CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
-      DOKPLOY_STAGE_APPLICATION_ID: lhB_AOqk4FTEaHhEQcPKj
-      STAGE_HOST: ce-stg-driftsniff.theriark.dev
+      DOKPLOY_STAGE_APPLICATION_ID: ${{ vars.DOKPLOY_STAGE_APPLICATION_ID }}
+      STAGE_HOST: ${{ vars.STAGE_HOST }}
 
     steps:
       - name: Checkout pipeline code with history and tags
@@ -70,7 +70,7 @@ jobs:
             exit 1
           }
           [[ "${GITHUB_REF}" == "refs/heads/development" ]] || fail "the release runs from development; received ${GITHUB_REF}"
-          for required in DOKPLOY_URL DOKPLOY_API_KEY CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET; do
+          for required in DOKPLOY_URL DOKPLOY_API_KEY CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET DOKPLOY_STAGE_APPLICATION_ID STAGE_HOST; do
             [[ -n "${!required}" ]] || fail "${required} is missing"
           done
           git fetch --force --tags origin \
@@ -138,9 +138,6 @@ jobs:
           [[ "$(git cat-file -t "refs/tags/${rc}")" == "tag" ]] || fail "${rc} is not an annotated tag"
           recorded="$(git tag -l --format='%(contents)' "${rc}" | jq -r '.imageDigest // empty' 2> /dev/null || true)"
           [[ -z "${recorded}" || "${recorded}" == "${DIGEST}" ]] || fail "${rc} records ${recorded}, but Stage runs ${DIGEST}"
-          if [[ "${rc%-rc.*}" != "${stable}" ]]; then
-            echo "::warning::the candidate at the commit is ${rc}, numbered outside the line; the release is ${stable}"
-          fi
           {
             echo "STABLE_TAG=${stable}"
             echo "VERSION=${stable#v}"

@@ -1,4 +1,4 @@
-/* The Change Replay controls of the source page (UI revision WP4c, THE-1197).
+/* The Change Replay controls of the source page.
 
    The page works without this file: the heat map, its links, the day panel and the table are
    drawn by the server (sources/_replay.html). This file adds the replay on top: it shows the
@@ -145,7 +145,7 @@
       var query = new URLSearchParams({ source: source, sort: "oldest", from: iso, to: iso, muted: "1" });
       link.setAttribute("href", "/changes?" + query.toString());
       link.textContent = "Open the changes of " + shortLabel(day);
-      // a day without items opens an empty list, so it offers no link (THE-1402 F11)
+      // a day without items opens an empty list, so it offers no link
       link.hidden = !sum;
     }
 

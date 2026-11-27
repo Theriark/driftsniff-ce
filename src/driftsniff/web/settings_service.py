@@ -1,4 +1,4 @@
-"""The admin settings service (P10-T8 slice A, docs/settings.md): retention, storage warning, users.
+"""The admin settings service (slice A, docs/settings.md): retention, storage warning, users.
 
 Everything here is for an admin; the routes (``driftsniff.web.routes_settings``) check the role.
 The service reads and writes through the one ``Database`` and writes one audit event for each

@@ -1,4 +1,4 @@
-"""The Xen Orchestra setup guide (P8-T5) agrees with the collector and claims nothing it cannot.
+"""The Xen Orchestra setup guide agrees with the collector and claims nothing it cannot.
 
 The guide is prose, so these tests only pin what a machine can check: the collections it names are
 the ones the client reads, the excluded ones are the ones the client refuses, no address in it is a

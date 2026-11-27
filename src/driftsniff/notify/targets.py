@@ -1,4 +1,4 @@
-"""Where a notification may go: the check made at send time (P9-T4).
+"""Where a notification may go: the check made at send time.
 
 Private network targets are allowed (a self-hosted receiver is the normal case). The cloud
 metadata range and link-local addresses are never allowed

@@ -1,4 +1,4 @@
-"""The UniFi version-band fixtures and the pipeline helpers the P7-T5 contract tests share.
+"""The UniFi version-band fixtures and the pipeline helpers the contract tests share.
 
 ``tests/fixtures/unifi/band-<name>.json`` is one hand written controller per version band: the
 floor (10.1.84), a reference band (10.6.109) and a newest band (10.7.0). The shapes are those of a

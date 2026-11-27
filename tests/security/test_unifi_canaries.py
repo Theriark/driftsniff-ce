@@ -1,4 +1,4 @@
-"""Canary leak test of the UniFi collector, one full run per version band (P7-T5).
+"""Canary leak test of the UniFi collector, one full run per version band.
 
 Every band of ``tests/fixtures/unifi`` has a placeholder in each secret class field: the WiFi
 passphrase, the RADIUS shared secret and the VPN pre-shared key of servers and tunnels. The test

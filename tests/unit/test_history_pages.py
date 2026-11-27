@@ -1,4 +1,4 @@
-"""The History and Configuration pages (P10-T7, frontend slice): the words, the links and the
+"""The History and Configuration pages (frontend slice): the words, the links and the
 templates rendered in every state with fixture views.
 
 Acceptance of the plan, each with its test:
@@ -269,7 +269,7 @@ def test_the_ledger_marks_a_baseline_and_the_current_reading_in_words() -> None:
     assert "Nothing is compared across it" in words
     hrefs = {attrs.get("href") for attrs in parsed.find("a")}
     assert {"/configuration/2", "/sources/2"} <= hrefs
-    # each reading opens its own configuration, and its count opens only its changes (DRS-465)
+    # each reading opens its own configuration, and its count opens only its changes
     assert {f"/configuration/2?snapshot={number}" for number in (1, 2, 3)} <= hrefs
     assert "/changes?source=2&snapshot=3" in hrefs
     assert "4.2 KB" in words and "9.0.114" in words
@@ -465,7 +465,7 @@ def test_the_history_pages_load_their_own_stylesheet() -> None:
         static_url("app.css"),
         static_url("history.css"),
     ]
-    # the two pages of one source also load the detail head sheet, for the source tabs (THE-1161)
+    # the two pages of one source also load the detail head sheet, for the source tabs
     for text in (render_history(history_view(())), render_configuration(config_view())):
         assert sheets(text) == [
             static_url("vendor/inter/inter.css"),
@@ -478,7 +478,7 @@ def test_the_history_pages_load_their_own_stylesheet() -> None:
 def test_the_source_head_actions_stay_visible_on_a_wide_screen() -> None:
     # app.css hides .summary-head .page-header__actions from 1024 px up (the change detail has
     # a side column); the history sheet must put them back, or the desktop loses Edit source,
-    # Run now and the link to the other page (found in the browser on Development, THE-1043)
+    # Run now and the link to the other page (found in the browser on Development)
     sheet = Path(TEMPLATES_DIR).parent / "static" / "history.css"
     text = sheet.read_text(encoding="utf-8")
     wide = text.split("@media (min-width: 1024px)", 1)

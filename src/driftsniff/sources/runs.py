@@ -67,7 +67,15 @@ from driftsniff.db.tables import (
 from driftsniff.rules.engine import RuleEngine, highest
 from driftsniff.rules.schema import ResourceTable, Severity
 from driftsniff.secrets.fingerprint import Fingerprinter
-from driftsniff.secrets.redact import redact_object, scrub_text
+from driftsniff.secrets.redact import Twins, redact_object, scrub_text
+from driftsniff.secrets.rekey import (
+    MODE_OLD_KEY,
+    RekeyError,
+    Restamp,
+    load_rekey_state,
+    record_clean_cycle,
+    restamp_items,
+)
 from driftsniff.secrets.scanner import NO_OVERRIDES, Overrides
 from driftsniff.sources.service import SourceNotFoundError, utc_now
 
@@ -348,6 +356,9 @@ class RunPipeline:
 
     ``clock``, ``sleep`` and ``monotonic`` are there for tests. ``notifier`` is called with the
     id of a change event after the run was committed; whatever it raises is logged and dropped.
+    ``old_fingerprinter`` is the fingerprint key of the old master key while a rekey runs
+    (``DRIFTSNIFF_OLD_KEY_FILE``): stored fingerprints of the old key are then re-stamped, not
+    reported as changed (:mod:`driftsniff.secrets.rekey`).
     """
 
     def __init__(
@@ -362,10 +373,12 @@ class RunPipeline:
         sleep: Callable[[float], None] = time.sleep,
         monotonic: Callable[[], float] = time.monotonic,
         run_limit_seconds: float = RUN_LIMIT_SECONDS,
+        old_fingerprinter: Fingerprinter | None = None,
     ) -> None:
         self._database = database
         self._engine = engine
         self._fingerprinter = fingerprinter
+        self._old_fingerprinter = old_fingerprinter
         self._overrides = overrides
         self._notifier = notifier
         self._clock = clock
@@ -451,9 +464,10 @@ class RunPipeline:
             )
             run_id = start_run(connection, source_id, started)
         deadline = self._monotonic() + self._run_limit
+        twins = None if self._old_fingerprinter is None else Twins(self._old_fingerprinter)
         try:
             version = self._probe(collector, deadline)
-            outcomes = self._read_all(collector, deadline)
+            outcomes = self._read_all(collector, deadline, twins)
         except CollectorError as error:
             return self._fail(source_id, run_id, error.error_class, str(error), ())
         except Exception as error:
@@ -469,7 +483,7 @@ class RunPipeline:
                 source_id, run_id, first.error_class or ERROR_NO_RESOURCES, text, outcomes
             )
         try:
-            return self._store(source_id, run_id, version, outcomes)
+            return self._store(source_id, run_id, version, outcomes, twins)
         except Exception as error:
             # The transaction was rolled back: nothing of this run is stored.
             logger.warning("run %s could not be stored: %s", run_id, type(error).__name__)
@@ -512,14 +526,18 @@ class RunPipeline:
                 self._sleep(delay)
                 attempt += 1
 
-    def _read_all(self, collector: Collector, deadline: float) -> list[_Outcome]:
+    def _read_all(
+        self, collector: Collector, deadline: float, twins: Twins | None
+    ) -> list[_Outcome]:
         specs = list(collector.resources())
         names = [spec.name for spec in specs]
         if len(set(names)) != len(names):
             raise CollectorError(ERROR_DUPLICATE_RESOURCE, "a collector lists a resource twice")
-        return [self._read_one(collector, spec, deadline) for spec in specs]
+        return [self._read_one(collector, spec, deadline, twins) for spec in specs]
 
-    def _read_one(self, collector: Collector, spec: ResourceSpec, deadline: float) -> _Outcome:
+    def _read_one(
+        self, collector: Collector, spec: ResourceSpec, deadline: float, twins: Twins | None
+    ) -> _Outcome:
         table = self._engine.index.type_tables.get(spec.name)
         if table is None:
             return _failure(spec.name, ERROR_UNKNOWN_RESOURCE, "the resource has no type table")
@@ -535,7 +553,7 @@ class RunPipeline:
                 status=result.status,
                 fetched=fetched,
             )
-        return self._collect_objects(spec.name, table, result, fetched)
+        return self._collect_objects(spec.name, table, result, fetched, twins)
 
     def _fetch(
         self, collector: Collector, spec: ResourceSpec, deadline: float
@@ -566,14 +584,21 @@ class RunPipeline:
             return FetchResult.failure(name, name)
 
     def _collect_objects(
-        self, name: str, table: ResourceTable, result: FetchResult, fetched: int
+        self,
+        name: str,
+        table: ResourceTable,
+        result: FetchResult,
+        fetched: int,
+        twins: Twins | None = None,
     ) -> _Outcome:
         """Redact, normalise and key the objects of one resource."""
         collected: list[CollectedObject] = []
         seen: set[str] = set()
         for raw in result.objects:
             try:
-                redacted = redact_object(table, name, raw, self._fingerprinter, self._overrides)
+                redacted = redact_object(
+                    table, name, raw, self._fingerprinter, self._overrides, twins
+                )
                 state = normalize_object(table, redacted.value)
             except TypeError:
                 return _failure(name, ERROR_BAD_OBJECT, "an object is unreadable", fetched=fetched)
@@ -600,7 +625,12 @@ class RunPipeline:
         )
 
     def _store(
-        self, source_id: int, run_id: int, version: str | None, outcomes: Sequence[_Outcome]
+        self,
+        source_id: int,
+        run_id: int,
+        version: str | None,
+        outcomes: Sequence[_Outcome],
+        twins: Twins | None = None,
     ) -> RunReport:
         """Store, compare and classify in one transaction, then close the run record."""
         fresh = build_manifest(
@@ -660,11 +690,15 @@ class RunPipeline:
                 error_class=failed_class,
                 error_summary=failed_summary,
             )
+            restamp = self._restamp(connection, twins)
+            restamped = 0
             event_id: int | None = None
             if result.snapshot.stored and previous is not None:
                 items = self._classify(
                     connection, previous.manifest, manifest, window_start, finished
                 )
+                if restamp is not None:
+                    items, restamped = restamp_items(items, restamp)
                 if items:
                     event_id = _write_event(
                         connection,
@@ -676,6 +710,14 @@ class RunPipeline:
                         rule_pack_version=self._engine.pack_version,
                     )
             _write_coverage(connection, source_id, outcomes, finished)
+            if restamp is not None and status == "ok":
+                state = record_clean_cycle(connection, source_id, restamped=restamped, at=finished)
+                if state is not None and not state.active:
+                    logger.warning(
+                        "the rekey to key %s is complete: remove DRIFTSNIFF_OLD_KEY_FILE and the "
+                        "old key file",
+                        state.new_key_id,
+                    )
         return RunReport(
             run_id,
             status,
@@ -685,6 +727,32 @@ class RunPipeline:
             event_id,
             manifest.object_count,
         )
+
+    def _restamp(self, connection: Connection, twins: Twins | None) -> Restamp | None:
+        """How this run reads stored fingerprints: None outside an active rekey.
+
+        A rekey to a key this process does not hold (the rekey ran while the application was
+        up) is left alone until the application is restarted with the new key.
+        """
+        try:
+            state = load_rekey_state(connection)
+        except RekeyError as error:
+            logger.warning("the rekey state cannot be read: %s", error)
+            return None
+        if state is None or not state.active:
+            return None
+        current = self._fingerprinter.key_id
+        if state.new_key_id != current:
+            logger.warning(
+                "a rekey to key %s is in progress but this process uses key %s: restart driftsniff",
+                state.new_key_id,
+                current,
+            )
+            return None
+        old = self._old_fingerprinter
+        if state.mode == MODE_OLD_KEY and old is not None and old.key_id == state.old_key_id:
+            return Restamp(current, old.key_id, {} if twins is None else twins.markers)
+        return Restamp(current, None, {})
 
     def _classify(
         self,

@@ -1,4 +1,4 @@
-"""The sources pages (P10-T5) through the real application.
+"""The sources pages through the real application.
 
 Acceptance of the plan, each with its test here:
 
@@ -56,7 +56,7 @@ TYPED_CONFIRMATION = "CANARY-not the sentence"
 # The forms of the shell on every signed-in page: sign out, and the top bar change search.
 SHELL_FORMS = {"/logout", "/changes"}
 OBJECTS: Sequence[Mapping[str, JsonValue]] = ({"id": "a"}, {"id": "b"})
-# The push example the form hint and the line error show (THE-1517).
+# The push example the form hint and the line error show.
 PUSH_FIELDS_EXAMPLE = "unifi-networks: id, name, vlanId"
 
 
@@ -523,9 +523,9 @@ def test_only_an_admin_opens_the_forms_and_changes_a_source(world: World) -> Non
 def test_the_navigation_shows_only_pages_that_exist(world: World) -> None:
     parsed = assert_page(world.get("/sources"))
     nav = {a.get("href") for a in parsed.find("a")}
-    assert "/sources" in nav and "/changes" in nav  # Changes came back with P10-T6
-    assert "/history" in nav and "/configuration" in nav  # and these two with P10-T7
-    assert "/settings" in nav  # and Settings with P10-T8, for an admin only
+    assert "/sources" in nav and "/changes" in nav  # Changes came back with its pages
+    assert "/history" in nav and "/configuration" in nav  # and these two with theirs
+    assert "/settings" in nav  # and Settings, for an admin only
     viewer = assert_page(world.get("/sources", role="viewer"))
     assert "/settings" not in {a.get("href") for a in viewer.find("a")}
 
@@ -692,7 +692,7 @@ def test_a_push_source_declares_fields_and_shows_its_sender_key_once(world: Worl
 
 
 def test_the_push_hint_and_line_error_show_the_unifi_networks_example(world: World) -> None:
-    """THE-1517: the example was ``networks: _id, name, vlan``, which a push refuses with 422."""
+    """The example was ``networks: _id, name, vlan``, which a push refuses with 422."""
     hint = " ".join(assert_page(world.get("/sources/new?type=push")).joined().split())
     assert f"for example {PUSH_FIELDS_EXAMPLE}." in hint
     bad = world.post(
@@ -884,7 +884,7 @@ def test_disable_and_enable_change_the_source_and_tell_the_scheduler(world: Worl
 
 
 def test_the_list_filters_by_kind_and_status_and_sorts_by_its_columns(world: World) -> None:
-    """DRS-464: the list had no filter and no sort, and a disabled source said "No check yet"."""
+    """The list had no filter and no sort, and a disabled source said "No check yet"."""
     gateway = add_unifi(world, name="zz-gateway")
     world.service.set_enabled(gateway, False, actor="test")
     xo = world.service.create(

@@ -1,8 +1,8 @@
-/* driftsniff stylesheet (P10-T2). One file, no build step, served from /static/app.css.
+/* driftsniff stylesheet. One file, no build step, served from /static/app.css.
    Part 1 are the design tokens: the colour values are copied from docs/design-colours.json and
    tests/unit/test_check_contrast.py fails when a value here differs from the JSON (the same
    check guards docs/mockups/theme.css). Part 2 are the components of docs/design-direction.md,
-   carried over from the P10-T1 mock-up stylesheet. No style attribute and no inline style
+   carried over from the mock-up stylesheet. No style attribute and no inline style
    element is ever used by a template: the content security policy blocks both. */
 
 :root {
@@ -285,7 +285,7 @@ code,
   top: var(--sp-2);
 }
 
-/* ---- app shell (UI revision WP1, THE-1101) --------------------------------------------- */
+/* ---- app shell (UI revision) ------------------------------------------------ */
 
 /* Signed in, the body is a grid: the sidebar on the left for the full height, and a column of
    top bar, page and footer. Below 1024 px the sidebar folds into a bar above the column and its
@@ -748,7 +748,7 @@ code,
 
   /* The action keeps its plus icon in a 40 px square and its label for screen readers only:
      with the words, a long trail pushed it onto a third row of chrome before the content
-     (THE-1416, F5). position: relative keeps the hidden label inside the button. */
+     (F5). position: relative keeps the hidden label inside the button. */
   .topbar__action {
     position: relative;
     width: 40px;
@@ -842,7 +842,7 @@ code,
 
 /* the hint drops under the heading when the two do not fit on one line, so neither is squeezed
    into a narrow column: at 390 px "Drift line, last 30 days" took 4 lines beside its hint
-   (THE-1416, F6) */
+   (F6) */
 .section-head {
   display: flex;
   flex-wrap: wrap;
@@ -893,7 +893,8 @@ code,
 }
 
 /* the dashboard's left column beside Needs attention: the severity ring, then where the open
-   items are, so the column is not a short card above an empty hole (Ruben, 15 November 2026) */
+   items are, so the column is not a short card above an empty hole (design review,
+   November 2026) */
 .dash-column {
   display: grid;
   gap: var(--sp-6);
@@ -908,7 +909,7 @@ code,
 
 /* ---- buttons and forms ----------------------------------------------------------------- */
 
-/* A colour transition lives on the hover rule, never on the resting rule (THE-1351): when the
+/* A colour transition lives on the hover rule, never on the resting rule: when the
    colour scheme changes, a resting transition faded the background for 120 ms while the text
    colour switched at once, so light text sat on a still-light button and axe measured a
    contrast failure. Now the pointer's hover fades in and every theme change is instant. */
@@ -1014,7 +1015,7 @@ textarea.input {
 }
 
 /* a field whose content is code (declared resources, paths) keeps the mono face: the input rule
-   above resets the font after .mono (THE-1402 F10) */
+   above resets the font after .mono */
 .input.mono {
   font-family: var(--font-mono);
 }
@@ -1251,7 +1252,7 @@ textarea.input {
 }
 
 /* the shape takes the badge's text colour, which meets 4.5 to 1 on its tint in both themes; a
-   symbol has no fill of its own, so without this the shape was black (THE-1402 F1) */
+   symbol has no fill of its own, so without this the shape was black */
 .sev svg {
   flex: none;
   width: 12px;
@@ -1350,15 +1351,15 @@ textarea.input {
 }
 
 /* On the wide dashboard a source's name and its product line ("Checkmk 2.5.0p14.community, 442
-   checks in 30 days") take two lines at most, not four (Ruben, 15 November 2026); the other pages
-   and the narrower widths keep their own columns. */
+   checks in 30 days") take two lines at most, not four (design review, November 2026); the
+   other pages and the narrower widths keep their own columns. */
 @media (min-width: 1024px) {
   .driftlines .driftline {
     grid-template-columns: 180px 240px 1fr;
   }
 
   /* a long product line ("Redfish (iDRAC, iLO, Supermicro) Contoso BMC 2.14.0 ...") stops at
-     two lines; its title holds the whole text (DRS-463) */
+     two lines; its title holds the whole text */
   .driftlines .driftline__meta {
     display: -webkit-box;
     -webkit-box-orient: vertical;
@@ -1369,7 +1370,7 @@ textarea.input {
 }
 
 /* the name wraps rather than ending in an ellipsis, so the whole name is always on screen: at
-   390 px the one-line meta left it about 80 px and names read "DEV-FIXT..." (THE-1264) */
+   390 px the one-line meta left it about 80 px and names read "DEV-FIXT..." */
 .driftline__name {
   font-size: var(--fs-14);
   font-weight: 700;
@@ -1379,7 +1380,7 @@ textarea.input {
 }
 
 /* the meta wraps inside its 150 px column: on one line, "Push source, 4 pushes in 30 days"
-   ran 44 px into the strip at 1440 px and its marks covered the words (THE-1264) */
+   ran 44 px into the strip at 1440 px and its marks covered the words */
 .driftline__meta {
   font-size: var(--fs-14);
   color: var(--text-2);
@@ -1455,9 +1456,11 @@ textarea.input {
   grid-template-columns: 1fr;
 }
 
+/* the meta takes at most half the row: a long Redfish product line as an auto column left the
+   name 23 px wide at 768 px */
 @media (max-width: 1023px) {
   .driftline {
-    grid-template-columns: 1fr auto;
+    grid-template-columns: minmax(0, 1fr) fit-content(50%);
   }
 
   .driftline .driftline__strip {
@@ -1466,7 +1469,7 @@ textarea.input {
 }
 
 /* below 768 px the dashboard's name, meta and strip each take the card's full width: side by
-   side, the one-line meta (210 px) left the name a tenth of a 390 px screen (THE-1264) */
+   side, the one-line meta (210 px) left the name a tenth of a 390 px screen */
 @media (max-width: 767px) {
   .driftlines .driftline {
     grid-template-columns: minmax(0, 1fr);
@@ -1482,7 +1485,7 @@ textarea.input {
    390 px, on the source page at 390 px and in the source list at 1440 px. Right to left, the
    scroller opens at its right end: today and the newest marks are in view, the older days a
    scroll to the left. The source page and list strips opened at "30 days ago" with the marks
-   off screen until THE-1416 (F7). The drawing and its labels stay left to right. */
+   off screen until finding F7 was fixed. The drawing and its labels stay left to right. */
 .driftline__strip {
   direction: rtl;
 }
@@ -1529,7 +1532,7 @@ textarea.input {
    otherwise: its basis is 0 and its min-width stays auto, so it leaves the ring's row exactly
    when its widest row (badge, share, count) no longer fits. A 160px 1fr grid could not shrink
    the list and spilled it 89 px out of the 5fr card at 1024 px, under Needs attention
-   (THE-1223, fixed in THE-1240). */
+   (since fixed). */
 .posture {
   display: flex;
   flex-wrap: wrap;
@@ -1620,9 +1623,9 @@ textarea.input {
    while the list is wide enough for them, then puts badge and action on one line and gives
    the text the full width under them. At 1024 px the 7fr card leaves 351 px, and a "Nothing
    pushed yet" badge (167 px) with "Open source" (112 px) squeezed the title to "pilo..." and
-   its line to one word per line (THE-1240 acceptance, fixed in THE-1255). The query follows
+   its line to one word per line (acceptance, since fixed). The query follows
    the list, not the viewport, so the same rule holds on a phone.
-   THE-1264: side by side, a 292 px text column at 1440 px (list 594 px) cut three of four
+   Side by side, a 292 px text column at 1440 px (list 594 px) cut three of four
    titles to an ellipsis, and a grid per row started the text at a different x with the width
    of each badge. The text now gets its own line below 720 px of list (1440 and 768 px), and
    a wider list shares its columns with every row (subgrid), so the text starts at one x; the
@@ -1709,7 +1712,7 @@ textarea.input {
    scrolls inside its wrapper, like the drift line, and the y-axis stays in view beside it. The
    wrapper is right-to-left so the scroll opens on today, the end that matters; the drawing
    itself stays left-to-right. The labels of both axes are HTML text at 14 px: as SVG text they
-   shrank with the drawing to 12 px (THE-1402 F3) */
+   shrank with the drawing to 12 px */
 .chart-frame {
   display: grid;
   grid-template-columns: max(5%, 24px) minmax(0, 1fr);
@@ -1822,7 +1825,7 @@ textarea.input {
   margin-top: 0;
 }
 
-/* the name takes the room it needs, up to two lines, and the bar the rest (DRS-466) */
+/* the name takes the room it needs, up to two lines, and the bar the rest */
 .bars li {
   display: grid;
   grid-template-columns: minmax(0, 1.5fr) minmax(48px, 1fr) auto;
@@ -2175,15 +2178,19 @@ textarea.input {
   }
 }
 
+/* the term column takes at most 40% and a long term wraps: "API token
+   (user@realm!tokenid=secret)" of a Proxmox source left its values 26 px at 1440 px */
 .kv {
   display: grid;
-  grid-template-columns: max-content 1fr;
+  grid-template-columns: fit-content(40%) minmax(0, 1fr);
   gap: var(--sp-2) var(--sp-6);
   font-size: var(--fs-14);
 }
 
 .kv dt {
   color: var(--text-2);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .kv dd {
@@ -2271,7 +2278,7 @@ textarea.input {
   overflow-wrap: anywhere;
 }
 
-/* Before and after sit on two neutral tints (THE-1416, F4): a change is not good or bad by its
+/* Before and after sit on two neutral tints (F4): a change is not good or bad by its
    direction, the severity badge carries the risk, and red stays for critical items and
    failures. The word above each value says which side it is. */
 .diff .before {
@@ -2523,7 +2530,7 @@ textarea.input {
 
 /* The gutter sits inside the 1280 px column, as in .page and .app-header__inner, so the footer
    text starts where the logo and the page content start. With the gutter outside the column,
-   the signed-out footer at 1440 px began 32 px left of the logo (x 80 against 112; THE-1416,
+   the signed-out footer at 1440 px began 32 px left of the logo (x 80 against 112;
    F9); signed in, the column is narrower than 1280 px and both ways give the same edge. */
 .app-footer {
   border-top: 1px solid var(--border);
@@ -2542,7 +2549,7 @@ textarea.input {
   gap: var(--sp-2);
 }
 
-/* ---- additions of P10-T2 (not in the mock-ups) --------------------------------------- */
+/* ---- additions (not in the mock-ups) --------------------------------------------- */
 
 /* the user menu names the account, then links to the Account page */
 .user-menu__who {
@@ -2606,7 +2613,7 @@ textarea.input {
   font-size: var(--fs-14);
 }
 
-/* ---- additions of P10-T3 (sign-in, setup, dashboard frame, status pages) ------------- */
+/* ---- additions (sign-in, setup, dashboard frame, status pages) ------------- */
 
 /* The brand mark on the guide's light rounded tile, in both themes: the mark file is
    transparent and the guide never shows it bare on a dark surface. The tile is the brand paper
@@ -2693,7 +2700,7 @@ textarea.input {
   }
 }
 
-/* ---- additions of P10-T4 (the dashboard) --------------------------------------------- */
+/* ---- additions (the dashboard) ------------------------------------------------ */
 
 /* the breakdown bars take one of ten widths, so no template needs a style attribute */
 .bars .w-0 { width: 0; }
@@ -2787,7 +2794,7 @@ textarea.input {
   padding-top: var(--sp-3);
 }
 
-/* ---- additions of P10-T5 (sources pages) ---------------------------------------------- */
+/* ---- additions (sources pages) ------------------------------------------------- */
 
 /* a banner above the page header (a notice after a redirect, a refused form) */
 .page-banner {
@@ -2831,7 +2838,7 @@ textarea.input {
 
 /* The strip of the source list sits in a table cell. It keeps its "30 days ago" and "today"
    labels: at 1440 px the 480 px drawing scrolls in about 330 px, and without the labels the
-   scrolled strip had no ends to read it by (THE-1416, F7). */
+   scrolled strip had no ends to read it by (F7). */
 .drift-cell {
   min-width: 240px;
 }
@@ -3031,7 +3038,7 @@ textarea.input {
   display: none;
 }
 
-/* ---- additions of P10-T6 (change list and change detail) ----------------------------- */
+/* ---- additions (change list and change detail) -------------------------------- */
 
 /* the severity cell of the change list is as narrow as its badge */
 .data-table td:first-child .sev {
@@ -3190,7 +3197,7 @@ textarea.input {
   gap: var(--sp-1);
 }
 
-/* ---- data views (UI revision WP2, THE-1128) ------------------------------------------- */
+/* ---- data views (UI revision) ---------------------------------------------- */
 
 /* The change list's filter bar: the search, the Filters disclosure and Apply share one row.
    The form is a size container. Narrow, the Filters toggle opens the fields as a panel under
@@ -3322,7 +3329,7 @@ textarea.input {
 }
 
 /* On a phone the search takes a row of its own above Filters and Apply: beside them it was
-   clipped to "Search chang" at 390 px (THE-1138 acceptance of WP2, fixed in THE-1161). */
+   clipped to "Search chang" at 390 px (acceptance, since fixed). */
 @container filters (max-width: 440px) {
   .filter-bar--changes .search {
     flex-basis: 100%;

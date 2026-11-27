@@ -1,4 +1,4 @@
-"""The plugin registry and the CE defaults (P9-T5, docs/plugin-api.md).
+"""The plugin registry and the CE defaults (docs/plugin-api.md).
 
 Discovery is tested through real entry points: a plugin module and a ``.dist-info`` folder are
 written to a temporary directory that is put on the import path, so the registry finds the plugin

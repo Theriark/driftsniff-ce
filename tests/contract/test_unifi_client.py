@@ -1,4 +1,4 @@
-"""The UniFi client against a fake controller on localhost (P7-T2).
+"""The UniFi client against a fake controller on localhost.
 
 Every case of the plan has a test and its expected coverage status: the version floor, a version
 below it, paging boundaries (exactly 200, 201, 400 objects, empty), a repeated page, a 404 on one

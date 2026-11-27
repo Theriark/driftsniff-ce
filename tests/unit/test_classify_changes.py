@@ -24,7 +24,7 @@ from classify_changes import (
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SHA_A = "a" * 40
-HEALTH_URL = "https://ce-dev-driftsniff.theriark.dev/healthz"
+HEALTH_URL = "https://dev.driftsniff.example/healthz"
 
 
 @pytest.mark.parametrize(
@@ -311,7 +311,7 @@ def test_a_transient_failure_is_retried() -> None:
     assert deployed_commit(HEALTH_URL, opener=opener, sleep=lambda _: None) == SHA_A
 
 
-@pytest.mark.parametrize("url", ["http://ce-dev-driftsniff.theriark.dev/healthz", "file:///x", ""])
+@pytest.mark.parametrize("url", ["http://dev.driftsniff.example/healthz", "file:///x", ""])
 def test_only_an_https_health_url_is_used(url: str) -> None:
     def forbidden(*_: Any, **__: Any) -> Any:
         raise AssertionError("no request must be made")

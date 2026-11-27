@@ -1,4 +1,4 @@
-/* The answers of the settings page that must not run again on a reload (THE-1278).
+/* The answers of the settings page that must not run again on a reload.
 
    Making an API token, showing the webhook signing key and sending a test message are posts
    answered with the settings page itself: the token or the key in a card shown once, or the

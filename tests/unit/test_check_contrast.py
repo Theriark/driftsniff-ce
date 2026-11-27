@@ -1,4 +1,4 @@
-"""Tests for scripts/check_contrast.py and the design token files it guards (P10-T1).
+"""Tests for scripts/check_contrast.py and the design token files it guards.
 
 Run under pytest (CI / Tests): the module uses pytest fixtures and markers, so it does not load
 under unittest. The last four tests run against the committed files, so the pull request checks
@@ -224,7 +224,7 @@ def test_the_committed_tokens_keep_the_brand_colours_and_the_dark_theme() -> Non
 
 @pytest.mark.parametrize("stylesheet", [THEME_CSS, APP_CSS], ids=["theme.css", "app.css"])
 def test_the_stylesheets_copy_the_token_values(stylesheet: Path) -> None:
-    """The mock-up theme and the shipped app.css (P10-T2) both carry the JSON values."""
+    """The mock-up theme and the shipped app.css both carry the JSON values."""
     themes, _ = load_tokens(TOKENS)
     css = stylesheet.read_text(encoding="utf-8")
     light, dark = css.split("@media (prefers-color-scheme: dark)", 1)

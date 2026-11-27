@@ -1,6 +1,6 @@
-"""The change pages (P10-T6, frontend slice): the list, the detail and the three actions.
+"""The change pages (frontend slice): the list, the detail and the three actions.
 
-Roles (P9-T1): a viewer reads the change list and the change detail; an operator also
+Roles: a viewer reads the change list and the change detail; an operator also
 acknowledges, writes notes, mutes a path and removes a mute. The role check is a dependency of
 each route, so it runs before anything else, and the services refuse a lower role again on
 their own. The security suite lists every route here in its route table.

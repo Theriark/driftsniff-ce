@@ -1,7 +1,7 @@
-"""The Change Replay data route (WP4a of the interface revision): who may read it, and the answer.
+"""The Change Replay data route (interface revision): who may read it, and the answer.
 
 ``GET /sources/{source_id}/replay?days=N`` returns the change items of a source counted per UTC
-day, resource type and severity (``driftsniff.web.replay``). Roles (P9-T1): a viewer reads it;
+day, resource type and severity (``driftsniff.web.replay``). Roles: a viewer reads it;
 nothing here writes, so no route needs a higher role and no audit event is written. The role
 check is a dependency of the route, so it runs before anything else. The security suite lists the
 route in its route table.

@@ -1,4 +1,4 @@
-"""Load test and measurements (P11-T1). The method and the numbers are in docs/measurements.md.
+"""Load test and measurements. The method and the numbers are in docs/measurements.md.
 
 The fixture is synthetic only: 1,000 objects, 2,000 changes and 90 days of manifests, pushed to one
 push source through the real run pipeline (the shipped rules, the real normaliser, fingerprints
@@ -1290,7 +1290,7 @@ def _suppression_verdict(noisy_part: Mapping[str, Any]) -> Verdict:
 
 
 def evaluate(report: Mapping[str, Any]) -> list[Verdict]:
-    """Compare a report with the targets of P11-T1. A miss is never softened.
+    """Compare a report with the targets. A miss is never softened.
 
     What was not measured is a gap, never a pass: everything about the container in ``local``
     mode, and whatever a killed or stopped container could not report.
@@ -1415,7 +1415,7 @@ def _report_arguments(parser: argparse.ArgumentParser) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     """The command line: container, local, seed and noisy."""
-    parser = argparse.ArgumentParser(description="driftsniff load test (P11-T1)")
+    parser = argparse.ArgumentParser(description="driftsniff load test")
     commands = parser.add_subparsers(dest="command", required=True)
     container = commands.add_parser("container", help="measure a built image (the real run)")
     container.add_argument("--image", required=True)

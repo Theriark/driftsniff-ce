@@ -1,4 +1,4 @@
-"""The words and the links of the History and Configuration pages (P10-T7, frontend slice).
+"""The words and the links of the History and Configuration pages (frontend slice).
 
 The queries are ``driftsniff.history`` (slice A). This module adds what the pages need on top of
 them: the mark and the word of each reading in the ledger, the links of the pager and of the

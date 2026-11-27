@@ -1,4 +1,4 @@
-"""Authentication of the whole application (P9-T6).
+"""Authentication of the whole application.
 
 The unit tests of ``web/auth.py`` and ``web/bearer.py`` cover the services. These tests ask the
 questions an attacker asks of the running application: what happens with no credential, a wrong

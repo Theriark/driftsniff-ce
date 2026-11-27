@@ -1,4 +1,4 @@
-"""A local HTTPS server and throwaway certificates for the TLS tests (P7-T3).
+"""A local HTTPS server and throwaway certificates for the TLS tests.
 
 Everything is made at test time with the ``cryptography`` library and lives in a temporary folder
 that pytest removes: no key and no certificate is committed. The server counts the bytes that

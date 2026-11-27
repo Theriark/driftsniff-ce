@@ -1,4 +1,4 @@
-"""Request and answer shapes of the enrichment API (P9-T5, docs/enrichment-api.md).
+"""Request and answer shapes of the enrichment API (docs/enrichment-api.md).
 
 The answers show a change the way the interface does: the shown value of a ``config`` field, a
 short fingerprint (12 characters) for a ``secret`` or unclassified field, and never both. The

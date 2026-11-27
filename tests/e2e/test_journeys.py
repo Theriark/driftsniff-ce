@@ -1,4 +1,4 @@
-"""The browser journeys of P10-T9 (THE-1315): a person using the real application.
+"""The browser journeys: a person using the real application.
 
 The tests run in file order and share one signed-in tab, as one person's session does; a
 failure early on makes the later journeys fail too, so read the first red one. The data is

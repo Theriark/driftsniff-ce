@@ -1,4 +1,4 @@
-"""THE-1306 (P3): state() is the one entry to the empty, error and loading states.
+"""state() is the one entry to the empty, error and loading states.
 
 Each kind is rendered on its own: its markup, its role and live region, its action, and that
 every message, label and address it is given is escaped. An unknown kind stops the render.

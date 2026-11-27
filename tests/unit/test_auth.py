@@ -1,4 +1,4 @@
-"""Users, passwords, sessions, sign-in limits and the setup code (P9-T1).
+"""Users, passwords, sessions, sign-in limits and the setup code.
 
 The tests run the real service on a migrated database with an injected clock and a cheap argon2
 setting (the production cost is asserted separately). Passwords are canaries: none may reach the

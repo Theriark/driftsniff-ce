@@ -1,4 +1,4 @@
-"""The route table and the checks of the security suite (P9-T6): who may call what.
+"""The route table and the checks of the security suite: who may call what.
 
 ``ROUTE_TABLE`` lists every route of the application with the access it requires; ``violations``
 calls a route as every kind of caller and reports each caller that is treated wrongly. The tests
@@ -55,7 +55,7 @@ ROUTE_TABLE: dict[tuple[str, str], Access] = {
     ("POST", "/account/picture"): Access.VIEWER,
     ("POST", "/account/picture/remove"): Access.VIEWER,
     ("GET", "/account/picture/{user_id}"): Access.VIEWER,
-    # The sources pages (P10-T5): a viewer reads, an operator also runs now, an admin changes.
+    # The sources pages: a viewer reads, an operator also runs now, an admin changes.
     ("GET", "/sources"): Access.VIEWER,
     ("GET", "/sources/new"): Access.ADMIN,
     ("POST", "/sources/new"): Access.ADMIN,
@@ -69,21 +69,21 @@ ROUTE_TABLE: dict[tuple[str, str], Access] = {
     ("POST", "/sources/{source_id}/disable"): Access.ADMIN,
     ("POST", "/sources/{source_id}/delete"): Access.ADMIN,
     ("POST", "/sources/{source_id}/push-key"): Access.ADMIN,
-    # The change pages (P10-T6): a viewer reads, an operator acknowledges, notes and mutes.
+    # The change pages: a viewer reads, an operator acknowledges, notes and mutes.
     ("GET", "/changes"): Access.VIEWER,
     ("GET", "/changes/{event_id}"): Access.VIEWER,
     ("POST", "/changes/{event_id}/acknowledge"): Access.OPERATOR,
     ("POST", "/changes/{event_id}/notes"): Access.OPERATOR,
     ("POST", "/changes/items/{item_id}/mute"): Access.OPERATOR,
     ("POST", "/mutes/{mute_id}/remove"): Access.OPERATOR,
-    # The history and configuration pages (P10-T7): read only, so a viewer is enough for all four.
+    # The history and configuration pages: read only, so a viewer is enough for all four.
     ("GET", "/history"): Access.VIEWER,
     ("GET", "/history/{source_id}"): Access.VIEWER,
     ("GET", "/configuration"): Access.VIEWER,
     ("GET", "/configuration/{source_id}"): Access.VIEWER,
-    # The change replay data (WP4a): counts per day, resource type and severity; read only.
+    # The change replay data: counts per day, resource type and severity; read only.
     ("GET", "/sources/{source_id}/replay"): Access.VIEWER,
-    # The admin settings (P10-T8): data routes, admin only; a browser gets the page (slice B).
+    # The admin settings: data routes, admin only; a browser gets the page (slice B).
     ("GET", "/settings"): Access.ADMIN,
     ("POST", "/settings/retention"): Access.ADMIN,
     ("POST", "/settings/storage-warning"): Access.ADMIN,
@@ -96,7 +96,7 @@ ROUTE_TABLE: dict[tuple[str, str], Access] = {
     ("GET", "/notifications/channel"): Access.ADMIN,
     ("PUT", "/notifications/channel"): Access.ADMIN,
     ("DELETE", "/notifications/channel"): Access.ADMIN,
-    # the settings page's form twins of PUT and DELETE (P10-T8 slice B): a form can only post
+    # the settings page's form twins of PUT and DELETE (slice B): a form can only post
     ("POST", "/notifications/channel"): Access.ADMIN,
     ("POST", "/notifications/channel/remove"): Access.ADMIN,
     ("POST", "/notifications/test"): Access.ADMIN,
@@ -109,7 +109,7 @@ ROUTE_TABLE: dict[tuple[str, str], Access] = {
     ("POST", "/api/v1/push/{source_id}"): Access.PUSH_KEY,
 }
 
-# The routes the change pages were planned with before the frontend slice added them (P10-T6).
+# The routes the change pages were planned with before the frontend slice added them.
 # Every row is a route now and sits in ROUTE_TABLE above with the same access;
 # ``test_planned_routes.py`` keeps the two in step so the plan's role rules stay visible.
 PLANNED_ROUTES: dict[tuple[str, str], Access] = {

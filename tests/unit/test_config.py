@@ -15,6 +15,7 @@ def test_defaults() -> None:
     assert settings.log_level == "info"
     assert settings.key_file == Path("/keys/master.key")
     assert settings.data_dir == Path("/data")
+    assert settings.dev_host_suffix is None
 
 
 def test_every_setting_can_be_overridden() -> None:
@@ -62,6 +63,14 @@ def test_port_boundaries_are_accepted(port: str) -> None:
         ("DRIFTSNIFF_BASE_URL", "https://example.test/?q=1"),
         ("DRIFTSNIFF_KEY_FILE", "   "),
         ("DRIFTSNIFF_DATA_DIR", ""),
+        ("DRIFTSNIFF_DEV_HOST_SUFFIX", ""),
+        ("DRIFTSNIFF_DEV_HOST_SUFFIX", "dev"),
+        ("DRIFTSNIFF_DEV_HOST_SUFFIX", "https://dev.example.com"),
+        ("DRIFTSNIFF_DEV_HOST_SUFFIX", "dev.example.com:8443"),
+        ("DRIFTSNIFF_DEV_HOST_SUFFIX", "dev.example.com/x"),
+        ("DRIFTSNIFF_DEV_HOST_SUFFIX", "-dev.example.com"),
+        ("DRIFTSNIFF_DEV_HOST_SUFFIX", "dev..example.com"),
+        ("DRIFTSNIFF_DEV_HOST_SUFFIX", "*.example.com"),
     ],
 )
 def test_invalid_values_are_rejected(name: str, value: str) -> None:
@@ -72,3 +81,16 @@ def test_invalid_values_are_rejected(name: str, value: str) -> None:
 def test_process_environment_is_the_default_source(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("DRIFTSNIFF_PORT", "9200")
     assert Settings.from_env().port == 9200
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("dev.example.com", "dev.example.com"),
+        (" Dev.Example.COM ", "dev.example.com"),
+        (".dev.example.com", "dev.example.com"),
+        ("ce-dev-app.example.test", "ce-dev-app.example.test"),
+    ],
+)
+def test_the_development_host_is_a_lowercase_host_name(value: str, expected: str) -> None:
+    assert Settings.from_env({"DRIFTSNIFF_DEV_HOST_SUFFIX": value}).dev_host_suffix == expected

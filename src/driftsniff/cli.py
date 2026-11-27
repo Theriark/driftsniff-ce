@@ -38,7 +38,7 @@ from driftsniff.secrets.keys import (
     master_key_or_exit,
 )
 from driftsniff.secrets.redact import install_log_filter
-from driftsniff.secrets.rekey import RekeyError, run_rekey
+from driftsniff.secrets.rekey import MODE_OLD_KEY, RekeyError, load_rekey_state, run_rekey
 from driftsniff.sources.retention import RetentionJob
 
 EXIT_CONFIG = 1
@@ -64,7 +64,10 @@ def build_parser() -> argparse.ArgumentParser:
     """Build the argument parser with one sub-command per entry of COMMANDS."""
     parser = argparse.ArgumentParser(
         prog="driftsniff",
-        description="Records changes to UniFi Network and Xen Orchestra configuration.",
+        description=(
+            "Records configuration changes of 14 kinds of network, virtualisation, storage, "
+            "home automation and monitoring system."
+        ),
     )
     parser.add_argument("--version", action="version", version=f"driftsniff {__version__}")
     subparsers = parser.add_subparsers(dest="command", metavar="command")
@@ -159,8 +162,9 @@ def _rekey(settings: Settings, *, old_key_lost: bool) -> int:
         print("credentials made with the lost key cannot be recovered: enter them again")
     else:
         print(
-            "keep the old key file in place until every enabled source has finished one clean "
-            "collection cycle; a fingerprint_rekey audit event then marks the rekey complete"
+            "start driftsniff again with DRIFTSNIFF_OLD_KEY_FILE still set and keep the old key "
+            "file in place until every enabled source has finished one clean collection cycle; "
+            "a fingerprint_rekey audit event then marks the rekey complete"
         )
     return 0
 
@@ -239,6 +243,56 @@ def _prepare_master_key(settings: Settings) -> MasterKey:
         database.close()
 
 
+def _old_key_for_serve(settings: Settings, current: MasterKey) -> MasterKey | None:
+    """The old master key ``serve`` needs while a rekey runs, else None.
+
+    The rekey state is read from the database, so a restart in the middle of a rekey simply
+    continues the cycle. RekeyError or MasterKeyError when ``serve`` must not start: the rekey
+    went to a key that DRIFTSNIFF_KEY_FILE does not hold, or DRIFTSNIFF_OLD_KEY_FILE is not the
+    old key of the rekey.
+    """
+    database = Database(database_path(settings.data_dir))
+    try:
+        with database.read() as connection:
+            state = load_rekey_state(connection)
+    except RekeyError as error:
+        print(f"driftsniff: warning: {error}; no rekey cycle runs", file=sys.stderr, flush=True)
+        return None
+    finally:
+        database.close()
+    if state is None or not state.active:
+        if settings.old_key_file is not None:
+            print(
+                "driftsniff: no rekey is in progress; DRIFTSNIFF_OLD_KEY_FILE is not used and "
+                "can be removed",
+                file=sys.stderr,
+                flush=True,
+            )
+        return None
+    if state.new_key_id != current.key_id:
+        raise RekeyError(
+            f"a rekey to key {state.new_key_id} is in progress, but DRIFTSNIFF_KEY_FILE holds "
+            f"key {current.key_id}"
+        )
+    if state.mode != MODE_OLD_KEY:
+        return None
+    if settings.old_key_file is None:
+        print(
+            "driftsniff: warning: a rekey is in progress but DRIFTSNIFF_OLD_KEY_FILE is not set; "
+            "stored secret fingerprints are re-stamped without a comparison",
+            file=sys.stderr,
+            flush=True,
+        )
+        return None
+    old = load_master_key(settings.old_key_file)
+    if old.key_id != state.old_key_id:
+        raise RekeyError(
+            f"DRIFTSNIFF_OLD_KEY_FILE holds key {old.key_id}, not the old key "
+            f"{state.old_key_id} of the rekey in progress"
+        )
+    return old
+
+
 def _serve(settings: Settings) -> int:
     import uvicorn
 
@@ -265,6 +319,14 @@ def _serve(settings: Settings) -> int:
     if status != 0:
         return status
     master_key = _prepare_master_key(settings)
+    try:
+        old_key = _old_key_for_serve(settings, master_key)
+    except (MasterKeyError, RekeyError) as error:
+        print(f"driftsniff: {error}", file=sys.stderr)
+        return EXIT_CONFIG
+    except (OSError, SQLAlchemyError) as error:
+        print(f"driftsniff: database error: {error}", file=sys.stderr)
+        return EXIT_CONFIG
     logging.basicConfig(
         level=settings.log_level.upper(),
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
@@ -291,7 +353,11 @@ def _serve(settings: Settings) -> int:
         notifications = NotificationService(database, master_key, base_url=settings.base_url)
         try:
             collection = build_collection(
-                database, master_key, settings.data_dir, notifier=notifications.notify_event
+                database,
+                master_key,
+                settings.data_dir,
+                notifier=notifications.notify_event,
+                old_key=old_key,
             )
         except (RuleLoadError, OverrideFileError) as error:
             print(f"driftsniff: {error}", file=sys.stderr)

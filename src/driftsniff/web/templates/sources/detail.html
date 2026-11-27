@@ -1,4 +1,4 @@
-{# The source page (P10-T5, mock-up docs/mockups/source.html; UI revision WP3, THE-1161).
+{# The source page (mock-up docs/mockups/source.html).
    detail is a driftsniff.web.source_pages.SourceDetail. Top to bottom: the summary head with
    the status, the flags and the actions the role allows; the source tabs (Overview, Coverage,
    Runs, History, Configuration), the same strip as on the History and Configuration pages;
@@ -7,8 +7,8 @@
    column (the drift line, the coverage and the recent runs, each a target of its tab) beside
    the side panel (the facts of the source and, for an admin, the typed-name delete). Under
    1280 px the side panel follows the main column. The credential is never printed: only
-   whether one is stored. Under the drift line sits the Change Replay (WP4c, THE-1197,
-   sources/_replay.html): replay is a ReplayView, or none without the replay service. #}
+   whether one is stored. Under the drift line sits the Change Replay
+   (sources/_replay.html): replay is a ReplayView, or none without the replay service. #}
 {% extends "base.html" %}
 {% from "components/states.html" import banner, success_banner, state %}
 {% from "components/badges.html" import status_badge %}

@@ -1,4 +1,4 @@
-"""Tests for scripts/check_type_coverage.py: every field a type table names has a class (P5-T4)."""
+"""Tests for scripts/check_type_coverage.py: every field a type table names has a class."""
 
 import textwrap
 from collections.abc import Mapping

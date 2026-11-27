@@ -1,4 +1,4 @@
-"""The collector factory: a collector from a stored source or from the values of a form (P10).
+"""The collector factory: a collector from a stored source or from the values of a form.
 
 Two entry points share one builder:
 

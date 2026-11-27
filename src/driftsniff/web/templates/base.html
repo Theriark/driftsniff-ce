@@ -1,4 +1,4 @@
-{# The app shell (P10-T2, UI revision WP1 THE-1101, docs/design-direction.md). Every page extends
+{# The app shell (docs/design-direction.md). Every page extends
    this file and fills the content block; the shell object (driftsniff.web.templating.Shell) says
    who is signed in, which navigation entry is current and what the user prefers.
 
@@ -98,7 +98,7 @@
   {% endblock %}
   {% if action %}
   {# under 480 px the label is visually hidden and the button keeps only its icon, so the trail,
-     the badge and the action share one row (THE-1416, F5); the label still names the link #}
+     the badge and the action share one row (F5); the label still names the link #}
   <a class="btn topbar__action" href="{{ action[1] }}"><svg width="16" height="16" aria-hidden="true" focusable="false"><use href="#i-plus"/></svg><span class="topbar__action-label">{{ action[0] }}</span></a>
   {% endif %}
 </div>

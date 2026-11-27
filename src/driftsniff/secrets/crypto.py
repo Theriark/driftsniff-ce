@@ -52,7 +52,7 @@ def associated_data(source_id: int, key_id: str) -> bytes:
 
 
 def channel_associated_data(channel_id: int, key_id: str) -> bytes:
-    """The same for the configuration of a notification channel (P9-T4).
+    """The same for the configuration of a notification channel.
 
     A different text from ``associated_data``, so a source credential can never be opened as a
     channel configuration, or the other way round, even when both have the same id.

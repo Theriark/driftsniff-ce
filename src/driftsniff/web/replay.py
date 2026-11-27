@@ -1,4 +1,4 @@
-"""The data of the Change Replay of a source (WP4a of the interface revision): counts, nothing else.
+"""The data of the Change Replay of a source (interface revision): counts, nothing else.
 
 ``ReplayService.load`` counts the real change items of one source per UTC day, resource type and
 severity, on one read connection. The route (``GET /sources/{id}/replay`` in

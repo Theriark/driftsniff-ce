@@ -1,4 +1,4 @@
-"""The one message every channel sends (P9-T4, docs/notifications.md).
+"""The one message every channel sends (docs/notifications.md).
 
 A message holds an event id, the source name, the highest severity, the event summary, the item
 count and a link. Nothing else: the before and after values of a change, object names and paths

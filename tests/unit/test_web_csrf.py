@@ -1,4 +1,4 @@
-"""CSRF value, origin check, security headers and the API cookie rule (P9-T2).
+"""CSRF value, origin check, security headers and the API cookie rule.
 
 The tests drive the real application with a migrated database and a cheap argon2 setting. The
 CSRF values are random per session; a value taken from another session must not work.

@@ -1,4 +1,4 @@
-"""The ten extension points of driftsniff CE, as typing protocols (P9-T5, docs/plugin-api.md).
+"""The ten extension points of driftsniff CE, as typing protocols (docs/plugin-api.md).
 
 An extension point is a small contract that a plugin may implement in place of the CE default
 (:mod:`driftsniff.plugins.defaults`). Each point has a stable name (the key a plugin uses) and a

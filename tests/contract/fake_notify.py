@@ -1,4 +1,4 @@
-"""Local receivers for the notification tests (P9-T4): a webhook receiver and a mail server.
+"""Local receivers for the notification tests: a webhook receiver and a mail server.
 
 Both run on 127.0.0.1 in a thread. Nothing here is a real service, a real address or a real
 credential. The mail server speaks just enough SMTP (EHLO, STARTTLS, AUTH PLAIN, MAIL, RCPT,

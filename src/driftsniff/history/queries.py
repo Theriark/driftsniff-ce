@@ -1,4 +1,4 @@
-"""The snapshot history of a source, as SQL (P10-T7, backend slice; docs/history-service.md).
+"""The snapshot history of a source, as SQL (backend slice; docs/history-service.md).
 
 ``HistoryQueries.list_sources`` feeds the source picker of the History and Configuration pages and
 ``list_snapshots`` the history of one source. Both read on one read connection, return the frozen

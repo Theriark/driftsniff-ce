@@ -1,4 +1,4 @@
-"""CSRF protection, security headers and the API cookie rule (P9-T2, docs/csrf-and-headers.md).
+"""CSRF protection, security headers and the API cookie rule (docs/csrf-and-headers.md).
 
 One middleware (:class:`BrowserHardeningMiddleware`, added in ``main.py``) does three things:
 

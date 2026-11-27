@@ -1,4 +1,4 @@
-"""The shipped UniFi pack (P7-T4).
+"""The shipped UniFi pack.
 
 ``rules/packs/unifi/*.yaml`` and ``rules/types/unifi.yaml`` are loaded from the package, the way
 the application loads them. Every rule has one input that it matches and one near miss that it
