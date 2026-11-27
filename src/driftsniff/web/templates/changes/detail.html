@@ -18,7 +18,7 @@
 {% from "changes/_item.html" import change_item with context %}
 {% block head %}<link rel="stylesheet" href="{{ static_url('summary-head.css') }}">{% endblock %}
 {% block content %}
-<nav class="breadcrumb" aria-label="Breadcrumb"><a href="/changes">Changes</a> / <a href="/sources/{{ change.source_id }}">{{ change.source_name }}</a> / Change {{ number(change.id) }}</nav>
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="/changes">Changes</a> / <a href="/sources/{{ change.source_id }}">{{ change.source_name }}</a> / Change {{ change.id }}</nav>
 <div class="summary-head">
   <div>
     <div class="badges">{{ severity_badge(change.severity) }} {% if change.status == "acknowledged" %}{{ status_badge("ok", "Acknowledged") }}{% else %}{{ status_badge("warn", "Open", "i-dash") }}{% endif %}{% if detail.muted_item_count %} {{ status_badge("stale", count_words(detail.muted_item_count, "muted item")) }}{% endif %}</div>
@@ -28,7 +28,7 @@
       <span>Detected {{ window }}</span>
       <span>{{ counts }}</span>
       <span>Rule pack <span class="num">{{ change.rule_pack_version }}</span></span>
-      <span>Change {{ number(change.id) }}</span>
+      <span>Change {{ change.id }}</span>
     </div>
   </div>
   {% if can_operate %}

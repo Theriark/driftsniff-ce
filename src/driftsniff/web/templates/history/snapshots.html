@@ -61,7 +61,7 @@
               {% if row.is_baseline %}<span class="sub">Nothing is compared across it</span>{% endif %}
             </th>
             <td>{{ time_tag(parse_stamp(row.taken_at), now) }}</td>
-            <td class="num">{% if row.change_count %}<a href="/changes?source={{ view.source.id }}&amp;snapshot={{ row.id }}">{{ number(row.change_count) }}<span class="visually-hidden"> changes found by this reading</span></a>{% else %}<span class="sub">None</span>{% endif %}</td>
+            <td class="num">{% if row.change_count %}<a href="/changes?source={{ view.source.id }}&amp;snapshot={{ row.id }}">{{ number(row.change_count) }}<span class="visually-hidden"> {{ "change" if row.change_count == 1 else "changes" }} found by this reading</span></a>{% else %}<span class="sub">None</span>{% endif %}</td>
             <td class="col-hide-s">{% if row.controller_version %}<span class="mono">{{ row.controller_version }}</span>{% else %}<span class="sub">Not reported</span>{% endif %}</td>
             <td class="num col-hide-m">{{ size_text(row.manifest_bytes) }}</td>
           </tr>
