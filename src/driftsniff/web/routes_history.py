@@ -1,6 +1,6 @@
-"""The History and Configuration routes (P10-T7): who may read what, the data and the pages.
+"""The History and Configuration routes: who may read what, the data and the pages.
 
-Roles (P9-T1): a viewer reads both pages; nothing here writes, so no route needs a higher role and
+Roles: a viewer reads both pages; nothing here writes, so no route needs a higher role and
 no audit event is written. The role check is a dependency of each route, so it runs before
 anything else. The security suite lists every route here in its route table. The pages offer an
 operator Run now (a post to the source's own run route, with the CSRF value) and an admin Edit
@@ -199,7 +199,7 @@ async def source_configuration(
     service: History,
     source_id: SourceId,
 ) -> Response:
-    """The newest snapshot of one source, or the reading in ``?snapshot=`` (DRS-465): a resource
+    """The newest snapshot of one source, or the reading in ``?snapshot=``: a resource
     at a time, searchable, 50 objects a page."""
     params = request.query_params
     snapshot_text = params.get("snapshot", "")

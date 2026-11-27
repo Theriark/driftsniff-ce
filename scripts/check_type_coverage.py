@@ -1,4 +1,4 @@
-"""Check that every field a type table names has a class (P5-T4).
+"""Check that every field a type table names has a class.
 
 A type table says, for each resource, which fields are config, secret, ignore or unclassified.
 The loader already requires a class for every entry under ``fields``. This check closes the other

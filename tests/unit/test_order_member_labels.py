@@ -1,4 +1,4 @@
-"""The label of a list member without a declared key is a keyed hash (P9-T6, THE-810).
+"""The label of a list member without a declared key is a keyed hash.
 
 A member without a key is matched by its content, and the content may be a secret, so an order
 detail shows it as ``member:`` and 12 characters. An unkeyed hash of the content would let anyone

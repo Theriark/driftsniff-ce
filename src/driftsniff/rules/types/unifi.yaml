@@ -1,4 +1,4 @@
-# Type tables of the UniFi collector (P7-T1). Notes with sources: docs/vendor-notes/unifi.md.
+# Type tables of the UniFi collector. Notes with sources: docs/vendor-notes/unifi.md.
 #
 # The field paths below were checked on 2026-11-13 against the integration API of a real UniFi
 # Network 10.6.109 controller: every path that controller returned is classified here, and a
@@ -10,7 +10,7 @@
 # The resource names carry the prefix unifi- because a resource can be defined only once across
 # all type files and the Xen Orchestra tables already use networks and users.
 #
-# Two decisions that the table makes visible to the collector (P7-T4):
+# Two decisions that the table makes visible to the collector:
 # - The action of a firewall policy is nested in the vendor object (action.type). The order
 #   detail of the engine reads a flat top level field, so the table names a derived top level
 #   field actionType as its action_field. The collector copies action.type to actionType before

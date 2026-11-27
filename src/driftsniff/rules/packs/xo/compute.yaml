@@ -1,4 +1,4 @@
-# Xen Orchestra rules for virtual machines, hosts, pools and storage repositories (P5-T3).
+# Xen Orchestra rules for virtual machines, hosts, pools and storage repositories.
 # A field that has no rule here is MEDIUM, unclassified, until it is reviewed.
 version: 1
 rules:

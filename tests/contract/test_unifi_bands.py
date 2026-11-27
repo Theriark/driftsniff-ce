@@ -1,4 +1,4 @@
-"""The UniFi version-band fixtures through the real collector (P7-T5).
+"""The UniFi version-band fixtures through the real collector.
 
 ``tests/fixtures/unifi/band-*.json`` holds one hand written controller per version band: the floor
 (10.1.84), a reference band (10.6.109) and the newest band (10.7.0). Their shapes are those a real

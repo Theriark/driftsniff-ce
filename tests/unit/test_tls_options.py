@@ -1,4 +1,4 @@
-"""TLS option checks and the CA bundle loader (P7-T3): names, pins, size, PEM only."""
+"""TLS option checks and the CA bundle loader: names, pins, size, PEM only."""
 
 import ssl
 from pathlib import Path

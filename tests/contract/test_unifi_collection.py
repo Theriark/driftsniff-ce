@@ -1,4 +1,4 @@
-"""Resource collection, the ordering merge and the UniFi pack through the real collector (P7-T4).
+"""Resource collection, the ordering merge and the UniFi pack through the real collector.
 
 The fake controller serves firewall policies, ACL rules and their ordering documents
 (docs/vendor-notes/unifi.md; the policies here have no ``metadata.origin``, so every one of them is

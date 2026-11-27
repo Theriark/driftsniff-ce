@@ -1,4 +1,4 @@
-"""The change and enrichment API under ``/api/v1`` (P9-T5, docs/enrichment-api.md).
+"""The change and enrichment API under ``/api/v1`` (docs/enrichment-api.md).
 
 Routes, and the scope each needs (a scope is never implied by another one):
 

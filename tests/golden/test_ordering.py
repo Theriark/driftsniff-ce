@@ -1,4 +1,4 @@
-"""The ordering fixtures of P4-T2 run through the rule engine (P5-T4).
+"""The ordering fixtures run through the rule engine.
 
 ``tests/unit/test_order.py`` checks which items ``core/order.py`` reports. These tests go one step
 further, with the type tables in this folder in the shipped format: which severity each of those

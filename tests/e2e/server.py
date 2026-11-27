@@ -1,8 +1,8 @@
-"""A real driftsniff process for the browser journeys (P10-T9, THE-1315).
+"""A real driftsniff process for the browser journeys.
 
 The journeys talk to the application the way a person does: ``driftsniff serve`` runs as a
 child process on a free loopback port with a temporary data directory and a temporary key
-file. Before it starts, the Development fixture (docs/dev-fixture.md) is written into that
+file. Before it starts, the Development fixture is written into that
 directory with ``seed_fixture`` and a pipeline without a notifier, so the screens have changes
 of every severity while the address guard of the fixture, which only allows a Development
 host, stays untouched. The one-time setup code is read from the log of the child, as an

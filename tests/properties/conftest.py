@@ -2,7 +2,7 @@
 
 ``ci`` (the default) is reproducible: derandomised, 500 examples, no example database.
 ``nightly`` draws a new random seed on every run and tries more examples; it is meant for the
-report-only nightly job (see docs/ci-baseline.md, section 10). Select one with the environment
+report-only nightly job. Select one with the environment
 variable ``HYPOTHESIS_PROFILE``.
 """
 

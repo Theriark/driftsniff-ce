@@ -1,4 +1,4 @@
-"""Contrast check for the design tokens of the web interface (P10-T1).
+"""Contrast check for the design tokens of the web interface.
 
 Reads docs/design-colours.json, computes the WCAG 2 contrast ratio of every listed pair of
 tokens (foreground on background, per theme) and fails when a pair is below its minimum:

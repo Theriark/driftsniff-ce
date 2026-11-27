@@ -1,4 +1,4 @@
-"""The dashboard (P10-T4): the queries, the pure helpers and the rendered page.
+"""The dashboard: the queries, the pure helpers and the rendered page.
 
 The queries run against a migrated database seeded with plain inserts (sources, runs, events,
 items, acknowledgements, notes and audit events), the way the run pipeline and the services
@@ -562,7 +562,7 @@ def test_the_dashboard_grids_cannot_widen_the_page() -> None:
 
 
 def test_the_severity_list_wraps_under_the_ring_instead_of_leaving_its_card() -> None:
-    """THE-1240: at 1024 px the 5fr card is about 287 px wide, and a 160px 1fr grid pushed the
+    """At 1024 px the 5fr card is about 287 px wide, and a 160px 1fr grid pushed the
     166 px severity list 89 px out of it, under Needs attention. The posture is a wrapping flex
     row: the ring keeps its 160 px, the list has a zero basis and the default min-width, so it
     moves under the ring as soon as its widest row no longer fits beside it, at every width."""
@@ -581,7 +581,7 @@ def test_the_severity_list_wraps_under_the_ring_instead_of_leaving_its_card() ->
 
 
 def test_a_narrow_attention_list_gives_the_text_its_own_line() -> None:
-    """THE-1255: at 1024 px the 7fr card leaves the list 351 px, and the three columns of a row
+    """At 1024 px the 7fr card leaves the list 351 px, and the three columns of a row
     (a 167 px "Nothing pushed yet" badge, the text, a 112 px "Open source" button) squeezed the
     title to "pilo..." and its line to one word per line. The list is a size container; below
     its breakpoint the badge and the action share the first line and the text spans the row
@@ -618,7 +618,7 @@ def test_a_narrow_attention_list_gives_the_text_its_own_line() -> None:
 
 
 def test_the_trend_chart_fits_a_desktop_card_and_opens_on_today() -> None:
-    """THE-1371: at 1440 px the half-width card leaves 502 px for the chart, and a 520 px
+    """At 1440 px the half-width card leaves 502 px for the chart, and a 520 px
     minimum hid the y-axis labels behind the scroll that opens on today. The chart is a 30 unit
     y-axis beside a 570 unit plot at one scale; it may shrink to 480 px. Narrower, only the plot
     scrolls (from the right, so today is in view first) and the y-axis stays beside it."""
@@ -643,7 +643,7 @@ def test_the_trend_chart_fits_a_desktop_card_and_opens_on_today() -> None:
 
 
 def test_the_trend_chart_axis_labels_are_html_text_at_the_14_px_floor() -> None:
-    """THE-1402 F3: as SVG text the 15 unit labels shrank with the drawing to 12 px at 1440 and
+    """As SVG text the 15 unit labels shrank with the drawing to 12 px at 1440 and
     390 px. They are HTML text at 14 px now: the y-axis column is as tall as the 154 unit plot
     and spreads its labels from the top grid line to the baseline, as the grid lines are spread;
     the time axis is as wide as the plot and scrolls with it."""
@@ -667,7 +667,7 @@ def test_the_trend_chart_axis_labels_are_html_text_at_the_14_px_floor() -> None:
 
 
 def test_the_trend_row_stacks_before_its_cards_are_too_narrow_for_the_chart() -> None:
-    """THE-1371: the half-width card at 1024 px leaves 294 px, so the trend row keeps two
+    """The half-width card at 1024 px leaves 294 px, so the trend row keeps two
     columns only while a card holds the whole chart (its minimum plus 50 px of padding and
     border): two columns at 1440 px, stacked at 1024 px, and never wider than the row."""
     rules = _css_rules()
@@ -726,7 +726,7 @@ def test_the_stat_cards_count_open_changes_new_changes_and_sources(
     # the disabled source is named too, so the card's parts add up to its total of four
     assert healthy.delta == "1 disabled, 1 failing, 1 no check yet" and healthy.delta_tone == "up"
     assert storage.label == "Storage used" and storage.unit == "MB"
-    # the About section of the settings page (P10-T8), a link for admins only
+    # the About section of the settings page, a link for admins only
     assert storage.href == "/settings#about" and storage.admin_only
 
 
@@ -752,7 +752,7 @@ def test_the_posture_ring_counts_open_changes_by_highest_severity(
 def test_every_row_opens_a_list_of_the_number_it_shows(
     service: DashboardService, store: Database, seeded: dict[str, int]
 ) -> None:
-    """DRS-463: a row counted change items and opened a list of changes (2,142 against 688)."""
+    """A row counted change items and opened a list of changes (2,142 against 688)."""
     data = service.load()
     assert data.posture is not None
     rows = [(count.href, count.count) for count in data.posture.counts]
@@ -883,7 +883,7 @@ def test_the_drift_lines_mark_each_check_or_each_day(
     assert not lab.per_day and lab.href == "/sources/1"
     assert lab.meta == "Push source, 3 pushes in 30 days"
     assert [check["kind"] for check in lab.checks] == ["ok", "change", "failed"]
-    # each check is aged from when it finished, so it is drawn at its time (THE-1402 F2)
+    # each check is aged from when it finished, so it is drawn at its time
     assert [check["age"] * 48 for check in lab.checks] == pytest.approx([4, 2, 1])
     assert lab.checks[1] == {
         "kind": "change",
@@ -917,7 +917,7 @@ def test_the_drift_lines_mark_each_check_or_each_day(
 def test_the_checks_of_the_last_hours_are_drawn_at_the_today_end_of_the_strip(
     service: DashboardService, seeded: dict[str, int]
 ) -> None:
-    """THE-1402 F2: three pushes of the last two hours were drawn at x 8, 28 and 48, beside
+    """Three pushes of the last two hours were drawn at x 8, 28 and 48, beside
     "30 days ago"; they belong beside "today", one hour being 20 / 24 of a unit."""
     lines = {row.name: row for row in service.load().driftlines}
     lab = {mark.kind: mark.x for mark in drift_marks(lines["lab-controller"].checks)}
@@ -1141,7 +1141,7 @@ def test_the_dashboard_page_renders_every_section_with_text_alternatives(
     assert parsed.find("div").count({"class": "card metric"}) == 0
     assert {"href": "/settings"} in parsed.find("a")  # the sidebar's Admin > Settings
     # every chart is an image with a title and a description; a drift line with change links
-    # is a group instead, so its links are not hidden inside an image (THE-1351)
+    # is a group instead, so its links are not hidden inside an image
     charts = [svg for svg in parsed.find("svg") if svg.get("role") in ("img", "group")]
     assert len(charts) == 2 + 4  # the ring, the trend, four drift lines
     assert [svg for svg in charts if svg.get("role") == "group"]

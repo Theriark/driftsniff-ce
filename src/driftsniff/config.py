@@ -1,6 +1,7 @@
 """Settings read from DRIFTSNIFF_ environment variables."""
 
 import os
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -68,6 +69,20 @@ def _parse_base_url(value: str) -> str:
     return f"{parts.scheme}://{parts.netloc}{parts.path.rstrip('/')}"
 
 
+_HOST_LABEL = r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
+_DEV_HOST = re.compile(rf"{_HOST_LABEL}(?:\.{_HOST_LABEL})+")
+
+
+def _parse_dev_host_suffix(value: str) -> str:
+    host = value.lower().removeprefix(".")
+    if len(host) > 253 or _DEV_HOST.fullmatch(host) is None:
+        raise ConfigError(
+            f"{ENV_PREFIX}DEV_HOST_SUFFIX must be a host or domain name with at least one dot, "
+            "such as dev.example.com, without a scheme, port or path"
+        )
+    return host
+
+
 @dataclass(frozen=True, slots=True)
 class Settings:
     """Validated application settings."""
@@ -80,6 +95,10 @@ class Settings:
     port: int
     # The old master key during a rekey (DRIFTSNIFF_OLD_KEY_FILE); None otherwise.
     old_key_file: Path | None = None
+    # DRIFTSNIFF_DEV_HOST_SUFFIX: the host name (or a domain above it) of a Development site.
+    # Only a DRIFTSNIFF_BASE_URL host equal to it or ending in "." + it gets the Development test
+    # accounts and the synthetic fixture at start-up. None (the default): never at start-up.
+    dev_host_suffix: str | None = None
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> Self:
@@ -102,6 +121,7 @@ class Settings:
         key_file_text = _raw(source, "KEY_FILE")
         data_dir_text = _raw(source, "DATA_DIR")
         old_key_file_text = _raw(source, "OLD_KEY_FILE")
+        dev_host_text = _raw(source, "DEV_HOST_SUFFIX")
         return cls(
             base_url=base_url,
             trusted_proxy=trusted_proxy,
@@ -110,4 +130,7 @@ class Settings:
             data_dir=Path(DEFAULT_DATA_DIR if data_dir_text is None else data_dir_text),
             port=port,
             old_key_file=None if old_key_file_text is None else Path(old_key_file_text),
+            dev_host_suffix=(
+                None if dev_host_text is None else _parse_dev_host_suffix(dev_host_text)
+            ),
         )

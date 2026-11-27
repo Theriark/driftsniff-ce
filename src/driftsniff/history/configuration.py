@@ -1,4 +1,4 @@
-"""The current configuration of a source, browsed by resource (P10-T7, backend slice).
+"""The current configuration of a source, browsed by resource (backend slice).
 
 ``ConfigurationQueries.current`` shows the newest snapshot of a source: its resource types, and
 the objects of one of them, 50 a page, with the fields of every object. The content is the one
@@ -248,7 +248,7 @@ class ConfigurationQueries:
     ) -> ConfigurationView | None:
         """The configuration of the newest snapshot; None for an unknown source.
 
-        ``snapshot_id`` shows that older reading of the source instead (DRS-465); None when the
+        ``snapshot_id`` shows that older reading of the source instead; None when the
         source has no such reading.
 
         ``resource`` names the resource type to browse; none, or one the snapshot does not hold,

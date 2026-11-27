@@ -1,4 +1,4 @@
-"""The collection side of ``serve``: service, run pipeline, scheduler and factory (P10).
+"""The collection side of ``serve``: service, run pipeline, scheduler and factory.
 
 ``build_collection`` makes what ``driftsniff serve`` hands to the application so that polled
 sources are really collected:
@@ -48,11 +48,13 @@ def build_collection(
     data_dir: Path | str,
     *,
     notifier: Callable[[int], None] | None = None,
+    old_key: MasterKey | None = None,
 ) -> Collection:
     """Build the service, pipeline, factory and scheduler of one installation.
 
     Raises ``RuleLoadError`` or ``OverrideFileError`` when the shipped rules or overrides cannot
-    be loaded; ``serve`` reports that and stops.
+    be loaded; ``serve`` reports that and stops. ``old_key`` is the old master key while a rekey
+    runs; the pipeline then re-stamps the fingerprints the old key made.
     """
     service = SourceService(database, CredentialCipher.from_master(master_key))
     pipeline = RunPipeline(
@@ -61,6 +63,7 @@ def build_collection(
         Fingerprinter.from_master(master_key),
         overrides=load_overrides(),
         notifier=notifier,
+        old_fingerprinter=None if old_key is None else Fingerprinter.from_master(old_key),
     )
     factory = CollectorFactory(service, data_dir)
     scheduler = Scheduler(service, pipeline, factory.for_source)

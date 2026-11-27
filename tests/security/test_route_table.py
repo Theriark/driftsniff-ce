@@ -1,4 +1,4 @@
-"""Route table (P9-T6): every route, the role it needs, and what happens to everyone else.
+"""Route table: every route, the role it needs, and what happens to everyone else.
 
 ``ROUTE_TABLE`` lists every route of the application with the access it requires. Two kinds of
 test hold it honest:

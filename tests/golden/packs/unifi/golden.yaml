@@ -1,6 +1,6 @@
-# Test-only rules for the UniFi rows of the golden table (P5-T4). Rows 21 and 22 (a deleted and a
+# Test-only rules for the UniFi rows of the golden table. Rows 21 and 22 (a deleted and a
 # moved firewall policy) have no rule: they are decided by the object floor and the move floor of
-# the type table. The shipped pack is rules/packs/unifi and is run against the rows in P7-T4.
+# the type table. The shipped pack is rules/packs/unifi and is run against the same rows.
 version: 1
 rules:
   - id: golden.generic_name.unifi_networks

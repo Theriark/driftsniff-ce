@@ -1,12 +1,12 @@
-"""Development-only synthetic changes, so the populated screens can be judged (docs/dev-fixture.md).
+"""Development-only synthetic changes, so the populated screens can be judged.
 
 On the Development site one push source and no change would leave the change list, the dashboard
 and the history empty. This module makes one clearly labelled push source and runs four synthetic
 documents through the real run pipeline (the one a polled source uses, with the shipped rules), so
 there are change events across several resource types and all four severities. Rules, and why:
 
-- It runs at start-up only for a ``ce-dev-<name>.theriark.dev`` address (the guard of
-  ``devseed``), so Stage and Production never get it.
+- It runs at start-up only on the Development host named by ``DRIFTSNIFF_DEV_HOST_SUFFIX`` (the
+  guard of ``devseed``), so Stage and Production never get it.
 - The source is named :data:`FIXTURE_SOURCE_NAME` and has no sender key: nothing can push to it
   from outside, and no credential is made. Delete the source on the Sources page (an admin) and
   everything recorded for it goes with it; a later start does not make it again.

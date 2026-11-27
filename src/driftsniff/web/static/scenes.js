@@ -950,8 +950,8 @@ const REPLAY = {
     // Where the cards' lines end, a fixed point of the room on the device's own top: rays straight
     // down along its middle, back to front; the highest surface they meet, then its front-most
     // point (a rack's roof at its front edge, a monitor's top edge, a Pi's board). A single ray
-    // near the front missed a monitor's thin screen and met its stand's foot (Ruben, 15 November
-    // 2026), and the bounding box can stand above the visible roof.
+    // near the front missed a monitor's thin screen and met its stand's foot (design review,
+    // November 2026), and the bounding box can stand above the visible roof.
     const probe = new THREE.Raycaster();
     const hits = [];
     for (let k = 0; k <= 16; k += 1) {

@@ -1,5 +1,5 @@
 # Xen Orchestra rules for backup jobs, their per schedule settings, schedules, repositories and
-# proxies (P5-T3). Backup repositories have the object floor high in rules/types/xo.yaml.
+# proxies. Backup repositories have the object floor high in rules/types/xo.yaml.
 version: 1
 rules:
   - id: xo.backup_jobs.remotes

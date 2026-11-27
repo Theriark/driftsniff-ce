@@ -3,7 +3,7 @@
 These are routes of the interface, not of ``/api/v1``: an admin uses them with a session, so they
 need the session CSRF value on writes, and the API refuses a session cookie anyway. The routes take
 a form post or a JSON object and answer with JSON; a browser that asks for ``text/html`` gets the
-settings page instead (P10-T8, ``driftsniff.web.settings_page``): the new token once, in a card at
+settings page instead (``driftsniff.web.settings_page``): the new token once, in a card at
 the top, or the page again with the refused field marked; a revoke goes back there with a notice.
 
 The full token value is in the answer of ``POST /tokens`` only, once. The list shows the visible

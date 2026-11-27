@@ -1,4 +1,4 @@
-"""Volatility and coverage of the Xen Orchestra collector through the whole pipeline (P8-T4).
+"""Volatility and coverage of the Xen Orchestra collector through the whole pipeline.
 
 The fake server serves the pool of ``tests/fixtures/xo/pool.json`` in three phases of a simulated
 backup run (``base``, ``during`` and ``after``; see ``tests/contract/xo_pool.py``). The real client
@@ -42,7 +42,7 @@ from .xo_pool import (
     pool_scenario,
 )
 
-# The collections a read-only role cannot read (plan P8-T4; unverified, test X2 is open): the
+# The collections a read-only role cannot read (plan; unverified, test X2 is open): the
 # plan's "remotes" are the backup repositories.
 ADMIN_ONLY = ("users", "groups", "servers", "backup-repositories")
 

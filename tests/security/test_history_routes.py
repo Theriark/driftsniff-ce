@@ -1,4 +1,4 @@
-"""The History and Configuration routes through the real application (P10-T7, backend slice).
+"""The History and Configuration routes through the real application (backend slice).
 
 What the route table cannot say: the shape of the answers, what a bad query becomes, what a
 damaged store becomes, and that nothing which must stay secret leaves in an answer. The role

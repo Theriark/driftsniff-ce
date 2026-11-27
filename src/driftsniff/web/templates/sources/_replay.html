@@ -1,4 +1,4 @@
-{# The Change Replay of the source page (UI revision WP4c, THE-1197). view is a
+{# The Change Replay of the source page. view is a
    driftsniff.web.replay_view.ReplayView, or none when the installation has no replay service.
    Top to bottom: the window links (7, 30, 90 days), the three facts that answer where the burst
    is, the replay controls, the heat map (rows are resource types, columns UTC days), its legend,
@@ -22,7 +22,7 @@
     {% endfor %}
   </ul>
   {# a day without items has nothing to open, so its link is hidden; replay.js keeps it in step
-     when the cursor moves (THE-1402 F11) #}
+     when the cursor moves #}
   <a class="replay-day__link" href="{{ summary.href }}" data-replay-day-link{% if not summary.total %} hidden{% endif %}>{{ summary.link_text }}</a>
 </div>
 {%- endmacro %}

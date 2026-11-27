@@ -1,4 +1,4 @@
-"""THE-1264 residual: the dashboard's drift line names and its today label at narrow widths.
+"""Residual: the dashboard's drift line names and its today label at narrow widths.
 
 Found on Development (2c6d22d1, still on df572288) at 390 px: the name and the one-line meta
 "Push source, 4 pushes in 30 days" shared a row, the meta took 210 px and left the name 82 px,
@@ -58,9 +58,10 @@ def test_below_768_px_the_name_meta_and_strip_each_take_the_full_width() -> None
     """One column, so the name gets the card's width rather than what the meta leaves."""
     row = _rules(".driftlines .driftline", "(max-width: 767px)")
     assert re.search(r"grid-template-columns:\s*minmax\(0, 1fr\);", row)
-    # the 768 to 1023 px layout (name and meta side by side, strip below) is unchanged
+    # 768 to 1023 px: name and meta side by side, strip below; the meta takes at most half, so a
+    # long Redfish product line no longer squeezes the name to a few letters per line
     tablet = _rules(".driftline", "(max-width: 1023px)")
-    assert re.search(r"grid-template-columns:\s*1fr auto;", tablet)
+    assert re.search(r"grid-template-columns:\s*minmax\(0, 1fr\) fit-content\(50%\);", tablet)
 
 
 def test_the_desktop_columns_of_the_drift_line_are_unchanged() -> None:
@@ -72,7 +73,7 @@ def test_a_scrolling_strip_opens_at_today() -> None:
     """Right to left, the scroller starts at its right end (today); its content stays left to
     right, so the drawing and the "30 days ago" and "today" labels keep their order.
 
-    THE-1416 (F7) widened this from the dashboard to every strip: the source page strip at
+    Finding F7 widened this from the dashboard to every strip: the source page strip at
     390 px and the source list strip at 1440 px opened at "30 days ago" with their marks off
     screen. The rule now sits on .driftline__strip itself, so no page can opt out by scope."""
     strip = _rules(".driftline__strip")
@@ -84,3 +85,13 @@ def test_a_scrolling_strip_opens_at_today() -> None:
     for head, body in _blocks(css):
         if ".driftline__strip" in head and not head.rstrip().endswith("> *"):
             assert "direction: ltr" not in body, head
+
+
+def test_a_long_term_of_a_details_list_cannot_squeeze_its_values() -> None:
+    """A Proxmox source's "API token (user@realm!tokenid=secret)" took the term column to 260 of
+    310 px and left every value 26 px wide; the term column now stops at 40% and wraps."""
+    kv = _rules(".kv")
+    assert re.search(r"grid-template-columns:\s*fit-content\(40%\) minmax\(0, 1fr\);", kv)
+    term = _rules(".kv dt")
+    assert re.search(r"overflow-wrap:\s*anywhere", term)
+    assert re.search(r"min-width:\s*0", term)

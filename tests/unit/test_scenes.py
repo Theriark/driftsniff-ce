@@ -99,7 +99,7 @@ def test_the_addons_are_the_pinned_release_with_only_their_imports_made_relative
 
 def test_a_source_shows_its_status_on_the_device_and_no_ferret_or_sign() -> None:
     code = (STATIC / "scenes.js").read_text(encoding="utf-8")
-    # Ruben, 14 November 2026: no floating severity signs, then no ferret at all
+    # Design review, November 2026: no floating severity signs, then no ferret at all
     assert "ExtrudeGeometry" not in code and "TorusGeometry" not in code
     assert "const STATUS_LIGHT = {" in code and "function light(device, source)" in code
     assert "ferret" not in code.lower()

@@ -1,11 +1,11 @@
-{# The change list (P10-T6, mock-up docs/mockups/changes.html). listing is a
+{# The change list (mock-up docs/mockups/changes.html). listing is a
    driftsniff.changes.views.ChangePageView: one page of 50 changes, newest first unless sorted
    otherwise. The filter bar is a plain GET form; the severity select is a floor (the chosen
    severity and every worse one), and a dashboard link whose set is not a floor keeps its
    severities in hidden inputs. The table prints the rows; every number and name is a link.
    Mutes are applied here and only here, so the muted paths are listed under the table, with
    Unmute for an operator. A viewer sees no operator control anywhere on this page.
-   UI revision WP2: the search, a Filters disclosure and Apply share one row; where the bar is
+   The search, a Filters disclosure and Apply share one row; where the bar is
    wide enough the disclosure is always shown in that row and its toggle is hidden (app.css).
    The filters in force are removable chips under the bar. #}
 {% extends "base.html" %}

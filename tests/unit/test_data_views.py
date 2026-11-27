@@ -1,4 +1,4 @@
-"""The data view parts of the UI revision WP2 (THE-1128): the date range, the filter chips and
+"""The data view parts of the UI revision: the date range, the filter chips and
 the stylesheet rules of the change list's filter bar and of links in a table.
 
 The macros are rendered with the Jinja environment directly, the way ``test_templates.py``

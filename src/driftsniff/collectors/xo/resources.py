@@ -1,4 +1,4 @@
-"""The Xen Orchestra collections the collector reads and how it asks for them (P8-T2).
+"""The Xen Orchestra collections the collector reads and how it asks for them.
 
 Every path, name and the cookie below is **unverified**: they come from the plan (statements 1, 2, 4
 and 7 of docs/vendor-notes/xo.md) and, for the REST prefix and the credential endpoint, from our own
@@ -28,7 +28,7 @@ COOKIE_NAME: Final = "authenticationToken"
 PROBE_PATH: Final = "/pools?fields=id&ndjson=true"
 TOKEN_PATH: Final = "/users/me/authentication_tokens"  # noqa: S105 - a URL path, not a password
 
-# Collections the plan never requests (P8-T1). None of them has a type table.
+# Collections the plan never requests. None of them has a type table.
 EXCLUDED_COLLECTIONS: Final = (
     "tasks",
     "alarms",

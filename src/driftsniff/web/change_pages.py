@@ -1,10 +1,10 @@
-"""The words and the small reads of the change pages (P10-T6, frontend slice).
+"""The words and the small reads of the change pages (frontend slice).
 
 The queries and the actions are ``driftsniff.changes`` (slice A). This module adds what the
 pages need on top of them and what the plan says is our own code (nothing ported): the readable
 field labels, the one-line summary of an item, the words of an order move, the two parts of a
 before and after pair with the differing part marked, the filter options, the links of the
-filter bar and the pager, and the removable chips of the filters in force (UI revision WP2).
+filter bar and the pager, and the removable chips of the filters in force.
 
 Everything here is pure except :class:`ChangePages`, which holds the two services and reads the
 filter options (the sources and the resource types that have changes) on one read connection.

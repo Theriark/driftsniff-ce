@@ -22,7 +22,7 @@
 <time datetime="{{ iso_utc(when) }}" title="{{ utc_label(when) }}">{{ relative_time(when, now) }}</time>
 {%- endmacro %}
 
-{# The tab strip under a summary head (UI revision WP3, THE-1161): the parts of one thing, as
+{# The tab strip under a summary head: the parts of one thing, as
    plain links, so it works without a script. tabs is a list of {label, href, current, count};
    current marks the page the strip sits on (aria-current="page"), count is an optional number
    shown beside the label and read with it. A link with a fragment jumps to a part of the same

@@ -1,4 +1,4 @@
-"""The webhook sender (P9-T4, docs/notifications.md).
+"""The webhook sender (docs/notifications.md).
 
 The body is the JSON object of :class:`~driftsniff.notify.message.NotificationMessage`. It is
 signed so a receiver can tell that driftsniff sent it and that it was not changed or replayed

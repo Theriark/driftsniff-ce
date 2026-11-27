@@ -2,7 +2,7 @@
 
 It opens a static page in Chromium at the three viewports, runs axe on it and writes a screenshot
 to the artifact folder. It never starts the application and never uses the network. The Test
-Engineer replaces or extends it with the real journeys of the plan (P10-T9).
+Engineer replaces or extends it with the real journeys of the plan.
 """
 
 from pathlib import Path

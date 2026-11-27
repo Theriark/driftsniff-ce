@@ -1,6 +1,6 @@
-# Test-only rules for the Xen Orchestra rows of the golden table (P5-T4). One rule per family named
+# Test-only rules for the Xen Orchestra rows of the golden table. One rule per family named
 # in section 15 of the plan; the id is golden.<family>.<resource>. The shipped pack is
-# rules/packs/xo and is run against the same rows in P8-T3.
+# rules/packs/xo and is run against the same rows.
 version: 1
 rules:
   - id: golden.generic_name.xo_networks

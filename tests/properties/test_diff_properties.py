@@ -1,4 +1,4 @@
-"""Property tests for core/diff.py and core/order.py (P4-T3).
+"""Property tests for core/diff.py and core/order.py.
 
 Three invariants of ``compare`` hold for generated inventories:
 
@@ -244,7 +244,7 @@ def test_shuffling_sets_never_changes_the_diff(
 
 NON_EMPTY_SHARE: Final = 0.90
 """At least this share of the generated pairs must give a diff with items. Measured in CI on the
-``ci`` profile (500 examples, THE-592): 466 of 500 pairs, 93.2 percent. The bar sits just under
+``ci`` profile (500 examples): 466 of 500 pairs, 93.2 percent. The bar sits just under
 that value, so a generator change that makes pairs equal more often fails the test. If it is
 missed, widen the generators in fixtures.py; do not lower this number."""
 

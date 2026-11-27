@@ -28,7 +28,7 @@ def finish_run(
     error_class: str | None = None,
     error_summary: str | None = None,
 ) -> None:
-    """Close a run record with its status and the sizes that P11 reads to judge growth.
+    """Close a run record with its status and the sizes the load test reads to judge growth.
 
     ``bytes_fetched`` is what the controller sent; ``new_state_bytes`` and ``manifest_bytes`` are
     the compressed bytes this run added to the database.

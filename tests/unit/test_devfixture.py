@@ -1,4 +1,4 @@
-"""Tests for the Development-only synthetic changes (docs/dev-fixture.md).
+"""Tests for the Development-only synthetic changes.
 
 The tests run the real run pipeline with the shipped rules on a migrated database; no network is
 involved.
@@ -27,13 +27,14 @@ from driftsniff.secrets.crypto import CredentialCipher
 from driftsniff.secrets.keys import MasterKey
 from driftsniff.sources.service import SourceService
 
-DEV_URL = "https://ce-dev-driftsniff.theriark.dev"
+DEV_HOST = "dev.driftsniff.example"
+DEV_URL = f"https://{DEV_HOST}"
 MASTER = MasterKey(bytes(range(32)))
 SEVERITIES = {"low", "medium", "high", "critical"}
 
 
 def settings_for(url: str) -> Settings:
-    return Settings.from_env({"DRIFTSNIFF_BASE_URL": url})
+    return Settings.from_env({"DRIFTSNIFF_BASE_URL": url, "DRIFTSNIFF_DEV_HOST_SUFFIX": DEV_HOST})
 
 
 def count(database: Database, table: sa.Table) -> int:
@@ -146,10 +147,10 @@ def test_deleting_the_source_removes_it_and_a_later_start_does_not_make_it_again
 @pytest.mark.parametrize(
     "url",
     [
-        "https://ce-stg-driftsniff.theriark.dev",
-        "https://ee-dev-driftsniff.theriark.dev",
-        "https://driftsniff.theriark.dev",
-        "https://ce-dev-driftsniff.example.com",
+        "https://stage.driftsniff.example",
+        "https://otherdev.driftsniff.example",
+        "https://driftsniff.example",
+        "https://dev.driftsniff.example.com",
         "http://localhost:8080",
         "http://127.0.0.1:8080",
     ],
@@ -210,6 +211,7 @@ def test_serve_on_a_development_address_seeds_the_fixture_once(
     monkeypatch.setenv("DRIFTSNIFF_DATA_DIR", str(data_dir))
     monkeypatch.setenv("DRIFTSNIFF_KEY_FILE", str(tmp_path / "keys" / "master.key"))
     monkeypatch.setenv("DRIFTSNIFF_BASE_URL", DEV_URL)
+    monkeypatch.setenv("DRIFTSNIFF_DEV_HOST_SUFFIX", DEV_HOST)
     assert main(["serve"]) == 0
     assert main(["serve"]) == 0
     database = Database(database_path(data_dir))
@@ -227,7 +229,8 @@ def test_serve_on_stage_does_not_seed_the_fixture(
     data_dir = tmp_path / "data"
     monkeypatch.setenv("DRIFTSNIFF_DATA_DIR", str(data_dir))
     monkeypatch.setenv("DRIFTSNIFF_KEY_FILE", str(tmp_path / "keys" / "master.key"))
-    monkeypatch.setenv("DRIFTSNIFF_BASE_URL", "https://ce-stg-driftsniff.theriark.dev")
+    monkeypatch.setenv("DRIFTSNIFF_BASE_URL", "https://stage.driftsniff.example")
+    monkeypatch.setenv("DRIFTSNIFF_DEV_HOST_SUFFIX", DEV_HOST)
     assert main(["serve"]) == 0
     database = Database(database_path(data_dir))
     try:

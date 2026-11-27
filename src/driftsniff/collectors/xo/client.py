@@ -1,4 +1,4 @@
-"""The Xen Orchestra REST client: probe, ndjson streaming and credential expiry (P8-T2).
+"""The Xen Orchestra REST client: probe, ndjson streaming and credential expiry.
 
 ``XoClient`` is a :class:`~driftsniff.collectors.base.Collector` for the REST interface of Xen
 Orchestra (XO). The paths, the cookie name, the field names and the credential endpoint are
@@ -16,7 +16,7 @@ The behaviour below is the plan's and does not depend on them.
   server returned is never trusted.
 * A line that is not valid JSON fails that resource (``bad_payload``) and no other. A 404 on a
   resource is coverage ``404`` and a 403 coverage ``403`` (class ``not_available`` and
-  ``forbidden``), never a failure of the run, as for UniFi (plan P7-T2). Both keep the previous
+  ``forbidden``), never a failure of the run, as for UniFi. Both keep the previous
   state of the resource, so nothing is reported as removed.
 * ``probe()`` reads the ids of the pools once (the REST root itself redirects to the API
   documentation on recent XO builds). XO reports no version there, so it returns None. After

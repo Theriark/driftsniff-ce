@@ -1,4 +1,4 @@
-"""The change replay data (WP4a): counts per UTC day, resource type and severity.
+"""The change replay data: counts per UTC day, resource type and severity.
 
 The service runs against a migrated database seeded with plain inserts, the way the run pipeline
 writes events and items. The pure ``build_replay`` is checked on plain values. The role and

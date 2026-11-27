@@ -1,4 +1,4 @@
-"""The Xen Orchestra pool fixture and the pipeline helpers the P8-T4 tests share.
+"""The Xen Orchestra pool fixture and the pipeline helpers the tests share.
 
 ``tests/fixtures/xo/pool.json`` is one small hand written pool as an admin session sees it, all 20
 collections the collector reads. Everything in it is **unverified** (no lab Xen Orchestra, the

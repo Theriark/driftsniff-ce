@@ -1,4 +1,4 @@
-"""The read side of the sources pages (P10-T5): the source list, the source page and its panels.
+"""The read side of the sources pages: the source list, the source page and its panels.
 
 ``SourcePages.listing`` and ``SourcePages.detail`` run the queries of this module on one read
 connection and return plain values that ``sources/list.html`` and ``sources/detail.html`` print.
@@ -225,7 +225,7 @@ class SourceListing:
     rows: tuple[SourceRow, ...]
 
 
-# ---- the filter and the order of the source list (DRS-464) --------------------------------
+# ---- the filter and the order of the source list --------------------------------
 
 # The columns the list sorts by, each in the order a reader looks for first.
 SOURCE_SORTS: Final = ("name", "status", "last", "version")
@@ -289,7 +289,7 @@ def _sort_key(sort: str) -> Callable[[SourceRow], tuple[Any, ...]]:
         )
     if sort == "version":
         # by the numbers of the version (2.21.4 before 12.2.1); a version that does not start with a
-        # number, and a source that reports none, go last (DRS-467)
+        # number, and a source that reports none, go last
         def by_version(row: SourceRow) -> tuple[object, ...]:
             version = (row.health.version or "").strip()
             numbered = version[:1].isdigit()

@@ -1,4 +1,4 @@
-"""Development-only test accounts for browser checks (docs/dev-test-accounts.md).
+"""Development-only test accounts for browser checks.
 
 One account per role (admin, operator, viewer) lets the crew sign in to the Development site in a
 real browser. The passwords are not made here: the deployment controller generates them from the
@@ -6,7 +6,8 @@ real browser. The passwords are not made here: the deployment controller generat
 ``DRIFTSNIFF_DEV_<ROLE>_PASSWORD``. Rules, and why:
 
 - At start-up the application seeds the accounts by itself, but only when all three password
-  variables are set and ``DRIFTSNIFF_BASE_URL`` is a ``ce-dev-<name>.theriark.dev`` address.
+  variables are set and the host of ``DRIFTSNIFF_BASE_URL`` is the Development host named by
+  ``DRIFTSNIFF_DEV_HOST_SUFFIX`` (that host, or a name ending in "." and it); unset, never.
   Stage and Production are prepared from the same manifest, so the address, not the presence
   of the variables, decides; their addresses are refused.
 - The command ``driftsniff seed-dev-accounts`` does the same on request and additionally needs
@@ -50,8 +51,6 @@ ACTION_CREDENTIALS_RESET: Final = "user.credentials_reset"
 # same names are the ``email`` and ``label`` of ``browserAccounts`` in deploy/dokploy.json.
 SEED_ROLES: Final = ("admin", "operator", "viewer")
 
-_DEV_HOST_PREFIX: Final = "ce-dev-"
-_DEV_HOST_SUFFIX: Final = ".theriark.dev"
 _LOCAL_HOSTS: Final = ("localhost", "127.0.0.1", "::1")
 
 _LOG = logging.getLogger(__name__)
@@ -89,22 +88,32 @@ def password_variable_for(role: str) -> str:
     return f"DRIFTSNIFF_DEV_{role.upper()}_PASSWORD"
 
 
+def is_development_host(settings: Settings, host: str) -> bool:
+    """True when ``host`` is the Development host of DRIFTSNIFF_DEV_HOST_SUFFIX or below it."""
+    suffix = settings.dev_host_suffix
+    host = host.lower()
+    return suffix is not None and (host == suffix or host.endswith(f".{suffix}"))
+
+
 def _check_address(settings: Settings, *, allow_local: bool) -> None:
     host = (urlsplit(settings.base_url).hostname or "").lower()
-    is_dev_host = host.startswith(_DEV_HOST_PREFIX) and host.endswith(_DEV_HOST_SUFFIX)
-    if not is_dev_host and not (allow_local and host in _LOCAL_HOSTS):
+    if not is_development_host(settings, host) and not (allow_local and host in _LOCAL_HOSTS):
+        expected = (
+            "DRIFTSNIFF_DEV_HOST_SUFFIX is not set"
+            if settings.dev_host_suffix is None
+            else f"expected the host {settings.dev_host_suffix} or a name below it"
+        )
         raise DevSeedRefusedError(
-            "refused: DRIFTSNIFF_BASE_URL is not a Development address "
-            f"(expected {_DEV_HOST_PREFIX}<name>{_DEV_HOST_SUFFIX}"
-            f"{' or localhost' if allow_local else ''})"
+            f"refused: DRIFTSNIFF_BASE_URL is not a Development address ({expected}"
+            f"{'; localhost is allowed' if allow_local else ''})"
         )
 
 
 def check_development_only(settings: Settings, env: Mapping[str, str]) -> None:
     """The command's guard: the switch must be set and the address a Development one.
 
-    A Development address is ``ce-dev-<name>.theriark.dev`` or localhost; otherwise
-    DevSeedRefusedError is raised.
+    A Development address is the host of DRIFTSNIFF_DEV_HOST_SUFFIX (or a name below it) or
+    localhost; otherwise DevSeedRefusedError is raised.
     """
     if env.get(MARKER_VARIABLE, "").strip() != MARKER_VALUE:
         raise DevSeedRefusedError(
@@ -115,7 +124,7 @@ def check_development_only(settings: Settings, env: Mapping[str, str]) -> None:
 
 
 def check_development_startup(settings: Settings) -> None:
-    """The start-up guard: only a ``ce-dev-<name>.theriark.dev`` address passes (not localhost)."""
+    """The start-up guard: only the DRIFTSNIFF_DEV_HOST_SUFFIX host passes (never localhost)."""
     _check_address(settings, allow_local=False)
 
 

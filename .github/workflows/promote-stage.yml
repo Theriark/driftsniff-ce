@@ -84,7 +84,7 @@ jobs:
 
     env:
       IMAGE: ghcr.io/theriark/driftsniff-ce
-      DEVELOPMENT_HOST: ce-dev-driftsniff.theriark.dev
+      DEVELOPMENT_HOST: ${{ vars.DEVELOPMENT_HOST }}
       GH_TOKEN: ${{ github.token }}
 
     steps:
@@ -104,6 +104,7 @@ jobs:
             exit 1
           }
           [[ "${GITHUB_REF}" == "refs/heads/development" ]] || fail "Stage promotion runs from development; received ${GITHUB_REF}"
+          [[ -n "${DEVELOPMENT_HOST}" ]] || fail "the repository variable DEVELOPMENT_HOST is missing"
           health="$(curl -fsS --max-time 20 "https://${DEVELOPMENT_HOST}/healthz")" || fail "https://${DEVELOPMENT_HOST}/healthz did not answer"
           commit="$(jq -r 'select(.status == "ok") | .commit // empty' <<< "${health}")"
           [[ "${commit}" =~ ^[0-9a-f]{40}$ ]] || fail "Development /healthz is not ok with a full commit: ${health}"
@@ -240,9 +241,9 @@ jobs:
       DOKPLOY_API_KEY: ${{ secrets.DOKPLOY_API_KEY }}
       CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
       CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
-      DOKPLOY_DEVELOPMENT_APPLICATION_ID: VmPHofibLNZ_eYa6y6r8R
-      DOKPLOY_STAGE_APPLICATION_ID: lhB_AOqk4FTEaHhEQcPKj
-      STAGE_HOST: ce-stg-driftsniff.theriark.dev
+      DOKPLOY_DEVELOPMENT_APPLICATION_ID: ${{ vars.DOKPLOY_DEVELOPMENT_APPLICATION_ID }}
+      DOKPLOY_STAGE_APPLICATION_ID: ${{ vars.DOKPLOY_STAGE_APPLICATION_ID }}
+      STAGE_HOST: ${{ vars.STAGE_HOST }}
 
     steps:
       - name: Checkout pipeline code
@@ -260,7 +261,7 @@ jobs:
           }
           [[ "${GITHUB_REF}" == "refs/heads/development" ]] || fail "Stage promotion runs from development; received ${GITHUB_REF}"
           [[ "${SOURCE_COMMIT}" =~ ^[0-9a-f]{40}$ && "${DIGEST}" =~ ^sha256:[0-9a-f]{64}$ ]] || fail "resolve gave no commit or digest"
-          for required in DOKPLOY_URL DOKPLOY_API_KEY CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET; do
+          for required in DOKPLOY_URL DOKPLOY_API_KEY CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET DOKPLOY_DEVELOPMENT_APPLICATION_ID DOKPLOY_STAGE_APPLICATION_ID STAGE_HOST; do
             [[ -n "${!required}" ]] || fail "${required} is missing"
           done
           # Information only: the gate script moves the stage branch after this run, so its

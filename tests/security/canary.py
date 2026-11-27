@@ -1,4 +1,4 @@
-"""Canary leak harness (P3-T4, core part).
+"""Canary leak harness (core part).
 
 A canary is a synthetic secret: ``CANARY-`` followed by 24 random hex characters (a value whose
 Shannon entropy is below 3.9 bits per character, so the scanner's entropy rule, which fires above
@@ -24,8 +24,8 @@ only fingerprints a value that looks like a credential (a URL with a password, a
 a well-known prefix). A plain ``CANARY-<hex>`` sentence in a description is stored as written;
 that is by design and ``test_canary_leaks.py`` pins it. Secret-class fields take the plain canary.
 
-Later phases extend the harness to notifications, API output and exports (P9) and to the real
-collectors (P7, P8): add a surface function here that returns leaks, and call it from the test.
+Later phases extend the harness to notifications, API output and exports and to the real
+collectors: add a surface function here that returns leaks, and call it from the test.
 """
 
 import base64

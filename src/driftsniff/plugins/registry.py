@@ -1,4 +1,4 @@
-"""Finds plugins, checks them and builds the registry (P9-T5, docs/plugin-api.md).
+"""Finds plugins, checks them and builds the registry (docs/plugin-api.md).
 
 A plugin is an object published under the entry point group ``driftsniff.plugins``. It has two
 attributes:

@@ -1,4 +1,4 @@
-"""The read-only probe behind test connection (P10-T5): what it reports and what it never keeps.
+"""The read-only probe behind test connection: what it reports and what it never keeps.
 
 A fake collector stands in for UniFi and Xen Orchestra, so every answer a resource can give is
 covered: 200 with objects, 403, 404, an error without an answer, a collector that raises, and a

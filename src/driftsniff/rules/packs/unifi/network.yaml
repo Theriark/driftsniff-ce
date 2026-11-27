@@ -1,5 +1,5 @@
 # UniFi rules for sites, networks, DNS policies, traffic matching lists, WANs and device tags
-# (P7-T4). The field names were checked on UniFi Network 10.6.109 (docs/vendor-notes/unifi.md),
+# The field names were checked on UniFi Network 10.6.109 (docs/vendor-notes/unifi.md),
 # except those of device tags, which that controller did not have. A value a predicate compares
 # that differs on a real controller simply does not match, and the change falls back to the next
 # rule or to the unclassified rule.

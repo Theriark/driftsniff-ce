@@ -1,4 +1,4 @@
-"""The mail sender against a local mail server with TLS (P9-T4).
+"""The mail sender against a local mail server with TLS.
 
 Covers STARTTLS (the default) and implicit TLS, the login, the refusal of a server that does not
 offer STARTTLS (the login must never go in clear), certificate and host name checks, the error

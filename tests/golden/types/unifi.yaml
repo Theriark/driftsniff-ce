@@ -1,7 +1,7 @@
-# Test-only type tables for the UniFi rows of the golden table (P5-T4), in the shipped file format.
+# Test-only type tables for the UniFi rows of the golden table, in the shipped file format.
 #
 # The field names are illustrative: the plan says the shipped run maps them to the real names of
-# the vendor reference (P7-T1). The resource names carry the prefix unifi- because the loader
+# the vendor reference. The resource names carry the prefix unifi- because the loader
 # refuses a resource defined twice and the Xen Orchestra tables already use networks and users.
 version: 1
 types:

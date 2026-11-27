@@ -1,4 +1,4 @@
-# Xen Orchestra rules for networks and virtual network interfaces (P5-T3).
+# Xen Orchestra rules for networks and virtual network interfaces.
 version: 1
 rules:
   - id: xo.networks.name_label

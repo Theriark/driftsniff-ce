@@ -1,4 +1,4 @@
-"""The admin settings routes (P10-T8 slice A): roles, CSRF, input rules, audit and the 503.
+"""The admin settings routes (slice A): roles, CSRF, input rules, audit and the 503.
 
 The routes are data routes (JSON) for the settings page of slice B. Every one is admin only: a
 viewer and an operator get 403, nobody gets 401. A write needs the session CSRF value and the

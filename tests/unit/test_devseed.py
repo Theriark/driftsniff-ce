@@ -1,4 +1,4 @@
-"""Tests for the Development-only test accounts (docs/dev-test-accounts.md)."""
+"""Tests for the Development-only test accounts."""
 
 import json
 import logging
@@ -23,6 +23,7 @@ from driftsniff.devseed import (
     DevSeedError,
     DevSeedRefusedError,
     check_development_only,
+    check_development_startup,
     password_variable_for,
     passwords_from_env,
     seed_at_startup,
@@ -39,7 +40,8 @@ from driftsniff.web.auth import (
 
 CHEAP_HASHER = make_password_hasher(memory_kib=8, time_cost=1)
 ROOT = Path(__file__).resolve().parents[2]
-DEV_URL = "https://ce-dev-driftsniff.theriark.dev"
+DEV_HOST = "dev.driftsniff.example"
+DEV_URL = f"https://{DEV_HOST}"
 # Synthetic values that stand for the generated passwords and for a credential somebody holds.
 CANARY = "CANARY-existing-credential-0001"
 
@@ -80,6 +82,7 @@ def development(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     monkeypatch.setenv("DRIFTSNIFF_DATA_DIR", str(data_dir))
     monkeypatch.setenv(MARKER_VARIABLE, MARKER_VALUE)
     monkeypatch.delenv("DRIFTSNIFF_BASE_URL", raising=False)
+    monkeypatch.setenv("DRIFTSNIFF_DEV_HOST_SUFFIX", DEV_HOST)
     for name, value in configured_env().items():
         monkeypatch.setenv(name, value)
     return data_dir
@@ -153,12 +156,12 @@ def test_refuses_a_wrong_marker_value(
 @pytest.mark.parametrize(
     "base_url",
     [
-        "https://ce-stg-driftsniff.theriark.dev",
-        "https://ee-stg-driftsniff.theriark.dev",
-        "https://driftsniff.theriark.dev",
+        "https://stage.driftsniff.example",
+        "https://otherdev.driftsniff.example",
+        "https://driftsniff.example",
         "https://driftsniff.example.com",
-        "https://ce-dev-driftsniff.example.com",
-        "https://example.com/ce-dev-driftsniff.theriark.dev",
+        "https://dev.driftsniff.example.com",
+        "https://example.com/dev.driftsniff.example",
     ],
 )
 def test_refuses_a_stage_or_production_address_even_with_the_marker(
@@ -168,6 +171,7 @@ def test_refuses_a_stage_or_production_address_even_with_the_marker(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     monkeypatch.setenv("DRIFTSNIFF_BASE_URL", base_url)
+    monkeypatch.setenv("DRIFTSNIFF_DEV_HOST_SUFFIX", DEV_HOST)
     assert main(["seed-dev-accounts"]) == 1
     assert "not a Development address" in capsys.readouterr().err
     assert not development.exists()
@@ -186,11 +190,46 @@ def test_refuses_without_the_configured_passwords(
 
 @pytest.mark.parametrize(
     "base_url",
-    [DEV_URL, "http://localhost:8080", "http://127.0.0.1:9000"],
+    [
+        DEV_URL,
+        f"https://ce.{DEV_HOST}",
+        f"https://{DEV_HOST.upper()}:8443",
+        "http://localhost:8080",
+        "http://127.0.0.1:9000",
+    ],
 )
 def test_accepts_the_development_addresses(base_url: str) -> None:
-    settings = Settings.from_env({"DRIFTSNIFF_BASE_URL": base_url})
+    settings = Settings.from_env(
+        {"DRIFTSNIFF_BASE_URL": base_url, "DRIFTSNIFF_DEV_HOST_SUFFIX": DEV_HOST}
+    )
     check_development_only(settings, {MARKER_VARIABLE: MARKER_VALUE})
+
+
+def test_without_the_host_setting_only_localhost_is_a_development_address() -> None:
+    local = Settings.from_env({"DRIFTSNIFF_BASE_URL": "http://localhost:8080"})
+    check_development_only(local, {MARKER_VARIABLE: MARKER_VALUE})
+    remote = Settings.from_env({"DRIFTSNIFF_BASE_URL": DEV_URL})
+    assert remote.dev_host_suffix is None
+    with pytest.raises(DevSeedRefusedError, match="DRIFTSNIFF_DEV_HOST_SUFFIX is not set"):
+        check_development_only(remote, {MARKER_VARIABLE: MARKER_VALUE})
+    with pytest.raises(DevSeedRefusedError):
+        check_development_startup(remote)
+    with pytest.raises(DevSeedRefusedError):
+        check_development_startup(local)
+
+
+def test_the_startup_guard_passes_only_the_configured_host() -> None:
+    check_development_startup(
+        Settings.from_env({"DRIFTSNIFF_BASE_URL": DEV_URL, "DRIFTSNIFF_DEV_HOST_SUFFIX": DEV_HOST})
+    )
+    stage = Settings.from_env(
+        {
+            "DRIFTSNIFF_BASE_URL": "https://stage.driftsniff.example",
+            "DRIFTSNIFF_DEV_HOST_SUFFIX": DEV_HOST,
+        }
+    )
+    with pytest.raises(DevSeedRefusedError, match=f"expected the host {DEV_HOST}"):
+        check_development_startup(stage)
 
 
 def test_an_address_alone_is_not_enough_without_the_marker() -> None:
@@ -515,7 +554,7 @@ def test_the_output_names_the_user_names(
 
 
 def settings_for(url: str) -> Settings:
-    return Settings.from_env({"DRIFTSNIFF_BASE_URL": url})
+    return Settings.from_env({"DRIFTSNIFF_BASE_URL": url, "DRIFTSNIFF_DEV_HOST_SUFFIX": DEV_HOST})
 
 
 def user_names(database: Database) -> set[str]:
@@ -564,10 +603,10 @@ def test_startup_is_a_no_op_the_second_time(
 @pytest.mark.parametrize(
     "url",
     [
-        "https://ce-stg-driftsniff.theriark.dev",
-        "https://ee-dev-driftsniff.theriark.dev",
-        "https://driftsniff.theriark.dev",
-        "https://ce-dev-driftsniff.example.com",
+        "https://stage.driftsniff.example",
+        "https://otherdev.driftsniff.example",
+        "https://driftsniff.example",
+        "https://dev.driftsniff.example.com",
         "http://localhost:8080",
         "http://127.0.0.1:8080",
     ],
@@ -618,6 +657,7 @@ def test_serve_seeds_the_accounts_before_the_setup_code_and_leaks_nothing(
     monkeypatch.setenv("DRIFTSNIFF_DATA_DIR", str(data_dir))
     monkeypatch.setenv("DRIFTSNIFF_KEY_FILE", str(tmp_path / "keys" / "master.key"))
     monkeypatch.setenv("DRIFTSNIFF_BASE_URL", DEV_URL)
+    monkeypatch.setenv("DRIFTSNIFF_DEV_HOST_SUFFIX", DEV_HOST)
     monkeypatch.delenv(MARKER_VARIABLE, raising=False)
     for name, value in configured_env().items():
         monkeypatch.setenv(name, value)
@@ -640,7 +680,8 @@ def test_serve_on_stage_ignores_the_variables(
     data_dir = tmp_path / "data"
     monkeypatch.setenv("DRIFTSNIFF_DATA_DIR", str(data_dir))
     monkeypatch.setenv("DRIFTSNIFF_KEY_FILE", str(tmp_path / "keys" / "master.key"))
-    monkeypatch.setenv("DRIFTSNIFF_BASE_URL", "https://ce-stg-driftsniff.theriark.dev")
+    monkeypatch.setenv("DRIFTSNIFF_BASE_URL", "https://stage.driftsniff.example")
+    monkeypatch.setenv("DRIFTSNIFF_DEV_HOST_SUFFIX", DEV_HOST)
     monkeypatch.setenv(MARKER_VARIABLE, MARKER_VALUE)
     for name, value in configured_env().items():
         monkeypatch.setenv(name, value)

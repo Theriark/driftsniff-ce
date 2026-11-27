@@ -1,4 +1,4 @@
-# UniFi rules for firewall zones, firewall policies and ACL rules (P7-T4). Field paths and the
+# UniFi rules for firewall zones, firewall policies and ACL rules. Field paths and the
 # action values ALLOW and BLOCK were checked on UniFi Network 10.6.109 (docs/vendor-notes/unifi.md);
 # REJECT is kept as a blocking value although that controller had no such policy. ACL rules were
 # not seen there (no objects), so their rules stay unverified.

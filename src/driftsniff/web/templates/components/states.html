@@ -44,7 +44,7 @@
 {{ banner("success", title, text) }}
 {%- endmacro %}
 
-{# The one entry to the empty, error and loading states (P3, THE-1306): the page says which
+{# The one entry to the empty, error and loading states: the page says which
    state it is in and this picks the markup, the role and the live region. kind is empty, error
    or loading; anything else stops the render (the environment refuses an undefined name).
    An error's action is its retry; a loading state's title is what is being loaded.

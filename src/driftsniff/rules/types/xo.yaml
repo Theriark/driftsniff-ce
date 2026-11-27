@@ -1,8 +1,8 @@
-# Type tables of the Xen Orchestra collector (P5-T3 skeleton, completed by P8-T1). Notes with
+# Type tables of the Xen Orchestra collector (skeleton, since completed). Notes with
 # sources and dates: docs/vendor-notes/xo.md.
 #
 # Every field name below is UNVERIFIED. They are the names the plan lists for each collection
-# (dev-work-plan part B, P8-T1). The vendor reference was not read for P8-T1 and no lab Xen
+# (dev-work-plan part B). The vendor reference was not read for them and no lab Xen
 # Orchestra was used (Gate A is waived for development, test X2 is open), so no name is lab
 # verified. A field that is not listed here is unclassified and shows as a fingerprint only. The
 # notes list every name that needs a check.
@@ -12,13 +12,13 @@
 # that never moves. The marker does not change the class of a field, and the collector never relies
 # on it to drop anything: a credential that does arrive is still unclassified or secret. A path
 # below the name url.credentials is virtual: it stands for the user and password part of a remote
-# address, which the collector strips before storage (P8-T2).
+# address, which the collector strips before storage.
 #
 # The order of the boot devices is written as an ordered scalar list. The plan says ordered-keyed,
 # but that mode needs a key field for the members and the shape of the field is unverified; the
 # ordered scalar mode keeps the order and is also the safe default for a list.
 #
-# The settings of a backup job are nested fields of the backup job (decision of Core on THE-359,
+# The settings of a backup job are nested fields of the backup job (a design decision of
 # 2026-10-22): there is no derived resource. A table names only fixed field paths, so the keys
 # below are the settings names the plan lists, written under settings. Xen Orchestra keeps one
 # settings map per schedule id inside the job (seen on two real XO 5 servers, 2026-11-13), so
@@ -93,7 +93,7 @@ types:
       tags: set
       boot.order: ordered-scalar
   # Only templates that are not built in belong here: the collector drops the built in ones after
-  # the fetch (P8-T2). The field that tells them apart (isDefaultTemplate) is not named by the plan
+  # the fetch. The field that tells them apart (isDefaultTemplate) is not named by the plan
   # and is UNVERIFIED; the collector requests it for this resource only and it is ignore class.
   - resource: vm-templates
     key_field: id

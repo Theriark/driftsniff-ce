@@ -1,4 +1,4 @@
-"""The row density preference (P10-T2): the cookie, the form post and where it sends you back."""
+"""The row density preference: the cookie, the form post and where it sends you back."""
 
 import re
 

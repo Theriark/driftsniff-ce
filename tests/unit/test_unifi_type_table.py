@@ -1,4 +1,4 @@
-"""The shipped UniFi type tables (P7-T1).
+"""The shipped UniFi type tables.
 
 ``rules/types/unifi.yaml`` is loaded from the package, the way the application loads it. The test
 pins what the plan decides: the collection mode of each resource and list, the secret fields and

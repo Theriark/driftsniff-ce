@@ -1,4 +1,4 @@
-# UniFi rules for WiFi broadcasts (P7-T4). The type table gives them the floor high for an added or
+# UniFi rules for WiFi broadcasts. The type table gives them the floor high for an added or
 # removed broadcast but none for a modified one, so that switching one off can be medium; every
 # field that changes who may join or what they reach has its own high rule.
 #

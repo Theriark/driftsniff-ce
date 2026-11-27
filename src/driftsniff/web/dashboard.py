@@ -1,4 +1,4 @@
-"""The dashboard (P10-T4): every figure, list and strip of the start page, from SQL.
+"""The dashboard: every figure, list and strip of the start page, from SQL.
 
 ``DashboardService.load`` runs the queries of this module on one read connection and returns a
 :class:`Dashboard`; the route (``GET /`` in ``driftsniff.web.routes_ui``) hands it to
@@ -6,7 +6,7 @@
 trend chart is computed here too, so the template carries no arithmetic and the tests can check
 it on plain values.
 
-What the dashboard shows, top to bottom (dev work plan part B, section 18, P10-T4): four stat
+What the dashboard shows, top to bottom (dev work plan part B, section 18): four stat
 cards; the posture ring of open changes by highest severity (counts only, never a score); the
 needs-attention list (open critical and high events, then the sources that are failing, partial,
 stale, unsupported, insecure, never checked or whose credential is expiring), with a sentence
@@ -503,7 +503,7 @@ class SourceHealth:
 
     @property
     def status_text(self) -> str:
-        """The badge text, in push words for a push source; a disabled one says so (DRS-464)."""
+        """The badge text, in push words for a push source; a disabled one says so."""
         if not self.enabled:
             return "Disabled"
         return status_text(self.kind, self.type)
@@ -572,7 +572,7 @@ def resource_label(resource: str) -> str:
 
 def resource_filter_label(resource: str) -> str:
     """A resource type's name for a list across products: "Checkmk hosts", not "Hosts", when
-    another product's type has the same name (DRS-472)."""
+    another product's type has the same name."""
     label = resource_label(resource)
     product, _, rest = resource.partition("-")
     shared = sum(1 for other in RESOURCE_LABELS.values() if other == label) > 1
@@ -1194,7 +1194,7 @@ def _driftlines(
 ) -> tuple[DriftRow, ...]:
     """One strip per source: per check up to 31 checks in 30 days, else one mark per UTC day.
 
-    Every check carries its age in days, so the strip draws it at its time (THE-1402 F2).
+    Every check carries its age in days, so the strip draws it at its time.
     """
     by_source: dict[int, list[Any]] = defaultdict(list)
     for run in runs_30:
@@ -1343,7 +1343,7 @@ def _trend(connection: Connection, now: datetime) -> Trend:
 def _breakdowns(
     connection: Connection, names: Mapping[int, str]
 ) -> tuple[tuple[BarRow, ...], tuple[BarRow, ...]]:
-    # changes, not items: each row opens the change list, which counts changes (DRS-463)
+    # changes, not items: each row opens the change list, which counts changes
     count = sa.func.count(sa.distinct(change_events.c.id))
     by_source_rows = connection.execute(
         sa.select(change_events.c.source_id, count)

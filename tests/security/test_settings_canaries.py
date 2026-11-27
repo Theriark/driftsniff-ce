@@ -1,4 +1,4 @@
-"""Canary test of the admin settings (P10-T8 slice A): no password or typed value is repeated.
+"""Canary test of the admin settings (slice A): no password or typed value is repeated.
 
 The settings routes take a password (a new user) and free text (values that break a rule). The
 test posts canaries through every route, accepted and refused, then looks for them in every

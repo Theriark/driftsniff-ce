@@ -1,4 +1,4 @@
-"""THE-1060: the dashboard's stat grid holds the four metric cards and nothing else.
+"""The dashboard's stat grid holds the four metric cards and nothing else.
 
 The stylesheet test in test_dashboard.py pins the grid's tracks (four, two, one), so a stray
 child of the grid would take a track of its own. This renders the grid of dashboard.html on its

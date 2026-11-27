@@ -1,4 +1,4 @@
-"""The change list and the change detail (P10-T6, frontend slice) through the real application.
+"""The change list and the change detail (frontend slice) through the real application.
 
 Acceptance of the plan, each with its test here:
 
@@ -543,7 +543,7 @@ def test_the_list_filters_sorts_and_pages(world: World) -> None:
 def test_the_filter_bar_has_one_search_a_filters_panel_utc_dates_and_chips(world: World) -> None:
     event_id = add_event(world.store, items=({"path": "name"},), created_at="2026-10-21T08:00:00Z")
     _html, parsed = page(world, "/changes?min=high&from=2026-10-20&to=2026-10-21&q=guest")
-    # the page's own search replaces the top bar's, so the list has one search box (THE-1101)
+    # the page's own search replaces the top bar's, so the list has one search box
     searches = [attrs.get("id") for attrs in parsed.find("input") if attrs.get("type") == "search"]
     assert searches == ["q"]
     assert not parsed.find("search")

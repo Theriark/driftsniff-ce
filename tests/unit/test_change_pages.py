@@ -1,4 +1,4 @@
-"""The words and the links of the change pages (P10-T6, frontend slice), on their own.
+"""The words and the links of the change pages (frontend slice), on their own.
 
 These are the pure helpers of ``driftsniff.web.change_pages``: the readable field labels, the
 one-line item summary, the words of an order move, the marked difference of a before and after

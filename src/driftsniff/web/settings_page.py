@@ -1,4 +1,4 @@
-"""The settings page (P10-T8 slice B, docs/settings.md): what an admin sees at ``GET /settings``.
+"""The settings page (slice B, docs/settings.md): what an admin sees at ``GET /settings``.
 
 The routes of slice A (``routes_settings``), of the API tokens (``routes_api``) and of the
 notification channel (``routes_notifications``) answer JSON to every client that does not ask for
@@ -87,7 +87,7 @@ NOTICE_SECTIONS: Final = {
 }
 
 # The one text for a field the page does not send: the route's answer names the field, which a
-# person did not type and should not see repeated (THE-1269/THE-1270 carry-over).
+# person did not type and should not see repeated (carry-over).
 UNKNOWN_FIELD_TEXT: Final = (
     "The form sent a field driftsniff does not know. Reload the page and try again."
 )

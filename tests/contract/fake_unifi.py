@@ -1,4 +1,4 @@
-"""A fake UniFi Network application on localhost for the contract tests (P7-T2).
+"""A fake UniFi Network application on localhost for the contract tests.
 
 It serves the integration API shape the collector expects, as verified on a real UniFi Network
 10.6.109 controller (docs/vendor-notes/unifi.md): ``GET <base path>/v1/info``, ``/v1/sites`` and
@@ -8,7 +8,7 @@ failures to simulate. Every request is recorded, so a test can count requests an
 credential only ever travels in the key header.
 
 The ordering documents of firewall policies (per pair of zones) and ACL rules (per site) are served
-from ``Scenario.firewall_order`` and ``Scenario.acl_order`` (P7-T4). As on the real controller, the
+from ``Scenario.firewall_order`` and ``Scenario.acl_order``. As on the real controller, the
 firewall lists name only the policies with ``metadata.origin`` ``USER_DEFINED``; a pair without an
 entry answers two empty lists. Real-shaped objects for every resource are in the version band
 fixtures (``unifi_bands.py``); the ACL ordering names are unverified (that controller had none).

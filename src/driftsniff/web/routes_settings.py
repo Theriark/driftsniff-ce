@@ -1,4 +1,4 @@
-"""Admin routes of the settings (P10-T8, docs/settings.md): the data and the settings page.
+"""Admin routes of the settings (docs/settings.md): the data and the settings page.
 
 Every route needs the admin role; a write also needs the session CSRF value and the configured
 origin (``driftsniff.web.csrf``). The routes take a form post or a JSON object and answer with

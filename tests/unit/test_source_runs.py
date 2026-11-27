@@ -39,6 +39,8 @@ from driftsniff.rules.engine import RuleEngine
 from driftsniff.rules.loader import RuleIndex
 from driftsniff.rules.schema import ResourceTable
 from driftsniff.secrets.fingerprint import Fingerprinter
+from driftsniff.secrets.keys import MasterKey
+from driftsniff.secrets.rekey import RekeyState, load_rekey_state, run_rekey
 from driftsniff.sources.runs import (
     ERROR_ALREADY_RUNNING,
     ERROR_BAD_OBJECT,
@@ -235,17 +237,21 @@ def make_rig(
     *,
     engine: RuleEngine | None = None,
     notifier: Callable[[int], None] | None = None,
+    fingerprinter: Fingerprinter = FINGERPRINTER,
+    old_fingerprinter: Fingerprinter | None = None,
+    clock: Callable[[], str] | None = None,
 ) -> Rig:
     timer = Timer()
     notified: list[int] = []
     pipeline = RunPipeline(
         database,
         RuleEngine(INDEX) if engine is None else engine,
-        FINGERPRINTER,
+        fingerprinter,
         notifier=notified.append if notifier is None else notifier,
-        clock=Clock(),
+        clock=Clock() if clock is None else clock,
         sleep=timer.sleep,
         monotonic=timer.monotonic,
+        old_fingerprinter=old_fingerprinter,
     )
     return Rig(database, pipeline, timer, notified)
 
@@ -928,3 +934,129 @@ def test_a_failed_run_stores_a_scrubbed_single_line_summary(rig: Rig) -> None:
     assert len(str(run.error_summary)) <= MAX_ERROR_TEXT_CHARS
     assert JWT_MARK not in str(run.error_summary)
     assert str(run.error_summary).startswith("line one line two")
+
+
+# Rekey: stored fingerprints of the old key are re-stamped once, not reported as changed.
+
+OLD_MASTER = MasterKey(bytes([1]) * 32)
+NEW_MASTER = MasterKey(bytes([2]) * 32)
+THIRD_MASTER = MasterKey(bytes([3]) * 32)
+REKEY_AT = "2026-10-21T08:59:00Z"
+
+
+def keyed_rig(database: Database, current: MasterKey, old: MasterKey | None, clock: Clock) -> Rig:
+    return make_rig(
+        database,
+        fingerprinter=Fingerprinter.from_master(current),
+        old_fingerprinter=None if old is None else Fingerprinter.from_master(old),
+        clock=clock,
+    )
+
+
+def rekey_state(database: Database) -> RekeyState:
+    with database.read() as connection:
+        state = load_rekey_state(connection)
+    assert state is not None
+    return state
+
+
+def audit_rows(database: Database, action: str) -> list[sa.Row[tuple[object, ...]]]:
+    return [row for row in table_rows(database, tables.audit_events) if row.action == action]
+
+
+def test_after_a_rekey_an_unchanged_secret_is_restamped_not_changed(store: Database) -> None:
+    clock = Clock()
+    keyed_rig(store, OLD_MASTER, None, clock).run(FakeCollector({"networks": networks()}))
+    run_rekey(store, OLD_MASTER, NEW_MASTER, REKEY_AT)
+    rig = keyed_rig(store, NEW_MASTER, OLD_MASTER, clock)
+    report = rig.run(FakeCollector({"networks": networks()}))
+    assert (report.status, report.stored_new_snapshot, report.event_id) == ("ok", True, None)
+    assert count(store, tables.change_items) == 0
+    bodies = [
+        decompress_bytes(row.body_zstd, 1_000_000)
+        for row in table_rows(store, tables.object_states)
+    ]
+    assert any(f"fp1:{NEW_MASTER.key_id}:".encode() in body for body in bodies)
+    # The one clean cycle of the only source ends the rekey with one fingerprint_rekey event.
+    state = rekey_state(store)
+    assert (state.active, state.restamped) == (False, 1)
+    (event,) = audit_rows(store, "fingerprint_rekey")
+    assert event.detail == {
+        "old_key_id": OLD_MASTER.key_id,
+        "new_key_id": NEW_MASTER.key_id,
+        "restamped": 1,
+    }
+    # The next check is a plain comparison under the new key.
+    again = rig.run(FakeCollector({"networks": networks(secret=CANARY_SECOND)}))
+    assert again.event_id is not None
+    (item,) = table_rows(store, tables.change_items)
+    assert (item.path, item.field_class) == ("passphrase", "secret")
+
+
+def test_a_real_secret_change_during_the_rekey_still_shows(store: Database) -> None:
+    clock = Clock()
+    keyed_rig(store, OLD_MASTER, None, clock).run(FakeCollector({"networks": networks()}))
+    run_rekey(store, OLD_MASTER, NEW_MASTER, REKEY_AT)
+    rig = keyed_rig(store, NEW_MASTER, OLD_MASTER, clock)
+    report = rig.run(FakeCollector({"networks": networks(secret=CANARY_SECOND, vlan=30)}))
+    assert report.event_id is not None
+    items = {str(row.path): row for row in table_rows(store, tables.change_items)}
+    assert set(items) == {"passphrase", "vlan"}
+    assert str(items["passphrase"].before_fp).startswith(f"fp1:{OLD_MASTER.key_id}:")
+    assert str(items["passphrase"].after_fp).startswith(f"fp1:{NEW_MASTER.key_id}:")
+    assert rekey_state(store).active is False
+
+
+def test_a_second_rekey_works_after_one_clean_cycle(store: Database) -> None:
+    clock = Clock()
+    keyed_rig(store, OLD_MASTER, None, clock).run(FakeCollector({"networks": networks()}))
+    run_rekey(store, OLD_MASTER, NEW_MASTER, REKEY_AT)
+    keyed_rig(store, NEW_MASTER, OLD_MASTER, clock).run(FakeCollector({"networks": networks()}))
+    second = run_rekey(store, NEW_MASTER, THIRD_MASTER, REKEY_AT)
+    assert second.state.active
+    assert second.state.old_key_id == NEW_MASTER.key_id
+    rig = keyed_rig(store, THIRD_MASTER, NEW_MASTER, clock)
+    report = rig.run(FakeCollector({"networks": networks()}))
+    assert report.event_id is None
+    assert count(store, tables.change_items) == 0
+    assert rekey_state(store).active is False
+    assert len(audit_rows(store, "fingerprint_rekey")) == 2
+
+
+def test_with_the_old_key_lost_fingerprints_are_restamped_without_a_comparison(
+    store: Database,
+) -> None:
+    clock = Clock()
+    keyed_rig(store, OLD_MASTER, None, clock).run(FakeCollector({"networks": networks()}))
+    run_rekey(store, None, NEW_MASTER, REKEY_AT)
+    rig = keyed_rig(store, NEW_MASTER, None, clock)
+    report = rig.run(FakeCollector({"networks": networks(secret=CANARY_SECOND)}))
+    assert report.event_id is None
+    assert count(store, tables.change_items) == 0
+    assert rekey_state(store).active is False
+    assert len(audit_rows(store, "baseline_reestablished")) == 1
+    assert audit_rows(store, "fingerprint_rekey") == []
+
+
+def test_a_partial_run_does_not_end_the_rekey(store: Database) -> None:
+    clock = Clock()
+    data = {"networks": networks(), "hosts": hosts()}
+    keyed_rig(store, OLD_MASTER, None, clock).run(FakeCollector(data))
+    run_rekey(store, OLD_MASTER, NEW_MASTER, REKEY_AT)
+    rig = keyed_rig(store, NEW_MASTER, OLD_MASTER, clock)
+    collector = FakeCollector(data)
+    collector.script["hosts"] = [refused()]
+    assert rig.run(collector).status == "partial"
+    assert count(store, tables.change_items) == 0
+    assert rekey_state(store).active is True
+    assert rig.run(FakeCollector(data)).status == "ok"
+    assert rekey_state(store).active is False
+
+
+def test_a_rekey_to_a_key_this_process_does_not_hold_is_left_alone(store: Database) -> None:
+    clock = Clock()
+    rig = keyed_rig(store, OLD_MASTER, None, clock)
+    rig.run(FakeCollector({"networks": networks()}))
+    run_rekey(store, OLD_MASTER, NEW_MASTER, REKEY_AT)
+    assert rig.run(FakeCollector({"networks": networks(vlan=30)})).status == "ok"
+    assert rekey_state(store).active is True

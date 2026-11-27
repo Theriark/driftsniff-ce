@@ -1,4 +1,4 @@
-# UniFi rules for VPN tunnels, VPN servers and RADIUS profiles (P7-T4). All three have the object
+# UniFi rules for VPN tunnels, VPN servers and RADIUS profiles. All three have the object
 # floor high, so an added or removed tunnel, server or profile is high without a rule here.
 # UniFi Network 10.6.109 returns no key and no shared secret for them (docs/vendor-notes/unifi.md);
 # the secret rules are kept for a version that does: they read only the fingerprints.

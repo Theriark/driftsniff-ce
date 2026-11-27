@@ -164,7 +164,7 @@ def test_promote_computes_the_candidate_and_tests_the_commit_development_runs() 
 def test_promote_deploys_the_same_digest_to_the_existing_stage_application() -> None:
     text = read_text("promote-stage.yml")
     scripts = scripts_of("promote-stage.yml")
-    assert "DOKPLOY_STAGE_APPLICATION_ID: lhB_AOqk4FTEaHhEQcPKj" in text
+    assert "DOKPLOY_STAGE_APPLICATION_ID: ${{ vars.DOKPLOY_STAGE_APPLICATION_ID }}" in text
     assert '--image "${IMAGE_REF}"' in scripts
     assert '--expected-commit "${SOURCE_COMMIT}"' in scripts
     assert "--noop-ok" in scripts
@@ -296,3 +296,55 @@ def test_release_never_merges_main_into_development() -> None:
         scripts = scripts.replace(read, "")
     assert "refs/heads/development" not in scripts
     assert "git merge" not in scripts
+
+
+DEPLOYMENT_TARGETS = (
+    "DOKPLOY_DEVELOPMENT_APPLICATION_ID",
+    "DOKPLOY_STAGE_APPLICATION_ID",
+    "DOKPLOY_PRODUCTION_APPLICATION_ID",
+    "DEVELOPMENT_HOST",
+    "STAGE_HOST",
+    "PRODUCTION_HOST",
+)
+
+
+def test_deployment_targets_come_from_github_variables() -> None:
+    """The Dokploy application ids and the site host names are GitHub variables, never literals
+    in a public workflow file, and every job that uses one fails when it is missing."""
+    seen: set[str] = set()
+    for path in sorted(WORKFLOWS.glob("*.yml")):
+        jobs = load(path.name)["jobs"]
+        for job_name, job in jobs.items():
+            env = job.get("env") or {}
+            for name in DEPLOYMENT_TARGETS:
+                if name in env:
+                    assert env[name] == f"${{{{ vars.{name} }}}}", (path.name, job_name, name)
+                    seen.add(name)
+            for step in job["steps"]:
+                for name in DEPLOYMENT_TARGETS:
+                    assert name not in (step.get("env") or {}), (path.name, step["name"], name)
+    assert seen == set(DEPLOYMENT_TARGETS)
+    expected = {
+        "ci.yml": ("DOKPLOY_DEVELOPMENT_APPLICATION_ID", "DEVELOPMENT_HOST"),
+        "promote-stage.yml": (
+            "DOKPLOY_DEVELOPMENT_APPLICATION_ID",
+            "DOKPLOY_STAGE_APPLICATION_ID",
+            "STAGE_HOST",
+        ),
+        "release.yml": ("DOKPLOY_STAGE_APPLICATION_ID", "STAGE_HOST"),
+        "promote-production.yml": (
+            "DOKPLOY_STAGE_APPLICATION_ID",
+            "STAGE_HOST",
+            "DOKPLOY_PRODUCTION_APPLICATION_ID",
+            "PRODUCTION_HOST",
+        ),
+    }
+    for name, names in expected.items():
+        checked = (
+            " ".join(line for line in scripts_of(name).splitlines() if "for required in" in line)
+            .replace(";", " ")
+            .split()
+        )
+        for variable in names:
+            assert variable in checked, (name, variable)
+    assert '[[ -n "${DEVELOPMENT_HOST}" ]] || fail' in scripts_of("promote-stage.yml")

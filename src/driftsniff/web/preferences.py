@@ -1,4 +1,4 @@
-"""Interface preferences kept in cookies (P10-T2): the row density of data tables.
+"""Interface preferences kept in cookies: the row density of data tables.
 
 The density switch is a normal form post to ``POST /preferences/density`` that sets the
 ``ds_density`` cookie and sends the user back to the page they were on. The cookie holds one of

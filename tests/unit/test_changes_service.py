@@ -1,4 +1,4 @@
-"""The change list, the change detail, and acknowledge, note and mute (P10-T6, backend slice).
+"""The change list, the change detail, and acknowledge, note and mute (backend slice).
 
 The tests drive the services against a migrated database. Changes are written straight into the
 tables, the way the run pipeline writes them. Text that must never come back starts with CANARY-.
@@ -254,7 +254,7 @@ def test_filters_narrow_the_list(store: Database) -> None:
 
 
 def test_the_reading_filter_keeps_the_changes_one_reading_found(store: Database) -> None:
-    """DRS-465: the history's "Changes found" link opens only that reading's changes."""
+    """The history's "Changes found" link opens only that reading's changes."""
     first = add_event(store, items=({"resource": "networks"},))
     add_event(store, items=({"resource": "vms"},), created_at="2026-10-21T10:00:00Z")
     with store.read() as connection:

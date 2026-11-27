@@ -1,1 +1,1 @@
-"""Golden table of the rule engine (P5-T4): the acceptance test of the classification."""
+"""Golden table of the rule engine: the acceptance test of the classification."""

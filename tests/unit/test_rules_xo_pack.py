@@ -1,4 +1,4 @@
-"""The shipped Xen Orchestra pack and type tables (P5-T3).
+"""The shipped Xen Orchestra pack and type tables.
 
 ``rules/types/xo.yaml`` and ``rules/packs/xo/*.yaml`` are loaded from the package, the way the
 application loads them. Every rule has one input that it matches and one near miss that it must not

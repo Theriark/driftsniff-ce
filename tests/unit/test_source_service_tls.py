@@ -1,4 +1,4 @@
-"""TLS options of a source: validated, insecure needs the typed text and is audited (P7-T3)."""
+"""TLS options of a source: validated, insecure needs the typed text and is audited."""
 
 from typing import Any
 

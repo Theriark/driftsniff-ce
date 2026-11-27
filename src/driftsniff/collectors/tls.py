@@ -1,4 +1,4 @@
-"""TLS modes shared by the collectors (P7-T3).
+"""TLS modes shared by the collectors.
 
 A source stores one of four modes in its options (docs/tls.md has the user view):
 

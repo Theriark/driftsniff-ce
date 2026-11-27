@@ -1,4 +1,4 @@
-"""The routes of the change pages (P10-T6): the plan's rows against the real routes.
+"""The routes of the change pages: the plan's rows against the real routes.
 
 Slice A (the services) planned the routes and their roles in ``PLANNED_ROUTES``; slice B (the
 pages) added them. These tests keep the plan and the application in step: every planned row is
@@ -51,8 +51,9 @@ def test_every_page_action_of_the_plan_has_a_route() -> None:
     assert wanted <= set(ROUTE_TABLE)
 
 
-# The pages of P10-T7. Slice A listed them in ROUTE_TABLE straight away, so nothing was planned
-# for them in PLANNED_ROUTES; slice B (the pages) keeps them there with the plan's role rule.
+# The History and Configuration pages. Slice A listed them in ROUTE_TABLE straight away, so
+# nothing was planned for them in PLANNED_ROUTES; slice B (the pages) keeps them there with the
+# plan's role rule.
 HISTORY_PAGES = (
     ("GET", "/history"),
     ("GET", "/history/{source_id}"),

@@ -1,4 +1,4 @@
-"""Canary harness, extended to API output, the OpenAPI document and the backup file (P9-T6).
+"""Canary harness, extended to API output, the OpenAPI document and the backup file.
 
 The core harness (``canary.py``) plants synthetic secrets in a fake source and looks for them in
 the database, the logs and the errors. The notification canary test does the same for messages.

@@ -1,4 +1,4 @@
-"""Coverage rows for every failure case of the UniFi client, through the whole pipeline (P7-T5).
+"""Coverage rows for every failure case of the UniFi client, through the whole pipeline.
 
 ``test_unifi_client.py`` checks what the client returns for each case; this file runs the same
 cases through :class:`RunPipeline` on a migrated database and checks what a person sees in the

@@ -1,4 +1,4 @@
-"""The browser pages of the interface (P10-T3): rendering, content negotiation and status pages.
+"""The browser pages of the interface: rendering, content negotiation and status pages.
 
 A browser asks for ``text/html`` and gets a page; every other client (the tests, scripts, the
 API) keeps the JSON answers of the routes. The decision is :func:`wants_html`, read from the
