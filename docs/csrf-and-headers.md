@@ -1,6 +1,6 @@
 # CSRF, security headers and browser hardening
 
-How driftsniff CE protects the browser interface (P9-T2). The code is `driftsniff/web/csrf.py`
+How driftsniff CE protects the browser interface. The code is `driftsniff/web/csrf.py`
 (one middleware, added in `driftsniff/main.py`); the tests are `tests/unit/test_web_csrf.py` and
 `tests/security/test_template_scan.py`. The sign-in side is described in [auth.md](auth.md).
 
@@ -20,7 +20,7 @@ role check answers **401**.
 ## Sending the CSRF value
 
 The value is created with the session (`Principal.csrf_token`, stored in the `sessions` row). The
-templates built in P10 send it in one of two places:
+templates send it in one of two places:
 
 - a hidden form field named `csrf_token` in every form that posts (also works without JavaScript);
 - the request header `X-CSRF-Token` on every HTMX request (`hx-headers` on the body element).
@@ -47,19 +47,18 @@ request gets none.
 With `Referrer-Policy: no-referrer` a browser sends `Origin: null` on every plain form post (Fetch
 standard, "serializing a request origin"). The origin check refuses `Origin: null`, so first-run
 setup, sign-in, sign-out and every other form of the product failed with a 403 (found on
-Development, THE-862). `same-origin` keeps the referrer private: it sends the page address only
+the Development site). `same-origin` keeps the referrer private: it sends the page address only
 to this site and nothing to any other site, and the form post carries the real `Origin`. The check
 itself is unchanged: `Origin: null` (also sent from sandboxed frames and some cross-site redirects)
 and every foreign origin are still refused. `tests/unit/test_web_csrf.py` covers both.
 
-## Rules for the templates (P10)
+## Rules for the templates
 
 - Jinja autoescape is on. `tests/security/test_template_scan.py` fails on `| safe`, on an
   `{% autoescape false %}` (or `off`) block in any file under `web/templates/`, and on
   `autoescape=False` anywhere in the package.
 - No inline script and no `style` attribute: the policy blocks them.
-- HTMX is vendored with eval disabled and `selfRequestsOnly` on (set in P10-T2; not part of this
-  task).
+- HTMX is vendored with eval disabled and `selfRequestsOnly` on (set in `base.html`).
 
 ## Limits
 

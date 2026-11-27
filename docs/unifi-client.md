@@ -1,14 +1,15 @@
-# The UniFi client (P7-T2)
+# The UniFi client
 
 `driftsniff.collectors.unifi.client.UnifiClient` reads the integration API of the UniFi Network
 application, read only. It is a `Collector` (docs/collectors.md): `probe()`, `resources()`,
 `fetch(spec)`, `close()`.
 
-**Nothing in the interface names below is verified.** Dependency D5 (the vendor reference) is open
-and no lab controller was used (docs/vendor-notes/unifi.md). The paths, the key header name and the
-envelope names come from third party descriptions. The behaviour (floor, paging, coverage) is the
-plan's and does not depend on them. When D5 exists, correct `collectors/unifi/resources.py` and the
-header name; the tests use a fake controller (`tests/contract/fake_unifi.py`) and change with them.
+The paths, the key header name and the envelope names were checked on two UniFi Network 10.6.109
+consoles in a lab in November 2026 (see
+[the 27.0.0 release notes](release-notes/v27.0.0.md#checked-on-real-systems) and
+docs/vendor-notes/unifi.md). The behaviour (floor, paging, coverage) does not depend on them. The
+tests use a fake controller (`tests/contract/fake_unifi.py`); if a later UniFi version changes a
+name, correct `collectors/unifi/resources.py` and the fake together.
 
 ## The credential
 
@@ -20,12 +21,14 @@ key that is blank or holds characters a header cannot carry is refused when the 
 ## Probe and version floor
 
 1. The host is resolved once and every address is checked with `blocked_reason` (metadata and
-   link-local addresses are refused, error class `blocked_address`). The connection resolves the
-   name again, so a name that changes its answer in between is not caught.
+   link-local addresses are refused, error class `blocked_address`). The first answer is pinned:
+   every connection of the run goes to that address and the name is not looked up again, so a
+   name that changes its answer in between (DNS rebinding) is caught. The TLS host name check and
+   SNI still use the name.
 2. The information endpoint is called on the direct integration path (`/integration`), then on the
-   console proxy path (`/proxy/network/integration`). A stored base path is tried first. The first
-   path that answers with an application version wins and is available as `client.base_path`; the
-   caller stores it in the source options. A 404, a web page or an answer without a version moves
+   console proxy path (`/proxy/network/integration`). A base path handed to the client is tried first
+   (the collector factory hands none). The first path that answers with an application version
+   wins and is available as `client.base_path`. A 404, a web page or an answer without a version moves
    on to the next path; any other failure stops the probe. Neither path answering is `no_api`.
 3. A 401 or 403 on the probe stops it (`unauthorized`, `forbidden`).
 4. The version is compared as integer tuples with the floor 10.1.84. A lower version, or one that
@@ -65,7 +68,7 @@ list is read once per run. A site id that is not letters, digits, `_` or `-` is 
 
 A failed resource keeps its previous state in the pipeline, so nothing is reported as removed.
 
-## Ordering and the action field (P7-T4)
+## Ordering and the action field
 
 Firewall policies and ACL rules are first match lists, so their order is data. The controller gives
 the order in separate documents (the firewall ones verified on UniFi Network 10.6.109, the ACL one
@@ -105,12 +108,12 @@ read through pydantic (`collectors/unifi/models.py`).
 
 ## What is not here
 
-- TLS modes are in `collectors/tls.py` (P7-T3, `docs/tls.md`); the client takes the settings as an
-  argument. Nothing builds those settings from a stored source yet (the factory below).
-- The factory that builds a client from a stored source and saves the detected base path and the
-  state `unsupported`. The source option for the base path does not exist yet; the factory adds
-  it to `ALLOWED_OPTIONS`. `serve` has no scheduler until that factory exists (P7 or P8).
+- TLS modes are in `collectors/tls.py` (`docs/tls.md`); the collector factory
+  (`sources/factory.py`) builds the settings from the stored source and passes them to the client.
+- The detected base path is not stored: there is no source option for it, so every run probes
+  the two paths again. Nothing writes the source state `unsupported` either; a controller below
+  the floor shows as a failed run with the error class `unsupported_version`.
 - `unifi-site-settings` is not read: no source names an endpoint for it.
 - The run pipeline counts a `404` resource as failed (the run is `partial`). The plan calls it
-  "never a failure"; whether the pipeline should treat `not_available` differently is a decision
-  for Delivery.
+  "never a failure"; whether the pipeline should treat `not_available` differently is an open
+  question for the maintainers.

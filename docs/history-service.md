@@ -1,6 +1,6 @@
 # History and current configuration (services and routes)
 
-This page is for people who build the History and Configuration pages (task P10-T7, slice B) or
+This page is for people who build the History and Configuration pages or
 call the services from somewhere else. The code is `src/driftsniff/history/` and
 `src/driftsniff/web/routes_history.py`. Slice A (this one) holds the queries, the role checks and
 the data contract; the templates, the stylesheet and the navigation entries belong to the interface
@@ -20,7 +20,7 @@ by the system, not what a viewer looked at), and no route needs more than the vi
 
 ## The plan's two checks
 
-| Check (plan P10-T7) | Test |
+| Check | Test |
 |---|---|
 | The view equals `resolve_current_state` for the fixture | `tests/unit/test_history_service.py::test_the_view_equals_resolve_current_state` |
 | A baseline marker is visible in the history | `tests/unit/test_history_service.py::test_the_history_marks_the_baselines_and_the_current_snapshot` |
@@ -45,8 +45,10 @@ its newest snapshot; it feeds the picker of both pages.
 
 ## The configuration
 
-`ConfigurationQueries(database, fingerprinter).current(source_id, resource=None, search="", page=1)`
-returns a `ConfigurationView` (or `None` for an unknown source): the newest snapshot, the resource
+`ConfigurationQueries(database, fingerprinter).current(source_id, resource=None, search="", page=1,
+snapshot_id=None)` returns a `ConfigurationView` (or `None` for an unknown source, or a
+`snapshot_id` that is not a reading of that source): the newest snapshot, or the reading named by
+`snapshot_id` (the `?snapshot=` of the page), the resource
 types in it (`ResourceSummary`: object count, `ordered`, `hidden_by_xo`), the objects of the selected
 resource (50 a page) and `total`, `page`, `pages`.
 
@@ -96,8 +98,9 @@ fingerprints only until somebody writes its table; that is the same rule the cha
 For a source of type `xo`, `ResourceSummary.hidden_by_xo` lists the paths that Xen Orchestra itself
 never returns in clear (from `hidden_by_xo` of the type table), so the page can say "hidden by XO,
 changes not observable". A field in the state whose path is one of them, or below one, has
-`hidden_by_xo` set. Other source types always have an empty list. UNVERIFIED: the field names of
-the XO and UniFi tables are the plan's, not lab verified (open item, see the vendor notes).
+`hidden_by_xo` set. Other source types always have an empty list. The field names of the XO and UniFi
+tables were checked on lab systems (see
+[the 27.0.0 release notes](release-notes/v27.0.0.md#checked-on-real-systems)).
 
 ### The escaping contract
 
@@ -110,7 +113,7 @@ application's environment.
 
 ## Routes
 
-A browser gets the pages of slice B (THE-1043, see "The pages" below); every other client gets
+A browser gets the pages (see "The pages" below); every other client gets
 JSON, with the same status codes. An HTMX request of the configuration gets the page too. A
 damaged store is a designed 500 page for a browser and the fixed JSON text for everyone else.
 
@@ -119,7 +122,7 @@ damaged store is a designed 500 page for a browser and the fixed JSON text for e
 | `GET /history` | viewer | `{"sources": [...]}` |
 | `GET /history/{source_id}?page=N` | viewer | `{"history": SnapshotPageView}` |
 | `GET /configuration` | viewer | `{"sources": [...]}` |
-| `GET /configuration/{source_id}?resource=&q=&page=` | viewer | `{"configuration": ConfigurationView}` |
+| `GET /configuration/{source_id}?resource=&q=&page=&snapshot=` | viewer | `{"configuration": ConfigurationView}` |
 
 All four are rows of `ROUTE_TABLE` in `tests/security/routekit.py`, called as every kind of caller
 by `tests/security/test_route_table.py` (no session: 401; no API token ever works here).
@@ -128,9 +131,9 @@ by `tests/security/test_route_table.py` (no session: 401; no API token ever work
 application was built without the service, 500 a damaged store. `create_app(history=...)` takes
 the service; `driftsniff serve` builds it with the fingerprint key derived from the master key.
 
-## The pages (slice B)
+## The pages
 
-Task THE-1043 (Jira DRS-289), Frontend Developer. Slice B adds the HTML answers of the four
+The pages add the HTML answers of the four
 routes above (`web/routes_history.py`), the words and links of the pages
 (`web/history_pages.py`), the templates (`templates/history/sources.html`, `snapshots.html`,
 `configuration.html` and the shared head `_head.html`), their stylesheet
@@ -144,8 +147,7 @@ configuration). No route was added and none writes.
 | `/history/{source_id}` | the reading ledger, 50 a page, newest first |
 | `/configuration/{source_id}` | the newest reading, one resource at a time, searchable, 50 objects a page |
 
-**The reading ledger** is the signature of the history, the companion of the drift line
-(docs/design-direction.md section 2): a 2 px `border` rail runs down the first column and joins
+**The reading ledger** is the signature of the history, the companion of the drift line: a 2 px `border` rail runs down the first column and joins
 the readings. A filled `ink` square marks a baseline (the comparison starts there; nothing is
 reported across it), a 3 px `ink` ring the current reading (the one Configuration shows), an
 8 px `slate` dot any other. The word (Baseline, Current, Reading) always stands next to the
@@ -166,8 +168,8 @@ through HTMX (`hx-select` on the full page, the address pushed) while the skelet
 without scripting they are plain links and a plain GET form.
 
 **Roles.** Both source pages offer the other page and the source page to everyone; an operator
-also gets Run now (a CSRF form posting to `/sources/{id}/run`, shown only for an enabled UniFi
-or XO source while a scheduler runs) and an admin Edit source. Both target routes check the role
+also gets Run now (a CSRF form posting to `/sources/{id}/run`, shown only for an enabled polled
+source while a scheduler runs) and an admin Edit source. Both target routes check the role
 again.
 
 **States.** Empty: no source (Add a source for an admin, See the sources for others), no
@@ -177,7 +179,9 @@ Clear the search). Loading: the skeleton of the HTMX swap. Error: a damaged stor
 500 page with Try again; an unknown source is the designed 404.
 
 **Decisions where the plan is silent.** (1) Changes found links to the change list of the
-source, not of the reading: the change list has no reading filter. (2) The search keeps the
+source filtered to that reading (`/changes?source=N&snapshot=M`), so it lists only the changes
+that reading found. The Baseline, Current or Reading word of a row opens the configuration that
+reading stored (`/configuration/{source_id}?snapshot=M`). (2) The search keeps the
 chosen resource; changing the resource clears the search. (3) The page styles are a second
 stylesheet, `static/history.css`, loaded after `app.css` by these three templates only through
 the `head` block of `base.html`; it uses the tokens of `app.css` and adds no colour. (4) No
@@ -194,12 +198,10 @@ no Run now without a scheduler or for a push source, empty states, the designed 
 navigation). `tests/security/test_planned_routes.py` pins the four rows to the viewer role and
 checks that nothing under `/history` or `/configuration` writes.
 
-## Not in this slice
+## Not built
 
-- The screenshots at 1440, 768 and 390 pixels and the interface critique follow the deployment
-  of slice B to Development.
-- Showing an older snapshot's configuration or comparing two snapshots; the plan asks for the
-  latest manifest only.
+- Comparing two snapshots side by side. An older reading can be opened (`?snapshot=`), but not
+  set against another one.
 - Pagination of a search past 5,000 objects of one resource (reported through `search_truncated`).
 
 Rollback: the change adds modules, four read-only routes and one optional `create_app` argument;

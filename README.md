@@ -6,31 +6,17 @@ and after values, and gives each change an explainable risk label.
 
 It reads UniFi Network, UniFi Protect, Xen Orchestra, Proxmox VE, Portainer, TrueNAS, Synology DSM, QNAP, Redfish BMCs (iDRAC, iLO, Supermicro), Home Assistant, Grafana, Prometheus, Zabbix and Checkmk, and takes configurations that a sender pushes to it.
 
-> **The `development` branch is ahead of the last release candidate.** Since v27.0.0-rc.5 it
-> reads twelve more kinds of system (every one listed above except UniFi Network and Xen
-> Orchestra). TrueNAS, Portainer, Checkmk, Home Assistant, Grafana, Xen Orchestra and UniFi
-> Network have been read on real systems; the others are tested against simulations. The next
-> release candidate is v27.1.0-rc.1. Until it is tagged, the text below describes v27.0.0-rc.5.
->
-> **Release candidate v27.0.0-rc.5.** This documentation describes the Development candidate
-> `40963ddf3b52f689ca48028611e79374ba362b8a` (image
-> `ghcr.io/theriark/driftsniff-ce@sha256:bb09f8a33c3ad95e8e52884dd887791a6d62862dee5a34d960ac6f12d1a44f16`).
-> Its application files are identical to those of build `63eaa6ad764955d1d57124ca7727e7bfcb49ddc9`
-> (image `sha256:53ee8584…`), on which the application behaviour was verified; the candidate
-> differs from that build only in the CI workflow and a CI test (pull request 133), which the
-> image does not contain, so its image is a separate build of the same application files. The
-> push source form was captured on `63eaa6ad`; the other screenshots, taken on the earlier build
-> `36f78cc95919b115103af19bd10773d9d69a7386`, show pages that neither later build changes. The tag
-> `v27.0.0-rc.5` is created for that exact candidate after this documentation is reviewed; the
-> application itself still reports its package version `0.1.0.dev0` in the footer and on the
-> settings page. It is not a stable release and not ready for production use.
+> **Driftsniff CE 27.0.0, the first release.** Run the image
+> `ghcr.io/theriark/driftsniff-ce:27.0.0` or build it from this repository. What it contains and
+> its known limits are in the [release notes](docs/release-notes/v27.0.0.md); every change is in
+> the [changelog](CHANGELOG.md).
 >
 > **No warranty.** The software is provided "as is" under the MIT licence, without warranty of any
 > kind. See [LICENSE](LICENSE).
 
-![The driftsniff dashboard at 1440 px: four stat cards, open items by severity, and the Needs attention list with a critical change at the top](docs/images/dashboard-1440.png)
+![The driftsniff dashboard at 1440 px: four stat cards, open changes by severity, and the Needs attention list with a critical change at the top](docs/images/dashboard-1440.png)
 
-*The dashboard of the Development build, signed in as an admin, light theme, 1440 px wide. Every
+*The dashboard on the Development site, signed in as an admin, light theme, 1440 px wide. Every
 name and value on it is synthetic test data.*
 
 ## What it does
@@ -87,7 +73,7 @@ Start at the [documentation index](docs/README.md). The main guides:
 - [API guide](docs/api-guide.md)
 - [Operations: health, backup, restore and upgrade](docs/operations.md)
 - [Tutorials](docs/tutorials/README.md), step by step with screenshots
-- [Release notes for v27.0.0-rc.5](docs/release-notes/v27.0.0-rc.5.md)
+- [Release notes for 27.0.0](docs/release-notes/v27.0.0.md) and the [changelog](CHANGELOG.md)
 
 ## On a phone
 
@@ -111,31 +97,5 @@ Report vulnerabilities privately, as described in [SECURITY.md](SECURITY.md).
 ## Licence
 
 MIT, Copyright (c) 2026 Theriark. The licences of the packages driftsniff uses are listed in
-`THIRD_PARTY_NOTICES`, which `scripts/gen_notices.py` generates from the lock files.
-
-## History of this file
-
-Before v27.0.0-rc.1 this README said that driftsniff had no release and nothing to install yet,
-and it showed no screens. That was true of the repository until the Phase 10 web interface was
-deployed; it no longer is. Earlier review screenshots are kept with their task records, not in this
-repository.
-
-The documentation of this candidate was first labelled v27.0.0-rc.1. That label was never tagged
-and its review copy is superseded, so the same candidate is documented again as v27.0.0-rc.2.
-The [v27.0.0-rc.1 release notes](docs/release-notes/v27.0.0-rc.1.md) are kept as superseded history.
-
-The v27.0.0-rc.2 label was not tagged either. Its review copy showed a push example
-(`networks` with `_id`, `name`, `vlan`) that a UniFi push source refuses, so the corrected
-documentation of the same candidate was labelled v27.0.0-rc.3. The
-[v27.0.0-rc.2 release notes](docs/release-notes/v27.0.0-rc.2.md) are kept as superseded history.
-
-The v27.0.0-rc.3 label was not tagged either. The application then corrected the same wrong
-example in the hint under its push form (pull request 131), which made a new Development
-candidate, `63eaa6ad`. That candidate was documented as v27.0.0-rc.4. The
-[v27.0.0-rc.3 release notes](docs/release-notes/v27.0.0-rc.3.md) are kept as superseded history.
-
-The v27.0.0-rc.4 label was not tagged either. Before its tag was created, pull request 133 added
-a first-run check of the published image to the CI workflow, which made a new Development
-candidate, `40963ddf`, with the same application files as `63eaa6ad`. That candidate is
-documented as v27.0.0-rc.5. The [v27.0.0-rc.4 release notes](docs/release-notes/v27.0.0-rc.4.md)
-are kept as superseded history.
+`THIRD_PARTY_NOTICES`. It is not kept in the repository: `scripts/gen_notices.py` generates it
+from the lock files (see [CONTRIBUTING.md](CONTRIBUTING.md#run-the-tests)).

@@ -101,14 +101,14 @@ def test_actions_are_pinned_to_a_full_commit_sha(name: str, variable: str) -> No
 
 
 def test_deployment_notes_list_every_runtime_setting_and_the_smoke_check() -> None:
-    notes = (REPO_ROOT / "docs" / "deploy-development.md").read_text(encoding="utf-8")
+    documents = ("configuration.md", "install.md", "operations.md", "ci-cd.md")
+    notes = "\n".join((REPO_ROOT / "docs" / name).read_text(encoding="utf-8") for name in documents)
     manifest = json.loads((REPO_ROOT / "deploy" / "dokploy.json").read_text(encoding="utf-8"))
     for entry in manifest["env"]:
         assert entry["name"] in notes
     for volume in manifest["volumes"]:
         assert volume in notes
     for expected in (
-        "https://ce-dev-driftsniff.theriark.dev",
         "512 MB",
         "GET /healthz",
         "previous approved digest",

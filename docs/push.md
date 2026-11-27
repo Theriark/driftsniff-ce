@@ -12,12 +12,14 @@ The collector is `driftsniff.collectors.push.PushCollector`, the endpoint is in
 2. Declare, per resource, the top-level fields that are configuration, with the source option
    `push_fields`, for example `{"unifi-networks": ["id", "name", "vlanId"]}`. Every other
    field of a pushed object is dropped before anything is stored. Include the key field of the
-   resource (the one its type table names; `id` for every UniFi and Xen Orchestra resource) or
-   the run fails with `bad_object`.
-3. Make a sender key with `SourceService.set_push_key`. It is returned once. Only its SHA-256
-   is stored (`push_token_hash`), so it cannot be shown again; make a new one to replace it, and
-   the old one stops working at once. The audit event `source.push_key` records that a key was
-   made and whether it replaced one, never the key.
+   resource (the one its type table names; `id` for every UniFi and Xen Orchestra resource), or
+   that resource fails with `bad_object` (the run is `partial`, or `failed` when no resource of
+   the post could be read).
+3. Make a sender key: an admin selects **Make sender key** on the source page, which posts to
+   `POST /sources/{id}/push-key` (`SourceService.set_push_key` underneath). It is shown
+   once. Only its SHA-256 is stored (`push_token_hash`), so it cannot be shown again; make a new
+   one to replace it, and the old one stops working at once. The audit event `source.push_key`
+   records that a key was made and whether it replaced one, never the key.
 
 Rules for `push_fields`: a resource name is 1 to 100 characters of letters, digits, `_`, `.`,
 `:` or `-`, starting with a letter or digit; each resource lists 1 to 200 distinct, printable
@@ -51,6 +53,7 @@ post with an empty list means every object of it is gone.
 | 200 | The run finished with status `ok` or `partial`. The body has `run_id`, `status`, `stored_new_snapshot`, `event_id` (set when the post changed something), `object_count` and `ignored_resources` (resources of the body that the source does not declare). |
 | 400 | The body is not a JSON object of resource names to lists of objects (also NaN, Infinity, a repeated key, a document nested too deeply). |
 | 401 | The key is missing or wrong, the source does not exist, is not a push source, or has no key. All of these give the same answer. |
+| 404 | The source was deleted while the post was being read. |
 | 409 | The source declares no fields, is disabled, or a run of it is already going. |
 | 413 | The body is larger than 10 MB, by its declared length or while it streams. |
 | 422 | None of the declared resources is in the body, the source id is not a positive number, or the run failed (the answer names the error class, for example `bad_object`). |

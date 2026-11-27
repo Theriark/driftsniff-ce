@@ -26,7 +26,7 @@ Open the address of driftsniff in your browser. With no admin yet, it opens the 
 Submit. You are signed in and the code no longer works. From now on the setup page answers "Page
 not found".
 
-The setup page is not shown here: the Development installation already has its admins, so the page
+The setup page is not shown here: the Development site already has its admins, so the page
 cannot be opened there any more.
 
 ## Step 3: Sign in later
@@ -43,9 +43,9 @@ After five wrong passwords in a minute the page asks you to wait before the next
 You land on the dashboard. With no source yet it shows one action, **Add source**. Once sources
 report, it looks like this:
 
-![The dashboard with open changes, open items by severity and the Needs attention list](../images/dashboard-1440.png)
+![The dashboard with open changes, open changes by severity and the Needs attention list](../images/dashboard-1440.png)
 
-Read it top to bottom: the stat cards, the open items by severity, and **Needs attention**, the
+Read it top to bottom: the stat cards, the open changes by severity, and **Needs attention**, the
 changes and sources that wait for a decision. The [user guide](../user-guide.md#the-dashboard)
 explains every part.
 

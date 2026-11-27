@@ -5,10 +5,10 @@ receives a short message for every change event that is serious enough. The mess
 something changed and where to look. It never carries the changed values: the details stay behind
 the sign-in.
 
-Status: built in P9-T4. An admin sets the channel on the settings page (`/settings#notifications`,
-P10-T8) or with the routes below. The collection scheduler is wired to the notifier in a later task
-(`RunPipeline(notifier=service.notify_event)`); the routes, the sender and the stored deliveries
-work and are tested now.
+An admin sets the channel on the settings page (`/settings#notifications`) or with the routes
+below. `serve` wires the notifier into the run pipeline of every collection
+(`build_collection(..., notifier=notifications.notify_event)` in `cli.py`), so every scheduled
+run, Run now and push sends its events.
 
 ## What is sent
 
@@ -146,4 +146,3 @@ class, never an address, a password or message text.
 - One channel at a time (webhook or SMTP), as in the plan.
 - There is no per-channel signing key and no option to trust a private CA for a webhook.
 - A process that stops during the retry schedule does not resume it after a restart.
-- The page `/changes/<id>` that the link points to is built with the interface (P10).

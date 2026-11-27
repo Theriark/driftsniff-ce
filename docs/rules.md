@@ -9,10 +9,14 @@ change item gets its severity.
 ## Where the files are
 
 ```text
-rules/packs/unifi/*.yaml   rule packs of the UniFi collector
-rules/packs/xo/*.yaml      rule packs of the Xen Orchestra collector
-rules/types/*.yaml         type tables, one entry per resource
+rules/packs/<kind>/*.yaml   rule packs of one collector
+rules/types/*.yaml          type tables, one entry per resource
 ```
+
+`<kind>` is one of the 14 folders of `PACK_DIRECTORIES` in `loader.py`: `unifi`, `xo`,
+`portainer`, `qnap`, `synology`, `truenas`, `proxmox`, `homeassistant`, `redfish`, `grafana`,
+`prometheus`, `zabbix`, `checkmk` and `unifi_protect`. A push source has no pack of its own: each
+resource it declares is rated by the type table and pack that define that resource name.
 
 `load_rules(root)` reads every such file, validates it and returns an index. `root` defaults to
 the `driftsniff.rules` package folder. A folder or file that is missing is not an error: a root
@@ -22,9 +26,9 @@ file `*.yaml`. A file larger than 1,000,000 bytes is refused.
 
 Any problem stops the load with `RuleLoadError`, which names the file and the line
 (`packs/xo/a.yaml:12: rules.1.severity: Input should be 'low', 'medium', 'high' or 'critical'`).
-Nothing is skipped and nothing is repaired. The loader is not yet called by the application at
-start; the engine is not called either. The run pipeline (P6-T2) will load the rules, and a load
-error must then stop the start.
+Nothing is skipped and nothing is repaired. `serve` loads the rules once at start
+(`RuleEngine(load_rules())` in `sources/wiring.py`) and hands the engine to the run pipeline. A
+load error stops the start: `serve` prints the error and exits with status 1.
 
 Booleans are only `true` and `false` (also `True`, `TRUE`, `False`, `FALSE`), as in YAML 1.2. The
 loader does not use the YAML 1.1 rule of PyYAML, so the bare words `yes`, `no`, `on`, `off`, `y` and
@@ -174,9 +178,9 @@ when any file changes, is added, is removed or is renamed, and does not depend o
 is. A root without files gives `e3b0c44298fc`.
 
 Type tables are part of it on purpose: object floors decide severities too, so a change to a floor
-is a change to the rules. The version is meant to be stored with each change event in
-`change_events.rule_pack_version`. That column already exists (migration 0001); nothing writes
-change events yet (P6-T2), so the version is not stored anywhere today and no migration is needed.
+is a change to the rules. The run pipeline stores the version with each change event in
+`change_events.rule_pack_version` (the column exists since migration 0001), so every change says
+which rules rated it.
 
 ## The engine
 
@@ -210,7 +214,7 @@ ACL object by `floors: {removed: critical}`. The other CRITICAL cases are rules 
 example `enum_transition` from `none` to `admin`, `boolean_flips_to: false` on the TLS verification
 field, `enum_transition` from the WPA family to `open`, and `boolean_flips_to: false` on the enabled
 flag of a firewall rule. The engine only implements the mechanism. The shipped tables and packs
-(P5-T3, P7, P8) say which fields these are.
+say which fields these are.
 
 An `order_changed` item (a list of more than 5,000 entries) has no detail, so its floor is HIGH and
 never CRITICAL. A first-match table always has an `action_field` (the load refuses one without), so
@@ -231,7 +235,7 @@ path of a whole object.
 ## The shipped Xen Orchestra tables and pack
 
 `rules/types/xo.yaml` holds the type tables of the XO collections and `rules/packs/xo/*.yaml` holds
-47 rules (`compute.yaml` for virtual machines, hosts, pools and storage, `network.yaml`,
+52 rules (`compute.yaml` for virtual machines, hosts, pools and storage, `network.yaml`,
 `backup.yaml` and `access.yaml` for servers, users and groups). Each rule has a one sentence
 rationale and a test with one matching and one near-miss input
 (`tests/unit/test_rules_xo_pack.py`, cases in `tests/fixtures/xo/rule_cases.json`).
@@ -243,15 +247,14 @@ rationale and a test with one matching and one near-miss input
   There is no catch-all `**` rule: the engine matches on the path only, so one would also swallow
   the fields that are not in the table.
 - The settings of a backup job are nested fields of `backup-jobs` (`settings.exportRetention`,
-  `settings.reportRecipients` and the others the plan lists). There is no derived resource: Core
-  decided this on THE-359 (2026-10-22), before P8-T2. A type table names only fixed field paths, so
-  a settings key that is not named stays unclassified (a fingerprint) until the Backend Developer
-  classifies it and the Code Reviewer agrees; docs/vendor-notes/xo.md has the open items.
-- The table was completed in P8-T1. The values that Xen Orchestra hides (a server password or
-  token, the credential part of a remote address) are listed under `hidden_by_xo`; they keep the
-  class they have, which is unclassified, so a credential that does arrive is a fingerprint only.
-  Notes with the source and date of every statement: `docs/vendor-notes/xo.md`.
-- The field names are those of the plan and are **unverified**: no Xen Orchestra reference was read
-  and no lab instance was used. A field that is not in the table is unclassified and shows as a
-  fingerprint only. The collections that are never requested have no table and are listed in the
-  notes.
+  `settings.reportRecipients` and the others the plan lists). There is no derived resource (a
+  maintainer decision of 22 October 2026). A type table names only fixed field paths, so
+  a settings key that is not named stays unclassified (a fingerprint) until a maintainer classifies
+  it and a reviewer agrees; docs/vendor-notes/xo.md has the open items.
+- The values that Xen Orchestra hides (a server password or token, the credential part of a
+  remote address) are listed under `hidden_by_xo`; they keep the class they have, which is
+  unclassified, so a credential that does arrive is a fingerprint only. Notes with the source and date of every statement: `docs/vendor-notes/xo.md`.
+- The field names were checked against two Xen Orchestra servers on a lab system in November
+  2026 (see [the 27.0.0 release notes](release-notes/v27.0.0.md#checked-on-real-systems)).
+  A field that is not in the table is unclassified and shows as a fingerprint only. The
+  collections that are never requested have no table and are listed in the notes.

@@ -1,7 +1,7 @@
-# TLS modes (P7-T3)
+# TLS modes
 
-A polled source (UniFi, later Xen Orchestra) reads its controller over HTTPS. The mode is stored in
-the source options and applies to every request of the source. Code: `collectors/tls.py`.
+Every polled source reads its system over HTTPS, and every collector uses the same TLS code. The
+mode is stored in the source options and applies to every request of the source. Code: `collectors/tls.py`.
 
 | Mode | Option values | What is trusted | Host name checked |
 |---|---|---|---|
@@ -17,8 +17,9 @@ TLS 1.2 is the lowest version in every mode.
 `tls_ca_file` is a **file name**, not a path (letters, digits, `.`, `_`, `-`, at most 100
 characters, starting with a letter or digit), so it cannot leave `/data/ca`. The file must be PEM
 text of at most 64 KB that holds only `CERTIFICATE` blocks (a private key in the file is refused),
-must not be a symbolic link, and must load in OpenSSL. Uploading the file is part of the web
-interface (P10); until then an admin places it in the folder.
+must not be a symbolic link, and must load in OpenSSL. There is no upload: put the PEM file in
+`/data/ca` on the data volume and type its file name in the source form (Certificate checks,
+**CA bundle file name**).
 
 ## Pinned
 
@@ -36,8 +37,8 @@ A renewed certificate has a new pin, so the admin must update the pin on renewal
 ## Insecure
 
 Needs the confirmation text `I understand the risk` (typed by an admin; passed to the source service
-as `tls_confirmation`). The service then stores the flag `insecure` (the interface will show a
-permanent badge, P10) and writes the audit event `source.tls_insecure_enabled`. A source that is
+as `tls_confirmation`). The service then stores the flag `insecure` (the source pages show
+the Insecure TLS badge) and writes the audit event `source.tls_insecure_enabled`. A source that is
 already insecure is not asked again; leaving the mode removes the flag.
 
 ## Errors
@@ -49,12 +50,12 @@ already insecure is not asked again; leaving the mode removes the flag.
 
 Both texts are fixed; no fingerprint, path or certificate appears in them.
 
-## Not done here
+## Notes
 
-- The cloud connector base address option (off by default, with its warning) is not added: nothing
-  reads a cloud address yet. It belongs with the source factory and the interface.
-- The web interface for uploading the CA file, the badge and the confirmation field (P10).
-- The factory that builds the settings from a stored source and passes them to the client; the
-  Xen Orchestra client (P8) will use the same `make_client(tls=...)`.
+- The source form offers the four modes. The insecure mode asks for a confirmation sentence and
+  the source then carries the Insecure TLS badge. The collector factory
+  (`sources/factory.py`) builds the settings from the stored options and passes them to the client.
+- There is no CA file upload (see "CA file" above).
+- The cloud connector base address option is not added: nothing reads a cloud address.
 - The audit action is named `source.tls_insecure_enabled`, following the `source.` prefix of the
   other audit actions; the plan calls it `tls_insecure_enabled`.

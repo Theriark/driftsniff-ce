@@ -86,7 +86,7 @@ sent.
 
 An enrichment is **append only**: it never changes the severity or the status of the change, and
 there is no route to edit or delete one. It is the claim of an outside program, not something the
-product verified. The interface (P10) shows it under the heading **External analysis, not verified
+product verified. The interface shows it under the heading **External analysis, not verified
 by the product**, always as escaped text; the API returns it as data and a client must escape it
 too. An `enrichment.added` audit event records the token prefix, the change and the enrichment id
 (never the summary or the payload).

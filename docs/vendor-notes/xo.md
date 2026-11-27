@@ -1,7 +1,7 @@
-# Xen Orchestra vendor notes (P8-T1)
+# Xen Orchestra vendor notes
 
-These are driftsniff's own notes on the Xen Orchestra (XO) interface that the XO collector will
-read (P8). They are written for the people who build and review the collector and the type table
+These are driftsniff's own notes on the Xen Orchestra (XO) interface that the XO collector
+reads. They are written for the people who build and review the collector and the type table
 `src/driftsniff/rules/types/xo.yaml`. Nothing here is copied or vendored from the vendor; every
 statement is in our own words, with its source and the date it was read.
 
@@ -35,14 +35,13 @@ token in the `authenticationToken` cookie.
 
 ## Status in one paragraph
 
-**Nothing in this file is lab-verified, and the vendor's own reference was not read for this
-task.** The reference could not be fetched (this role has no web access), no lab Xen Orchestra
-exists yet (Phase 0 tests X1 to X4 are not run) and no other source was available. The founder
-waived Gate A for development work (THE-359, comment e8aa0805), which allows the type table to be
-written now, with every XO fact labelled below. The only source of the statements is our own plan
-(S1). Every field name is therefore **unverified**: it is the name the plan lists, and it must be
-checked against the vendor reference or a lab result before it is relied on. No lab result is
-claimed anywhere in this repository.
+The statements below were first written from our own plan (S1), without the vendor's reference,
+which was not read. The lab check above (two Xen Orchestra 5 servers, 2026-11-13) then read every
+collection and settled the field paths the collector stores: those are in the type table and in
+`tests/unit/test_xo_real_shapes.py`. The labels in the table below are those of 2026-10-22 and
+were not all revisited; where a statement and the lab check disagree, the lab check wins. Still
+open after the lab: a non-admin user with a read-only ACL role (statement 13), and the expiry of
+the credential in use (statement 16).
 
 ## Sources
 
@@ -50,9 +49,9 @@ All sources were read on **2026-10-22**.
 
 | Id | Source | What it was used for |
 |---|---|---|
-| S1 | driftsniff dev work plan part B, section 13 (task THE-411, document analysis-1, revision 11) | Every collection, kept field, ignored field, excluded collection and design decision below |
-| S2 | `rules/types/xo.yaml` as written in P5-T3 (the skeleton P8-T1 completed) | The starting field list and the names of the backup job settings |
-| S3 | Decision of Core on THE-359, comment of 2026-10-22 | Drop the derived resource `backup-job-settings`; the settings are nested fields of `backup-jobs` |
+| S1 | driftsniff development plan, the Xen Orchestra section | Every collection, kept field, ignored field, excluded collection and design decision below |
+| S2 | the first skeleton of `rules/types/xo.yaml` | The starting field list and the names of the backup job settings |
+| S3 | Maintainer decision of 2026-10-22 | Drop the derived resource `backup-job-settings`; the settings are nested fields of `backup-jobs` |
 | S4 | Our own reading of how a REST interface of this kind is laid out (no document) | The REST prefix, the credential endpoint and the marker of a built in template (statements 15 to 17) |
 
 Neither source is a vendor document. Statements whose status is *plan* are our own design
@@ -66,7 +65,7 @@ source at all; the table makes a placeholder choice).
 
 | # | Statement | Source | Date read | Status |
 |---|---|---|---|---|
-| 1 | XO offers a REST interface with one collection per object type, and a collection can be requested with an explicit field list and as newline delimited JSON. | S1 (P8-T2 is written on this) | 2026-10-22 | unverified |
+| 1 | XO offers a REST interface with one collection per object type, and a collection can be requested with an explicit field list and as newline delimited JSON. | S1 (the client is written on this) | 2026-10-22 | unverified |
 | 2 | The session credential is sent in a cookie named `authenticationToken`. | S1 | 2026-10-22 | unverified |
 | 3 | Collections are not paginated, and the returned order is not trusted. | S1 | 2026-10-22 | plan (the collector sorts by id) |
 | 4 | The collections the collector requests are: vms, vm-templates, hosts, pools, networks, pifs, pbds, srs, vifs, vbds, vdis, backup-jobs, schedules, backup-repositories, proxies, servers, users, groups, acl-roles and, when reachable, acl-privileges. | S1 | 2026-10-22 | unverified (the collection names) |
@@ -78,7 +77,7 @@ source at all; the table makes a placeholder choice).
 | 10 | Power state, start times, current operations, guest reported values, snapshot lists, VDI lists and parent references change without an administrator changing anything, so they are ignore class. | S1 | 2026-10-22 | plan (volatility not measured, test X1 is open) |
 | 11 | The server credential (a password or token), the credential part of a remote address and plugin secrets are hidden by XO. | S1 | 2026-10-22 | unverified (test X3 is open); the field names `password` and `token` of a server: no source |
 | 12 | Backup job settings are a map keyed by schedule id inside the backup job. The type table names the settings the plan lists as fixed nested fields (`settings.exportRetention` and so on); a key shaped by a schedule id is not named and stays unclassified. | S2, S3 | 2026-10-22 | unverified (the shape of the map and every settings name) |
-| 13 | A read-only role reaches fewer collections than an admin session; the expected 403 collections are users, groups, servers and remotes. | S1 (P8-T4) | 2026-10-22 | unverified (test X2 is open) |
+| 13 | A read-only role reaches fewer collections than an admin session; the expected 403 collections are users, groups, servers and remotes. | S1 | 2026-10-22 | unverified (test X2 is open) |
 | 14 | The XO configuration export holds credentials and is never ingested. | S1 | 2026-10-22 | plan |
 | 15 | The REST interface lives below `/rest/v0`; the root answers with JSON and no version, and a collection is `/rest/v0/<collection>` with the query `fields=<list>&ndjson=true`. | S4 | 2026-10-22 | unverified |
 | 16 | The credentials of the signed in user, with their expiry, are listed at `/rest/v0/users/me/authentication_tokens`; the entry whose id is the credential in use carries `expiration` (epoch milliseconds or ISO 8601). | S4 | 2026-10-22 | unverified; 403 or 404 is tolerated by the collector |
@@ -113,11 +112,10 @@ status **unverified** (statement 7) unless the "No source" column says there is 
 | `acl-roles` (floor high) | `name` | none | | |
 | `acl-privileges` (floor high) | none yet | none | | every field name |
 
-Identity fields are `uuid`, `type` and `_xapiRef`. "Floor high" means the object floor of the plan
-(P5-T2): an added, removed, modified or moved object of the type is at least high.
+Identity fields are `uuid`, `type` and `_xapiRef`. "Floor high" means the object floor of the plan: an added, removed, modified or moved object of the type is at least high.
 
 A field that is not in the table is **unclassified** (a change shows as a fingerprint only) until
-the Backend Developer classifies it and the Code Reviewer agrees. A credential field that is not
+a maintainer classifies it and a reviewer agrees. A credential field that is not
 listed (a server password or token, a password hash) is therefore never shown as a value.
 
 ### What Xen Orchestra hides (`hidden_by_xo`)
@@ -129,7 +127,7 @@ The marker is the key `hidden_by_xo` of a type, read by `ResourceTable.is_hidden
 | Resource | Marked | Why | Status |
 |---|---|---|---|
 | `servers` | `password`, `token` | The server credential is hidden by XO (statement 11) | unverified; the two names have no source |
-| `backup-repositories` | `url.credentials` | The user and password part of a remote address. `url.credentials` is a **virtual** path: it stands for that part of `url`, which the collector strips before storage and scans in full (P8-T2) | unverified |
+| `backup-repositories` | `url.credentials` | The user and password part of a remote address. `url.credentials` is a **virtual** path: it stands for that part of `url`, which the collector strips before storage and scans in full | unverified |
 | plugin configuration | not a collection | Plugin secrets are hidden by XO, and plugin configuration is not collected in CE v1 (statement 6) | unverified |
 
 The marker changes no field class. The collector never relies on it to drop a value: a credential
@@ -143,18 +141,19 @@ that does arrive is still unclassified or secret.
    order and is also what an undeclared list gets. Revisit with the vendor reference.
 2. **VM selection of a backup job.** `vms` is declared a set. If it is a filter object it holds no
    list and the mode has no effect.
-3. **Built in templates.** The table cannot say which templates are built in. The collector (P8-T2)
+3. **Built in templates.** The table cannot say which templates are built in. The collector
    requests the marker `isDefaultTemplate` for `vm-templates` only and drops the templates where it
    is true, with a test; the marker is unverified (statement 17, open item 3). The table classes
    the marker ignore.
-4. **No derived resource for the backup job settings** (decision of Core, S3). The settings names
+4. **No derived resource for the backup job settings** (maintainer decision, S3). The settings names
    of the plan are nested fields of `backup-jobs`. The collector asks for `settings` whole, so a
    key that the table does not name (for example one keyed by a schedule id) arrives, is scanned for
    secrets with every other value, and shows as a fingerprint until it is classified.
 5. **Ignore class names that are not listed.** The plan also names "driver fields" and
    "dollar-prefixed back-references". Only the names the plan or the skeleton gives are classified.
    Any other name is unclassified until it is read from a real answer, and a volatile one would then
-   raise a fingerprint change. The fixtures of P8-T4 (the simulated backup run) are the test.
+   raise a fingerprint change. The fixtures of the XO volatility tests (docs/xo-volatility.md, the
+   simulated backup run) are the test.
 
 ## Open items
 
@@ -163,7 +162,7 @@ that does arrive is still unclassified or secret.
    `boot.order`, `certificates.notAfter`) and the `settings.*` names of `backup-jobs`, with the real
    shape of the settings map (statement 12).
 2. **Test X2.** Which collections a non-admin read-only role reaches decides how the setup guide
-   (P8-T5) is worded, not whether the collector is built.
+   (docs/guides/xo-setup.md) is worded, not whether the collector is built.
 3. **Built in templates.** The name of the field that marks a built in template.
 4. **Driver and back reference fields.** The names of the guest driver fields and the other
    dollar-prefixed references of VMs, hosts and VBDs.
@@ -173,12 +172,12 @@ that does arrive is still unclassified or secret.
 
 ## Carried over, not settled here
 
-- **`backup-job-settings`.** Settled before P8-T2: the derived resource is dropped (S3), see
+- **`backup-job-settings`.** Settled before the client was written: the derived resource is dropped (S3), see
   decision 4 above.
-- **Collector factory.** `serve` has no scheduler until the collector factory exists. Neither P8-T1
-  nor P8-T2 builds it.
-- **Cloud base address option** of the UniFi collector (P7-T3): off by default; the decision stays
-  with the Delivery lead.
+- **Collector factory.** Settled: `serve` builds the collector factory and the scheduler
+  (`sources/wiring.py`).
+- **Cloud base address option** of the UniFi collector: not built; nothing reads a cloud address.
 - **UniFi setup guide, step 3.** The write probe in step 3 should be run in the lab only.
-- **404 handling.** The UniFi pipeline counts a 404 as a partial run, while the plan (P7-T2) says a
-  404 is coverage `404` and never a failure. The XO client (P8-T2) follows the plan.
+- **404 handling.** The XO client reports a 404 as coverage `404` and a 403 as coverage `403`, as
+  the plan says, but the shared run pipeline counts such a collection as failed, so the run is
+  `partial` (the same as for UniFi). The previous state of the collection stays.

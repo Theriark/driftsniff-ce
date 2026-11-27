@@ -1,15 +1,15 @@
-# The Xen Orchestra client (P8-T2)
+# The Xen Orchestra client
 
 `driftsniff.collectors.xo.client.XoClient` reads the REST interface of Xen Orchestra (XO), read
 only. It is a `Collector` (docs/collectors.md): `probe()`, `resources()`, `fetch(spec)`, `close()`.
 
-**Nothing in the interface names below is verified.** The vendor reference was not read and no lab
-Xen Orchestra exists (docs/vendor-notes/xo.md; Phase 0 tests X1 to X4 are open). The REST prefix
-(`/rest/v0`), the cookie name, the collection names, the field names and the credential endpoint
-are the plan's or our own reading of how such an interface is laid out. The behaviour (streaming,
-coverage, expiry) is the plan's and does not depend on them. When the vendor reference exists,
-correct `collectors/xo/resources.py`; the tests use a fake server (`tests/contract/fake_xo.py`) and
-change with it.
+The REST prefix (`/rest/v0`), the cookie name, the collection names and the field names were
+checked against two Xen Orchestra 5 servers (2026 builds) in a lab in November 2026 (see
+[the 27.0.0 release notes](release-notes/v27.0.0.md#checked-on-real-systems) and
+docs/vendor-notes/xo.md). The credential endpoint could not be checked there (see "Credential
+expiry"). The behaviour (streaming, coverage, expiry) does not depend on the names. The tests use
+a fake server (`tests/contract/fake_xo.py`); if a later XO version changes a name, correct
+`collectors/xo/resources.py` and the fake together.
 
 ## The credential
 
@@ -22,8 +22,11 @@ control or non ASCII character) is refused when the client is made.
 ## Probe
 
 1. The host is resolved once and every address is checked (metadata and link-local addresses are
-   refused, error class `blocked_address`; `collectors/resolve.py`).
-2. The REST root is requested once. A 401 or 403 stops the probe (`unauthorized`, `forbidden`); a
+   refused, error class `blocked_address`; `collectors/resolve.py`). The first answer is pinned
+   for every connection of the run.
+2. One small collection is requested once: `/rest/v0/pools?fields=id&ndjson=true`. (The REST
+   root itself redirects to the API documentation on XO 5 builds of 2026, and redirects are never
+   followed.) A 401 or 403 stops the probe (`unauthorized`, `forbidden`); a
    404, a web page or an answer that is not JSON is `no_api`. XO reports no version through it, so
    `probe()` returns `None`.
 3. After a good probe the client tries once to read the expiry of the credential in use (see
@@ -59,10 +62,11 @@ The client reads these collections, in this order, and no others: `vms`, `vm-tem
 
 ## Coverage
 
-As for UniFi (plan P7-T2): a 404 on a collection is coverage `404` (class `not_available`) and a
-403 is coverage `403` (class `forbidden`). Neither is a failure of the run and neither is retried;
-the previous state of the collection stays, so nothing is reported as removed. A read-only role is
-expected to get 403 on `users`, `groups`, `servers` and the repositories (test X2 is open). Any
+As for UniFi: a 404 on a collection is coverage `404` (class `not_available`) and a 403 is
+coverage `403` (class `forbidden`). Neither is retried, and the previous state of the collection
+stays, so nothing is reported as removed. The shared run pipeline counts the collection as
+failed, so the run is `partial`. A read-only role is expected to get 403 on `users`, `groups`,
+`servers` and the repositories (not yet checked on a lab system). Any
 other failure keeps its error class and its HTTP status; a timeout and a 5xx answer are retried by
 the pipeline.
 
@@ -84,16 +88,18 @@ entry whose id is the credential; epoch milliseconds or an ISO 8601 text; unveri
 or any other failure of that read is tolerated and the entered date is used. The reported date wins
 over the entered one when both exist.
 
-`client.token_expiring()` is true when the date that counts is in the past or within 14 days. The
-caller sets the source state `token_expiring` from it (the interface shows it in P10). The clock is
-injectable (`clock=`), which is how the tests cover it.
+`client.token_expiring()` is true when the date that counts is in the past or within 14 days.
+The clock is injectable (`clock=`), which is how the tests cover it. The source pages do not call
+it: they mark a source **Credential expiring** from the entered date, with the same 14 days
+(`credential_expiring` in `web/source_pages.py`).
 
 ## Not done here
 
-- The factory that builds a client from a stored source (decrypts the credential, reads the TLS
-  options and the entered expiry, saves the state `token_expiring`). `serve` has no scheduler until
-  it exists.
-- The storage of the entered expiry date: the source options have no such option yet.
-- The rule pack and golden rows are P8-T3; the volatility, coverage and canary tests are P8-T4
-  (docs/xo-volatility.md); the setup guide is P8-T5 (docs/guides/xo-setup.md).
-- No lab result is claimed anywhere in this repository.
+- Nothing writes the source state `token_expiring`. The collector factory (`sources/factory.py`)
+  builds the client from the stored source (credential, TLS options and the entered expiry, the
+  source option `credential_expires_on`), but the state column is not set from the result.
+- On the lab XO 5 builds `/users/me` redirects, so the reported expiry is not read there and the
+  entered date is the one that counts.
+- Related pages: the rule pack and golden rows (docs/rules.md, docs/golden-table.md), the
+  volatility, coverage and canary tests (docs/xo-volatility.md) and the setup guide
+  (docs/guides/xo-setup.md).

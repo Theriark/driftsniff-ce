@@ -25,9 +25,8 @@ runs the installation; nothing here is a sandbox.
 | `templates` | `TemplateSlots.slot(name)` | every slot is empty |
 
 CE only reads these points for itself; whether a later edition calls a point is that edition's
-business. The names and signatures above are this task's reading of the plan's one-line list of
-CE defaults; the R&D report that defines the ten points was not available to the author, so
-Delivery should check them against it before an edition builds on them.
+business. The names and signatures above are the CE defaults; they are not a stable interface
+yet, so a later edition may change them before it builds on them.
 
 ## Writing a plugin
 

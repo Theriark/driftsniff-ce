@@ -73,23 +73,54 @@ A credential is limited to 64 KiB.
 Use it when the master key must change. A secret fingerprint is a keyed hash and the secret is
 not stored, so fingerprints cannot be converted; they are re-stamped by one collection cycle.
 
-1. Move the old key file aside, keep it, and run
-   `DRIFTSNIFF_OLD_KEY_FILE=<old file> driftsniff rekey`. The new master key is the file named
-   by `DRIFTSNIFF_KEY_FILE`; it is created (mode `0400`) when it does not exist. In one
-   transaction every stored credential is re-encrypted with the new key and the rekey state is
-   saved. A credential made with a third key stops the rekey and nothing changes.
-2. For one full collection cycle the old key file stays available through
-   `DRIFTSNIFF_OLD_KEY_FILE`. For each stored fingerprint the collector computes it again with
-   the key that made it. Equal: the secret did not change, so it is stored again under the new
-   key with no change item. Different: a real change, shown as usual.
-3. When every enabled source has finished one clean cycle, one system event `fingerprint_rekey`
-   is written and the old key file can be removed.
+The commands below assume the shipped `compose.yaml` (service `driftsniff`, key volume at
+`/keys`). The application must not run while the key changes, because `serve` loads the master
+key once at start.
 
-If the old key is lost, run `driftsniff rekey --old-key-lost`. One system event
+1. Take a backup of the database and a copy of the key volume (see [operations.md](operations.md)).
+2. Stop the application: `docker compose stop driftsniff`.
+3. Move the old key file aside and keep it:
+
+   ```
+   docker compose run --rm --no-deps --entrypoint mv driftsniff /keys/master.key /keys/master.key.old
+   ```
+
+4. Run the rekey in a one-off container:
+
+   ```
+   docker compose run --rm --no-deps --entrypoint python \
+     -e DRIFTSNIFF_OLD_KEY_FILE=/keys/master.key.old driftsniff -m driftsniff rekey
+   ```
+
+   The new master key is the file named by `DRIFTSNIFF_KEY_FILE` (`/keys/master.key`); it is
+   created with mode `0400` because the old one was moved away. In one transaction every stored
+   credential is re-encrypted with the new key and the rekey state is saved. A credential made
+   with a third key stops the rekey and nothing changes.
+5. Start the application with `DRIFTSNIFF_OLD_KEY_FILE=/keys/master.key.old` set for the
+   `driftsniff` service. The shipped `compose.yaml` does not forward that variable, so add it to
+   the `environment` list of the service for this start, then run `docker compose up -d`. While
+   the rekey runs, `serve` reads the rekey state from the database and refuses to start when the
+   key file or the old key file is not the one the rekey expects.
+6. Let every enabled source finish one clean collection cycle: a run whose status is `ok` and in
+   which every resource was read. A failing or partial run does not count; the source waits for
+   its next clean run. During that cycle the collector
+   computes each stored fingerprint again with the key that made it. Equal: the secret did not
+   change, so it is stored again under the new key with no change item. Different: a real
+   change, shown as usual. A restart in the middle simply continues the cycle.
+7. When every enabled source has finished its clean cycle, one system event `fingerprint_rekey`
+   is written and the rekey is complete. Remove `DRIFTSNIFF_OLD_KEY_FILE` from the service, run
+   `docker compose up -d`, back up the new key file and delete the old one. A later rekey can
+   start only after this event.
+
+If `serve` starts during a rekey without `DRIFTSNIFF_OLD_KEY_FILE`, it logs a warning and
+re-stamps the stored fingerprints without a comparison: a secret that changed during that cycle
+is not reported.
+
+If the old key is lost, run step 4 with `rekey --old-key-lost` instead and without
+`DRIFTSNIFF_OLD_KEY_FILE`, then start the application as usual. One system event
 `baseline_reestablished` is written (secret changes during the gap are unknown), fingerprints
-are re-stamped without a comparison, and credentials made with the lost key cannot be recovered:
-enter them again.
+are re-stamped without a comparison during the next cycle, and credentials made with the lost
+key cannot be recovered: enter them again.
 
 Limits: only one rekey runs at a time; a source that is disabled when the rekey starts is not
-waited for, so its fingerprints are re-stamped without a comparison if it is enabled later. The
-collection runs that call the re-stamp check arrive with the collectors (phases 6 to 8).
+waited for, so its fingerprints are re-stamped without a comparison if it is enabled later.

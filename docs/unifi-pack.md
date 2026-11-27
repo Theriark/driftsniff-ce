@@ -1,7 +1,7 @@
-# The shipped UniFi tables and pack (P7-T4)
+# The shipped UniFi tables and pack
 
 `rules/types/unifi.yaml` holds the type tables of the UniFi resources (all names prefixed
-`unifi-`) and `rules/packs/unifi/*.yaml` holds 43 rules: `network.yaml` (sites, networks, DNS
+`unifi-`) and `rules/packs/unifi/*.yaml` holds 60 rules: `network.yaml` (sites, networks, DNS
 policies, traffic matching lists, WANs, device tags), `wifi.yaml`, `firewall.yaml` (zones,
 policies, ACL rules), `vpn.yaml` (tunnels, servers, RADIUS) and `devices.yaml`. Each rule has a one
 sentence rationale and a test with one matching and one near-miss input

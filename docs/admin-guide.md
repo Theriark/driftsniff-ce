@@ -1,11 +1,9 @@
 # Admin guide
 
-For release candidate v27.0.0-rc.5, candidate `40963ddf`, whose application files are those of
-build `63eaa6ad`. The push form screenshot was taken on `63eaa6ad`; the others were taken on the
-Development build `36f78cc9`, whose pages neither later build changes. Everything here needs the
-admin role. The
-screenshots show the Development installation with synthetic data and its three test accounts,
-named after their roles.
+For Driftsniff CE 27.0.0. Everything here needs the admin role.
+
+Screenshots taken on the Development site, synthetic data, with three test accounts named after
+their roles.
 
 ## Sources
 
@@ -46,6 +44,8 @@ without a colon or without fields is refused with that example in the error text
 - **Allow a plain http address** is for a lab without TLS only; the credential then travels
   unencrypted, and saving it writes an audit event.
 - A resource that you turn off keeps its history but is not read again.
+- **Insecure, certificate checks off** asks you to type the sentence "I understand the risk" in
+  the field under it; saving it writes an audit event.
 - The TLS modes are explained in [configuration.md](configuration.md#certificate-checks-of-a-source).
 
 Prepare the account on the controller first: [UniFi](guides/unifi-setup.md),

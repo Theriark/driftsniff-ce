@@ -1,9 +1,9 @@
 # API tokens
 
-How programs get access to the `/api/v1` routes of driftsniff CE (P9-T3). The code is in
+How programs get access to the `/api/v1` routes of driftsniff CE. The code is in
 `driftsniff/web/bearer.py` (rules and storage), `driftsniff/web/routes_api.py` (the admin routes)
-and `driftsniff/web/deps.py` (`require_token`). The table `api_tokens` already exists since
-migration `0001`; this task adds no migration.
+and `driftsniff/web/deps.py` (`require_token`). The table `api_tokens` exists since migration
+`0001`.
 
 ## What a token is
 
@@ -20,8 +20,8 @@ migration `0001`; this task adds no migration.
 
 | Scope | May |
 |---|---|
-| `read` | read the change lists and details (P9-T5) |
-| `enrich` | append an enrichment to a change (P9-T5) |
+| `read` | read the change lists and details |
+| `enrich` | append an enrichment to a change |
 
 A scope is never implied by another one: a token with only `enrich` cannot read the lists, and a
 token with only `read` cannot enrich. A token has no other power: it cannot manage tokens, users,
@@ -43,7 +43,7 @@ Authorization: Bearer <the 43 characters>
 
 A token is found by the SHA-256 of what the caller sent (an indexed lookup on a value the caller
 cannot choose), and the stored hash is then compared once more in constant time. The `/api/v1`
-routes refuse a request that carries the session cookie (P9-T2), so a browser session and a token
+routes refuse a request that carries the session cookie (`docs/csrf-and-headers.md`), so a browser session and a token
 are never mixed.
 
 The tokens of a **disabled user** stop working at once and work again when the user is enabled
@@ -57,9 +57,11 @@ A route of `/api/v1` asks for a scope with `Depends(require_read_token)` or
 
 These routes are part of the interface, not of `/api/v1`: an admin uses them with a session, and
 the writes need the session CSRF value like every other write (`docs/csrf-and-headers.md`). A
-viewer or operator gets 403, no session gets 401, and a token cannot manage tokens. The pages that
-show them come with P10; until then the routes take a form post or a JSON object and answer with
-JSON.
+viewer or operator gets 403, no session gets 401, and a token cannot manage tokens. The API tokens
+card of the settings page (`/settings#tokens`) uses them. A browser (`Accept: text/html`) gets the
+settings page back: the new token shown once after a make (201), the form with its error after a
+refused make (422), and a redirect to the page after a revoke (303). Any other client sends a form
+post or a JSON object and gets JSON.
 
 | Route | Does |
 |---|---|
@@ -108,11 +110,8 @@ rows.
 
 ## Limits
 
-- The list has no creation time: the table `api_tokens` has no such column and this task adds no
-  migration. The `token.created` audit event holds it.
+- The list has no creation time: the table `api_tokens` has no such column. The `token.created`
+  audit event holds it.
 - A token cannot be edited (name, scopes, expiry); revoke it and make a new one.
 - There is no limit on how many tokens exist and no per-token request limit. A token is 256 bits
   of randomness, so guessing is not a practical attack; a leaked token is stopped by revoking it.
-- The routes that use the scopes (`/api/v1/changes` and the enrichment route) arrive with P9-T5;
-  until then only the checks and the management routes exist. The complete route table test is
-  P9-T6.

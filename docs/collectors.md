@@ -2,8 +2,10 @@
 
 A collector reads one kind of system. The run pipeline (`driftsniff.sources.runs`) does
 everything else: it locks the source, retries, redacts, normalises, stores, compares, classifies
-and records the result. The UniFi and Xen Orchestra collectors (P7, P8) and the push source (P6-T4)
-are collectors; the scheduler (P6-T3) starts runs through one shared `RunPipeline`.
+and records the result. Every package in `driftsniff/collectors/` (one per kind of system: UniFi
+Network, UniFi Protect, Xen Orchestra, Proxmox VE, Portainer, TrueNAS, Synology DSM, QNAP,
+Redfish, Home Assistant, Grafana, Prometheus, Zabbix and Checkmk) and the push source are
+collectors; the scheduler starts runs through one shared `RunPipeline`.
 
 ## The collector contract
 
@@ -107,7 +109,8 @@ only the name of the exception class is recorded.
   local use) cannot be told from any other IPv6 address and are not unwrapped. A host name that
   resolves into such a prefix is only caught when the resolved IPv6 address is itself blocked.
   `tests/unit/test_source_addresses_embedded.py` pins this either way.
-- A host name is still resolved by the collector when it connects; the UniFi and Xen Orchestra
-  collectors (P7, P8) must call `blocked_reason` on every address a name resolves to. Redirects
+- A host name is still resolved by the collector when it connects; every collector calls
+  `pin_address` (`collectors/resolve.py`), which applies `blocked_reason` to every address the
+  name resolves to and pins the first one for the run. Redirects
   are refused by the shared client, so a redirect cannot lead from an allowed address to a blocked
   one.

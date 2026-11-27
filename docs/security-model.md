@@ -1,6 +1,6 @@
 # Security model
 
-Threat-model review of driftsniff CE (P11-T2), written against `development` at commit `0ff6a65bc9a18544254f750def31edcd8efae3f2`. Each control names the test that proves it. A control with no test, or with a known weakness, is in the gap list. Test names were located by reading the test files; the review did not run the suite, so CI on the pull request is the execution evidence.
+Threat-model review of driftsniff CE, written against `development` at commit `0ff6a65bc9a18544254f750def31edcd8efae3f2`. Each control names the test that proves it. A control with no test, or with a known weakness, is in the gap list. Test names were located by reading the test files; the review did not run the suite, so CI on the pull request is the execution evidence.
 
 ## What is sensitive
 
@@ -114,7 +114,7 @@ Collector rebinding is closed for UniFi and Xen Orchestra (gap G1, fixed).
 | Hash-locked requirements, `--require-hashes`, no index | `test_check_lock_hashes.py`; Dockerfile |
 | pip-audit; Trivy HIGH/CRITICAL with a fix; licence allow list | CI Dependency audit, Image scan, Licences (`test_check_licenses.py`) |
 | gitleaks on files and pull request commits | CI Secret scan (gap G4) |
-| Actions pinned by SHA; SBOM; one image built, scanned, smoked, then pushed | CI Build image, SBOM; `docs/ci-baseline.md` |
+| Actions pinned by SHA; SBOM; one image built, scanned, smoked, then pushed | CI Build image, SBOM; `.github/workflows/ci.yml`, `docs/ci-cd.md` |
 
 #### Backups and data handling
 
@@ -142,4 +142,5 @@ No high finding is open. These gaps are listed here and are not fixed by this do
 | G10 | Low | Backups hold the full configuration history and encrypted credentials; no automated test restores a backup and starts from it. | Add a restore test; document backup storage. |
 | G11 | Info | The scanner is a safety net: non-secret-shaped values in free text are stored as they are. | Covered by the sensitivity statement. |
 
-An independent pass by the Application Security Engineer can be requested by Delivery; G2 deserves it; the G1 change is to be reviewed once CI is green.
+An independent security review can be requested by the maintainers; G2 deserves it; the G1 change
+is to be reviewed once CI is green.

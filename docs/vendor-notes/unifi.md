@@ -1,7 +1,7 @@
-# UniFi vendor notes (P7-T1)
+# UniFi vendor notes
 
 These are driftsniff's own notes on the UniFi Network application interface that the UniFi
-collector will read (P7). They are written for the people who build and review the collector and
+collector reads. They are written for the people who build and review the collector and
 the type table `src/driftsniff/rules/types/unifi.yaml`. Nothing here is copied or vendored from the
 vendor; every statement is in our own words, with its source and the date it was read.
 
@@ -12,8 +12,8 @@ Network **10.6.109**, through the integration API with an API key (source S5). E
 marked **verified 10.6.109** below was checked against what that controller returned. The field
 paths of the type table now come from that reading. What it could not settle stays labelled:
 resources the controller had no objects of (ACL rules, device tags), versions other than 10.6.109,
-and the rights of a View Only key (the key used was made by an owner account). Dependency D5 (the
-vendor's own reference) is still open; this is one controller, not the reference.
+and the rights of a View Only key (the key used was made by an owner account). The vendor's own
+reference has not been read; this is one controller, not the reference.
 
 ## Sources
 
@@ -25,7 +25,7 @@ tool descriptions written by third parties. None is the vendor's own reference.
 | S1 | Art-of-WiFi, "unifi network application api client", https://github.com/Art-of-WiFi/unifi-network-application-api-client | Version range, endpoint groups, some field names |
 | S2 | "unifi get firewall policy ordering", https://glama.ai/mcp/servers/owine/unifi-network-mcp/tools/unifi_get_firewall_policy_ordering | Shape of the policy ordering answer |
 | S3 | Search result summaries (the pages themselves were not opened) for https://glama.ai/mcp/servers/owine/unifi-network-mcp/tools/unifi_list_firewall_policies and https://docs.rs/crate/unifly/0.9.0 | Field list of a firewall policy, endpoint paths |
-| S4 | driftsniff dev work plan part B, section 12 (task THE-411, document analysis-1, revision 11) | The list of resources and the fields to keep, the collection modes, the version floor |
+| S4 | driftsniff development plan, the UniFi section | The list of resources and the fields to keep, the collection modes, the version floor |
 | S5 | First real reading, 2026-11-13: a UDM Pro Max running UniFi Network 10.6.109, read by a local driftsniff stack through the integration API with an API key made by an owner account. A field path list with value types, enum values and counts was written from it; no values of free text fields were recorded | Header, paths, shapes, ordering behaviour, which secrets are returned |
 
 ## Statements
@@ -83,7 +83,7 @@ any unclassified path. Paths the old table had but the real API does not return 
 | `unifi-device-tags` | set | `name`, `deviceIds` (set) | unverified (no objects on S5) |
 | `unifi-devices` | set | statement 11; `state` and `firmwareUpdatable` are ignore; `features` and `interfaces` are sets | verified 10.6.109 |
 
-"Floors" means the security floors of the plan (P5-T2): `added`, `modified` and `moved` are high
+"Floors" means the security floors of the plan: `added`, `modified` and `moved` are high
 and `removed` is critical. Firewall policies and WiFi broadcasts have no floor for a modified object
 (since 2026-11-13), so that their packs can rate a rename low or medium; every field that changes
 what traffic or which clients are allowed has its own high rule. A floor applies to the kind of the
@@ -91,7 +91,7 @@ item, so a member removed from a list inside a policy (a port, an address) is cr
 removed floor. A field that is not in the table is **unclassified** (a change shows as a
 fingerprint only).
 
-### Decisions the table makes, for the collector task (P7-T4)
+### Decisions the table makes, for the collector
 
 1. **Action of a firewall policy.** The vendor object nests the action (`action.type`, statement 8)
    but the order check of the engine reads a flat top level field. The table therefore names a
@@ -100,8 +100,8 @@ fingerprint only).
    without that copy a move over a block rule is only HIGH, not CRITICAL. The blocking values are
    `block` and `reject` (compared without case); `BLOCK` is verified, `REJECT` is not.
 2. **One position list per resource.** The vendor orders firewall policies per pair of zones
-   (statement 9), while the engine stores one position list for the resource; see "Decisions of
-   P7-T4" below. A policy that moves from one zone pair to another changes `source.zoneId` or
+   (statement 9), while the engine stores one position list for the resource; see "Decisions about
+   collection, ordering and rules" below. A policy that moves from one zone pair to another changes `source.zoneId` or
    `destination.zoneId`, which the table tracks.
 3. **Nested filter objects.** Since 2026-11-13 the traffic filters of firewall policies are
    classified field by field. The filters of ACL rules are still not, because no ACL rule was seen.
@@ -109,7 +109,7 @@ fingerprint only).
    `unifi-wlans` and `guest_portal.title` that are not the names here; the shipped rows are mapped
    in `tests/golden/test_golden_unifi_shipped.py`.
 
-## Decisions of P7-T4 (collection, ordering, rules)
+## Decisions about collection, ordering and rules
 
 1. **Position list.** The engine stores one position list for a resource. For firewall policies it
    is the lists of all zone pairs, pairs sorted, and inside each pair: the "before the system
@@ -144,12 +144,12 @@ fingerprint only).
 
 The plan asks for site level settings "where the API offers them". None of the sources names a site
 settings endpoint, so there is nothing to classify. The table holds only the key so that golden row
-7 can later be pointed at it. Status: unknown. If D5 shows no such endpoint, delete the resource in
-the same change that maps row 7.
+7 can later be pointed at it. Status: unknown. If the vendor reference shows no such
+endpoint, delete the resource in the same change that maps row 7.
 
 ## Still open
 
-1. The vendor reference (D5) for the fields of ACL rules and device tags, and for versions other
+1. The vendor reference for the fields of ACL rules and device tags, and for versions other
    than 10.6.109 (the floor band of the tests assumes the 10.6.109 shapes).
 2. The lab tests U2 and U3 of the plan (statement 15): a key made by a View Only account, and
    whether it reads every resource. The S5 key was made by an owner account.
@@ -159,12 +159,9 @@ The contract tests use synthetic fixtures in the 10.6.109 shapes with the `CANAR
 
 ## Carried over, not settled here
 
-- `ALLOWED_OPTIONS` of the source options grows when the collector needs a new option; P7-T1 adds
-  none.
-- `serve` has no scheduler until the collector factory exists. P7-T1 builds neither; whoever
-  builds the factory in P7 or P8 must say so.
-- The scheduler test gap of THE-628 (a timer firing while a run now run is in progress) is
-  untouched.
-- The decision about the derived resource `backup-job-settings` was taken by Core on THE-359
+- `ALLOWED_OPTIONS` of the source options grows when a collector needs a new option.
+- Settled: `serve` builds the collector factory and the scheduler (`sources/wiring.py`).
+- The scheduler has no test of a timer firing while a Run now run is in progress.
+- The decision about the derived resource `backup-job-settings` was taken by the maintainers
   (2026-10-22): there is no derived resource, the settings are nested fields of `backup-jobs`
   (see docs/vendor-notes/xo.md).
