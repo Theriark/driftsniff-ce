@@ -3,7 +3,7 @@
 For Driftsniff CE 27.0.0.
 
 Screenshots taken on the Development site, synthetic data: the source called "DEV-FIXTURE
-synthetic (removable)" and every object named FIXTURE are test data, not a real network.
+synthetic (removable)" and every object named FIXTURE are test data, and the sources whose names start with SIM are simulated systems, not a real network.
 
 All times in driftsniff are UTC. A relative time ("1 day ago") shows the exact UTC time when you
 point at it.

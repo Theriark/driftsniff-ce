@@ -74,4 +74,6 @@ package; the screenshots in this documentation show the built product.
 ## Screenshots
 
 All screenshots are in the `images` folder next to this file. They were taken on the Development
-site and hold synthetic test data only.
+site on 27 November 2026, on the 27.0.0 build, and hold synthetic test data and simulated sources
+only. Solid black boxes hide one account row and five test token names on the Settings page and the
+address of a simulated source; nothing is blurred.
