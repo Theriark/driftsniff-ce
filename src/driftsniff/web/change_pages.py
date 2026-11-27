@@ -461,7 +461,10 @@ class ChangePages:
             ).all()
             resource_rows = connection.execute(sa.select(change_items.c.resource).distinct()).all()
         resources = sorted(
-            (Choice(str(row.resource), resource_filter_label(str(row.resource))) for row in resource_rows),
+            (
+                Choice(str(row.resource), resource_filter_label(str(row.resource)))
+                for row in resource_rows
+            ),
             key=lambda choice: (choice.label.lower(), choice.value),
         )
         return FilterOptions(
