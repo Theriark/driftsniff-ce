@@ -1,26 +1,25 @@
-# Web interface: app shell, components and states (P10-T2)
+# Web interface: app shell, components and states
 
-Task THE-845 (Jira DRS-228). Owner: Frontend Developer. This document describes the shell every
-page of Phase 10 is built on, the components the pages use, the two preferences the shell keeps,
-and the rules every template obeys. The design brief is `docs/design-direction.md`; the brand
-guide wins over both for typography and logo use.
+This document describes the shell every page of the web interface is built on, the components the
+pages use, the two preferences the shell keeps, and the rules every template obeys. The brand guide
+in `brand/` sets the typography and the logo use.
 
 ## 1. Files
 
 | File | Role |
 |---|---|
 | `src/driftsniff/web/templating.py` | the Jinja environment (escaping on, undefined names refused), the `Shell` object every page receives, and the pure helpers: drift line geometry, sparkline points, relative time, initials |
-| `src/driftsniff/web/templates/base.html` | the app shell: head, skip link, icon sprite, header with the logo lockup, navigation, environment badge and user menu, the `main` landmark, the footer with the version |
+| `src/driftsniff/web/templates/base.html` | the app shell: head, skip link, icon sprite, sidebar with the logo lockup, the grouped navigation and the user menu, the `main` landmark, the footer with the version |
 | `src/driftsniff/web/templates/_icons.html` | the one inline SVG icon set: the four severity shapes and the status icons |
 | `src/driftsniff/web/templates/page_header.html` | the page header macro: breadcrumb, title, purpose line, actions |
 | `src/driftsniff/web/templates/components/*.html` | the component macros (section 3) |
-| `src/driftsniff/web/static/app.css` | the one stylesheet: the design tokens of `docs/design-colours.json` (the contrast test fails when they drift) and the component styles carried over from the P10-T1 mock-ups |
-| `src/driftsniff/web/static/scenes.js` | the 3D views, one ES module for every `[data-scene]` block (the lab of the dashboard and the change replay of a source page, `docs/design-direction.md` section 2), loaded only by a page that has one; each block offers `block.scene` with `info()`, `draw()`, `show()` and `hide()` for a test |
+| `src/driftsniff/web/static/app.css` | the one stylesheet: the design tokens of `docs/design-colours.json` (the contrast test fails when they drift) and the component styles carried over from the design mock-ups in `docs/mockups/` |
+| `src/driftsniff/web/static/scenes.js` | the 3D views, one ES module for every `[data-scene]` block (the lab of the dashboard and the change replay of a source page), loaded only by a page that has one; each block offers `block.scene` with `info()`, `draw()`, `show()` and `hide()` for a test |
 | `src/driftsniff/web/static/vendor/three/` | three.js r186 (`three.module.js`, `three.core.js`, MIT `LICENSE`), unmodified from the npm tarball named in `PINNED.json` with the hashes `tests/unit/test_scenes.py` checks |
 | `src/driftsniff/web/static/vendor/three/addons/` | five files of `examples/jsm` from the same three.js release (RoundedBoxGeometry, RoomEnvironment, GLTFLoader and the two it imports, BufferGeometryUtils and SkeletonUtils); only their import specifiers are made relative, because the content security policy blocks an inline import map; every hash is in `PINNED.json` |
 | `src/driftsniff/web/static/models/` | the device models of the 3D views, one folder per kind (`<kind>.gltf`, `<kind>.bin`, WebP textures), CC BY 4.0 except the NAS made with Meshy, credited in `CREDITS.txt` |
 | `src/driftsniff/web/static/vendor/inter/` | Inter, the variable upright face from `@fontsource-variable/inter` 5.3.0, unmodified: two `woff2` files, `inter.css` with the two faces, and `LICENSE` (SIL Open Font Licence 1.1); `base.html` links `inter.css` before `app.css` |
-| `src/driftsniff/web/static/htmx.min.js` | htmx 2.0.4, unmodified, linked without `defer` (the page change, `docs/design-direction.md` section 6); `htmx.min.js.LICENSE.txt` holds the version, the source, the file hashes and the Zero-Clause BSD licence text |
+| `src/driftsniff/web/static/htmx.min.js` | htmx 2.0.4, unmodified, linked without `defer` (so the page change works on the first paint); `htmx.min.js.LICENSE.txt` holds the version, the source, the file hashes and the Zero-Clause BSD licence text |
 | `src/driftsniff/web/static/brand/` | byte-for-byte copies of the brand files (the image copies only `src/`, so the running application never reads `brand/`) |
 | `src/driftsniff/web/routes_static.py` | `GET /static/{path}`: one explicit route in the route table, serving only files inside the static folder |
 | `src/driftsniff/web/preferences.py` | the row density cookie and the safe return path |
@@ -38,11 +37,13 @@ A page extends `base.html`, fills the `content` block and receives a `Shell`:
 | `density` | the row density of data tables, from the cookie (section 4) |
 | `path` | the current path with its query, the place a preference form sends the user back to |
 
-The header shows the guide's horizontal logo file at 48 px (40 px below 768 px) through a
-`picture` element whose dark source is the guide's dark lockup (the mark on its light tile), so
-the mark is never bare on the dark header. Below 1024 px the navigation folds into a `details`
-menu; below 768 px the environment badge and the user name are dropped, the lockup never. The
-skip link, the labelled `nav`, the single `main` landmark and the footer are present on every
+Signed in, the page is a sidebar and a column. The sidebar holds the logo, the navigation in three
+groups (Monitor: Dashboard and Changes; Inventory: Sources, History and Configuration; Admin:
+Settings, for admins only) and the user menu. The logo is the guide's horizontal lockup at 48 px:
+the light file on a light page, the plain dark file (the ferret without a tile) on a dark one, and
+with the theme "same as this device" a `picture` element lets the device choose. Below 1024 px the
+sidebar folds into a bar whose navigation opens with a `details` toggle; the lockup always shows.
+The skip link, the labelled `nav`, the single `main` landmark and the footer are present on every
 page. Every form is a normal form post, so the interface works without JavaScript; htmx only
 improves swaps where a page asks for them.
 
@@ -54,7 +55,7 @@ fail on a `style` attribute, an inline `script` or an event handler attribute.
 
 ## 3. Components
 
-Each macro renders in every state the design direction names (section 7 there). The template
+Each macro renders in every designed state (empty, loading, error, success where it has them). The template
 tests render each state and assert the markup.
 
 | Macro (file) | States | Notes |
@@ -101,8 +102,8 @@ other answer. The route is listed in the route table as public.
 Every stylesheet and script link of the templates is written with `static_url()`
 (`web/templating.py`), which adds the build as `?v=<first 12 characters of the commit>` (the
 release version when the commit is unknown). A proxy in front of the app may keep a static file
-for hours (Development's kept them four hours on 14 November 2026); with the build in the
-address, a new image's pages never use an older build's kept stylesheet or script. The 3D module
+for hours (the one in front of the Development site kept them four hours on 14 November 2026);
+with the build in the address, a new image's pages never use an older build's kept stylesheet or script. The 3D module
 reads its own `?v=` and puts it on the model addresses. glTF, `.bin` and WebP are served as
 `model/gltf+json`, `application/octet-stream` and `image/webp`.
 
@@ -120,12 +121,9 @@ reads its own `?v=` and puts it on the model addresses. glTF, `.bin` and WebP ar
   callers their access excludes.
 - `tests/security/test_template_scan.py`: no template switches escaping off.
 
-Screenshots at 1440, 768 and 390 px of the shell on Development are taken with the first pages
-that use it (P10-T3, section 8); P10-T2 shipped no page route of its own.
+## 8. Setup, sign-in, sign-out and the status pages
 
-## 8. Setup, sign-in, sign-out and the status pages (P10-T3)
-
-Task THE-856 (Jira DRS-231). The first screens of the product, built on the shell. The code is
+The first screens of the product, built on the shell. The code is
 in `src/driftsniff/web/pages.py` (rendering, content negotiation, the status pages) and the
 page routes of `src/driftsniff/web/routes_ui.py`; the templates are `setup.html`, `login.html`,
 `dashboard.html` and `status.html`.
@@ -137,7 +135,7 @@ request without it (the test client, curl, scripts, the API) keeps the JSON answ
 
 | Route | Who | What |
 |---|---|---|
-| `GET /` | signed in (any role) | the dashboard; P10-T3 ships the page header and the designed empty state with the one action (`Add source`), P10-T4 adds the data. A browser without a session is sent to `/setup` while no admin exists, else to `/login` (with `next` when it asked for another page); a plain client gets 401. Without a sign-in service: 503. |
+| `GET /` | signed in (any role) | the dashboard (section 9); with no source yet, the designed empty state with the one action (`Add source`). A browser without a session is sent to `/setup` while no admin exists, else to `/login` (with `next` when it asked for another page); a plain client gets 401. Without a sign-in service: 503. |
 | `GET /setup` | anyone, until the first admin exists | the one-time code, the admin user name and the password, each with its rule next to the field (12 characters at least; length is the only rule). 404 like an unknown route once any admin exists. |
 | `POST /setup` | as above | a browser gets the page back with the field in error: the code field for a wrong code (403), the user name or the password for a rule the service refused (422), and a banner that names the wait after repeated wrong codes (429, `Retry-After` kept). The code and the password are never filled back in; the user name is. Success is 303 to `/` with the session cookie. |
 | `GET /login` | anyone | the sign-in page; a signed-in user goes to `/`; with no admin yet, to `/setup`. `?next=` (a local path only) is carried in a hidden field; `?signed-out=1` shows the success banner "Signed out". |
@@ -167,20 +165,20 @@ the password never echoed, the wait banner with `Retry-After`, `next` kept only 
 path, sign-out confirmation, the 403 and 404 pages, and the JSON answers of plain clients. The
 route table lists `GET /`, `GET /setup` and `GET /login`.
 
-## 9. The dashboard (P10-T4)
+## 9. The dashboard
 
-Task THE-863 (Jira DRS-235). Owner: Frontend Developer. The start page with its data. The
+The start page with its data. The
 queries live in `src/driftsniff/web/dashboard.py` (`DashboardService.load`, one read
 connection, every figure from SQL); `GET /` in `routes_ui.py` calls it in a worker thread and
 hands the result to `templates/dashboard.html`, which prints and never computes. The charts are
 the macros of `templates/components/charts.html` (posture ring, trend chart, bar list); the
-drift line is the macro of P10-T2. `serve` builds the service on the one database; an
+drift line is the macro of section 3. `serve` builds the service on the one database; an
 application built without it (some tests) shows the empty state.
 
 | Part | What it shows | Where the numbers come from |
 |---|---|---|
 | Stat cards | open changes (events with status open) with the count of events created in the last 7 UTC days, the difference to the 7 days before and a sparkline of those days; critical and high open events; sources healthy out of all sources; storage used | `change_events` grouped by status and by day; the source health below; the size of `driftsniff.db` plus its `-wal` file |
-| Posture ring | open changes by highest severity, counts only, never a score; each row links to the filtered change list and shows its number (DRS-463) | open `change_events` grouped by `max_severity` |
+| Posture ring | open changes by highest severity, counts only, never a score; each row links to the filtered change list and shows its number | open `change_events` grouped by `max_severity` |
 | Needs attention | the open critical and high events (critical first, newest first, at most 8), then every source that is failing, partial, stale, unsupported or whose credential is expiring, and every source with certificate checks off | `change_events`; the source health below |
 | Drift lines | one strip per source, in name order | `runs` of the last 30 days (status ok, partial or failed; a skipped run is not a check) matched to the event the run wrote (`change_events.created_at` equals `runs.finished_at`, the pipeline writes both from one clock reading) |
 | Trend | change items per UTC day for 30 days, stacked by severity, with the table behind a disclosure | `change_items` joined to their event, grouped by day and severity |
@@ -197,23 +195,25 @@ instead of No check yet, "push failed", "nothing pushed for", and pushes instead
 its drift line. `SourceHealth.last_attempt` is the end of the newest finished run, failed or
 not, so the sources pages show a last attempt that agrees with a Failing status
 (a failed run does not move `last_checked_at`).
-The `state` words are read as the plan names them; no collector writes them yet (part B,
-P7-T2 and P8-T2), so until then those two kinds never appear on a real installation.
+The `state` words are read as the plan names them; no collector writes them, so these two
+kinds never come from the stored state on a real installation. A source still shows Credential
+expiring as a flag when its entered expiry date is 14 days away or past (section 10).
 
 **Decisions where the plan is silent.** (1) The drift line is one mark per check up to 31
 checks in 30 days; a source checked more often (the default interval is five minutes, so most
 polled sources) gets one mark per UTC day that had a check, carrying the worst outcome of that
 day: a change mark in the colour and shape of the day's highest event, else a hollow tick for
 a day with a failed or partial run, else a thin tick. Every mark sits at its time on the axis,
-a check at the moment it finished and a day mark at its day, so today is the right end
-(THE-1405). The strip's `desc` says how many checks
+a check at the moment it finished and a day mark at its day, so today is the right end.
+The strip's `desc` says how many checks
 it stands for and the card's hint names the rule. (2) The storage card compares the database
-file with a constant warning size of 2 GiB (`STORAGE_WARNING_BYTES`); a setting can replace
-it in P10-T8. (3) "New this week" counts events created in the last seven UTC days whatever
+file with the warning size an admin sets on the settings page (Retention and storage, 1 to
+1000 GB, stored by `/settings/storage-warning`); without one it is 2 GB
+(`DEFAULT_STORAGE_WARNING_GB`). (3) "New this week" counts events created in the last seven UTC days whatever
 their status now, so an acknowledgement does not move the sparkline. (4) The links behind the
-numbers point at the filtered views of P10-T5 to P10-T8 (`/changes?status=open&severity=...`,
+numbers point at the filtered views (`/changes?status=open&severity=...`,
 `/changes?status=open&source=ID`, `/changes?status=open&resource=NAME`, `/sources/ID`,
-`/settings#about`); until those pages exist they answer the designed not-found page.
+`/settings#about`).
 (5) Nothing on the dashboard is a before or after value, a note body, an acknowledgement
 comment or a credential: titles are the stored event summaries, run errors are the scrubbed
 class word and short line of the run record.
@@ -228,16 +228,12 @@ empty state without sources); and the plan's timing check: with 1,000 objects, 6
 events and 2,000 items the page renders in under 500 ms (measured on the second request, after
 the template cache is warm). The route table is unchanged (`GET /` was already listed).
 
-**Not done here.** Screenshots at 1440, 768 and 390 px are taken on Development after the
-deployment of this pull request (task THE-862 covers the P10-T3 pages); the Frontend Developer
-critique for this page goes into that evidence.
+## 10. The sources pages
 
-## 10. The sources pages (P10-T5)
-
-Task THE-955 (Jira DRS-255). Files: `web/routes_sources.py` (the routes and the form
+Files: `web/routes_sources.py` (the routes and the form
 handling), `web/source_pages.py` (the queries: list, source page, coverage panel),
 `sources/probe.py` (the read-only test connection), `templates/sources/` (`list.html`,
-`detail.html`, `form.html`, `_coverage.html`, `_probe.html`) and the P10-T5 part of `app.css`.
+`detail.html`, `form.html`, `_coverage.html`, `_probe.html`) and the sources part of `app.css`.
 
 **Design direction.** Job of the screens: tell an admin, at a glance, whether each watched
 system answered its last check and what driftsniff can see of it, and let them add or fix a
@@ -245,7 +241,7 @@ source without guessing. Who repeats it: an admin after every controller change,
 when a check failed. Tone: a quiet, precise instrument. Signature visual: the drift line,
 short on each row of the list and full width on the source page, beside the coverage panel
 (one row per resource with the last answer, the objects and since when it is stale). Type and
-palette follow `docs/design-direction.md`; alert red only for failing, critical and the delete
+palette follow the design tokens of `docs/design-colours.json`; alert red only for failing, critical and the delete
 card; the insecure TLS badge is the one filled status badge. The forms are one card per part
 (the source, the checks, certificate checks, test connection) so a long XO form reads as four
 short steps; the TLS mode is a radio group of four cards, the insecure card outlined in alert
@@ -253,8 +249,8 @@ red when chosen.
 
 | Route | Role | What it does |
 |---|---|---|
-| `GET /sources` | viewer | the list: status (the dashboard's rule), the flags insecure TLS, unsupported version and credential expiring, last attempt (the end of the newest finished run, failed or not, so it agrees with a Failing status), version, short drift line; JSON for a script |
-| `GET /sources/new?type=` | admin | the add form of UniFi Network, Xen Orchestra or a push source |
+| `GET /sources` | viewer | the list, filtered by kind (`type`) and status (`status`) and sorted by the column heads (`sort`): status (the dashboard's rule), the flags insecure TLS, unsupported version and credential expiring, last attempt (the end of the newest finished run, failed or not, so it agrees with a Failing status), version, short drift line; JSON for a script |
+| `GET /sources/new?type=` | admin | the add form of any of the 15 kinds of `SOURCE_TYPES` (UniFi Network when none or an unknown one is asked for) |
 | `POST /sources/new` | admin | add; a refused form comes back with each field marked |
 | `POST /sources/test` | admin | test connection of the add form |
 | `GET /sources/{id}` | viewer | the source page: status, flags, drift line, coverage panel, recent runs, facts, and the actions the role allows |
@@ -294,16 +290,15 @@ stops reading after 60 seconds. With JavaScript the button replaces only the res
 (`hx-post`, always answered 200 so htmx swaps it) and the typed credential stays in the form;
 without it the form page comes back with the result and the credential field empty.
 
-**Wiring (P10, THE-978).** `serve` builds the collector factory (`driftsniff.sources.factory`),
+**Wiring.** `serve` builds the collector factory (`driftsniff.sources.factory`),
 the run pipeline and the scheduler (`driftsniff.sources.wiring`) and gives the pages the factory as
 their probe factory. Test connection builds its collector from the values of the form; run now,
 the schedule and the sync after every create, edit, enable, disable and delete use the scheduler.
 The resources in `resources_off` are not listed by the collector, so they are never requested.
-Known gap: UniFi and XO field names remain unverified (docs/vendor-notes/).
 
-**Navigation.** The shell lists only Dashboard and Sources; Changes, History, Configuration and
-Settings come back with P10-T6 to P10-T8. The dashboard's empty state offers Add source to an
-admin only and tells anyone else that an admin adds sources.
+**Navigation.** The shell lists Dashboard and Changes (Monitor), Sources, History and Configuration
+(Inventory) and, for an admin, Settings (Admin); see section 2. The dashboard's empty state offers
+Add source to an admin only and tells anyone else that an admin adds sources.
 
 **Checks.** `tests/unit/test_web_sources.py` (the three acceptance checks: the credential canary
 over every page and answer, the coverage rows against the stored rows for every status, the
@@ -311,18 +306,15 @@ typed-name delete; plus roles, forms, TLS confirmation, test connection storing 
 now and enable or disable), `tests/unit/test_source_probe.py`, `tests/unit/test_source_options.py`
 and the route table rows in `tests/security/routekit.py`.
 
-**Not done here.** Screenshots at 1440, 768 and 390 px and the UI critique are taken on
-Development after this pull request is deployed, by a later check.
+## 11. The change list and the change detail
 
-## 11. The change list and the change detail (P10-T6, slice B)
-
-Task THE-1005 (Jira DRS-275). Owner: Frontend Developer. The services (queries, acknowledge,
-notes, mutes, their audit events and the escaping contract) are slice A, THE-993, described in
+The services (queries, acknowledge, notes, mutes, their audit events and the escaping contract)
+are slice A, described in
 [changes-service.md](changes-service.md). This slice adds the routes
 (`src/driftsniff/web/routes_changes.py`), the words and the small reads of the pages
 (`src/driftsniff/web/change_pages.py`: field labels, item summaries, move text, the marked
 difference, filter options, links and pager), the templates (`templates/changes/list.html`,
-`detail.html`, `_item.html`), the P10-T6 part of `app.css`, the Changes entry of the navigation
+`detail.html`, `_item.html`), the changes part of `app.css`, the Changes entry of the navigation
 and the service wiring (`create_app(change_pages=ChangePages(database))` in `serve`).
 
 | Route | Role | What it does |
@@ -361,8 +353,8 @@ kept; the reason never quotes the text (slice A's rule). Enrichments print under
 analysis, not verified by the product" as text, with the attached data as JSON text in a
 disclosure.
 
-**Decisions where the plan is silent.** (1) No drift line on the change detail until the F4
-decision (drift line edge alignment at 390 px, THE-991 carry-over); the source link leads to the
+**Decisions where the plan is silent.** (1) No drift line on the change detail until the
+edge alignment of the drift line at 390 px is settled; the source link leads to the
 strip. (2) No bulk acknowledge and no CSV export: no service exists behind them. (3) Mutes are
 managed from the change list, the only place they apply. (4) The status filter defaults to all
 changes (the service's default); the dashboard links set `status=open` themselves.
@@ -374,10 +366,7 @@ both rows; plus the filters, the pager, the floor select, the role rules, the re
 mute and unmute), `tests/unit/test_change_pages.py` (the words and the links), the route table
 rows and `tests/security/test_planned_routes.py`.
 
-**Not done here.** Screenshots at 1440, 768 and 390 px and the UI critique are taken on
-Development after this pull request is deployed, by a later check of the same task.
-
-## 12. The settings page (P10-T8, slice B)
+## 12. The settings page
 
 `GET /settings` asked for by a browser (`Accept: text/html`) is the settings page; every other
 client keeps slice A's JSON. Admins only: an operator or a viewer gets the designed not-allowed
@@ -416,16 +405,15 @@ them (users first), not by the order of the routes. (2) Role change, password re
 delete have no route (slice A), so the page offers none. (3) On a phone the role and the token
 start move under the name instead of widening the table.
 
-**Navigation.** The sidebar has a third group, Admin, with Settings (THE-1278), and the
+**Navigation.** The sidebar has a third group, Admin, with Settings, and the
 dashboard's storage card links to `/settings#about`. Both are an admin's only: a viewer or an
 operator sees neither the entry nor the Admin group, and their storage card is a plain card,
 because the page would answer 403 (`NAV_ADMIN_ONLY` in `web/templating.py`, `Stat.admin_only` in
 `web/dashboard.py`).
 
-**Checks.** `tests/security/test_settings_pages.py`: the seven acceptance checks of P10-T8 through
-the real application (who gets the page; a token shown once and only its prefix afterwards; the
+**Checks.** `tests/security/test_settings_pages.py`: the seven acceptance checks of the settings page
+through the real application (who gets the page; a token shown once and only its prefix afterwards; the
 channel without path, query or password and a blocked address marked; retention 29, 366 and text
 refused, 30 and 365 kept; users added, disabled and enabled; CSRF on every form, escaping, no
 inline style or script, every field labelled) plus the last-admin guard through the route and the
-generic unknown-field text. The screenshots at 1440, 1024, 768 and 390 px in both themes are taken
-on Development after deployment.
+generic unknown-field text.

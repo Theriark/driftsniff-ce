@@ -1,12 +1,12 @@
 # Installation
 
-For release candidate v27.0.0-rc.5. driftsniff CE runs as one container with two volumes: `data`
+For Driftsniff CE 27.0.0. driftsniff CE runs as one container with two volumes: `data`
 (the database) and `keys` (the master key). It needs no separate database server.
 
 ## What you need
 
-- Docker with the Compose plugin, on a host that can reach your UniFi Network application or Xen
-  Orchestra server over HTTPS.
+- Docker with the Compose plugin, on a host that can reach the systems you want to watch over
+  HTTPS. The [setup guides](guides) list what each kind of system needs.
 - 512 MB of memory for the container (the limit in `compose.yaml`) and disk space for the history.
   The settings page warns from 2 GB by default.
 - For access from other machines: a reverse proxy that terminates TLS, such as the one you already
@@ -25,12 +25,15 @@ system, no Linux capabilities, `no-new-privileges` and a non-root user. Port 808
 `127.0.0.1` only, so the application is not reachable from other machines until you put a proxy in
 front of it.
 
-To run a published image instead of building one, set `DRIFTSNIFF_IMAGE` to its digest, for
-example the image of this candidate:
+To run the published image instead of building one, set `DRIFTSNIFF_IMAGE` to the release:
 
 ```
-DRIFTSNIFF_IMAGE=ghcr.io/theriark/driftsniff-ce@sha256:bb09f8a33c3ad95e8e52884dd887791a6d62862dee5a34d960ac6f12d1a44f16 docker compose up -d
+DRIFTSNIFF_IMAGE=ghcr.io/theriark/driftsniff-ce:27.0.0 docker compose up -d
 ```
+
+To pin the exact image, use its digest instead of the tag
+(`ghcr.io/theriark/driftsniff-ce@sha256:<digest>`); the digest of each release is listed with
+the image on the GitHub packages page of the repository.
 
 Check that it answers:
 
@@ -38,7 +41,9 @@ Check that it answers:
 curl --fail http://localhost:8080/healthz
 ```
 
-The answer is a JSON object with `status` `ok`, the `version` and the `commit` of the build.
+The answer is a JSON object with `status` `ok`, the `version` and the `commit` of the build. A
+source build reports the commit `local` unless you build with
+`SOURCE_SHA=$(git rev-parse HEAD) docker compose up --build -d`.
 
 ## 2. Create the first admin
 
@@ -82,8 +87,8 @@ backups. Without it a restored database cannot be used. See [operations.md](oper
 ## 5. Add a source
 
 Follow [Add a source](tutorials/03-add-a-source.md). Before that, prepare a read-only account on
-the controller with [the UniFi guide](guides/unifi-setup.md) or [the Xen Orchestra
-guide](guides/xo-setup.md).
+the system with its setup guide: there is one for each of the 14 kinds in [guides](guides), listed
+in the [documentation index](README.md#setup-guides-for-the-systems-driftsniff-reads).
 
 ## Upgrade and remove
 

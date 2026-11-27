@@ -7,13 +7,14 @@ in our own words, with its source and the date it was read.
 
 ## Status in one paragraph
 
-**Nothing here is lab-verified.** No lab Home Assistant was read. The protocol comes from the
+**Read on one lab system since 2026-11-13** (see "Lab check" below). Before that, nothing here
+was checked against a running Home Assistant. The protocol comes from the
 developer documentation (S1, S2) and the command names and answer fields from the Home Assistant
 core source on GitHub, `dev` branch (S3), all read on 2026-11-12. The collector, the rule pack and
 the pipeline are tested against a fake Home Assistant on localhost
 (`tests/contract/fake_homeassistant.py`) that serves those names. That shows what driftsniff does
-with them; it does not show that a released Home Assistant answers exactly so. Every field name is
-therefore **UNVERIFIED** against a live system, as the header of the type table says.
+with them; it does not show that every released Home Assistant answers exactly so.
+Statements marked **UNVERIFIED** were not settled by the lab check.
 
 ## Sources
 

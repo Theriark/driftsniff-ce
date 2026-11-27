@@ -1,4 +1,4 @@
-"""Development-only test accounts for browser checks (docs/dev-test-accounts.md).
+"""Development-only test accounts for browser checks.
 
 One account per role (admin, operator, viewer) lets the crew sign in to the Development site in a
 real browser. The passwords are not made here: the deployment controller generates them from the

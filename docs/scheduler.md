@@ -1,7 +1,8 @@
 # Scheduler
 
 The scheduler (`driftsniff.sources.scheduler`) decides when each polled source is collected.
-It starts the run pipeline (see `collectors.md`) for every enabled `unifi` and `xo` source.
+It starts the run pipeline (see `collectors.md`) for every enabled polled source (every kind except `push`, the `POLLED_TYPES` of
+`driftsniff.sources.service`).
 `push` sources are not polled: their sender decides when to post.
 
 ## What it does
@@ -45,8 +46,8 @@ answered; a `partial` run lists the resources that failed). `skipped` changes no
 | `too_soon` | run-now was accepted less than 30 seconds ago for this source; `retry_after_seconds` says how long to wait |
 | `not_scheduled` | the source does not exist, is disabled, is a push source, or the scheduler is stopped |
 
-A run started this way counts for the backoff like any other run. The web layer (P9) calls it
-from a button; it must be called from the thread of the event loop.
+A run started this way counts for the backoff like any other run. The Run now button of a source page
+(`POST /sources/{id}/run`) calls it; it must be called from the thread of the event loop.
 
 ## Keeping it in step with the sources
 
@@ -55,11 +56,11 @@ enabled source and cancels the task of a disabled or deleted one. `start()` call
 code that creates, enables, disables or deletes a source calls `sync()` afterwards (the
 interval option needs no call).
 
-## What is not built yet
+## Limits
 
-- `serve` does not create a scheduler yet: it needs a collector factory, which the UniFi
-  (P7) and Xen Orchestra (P8) collectors provide. Until then `create_app(scheduler=...)` is the
-  only way to run one.
+- `serve` builds the scheduler with the collector factory (`build_collection` in
+  `sources/wiring.py`); the application starts and stops it. A test passes its own with
+  `create_app(scheduler=...)`.
 - Stopping the scheduler cancels its tasks at once, but a run that is already inside a worker
   thread ends by its own limit (5 minutes) and is not interrupted.
 

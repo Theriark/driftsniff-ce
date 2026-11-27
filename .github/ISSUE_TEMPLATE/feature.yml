@@ -33,7 +33,20 @@ body:
       label: Area
       options:
         - UniFi Network
+        - UniFi Protect
         - Xen Orchestra
+        - Proxmox VE
+        - Portainer
+        - TrueNAS
+        - Synology DSM
+        - QNAP QTS / QuTS hero
+        - Redfish (iDRAC, iLO, Supermicro)
+        - Home Assistant
+        - Grafana
+        - Prometheus
+        - Zabbix
+        - Checkmk
+        - Push source
         - Risk rules
         - Web interface
         - Notifications and API

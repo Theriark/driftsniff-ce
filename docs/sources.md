@@ -1,23 +1,26 @@
 # Sources
 
-A source is one system driftsniff watches: a UniFi Network controller (`unifi`), a Xen
-Orchestra server (`xo`), or a sender that pushes its own documents (`push`). The source service
-(`driftsniff.sources.service`) creates, updates, enables, disables and deletes them. The
-collector and run pipeline (`collectors.md`) and the scheduler (`scheduler.md`) build on it.
+A source is one system driftsniff watches. There are 15 kinds (`SOURCE_TYPES` in
+`driftsniff.db.tables`): 14 polled kinds that driftsniff reads itself, `unifi` (UniFi Network),
+`unifi_protect`, `xo` (Xen Orchestra), `proxmox`, `portainer`, `truenas`, `synology`, `qnap`,
+`redfish`, `homeassistant`, `grafana`, `prometheus`, `zabbix` and `checkmk`, and `push`, a sender
+that pushes its own documents. The source service (`driftsniff.sources.service`) creates,
+updates, enables, disables and deletes them. The collector and run pipeline (`collectors.md`) and the scheduler (`scheduler.md`) build on it.
 
 ## What a source holds
 
 | Field | Rule |
 |---|---|
 | name | 1 to 100 printable characters, unique |
-| type | `unifi`, `xo` or `push`; it cannot change later |
-| base address | `unifi` and `xo` only; `https://`, no user name, password, query or fragment, trailing slashes removed |
-| credential | `unifi` and `xo` only; required; encrypted before it is stored |
-| options | `allow_plain_http` (true or false), `interval_seconds` (whole seconds, 60 to 3600, default 300, polled sources only), the TLS options of `tls.md`, `resources_off` (`unifi` and `xo` only: a list of at most 100 distinct resource names the admin turned off), `credential_expires_on` (`xo` only: the expiry date of the credential an admin entered, `YYYY-MM-DD`) and `push_fields` (push sources only, see `push.md`); an unknown option, a wrong type, a value out of range or an option of another type is refused |
+| type | one of the 15 kinds above; it cannot change later |
+| base address | polled sources only; `https://`, no user name, password, query or fragment, trailing slashes removed |
+| credential | polled sources only; required; encrypted before it is stored (a password, an API key or a token, as the setup guide of the kind says) |
+| options | `allow_plain_http` (true or false), `interval_seconds` (whole seconds, 60 to 3600, default 300, polled sources only), the TLS options of `tls.md` (`tls_mode`, `tls_ca_file`, `tls_pin`, and `insecure`, which the service sets itself exactly when the mode is `insecure`; polled sources only), `username` (`synology`, `qnap`, `truenas`, `redfish`, `checkmk` and `prometheus` only: the user name that goes with the password; it may stay empty for `prometheus`, which then sends the credential as a bearer token), `resources_off` (polled sources only: a list of at most 100 distinct resource names the admin turned off), `credential_expires_on` (`xo` only: the expiry date of the credential an admin entered, `YYYY-MM-DD`) and `push_fields` (push sources only, see `push.md`); an unknown option, a wrong type, a value out of range or an option of another type is refused |
 | enabled | a disabled source is not collected |
 
-A `push` source has no address and no credential. It has a sender key instead, made with
-`set_push_key`; only the SHA-256 of the key is stored and the key itself is returned once.
+A `push` source has no address and no credential. It has a sender key instead, made by an admin
+with Make sender key on the source page (`POST /sources/{id}/push-key`, which calls
+`set_push_key`); only the SHA-256 of the key is stored and the key itself is returned once.
 `push.md` describes the endpoint.
 
 ## Credentials
@@ -42,16 +45,18 @@ A `push` source has no address and no credential. It has a sender key instead, m
   The IPv4-mapped IPv6 form and the old numeric spellings (`2852039166`, `0xa9fea9fe`,
   `169.254.43518`) are recognised too.
 - The service can only judge a literal address. A host name is resolved by the collector when it
-  connects. The collector must call `driftsniff.sources.addresses.blocked_reason` on every
-  address the name resolves to, and must not follow redirects (`FOLLOW_REDIRECTS` is `False`).
-  This is not built yet: the UniFi and XO collectors (P7, P8) own it and their tests must cover
-  it.
+  connects. Every collector calls `pin_address` (`driftsniff.collectors.resolve`): it resolves
+  the name once, refuses it when any answer is blocked (`blocked_reason` of
+  `driftsniff.sources.addresses`), and pins the first answer for every connection of the run, so a
+  name that changes its answer between the check and the request (DNS rebinding) cannot reach a
+  blocked address. Collectors do not follow redirects (`FOLLOW_REDIRECTS` is `False`).
 
 ## Audit events
 
 Every change writes one event in the same transaction as the change, with the actor that was
 passed in: `source.create`, `source.update` (the detail lists the names of the fields that
 changed, never their values), `source.enable`, `source.disable`, `source.allow_plain_http`,
+`source.tls_insecure_enabled` (the TLS mode `insecure` was set, after the confirmation sentence),
 `source.push_key` (a sender key was made; the detail says whether it replaced one) and
 `source.delete`. A failed change writes nothing.
 

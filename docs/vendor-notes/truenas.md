@@ -13,8 +13,8 @@ and the field names come from the vendor's published API reference (S3 to S5), r
 2026-11-12 through a summarising web reader, so a field the reader left out can be missing. The
 collector, the rule pack and the pipeline are tested against a fake TrueNAS on localhost
 (`tests/contract/fake_truenas.py`) that serves those names. That shows what driftsniff does with
-them; it does not show that a real TrueNAS answers with them. Every field name is therefore
-**UNVERIFIED** against a live system, as the header of the type table says.
+them; the lab check below settled the shapes of one real system. Statements still marked
+**UNVERIFIED** were not settled by it.
 
 ## Sources
 

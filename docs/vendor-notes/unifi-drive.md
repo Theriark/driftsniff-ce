@@ -1,8 +1,9 @@
-# UniFi Drive vendor notes (wave 2)
+# UniFi Drive vendor notes
 
 driftsniff's own notes on UniFi Drive, the storage application of the UniFi NAS (UNAS) consoles.
-They explain why the source type `unifi_drive` has **no collector yet**. Nothing here is copied from
-the vendor; every statement is in our own words, with its source and the date it was read.
+They explain why driftsniff has **no UniFi Drive source type** and no collector for it.
+Nothing here is copied from the vendor; every statement is in our own words, with its source and
+the date it was read.
 
 ## Status in one paragraph
 
@@ -11,7 +12,7 @@ APIs (Network, Protect, Mobility, InnerSpace, Site Manager, Carrier Fabric); Dri
 them, and no Drive endpoint, OpenAPI file or API key scope is described anywhere in it. The only
 programmatic Drive access seen is community software that calls undocumented local UniFi OS
 endpoints. driftsniff does not build collectors on guessed private endpoints, so no collector, type
-table or rule pack was written. Receiving Drive *notifications* (email or webhook, as Nowlert does)
+table or rule pack was written. Receiving Drive *notifications* (email or webhook)
 is an event feed, not a configuration API, and does not change this.
 
 ## Sources
@@ -33,11 +34,10 @@ All sources were read on **2026-11-12**.
   The resources the task asked for (storage pools and volumes, shared drives and member
   permissions, users with access, backup and sync tasks, SMB/NFS service settings) have no
   documented endpoint, field name, answer shape or auth scope to verify against.
-- No fake API. A fake would have to invent the vendor's paths and shapes, and it is meant to become
-  the Mock Platform simulation, so an invented surface would spread.
-- The placeholder `src/driftsniff/rules/packs/unifi_drive/.gitkeep` and the shared lists that name
-  `unifi_drive` (base commit) were left untouched; removing the type from them is the integrator's
-  decision.
+- No fake API. A fake would have to invent the vendor's paths and shapes, and the tests
+  would then spread an invented surface.
+- No source type was added: `unifi_drive` is not in `SOURCE_TYPES` and there is no
+  `rules/packs/unifi_drive` folder.
 
 ## What would unblock a collector
 
@@ -47,7 +47,7 @@ Any one of these, checked again at the time:
    or the Site Manager connector (V3) names Drive as a documented application.
 2. Ubiquiti documents a Drive integration API elsewhere (for example in the console's Integrations
    page or a release note) with paths, answer shapes and a read-only API key scope.
-3. The founder explicitly accepts a collector on undocumented local endpoints, with a lab UNAS to
+3. The maintainers explicitly accept a collector on undocumented local endpoints, with a lab UNAS to
    verify every path and field, every statement marked UNVERIFIED, and a firmware version floor.
    Without that decision this note's default holds.
 

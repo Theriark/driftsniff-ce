@@ -1,4 +1,4 @@
-"""Tests for the Development-only synthetic changes (docs/dev-fixture.md).
+"""Tests for the Development-only synthetic changes.
 
 The tests run the real run pipeline with the shipped rules on a migrated database; no network is
 involved.

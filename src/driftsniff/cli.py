@@ -1,6 +1,6 @@
 """Command line interface: serve, migrate, backup, rekey, create-admin-code, healthcheck.
 
-``seed-dev-accounts`` is a seventh, Development-only command (docs/dev-test-accounts.md); it is
+``seed-dev-accounts`` is a seventh, Development-only command (docs/configuration.md); it is
 listed apart from the six product commands and refuses to run outside Development.
 """
 

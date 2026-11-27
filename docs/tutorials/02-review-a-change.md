@@ -14,7 +14,7 @@ Select **Review** on the first row.
 
 You can also open **Changes** in the sidebar and filter by severity or source:
 
-![The change list with a high, a medium and a critical change, each open](../images/changes-1440.png)
+![The change list: 50 changes per page, filtered and sorted from the bar above](../images/changes-1440.png)
 
 ## Step 2: Read what changed
 
@@ -37,8 +37,9 @@ find that in the controller's own log.
 ## Step 3: Read the reason
 
 Open **Why is this rated critical?** (or high, medium, low) under an item. It shows the rule's
-reason. If a field changes all the time and does not matter to you, **Mute this path** hides it
-from the change list. A critical item cannot be muted.
+reason. If a field changes all the time and does not matter to you, open **Mute this path**, give a
+reason if you like, and select **Mute path**: the field is hidden from the change list. A critical
+item cannot be muted.
 
 ## Step 4: Acknowledge
 
@@ -51,8 +52,8 @@ The page comes back with a notice, the change is marked acknowledged, and your n
 the comment are listed under Acknowledgements. Acknowledging never changes the severity, and a
 second acknowledgement is kept beside the first.
 
-The screenshots show the form before it is submitted: the Development data is shared, so it was
-not acknowledged for this tutorial.
+The screenshots show the form before it is submitted: the data of the Development
+site is shared, so it was not acknowledged for this tutorial.
 
 ## Step 5: Add a note, if needed
 

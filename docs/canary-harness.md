@@ -3,7 +3,7 @@
 The harness answers one question: after driftsniff has read a controller and stored what it saw,
 can any credential still be found anywhere? It lives in `tests/security/canary.py`; the tests that
 use it are in `tests/security/test_canary_leaks.py`. CI runs them as the job `CI / Canary leak
-harness` (see [ci-baseline.md](ci-baseline.md) section 9).
+harness` (defined in `.github/workflows/ci.yml`).
 
 ## What a canary is
 
@@ -64,10 +64,10 @@ and gives no hit.
 ## Limits
 
 - The harness finds a canary only where it is looked for. The surfaces above are the ones that exist
-  today. Notifications are covered by `test_notification_canaries.py` (P9-T4); API output, the
-  OpenAPI document and the backup file by `test_api_canaries.py` (P9-T6, described below). The real
-  collectors have their own canary tests (P7, P8). Add a surface by writing a function that returns
-  `Leak` values and call it from the test.
+  today. Notifications are covered by `test_notification_canaries.py`; API output, the
+  OpenAPI document and the backup file by `test_api_canaries.py` (described below). The real
+  collectors have their own canary tests (`tests/security/test_*_canaries.py`). Add a surface by
+  writing a function that returns `Leak` values and call it from the test.
 - A secret that is transformed before it leaks (hashed, split, encrypted with another key) is not
   found; base64 is the only encoding the rows scan tries.
 - The log filter is a safety net. The harness checks that the code does not log values; it does not
@@ -75,7 +75,7 @@ and gives no hit.
 - The canary job is a required check only when a repository admin adds it to the branch protection
   of `development`.
 
-## Surfaces added in P9 (API output, OpenAPI document, backup file)
+## Surfaces of the API (API output, OpenAPI document, backup file)
 
 `tests/security/test_api_canaries.py` runs the real application (`tests/security/appkit.py`) and
 reuses `CanaryFactory`, `CanaryScanner` and `scan_database_rows`.

@@ -50,8 +50,8 @@ TrueNAS and the driftsniff admin.
    - Do **not** use a plain `http://` address with a real key: TrueNAS revokes an API key that is
      used over plain http.
 4. **TLS.** TrueNAS ships a self-signed certificate (`truenas_default`). Either install a trusted
-   certificate on TrueNAS, upload its CA as a CA bundle (mode *ca_file*) or pin its fingerprint
-   (mode *pinned*). See `docs/tls.md`.
+   certificate on TrueNAS, put its CA as a PEM file in `/data/ca` and type the file name in the
+   form (mode *ca_file*; there is no upload), or pin its fingerprint (mode *pinned*). See `docs/tls.md`.
 5. **Test the connection**, then save. The first check stores the current configuration; changes
    appear from the second check on.
 

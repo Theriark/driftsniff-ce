@@ -9,8 +9,9 @@ the date it was read.
 
 The statements below were read from the Portainer source code (the Go structs and the swagger
 annotations of the HTTP handlers, `develop` branch) and from the Portainer documentation on
-**2026-11-12**. **No lab Portainer was used**: nothing here is checked against a running server,
-and the contract tests run against `tests/contract/fake_portainer.py`, which follows these notes. The
+**2026-11-12**. On **2026-11-13** a lab server was read (see "Lab check" below); the
+statements in the table were written before that and keep their labels of 2026-11-12. The contract
+tests run against `tests/contract/fake_portainer.py`, which follows these notes. The
 SwaggerHub page named in older material is marked "no longer maintained" by Portainer; the current
 API reference (`api-docs.portainer.io`) renders client side and could not be read as text, so the
 handlers' own annotations were used instead. Names marked **UNVERIFIED** were not found in what was

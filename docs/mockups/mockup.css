@@ -1,5 +1,5 @@
-/* driftsniff mock-up stylesheet (P10-T1). Static mock-ups only: the real stylesheet is written
-   in P10-T2 from this file and theme.css. No style attributes, no inline script: the content
+/* driftsniff mock-up stylesheet. Static mock-ups only: the real stylesheet was written from
+   this file and theme.css. No style attributes, no inline script: the content
    security policy of the application blocks both, so the mock-ups obey the same rule. */
 
 *,

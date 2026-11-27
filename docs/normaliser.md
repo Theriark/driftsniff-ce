@@ -36,7 +36,7 @@ code; the YAML type tables of the rule engine implement the same interface. Unde
 
 ## Changing the output
 
-`NORMALISER_VERSION` (now `1`) must be raised whenever the output for any input changes. A test in
+`NORMALISER_VERSION` (now `3`) must be raised whenever the output for any input changes. A test in
 `tests/unit/test_normalize.py` pins the output for a fixed fixture, so a silent change fails the
 build. When you change the output on purpose: raise the version, set `PINNED_VERSION` to it, and
 replace `PINNED_TEXT` and `PINNED_SHA256` with the new values.

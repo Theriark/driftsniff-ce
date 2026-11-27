@@ -7,9 +7,10 @@ the date it was read.
 
 ## Status in one paragraph
 
-The statements below were read from the Grafana HTTP API documentation on **2026-11-12**. **No lab
-Grafana was used**: nothing here is checked against a running server, and the contract tests run
-against `tests/contract/fake_grafana.py`, which follows these notes. The current documentation
+The statements below were read from the Grafana HTTP API documentation on **2026-11-12**.
+On **2026-11-13** a lab server was read (see "Lab check" below); the statements in the table were
+written before that and keep their labels of 2026-11-12. The contract tests run against
+`tests/contract/fake_grafana.py`, which follows these notes. The current documentation
 (`latest`) describes the new `/apis` endpoints for folders and dashboards; the legacy `/api`
 folder and dashboard pages were read from the Grafana 11.6 archive. Grafana 13 deprecates `/api`
 in favour of `/apis` but keeps the legacy endpoints working. Names marked **UNVERIFIED** were not

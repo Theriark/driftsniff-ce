@@ -7,15 +7,18 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for the report. driftsniff is pre-release software.
+        Thanks for the report.
 
         **Do not paste credentials, API keys, tokens, real addresses or private configuration.**
         Security problems go through private reporting, see SECURITY.md.
   - type: input
     id: version
     attributes:
-      label: Version or commit
-      description: The version shown by /healthz, or the commit of the image or checkout you run.
+      label: Version and image
+      description: >-
+        The version and build shown under Settings › About (or the `version` and `commit` that
+        /healthz answers), and the image tag or digest you run, for example
+        ghcr.io/theriark/driftsniff-ce:27.0.0. For a source build, the commit of your checkout.
     validations:
       required: true
   - type: textarea
@@ -44,7 +47,19 @@ body:
       label: Which source is involved
       options:
         - UniFi Network
+        - UniFi Protect
         - Xen Orchestra
+        - Proxmox VE
+        - Portainer
+        - TrueNAS
+        - Synology DSM
+        - QNAP QTS / QuTS hero
+        - Redfish (iDRAC, iLO, Supermicro)
+        - Home Assistant
+        - Grafana
+        - Prometheus
+        - Zabbix
+        - Checkmk
         - Push source
         - Not specific to a source
     validations:
@@ -53,7 +68,7 @@ body:
     id: vendor-version
     attributes:
       label: Vendor version
-      description: UniFi Network or Xen Orchestra version, if a source is involved.
+      description: The version of the system the source reads, if a source is involved.
   - type: textarea
     id: logs
     attributes:

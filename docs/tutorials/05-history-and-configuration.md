@@ -8,7 +8,8 @@ configuration it holds now.
 ## Step 1: Replay the month
 
 Open **Sources** and select a source. Under **Change replay**, choose **30 days**. The summary
-names the busiest day, the first change in the window and the number of critical items.
+names the busiest day, the first change in the window and the number of critical items. If the
+window is empty, choose 90 days.
 
 Step through the days with **Previous day** and **Next day**, or drag the **Day** slider. The
 matrix shows how many change items each resource type had per day; a ringed cell holds a critical
@@ -17,7 +18,8 @@ changes of** that day leads to them.
 
 ![The change replay at 768 px in the dark theme: the 7, 30 and 90 day choice, the summary, the day controls, the 3D view, the matrix and the chosen day's panel](../images/source-replay-768-dark.png)
 
-With reduced motion on, the replay moves only when you step or drag.
+With reduced motion on, the replay moves only when you step or drag. Turn the 3D view with
+**Turn left**, **Turn right** or a drag; **Reset view** brings it back.
 
 ## Step 2: Open the history
 

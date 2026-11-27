@@ -1,6 +1,6 @@
 # Operations
 
-For release candidate v27.0.0-rc.5. How to check that driftsniff runs, keep its data safe, upgrade
+For Driftsniff CE 27.0.0. How to check that driftsniff runs, keep its data safe, upgrade
 it and roll it back. The commands assume the `compose.yaml` of this repository; the service is
 called `driftsniff`.
 
@@ -69,7 +69,8 @@ result of the last run is on the Settings page and in the dashboard's Activity.
 1. Take a backup.
 2. Set `DRIFTSNIFF_IMAGE` to the new image digest (or pull the new source and build) and run
    `docker compose up -d`.
-3. Check `/healthz`: `commit` must be the new build.
+3. Check `/healthz`: `version` and `commit` must be those of the new build. A source build reports
+   the commit `local` unless you build with `SOURCE_SHA=$(git rev-parse HEAD) docker compose up --build -d`.
 
 ## Roll back
 
@@ -77,5 +78,5 @@ Run the previous image digest again with `docker compose up -d`. Nothing is rebu
 not rolled back: if the newer image migrated the database to a format the older image cannot read,
 restore the backup you took before the upgrade, with its master key.
 
-The Development, Stage and Production installations that Theriark runs follow the same rule with
-their own workflows; see [deploy-development.md](deploy-development.md) and [ci-cd.md](ci-cd.md).
+The maintainers' own Development and Stage sites follow the same rule with their own workflows;
+see [ci-cd.md](ci-cd.md).

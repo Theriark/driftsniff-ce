@@ -1,4 +1,4 @@
-"""Tests for the Development-only test accounts (docs/dev-test-accounts.md)."""
+"""Tests for the Development-only test accounts."""
 
 import json
 import logging

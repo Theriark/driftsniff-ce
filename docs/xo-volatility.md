@@ -1,14 +1,14 @@
-# Xen Orchestra volatility, coverage and canary tests (P8-T4)
+# Xen Orchestra volatility, coverage and canary tests
 
 Three claims about the Xen Orchestra (XO) collector are tested through the whole run pipeline (the
 real `XoClient`, the real `RunPipeline`, a migrated database, the shipped rule pack), against the
 fake XO of `tests/contract/fake_xo.py`.
 
-**Nothing the fake serves is verified.** No lab XO exists and the vendor reference was not read
-(docs/vendor-notes/xo.md; Phase 0 tests X1 to X4 are open). Every collection name, field name and
-value in `tests/fixtures/xo/pool.json` is the plan's or our own reading of the interface. The tests
-show that the collector behaves as the plan says for those names; they do not show that a real XO
-answers with them.
+**The fake is not a real XO.** The collector's collection and field names were checked on two Xen
+Orchestra 5 servers in a lab in November 2026 (see
+[the 27.0.0 release notes](release-notes/v27.0.0.md#checked-on-real-systems)); the fake and the
+values in `tests/fixtures/xo/pool.json` are synthetic. The tests show that the collector behaves as
+described for those names; they do not show how every XO version answers.
 
 ## The fixture
 
@@ -55,7 +55,9 @@ removes before anything else sees them, and the broken line, which is never pars
   the request asks for, the worst case for the normaliser, and every volatile field of the fixture
   is ignore class in `rules/types/xo.yaml`. A real XO may add a volatile field the table does not
   name; it would be unclassified and a change would show as a fingerprint (open item 5 of the
-  notes). Only a lab or the vendor reference closes that.
+  notes). The lab check found one such field, the hourly
+  `xo:clientInfo` heartbeat, which is now dropped (normaliser version 3); another XO version may
+  add more.
 - **A plain secret in an unclassified field.** The scanner recognises credential shaped values. A
   plain word in a field the table does not name (for example a server password that XO should hide)
   is stored as received, so the canary test seeds credential shaped values there. The type table

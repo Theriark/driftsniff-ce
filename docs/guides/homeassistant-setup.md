@@ -44,8 +44,9 @@ person who runs Home Assistant and the driftsniff admin.
    - Token: the long-lived access token.
    - Many installations serve plain `http://` on the local network. Then tick **Allow a plain http
      address**; the token travels unencrypted, so prefer https.
-4. **TLS.** For a self-signed certificate, upload its CA as a CA bundle (mode *ca_file*) or pin its
-   fingerprint (mode *pinned*). See `docs/tls.md`.
+4. **TLS.** For a self-signed certificate, put its CA as a PEM file in `/data/ca` and type the
+   file name in the form (mode *ca_file*; there is no upload), or pin its fingerprint (mode
+   *pinned*). See `docs/tls.md`.
 5. **Test the connection**, then save. The first check stores the current configuration; changes
    appear from the second check on.
 

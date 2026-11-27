@@ -1,4 +1,4 @@
-# Setting up a UniFi source (P7-T6)
+# Setting up a UniFi source
 
 This guide connects driftsniff to a UniFi Network application so that it can record changes to the
 configuration. It is written for the person who runs the controller and the driftsniff admin.
@@ -7,13 +7,11 @@ configuration. It is written for the person who runs the controller and the drif
 
 - **One real controller has been read** (2026-11-13): a UDM Pro Max running UniFi Network
   10.6.109, with an API key made by an **owner** account. What that reading settled is labelled
-  **VERIFIED on 10.6.109** below; everything else is still labelled **NOT VERIFIED**. Dependency D5
-  (the vendor reference) is open and the lab checks are recorded in `docs/lab-evidence.md`. Do not rely on a
-  NOT VERIFIED statement for a production controller until it has been checked and dated here.
+  **VERIFIED on 10.6.109** below; everything else is still labelled **NOT VERIFIED**. The lab check is
+  summarised in the [27.0.0 release notes](../release-notes/v27.0.0.md#checked-on-real-systems).
+  Do not rely on a NOT VERIFIED statement for a production controller until you have checked it.
 - Names of menus and roles in the controller can differ from this guide. Field names come from the
   10.6.109 reading (`docs/vendor-notes/unifi.md`); other versions may differ.
-- Some driftsniff parts named in the steps are **not built yet** (see "What is not built yet"). The
-  steps describe the intended flow; the status of each part is stated where it matters.
 
 ## What driftsniff does with the controller
 
@@ -30,8 +28,8 @@ configuration. It is written for the person who runs the controller and the drif
 ## Before you start
 
 1. A controller that runs UniFi Network **10.1.84 or later**. This floor is our own decision. Below
-   it the source is meant to be saved with the state `unsupported`, a plain explanation, and no
-   collection (see "What is not built yet" for the status).
+   it every check fails with the error class `unsupported_version` and a plain explanation, and
+   nothing is collected.
 2. The address of the controller as an `https://` address, for example
    `https://controller.example.invalid` (a placeholder, not a real address). The address must
    not hold a user name, a password, a query or a fragment. Plain `http://` needs the per-source
@@ -65,14 +63,11 @@ VERIFIED on 10.6.109 (2026-11-13), with a key made by an owner account:
 NOT VERIFIED:
 
 - **That a key inherits the role of its creator.** If it does not, a key made by a View Only account
-  could be more powerful than intended. Phase 0 test U2 is meant to check this. Status: **not
-  tested**; the 10.6.109 key was made by an owner account, so it says nothing about View Only.
+  could be more powerful than intended. Status: **not tested**; the 10.6.109 key was made by an
+  owner account, so it says nothing about View Only.
 - **That View Only is enough to read everything driftsniff lists.** If it is not, some resources
-  will show `403` in the coverage panel (step 6) and are reported as stale, not as removed. Phase 0
-  test U3 is meant to check this. Status: **not tested**, for the same reason.
-
-When `docs/lab-evidence.md` exists, replace each NOT VERIFIED label above with the result and the
-date of the test.
+  will show `403` in the coverage panel (step 6) and are reported as stale, not as removed. Status:
+  **not tested**, for the same reason.
 
 ## Step 3: check what the key can do before you give it to driftsniff
 
@@ -83,8 +78,8 @@ narrower role. driftsniff itself never writes.
 
 ## Step 4: add the source
 
-An admin adds a source with a name, the type `unifi`, the base address and the key. Choose the TLS
-mode of the source (`docs/tls.md`):
+An admin selects **Add source**, chooses **UniFi Network** and enters a name, the base address and
+the key. Choose the TLS mode of the source (`docs/tls.md`):
 
 | Mode | Use it when |
 |---|---|
@@ -93,13 +88,11 @@ mode of the source (`docs/tls.md`):
 | `pinned` | the controller uses a self-signed certificate; give the SHA-256 of the certificate in DER form (64 hex characters). Renewing the certificate changes the pin |
 | `insecure` | never recommended; needs the confirmation text `I understand the risk`, writes an audit event and marks the source permanently |
 
-The poll interval is 60 to 3600 seconds (default 300).
+The check interval is 1 to 60 minutes (default 5). Select **Test connection** to read every resource
+once before you save.
 
-Status: the source service (`driftsniff.sources.service`) validates and stores all of this today.
-The **web form for adding a source and the field for uploading a CA file are part of P10 and do not
-exist yet**. The cloud connector address option (off by default, with a warning that configuration
-data then passes through the vendor cloud) is **not added yet** either; do not point driftsniff at
-the vendor cloud.
+There is no upload of a CA file: put the PEM file in `/data/ca` and type its file name in the form.
+There is no option for the vendor cloud connector; do not point driftsniff at the vendor cloud.
 
 ## Step 5: let the first collection run
 
@@ -133,12 +126,10 @@ For every resource driftsniff keeps one coverage row. The statuses are:
 
 A run is `partial` when some resource failed, or when the ordering lists did not match the policies
 you made (class `ordering_mismatch`): driftsniff then repairs the list and says so. Policies the
-controller made itself are expected to be missing from those lists and do not make a run partial. Today the pipeline
-also counts a `404` resource as a failed resource (the run is `partial`); whether it should not is
-an open decision for Delivery.
+controller made itself are expected to be missing from those lists and do not make a run partial.
+A `404` resource also makes the run `partial`.
 
-Status: the coverage rows are written by the run pipeline and are stored in the table
-`resource_coverage`. **The coverage panel itself is part of P10 and does not exist yet.**
+The coverage rows are shown under **Coverage by resource** on the source page (the Coverage tab).
 
 ## What is not collected
 
@@ -148,14 +139,11 @@ Status: the coverage rows are written by the run pipeline and are stored in the 
   a change in them is shown as a fingerprint only. The traffic filters of firewall policies are
   classified and shown.
 
-## What is not built yet
+## Known gaps
 
-| Part | Status |
-|---|---|
-| Web form to add and edit a source, upload a CA file, coverage panel | P10, not built |
-| Collector factory: builds the client from a stored source, stores the detected base path, saves the `unsupported` state | not built; `serve` starts no scheduler until it exists |
-| First admin and login: `driftsniff create-admin-code` and the setup, login and logout posts exist (P9-T1, `docs/auth.md`); the setup and login pages come with P10-T3 | partly built |
-| Vendor reference (D5) and lab results (U2, U3) | open; one controller (10.6.109, owner key) was read on 2026-11-13 |
+- A controller below the version floor shows as a failing check (`unsupported_version`); the
+  source is not given the Unsupported status.
+- What a View Only account and its key can read (step 2) has not been tested.
 
 ## Trying the steps without a controller
 
@@ -163,10 +151,7 @@ The tests use a fake controller on localhost (`tests/contract/fake_unifi.py`) wi
 fixtures for the version bands 10.1.84, 10.6.109 and a newer invented one (10.7.0), all in the
 shapes the 10.6.109 controller returned and with placeholder canary values (`tests/fixtures/unifi/`). They show the client flow of steps 5 and 6:
 `tests/contract/test_unifi_client.py`, `test_unifi_collection.py`, `test_unifi_coverage.py`,
-`test_unifi_bands.py` and `test_unifi_real_shapes.py`. Because the web form and the factory are not built, a person cannot yet
-complete steps 4 to 6 in a browser against the fake server; the walk-through by someone who did not
-write the code (acceptance check 1 of P7-T6) is pending the Test Engineer's review and is **not
-claimed here**.
+`test_unifi_bands.py` and `test_unifi_real_shapes.py`.
 
 ## If something goes wrong
 

@@ -87,7 +87,7 @@ NAV_ICONS: Final = {
 TOPBAR_ACTION_HIDDEN: Final = ("/", "/sources")
 TOPBAR_ACTION: Final = ("Add source", "/sources/new")
 
-# Drift line geometry (docs/design-direction.md section 2): a 32 unit tall strip under the axis
+# Drift line geometry: a 32 unit tall strip under the axis
 # "30 days ago ... today", one day every 20 units with 30 days ago at 10 and today at 610, so the
 # strip is 620 wide. A mark sits at the time of its check, never at its place in the list
 # (packed from the left, a change of today read as 30 days old). The pad holds the

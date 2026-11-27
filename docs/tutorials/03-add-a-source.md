@@ -1,16 +1,17 @@
 # 3. Add a source
 
 You connect driftsniff to a UniFi Network application, test the connection and save the source.
-The same form serves Xen Orchestra; a push source is at the end.
+The same form serves every other kind of system; a push source is at the end.
 
 **You need:** the admin role, and a read-only API key of the UniFi Network application (see
-[Setting up a UniFi source](../guides/unifi-setup.md)) or an authentication token of Xen
-Orchestra (see [Setting up a Xen Orchestra source](../guides/xo-setup.md)).
+[Setting up a UniFi source](../guides/unifi-setup.md)). For another kind of system, prepare its
+account with its setup guide in [guides](../guides/).
 
 ## Step 1: Open the form
 
-Select **Add source** on the dashboard, the sources list or the header. **UniFi Network** is
-selected at the top; choose **Xen Orchestra** or **Push source** for the others.
+Select **Add source** on the dashboard, the sources list or the header. Choose the kind of system
+at the top; UniFi Network is selected first. The [admin guide](../admin-guide.md#add-a-source)
+lists what each kind asks for.
 
 ![The Add a source form for UniFi Network with its four cards: Source, Checks, Certificate checks and Test connection](../images/add-source-unifi-1440-full.png)
 
@@ -32,7 +33,8 @@ Leave **Allow a plain http address** off unless this is a lab without TLS.
 Keep **Verify with the system trust store** when the controller has a certificate from a public
 CA. For your own CA, choose **Verify with your own CA bundle**; for a self-signed certificate,
 **Pinned certificate** with its SHA-256. **Insecure, certificate checks off** marks the source with
-the Insecure TLS badge and is not for a real network.
+the Insecure TLS badge and is not for a real network. It asks you to type the sentence "I
+understand the risk" to confirm, and saving it writes an audit event.
 
 ## Step 5: Test, then add
 
@@ -64,7 +66,9 @@ unifi-networks: id, name, vlanId
 A resource name must be one that driftsniff has a type table for, such as `unifi-networks` or
 `unifi-devices` for UniFi data (see [vendor-notes/unifi.md](../vendor-notes/unifi.md)), and the
 list must include the resource's key field, `id`. A post with an unknown resource fails it with
-`unknown_resource`; a missing key field fails it with `bad_object` (HTTP 422).
+`unknown_resource`; an object without its key field fails that resource with `bad_object`. The
+post answers HTTP 422 only when no resource could be read; otherwise it answers 200 and the run
+is `partial`.
 
 ![The Add a source form for a push source with the Name and Declared resources and fields boxes](../images/add-source-push-1440.png)
 
@@ -75,7 +79,7 @@ Select **Add source**, then **Make sender key** on the source page and give the 
 It is shown once. The sender then posts the configuration as in the [API
 guide](../api-guide.md#push-a-configuration).
 
-The screenshots show the forms empty: no source was added on Development for this tutorial, and
-Development has no lab controller to test against.
+The screenshots show the forms empty: no source was added on the Development site for this
+tutorial.
 
 **Next:** [Add a user and make an API token](04-add-a-user.md).

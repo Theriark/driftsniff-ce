@@ -1,11 +1,9 @@
 # User guide
 
-For release candidate v27.0.0-rc.5, candidate `40963ddf`, whose application files are those of
-build `63eaa6ad`. The screenshots were taken on the Development build `36f78cc9`; `63eaa6ad`
-changed only the hint under the push form, which none of these pages shows, and `40963ddf`
-changed no page. The screenshots show the Development
-installation with synthetic data: the source called "DEV-FIXTURE synthetic (removable)" and every
-object named FIXTURE are test data, not a real network.
+For Driftsniff CE 27.0.0.
+
+Screenshots taken on the Development site, synthetic data: the source called "DEV-FIXTURE
+synthetic (removable)" and every object named FIXTURE are test data, not a real network.
 
 All times in driftsniff are UTC. A relative time ("1 day ago") shows the exact UTC time when you
 point at it.
@@ -51,7 +49,7 @@ Open the user menu and choose Account. There you can:
 The start page answers two questions: what changed across your sources in the last 30 days, and
 what still needs a decision.
 
-![The full dashboard at 1440 px: stat cards, open items by severity and where they are beside Needs attention, the 3D lab of your sources, the drift lines, change items per day and the activity timeline](images/dashboard-1440-full.png)
+![The full dashboard at 1440 px: stat cards, open changes by severity and where they are beside Needs attention, the 3D lab of your sources, the drift lines, change items per day and the activity timeline](images/dashboard-1440-full.png)
 
 From the top:
 
@@ -69,7 +67,7 @@ From the top:
   status lights show its worst open change (red critical, orange high, amber medium, blue low),
   green when nothing is open, and dark when the source is failing or stale. Point at a device to
   read it and select it to open the source;
-  turn the lab with Turn left, Turn right or a drag. Hide the 3D view puts it away in this browser
+  turn the lab with Turn left, Turn right or a drag, and Reset view brings it back. Hide the 3D view puts it away in this browser
   until you show it again. A browser without WebGL 2 shows only the drift lines.
 - **Drift line, last 30 days.** One strip per source, today at the right end. A thin tick is a check
   with no change, a hollow tick a failed or partial check, and a coloured shape a change in the
@@ -87,7 +85,7 @@ diamond for high, a triangle for medium and a dot for low.
 
 **Changes** in the sidebar lists every detected change, 50 per page.
 
-![The change list with three open changes: high, medium and critical, each with its source, time and status](images/changes-1440.png)
+![The change list: 50 changes per page, filtered and sorted from the bar above](images/changes-1440.png)
 
 - Search by text, or filter by source, severity (critical, high and above, and so on), status,
   resource type and a range of UTC days, then select Apply.
@@ -109,8 +107,9 @@ Select a change to open it.
 - A **secret** field (a passphrase, a pre-shared key) shows "secret changed" with two short keyed
   fingerprints. The value itself is never stored or shown.
 - **Why is this rated ...?** opens the reason the rule gives.
-- **Mute this path** (operators and admins) hides that field of that resource type from the change
-  list. A critical item cannot be muted.
+- **Mute this path** (operators and admins) opens a small form: give a reason if you like and
+  select **Mute path**. That field of that resource type is then hidden from the change list. A
+  critical item cannot be muted.
 - **External analysis** shows text that an outside program attached through the API. It is
   labelled as not verified by the product.
 
@@ -134,7 +133,7 @@ and a short drift line. Filter it by kind and status (Disabled is a status of it
 by a column heading: name, status (the ones that need a look first), last attempt (newest first)
 or version. The address keeps the filter and the order, so the list can be shared.
 
-![The sources list with two push sources, one stale and one with nothing pushed yet](images/sources-1440.png)
+![The sources list: a stale push source and healthy polled sources with their version and drift line](images/sources-1440.png)
 
 Select a source to open its page.
 
@@ -142,7 +141,7 @@ Select a source to open its page.
 
 - **Drift line** of the last 30 days, full width.
 - **Change replay.** Choose 7, 30 or 90 days, then step through the days with Previous day and Next
-  day or the slider. The matrix shows how many change items each resource type had per day; a
+  day or the slider. If the window is empty ("Nothing to replay"), choose 90 days. The matrix shows how many change items each resource type had per day; a
   ringed cell holds a critical item. The panel under it lists the chosen day by resource type and
   severity, with a link to those changes. With reduced motion on, the replay moves only when you
   step. Above the matrix, the 3D view shows the chosen day on this source's device: every resource

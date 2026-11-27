@@ -1,7 +1,7 @@
-/* driftsniff design tokens (P10-T1). Colour values are copied from docs/design-colours.json;
+/* driftsniff design tokens. Colour values are copied from docs/design-colours.json;
    tests/unit/test_check_contrast.py fails when a value here differs from the JSON. Everything
-   else (type, spacing, radius, elevation, motion) is defined only here and in
-   docs/design-direction.md. P10-T2 copies this block into src/driftsniff/web/static/app.css. */
+   else (type, spacing, radius, elevation, motion) is defined only here. This
+   block was copied into src/driftsniff/web/static/app.css. */
 
 :root {
   color-scheme: light dark;

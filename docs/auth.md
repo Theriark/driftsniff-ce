@@ -1,6 +1,6 @@
 # Users, sign-in and sessions
 
-How people sign in to driftsniff CE (P9-T1). The code is in `driftsniff/web/auth.py` (rules and
+How people sign in to driftsniff CE. The code is in `driftsniff/web/auth.py` (rules and
 storage), `driftsniff/web/deps.py` (role checks for routes) and `driftsniff/web/routes_ui.py`
 (the three posts). Migration `0003` adds the `sessions` table.
 
@@ -47,8 +47,8 @@ restart clears them; the lock is stored with the user and survives a restart.
   request arrived over HTTPS. A forwarded `X-Forwarded-Proto: https` counts only when
   `DRIFTSNIFF_TRUSTED_PROXY=true`.
 - The database keeps only the SHA-256 of the cookie value, so a copy of the `sessions` table
-  cannot be turned back into a cookie. The row also holds the per-session CSRF value that P9-T2
-  checks.
+  cannot be turned back into a cookie. The row also holds the per-session CSRF value that the
+  browser-write check reads (`docs/csrf-and-headers.md`).
 - A session ends after **8 hours without a request**, **7 days after sign-in** whatever its use,
   at logout (`POST /logout`, which deletes the row, clears the cookie and answers 303 to
   `/login?signed-out=1`), and when its user is
@@ -59,8 +59,9 @@ restart clears them; the lock is stored with the user and survives a restart.
 ## First admin
 
 1. At the first start with no admin, `serve` prints a one-time **setup code** to the container
-   log, once. `driftsniff create-admin-code` prints a new one (and replaces an unused one); it
-   refuses when an admin exists.
+   log, once. `python -m driftsniff create-admin-code` (in the container:
+   `docker compose exec driftsniff python -m driftsniff create-admin-code`) prints a new one
+   (and replaces an unused one); it refuses when an admin exists.
 2. `POST /setup` with `code`, `username` and `password` creates the first admin and signs them in
    (**303** and the cookie). A wrong code answers **403**, a rule-breaking name or password
    **422** with the rule (the code stays valid), repeated wrong codes **429**.
@@ -71,7 +72,7 @@ restart clears them; the lock is stored with the user and survives a restart.
 
 ## Account
 
-Every user has an Account page (`/account`, from the user menu), as in Revrook: each person changes
+Every user has an Account page (`/account`, from the user menu): each person changes
 only their own account (`driftsniff.web.routes_account`, migration 0007).
 
 - **Display name**: shown in the sidebar instead of the user name; at most 80 characters, spaces
@@ -98,15 +99,15 @@ Passwords, cookie values and setup codes are never written to a log. The audit l
 target are user names; no secret). A user added or disabled from the settings routes is audited
 with the admin as the actor; the two admin settings have their own actions (`docs/settings.md`).
 
-## Not built yet
+## Related parts
 
-| Part | Status |
+| Part | Where |
 |---|---|
-| The setup and login pages, the user menu | built in P10-T2 and P10-T3, see `docs/web-interface.md` sections 2 and 8; a browser (`Accept: text/html`) gets the pages, every other client the JSON answers above |
-| CSRF value check, Origin check, security headers | built in P9-T2, see `docs/csrf-and-headers.md` |
-| API tokens (`/api/v1`, Bearer) | built in P9-T3, see `docs/api-access.md`; a session cookie is not an API credential |
-| Admin routes to list, add, disable and enable users | built in P10-T8 slice A, see `docs/settings.md`; the screen is the Users card of `/settings` (slice B). Changing a role and an admin resetting another user's password are not built; each user changes their own password on the Account page |
-| Route table test that every route states its role | P9-T6 |
+| The setup and login pages, the user menu | `docs/web-interface.md` sections 2 and 8; a browser (`Accept: text/html`) gets the pages, every other client the JSON answers above |
+| CSRF value check, Origin check, security headers | `docs/csrf-and-headers.md` |
+| API tokens (`/api/v1`, Bearer) | `docs/api-access.md`; a session cookie is not an API credential |
+| Admin routes to list, add, disable and enable users | `docs/settings.md`; the screen is the Users card of `/settings`. Changing a role and an admin resetting another user's password are not built; each user changes their own password on the Account page |
+| Route table test that every route states its role | `tests/security/test_route_table.py` |
 
 ## Limits
 

@@ -1,7 +1,6 @@
 # Contributing to driftsniff-ce
 
-Thank you for helping. driftsniff is pre-release software, so small, focused changes that are easy
-to review work best.
+Thank you for helping. Small, focused changes that are easy to review work best.
 
 ## Sign-off rule
 
@@ -11,14 +10,13 @@ to submit it under the MIT licence of this repository.
 
 ## Branch flow
 
-1. Create a feature branch from `development`, named `feature/<short-slug>`
-   (maintainers use `feature/DRS-NN-short-slug` with the Jira key).
-2. Keep one task per branch and one pull request per branch. Put the Jira key in the pull request
-   title when there is one.
+1. Create a branch from `development`, named `feat/<short-description>` (or `fix/<short-description>`
+   for a bug fix).
+2. Keep one change per branch and one pull request per branch.
 3. Open the pull request into `development`. Never push to `development`, `stage` or `main`; `main`
    only moves through a release action.
 4. Pull request checks run when a maintainer adds the `ci-go` label. All checks must be green, and
-   the change needs an independent test and a fresh review before it is merged (squash merge).
+   the change needs an independent test and a review before a maintainer merges it.
 
 ## Run the tests
 

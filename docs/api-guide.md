@@ -1,6 +1,6 @@
 # API guide
 
-For release candidate v27.0.0-rc.5. driftsniff has a small HTTP API under `/api/v1` for scripts:
+For Driftsniff CE 27.0.0. driftsniff has a small HTTP API under `/api/v1` for scripts:
 read the changes, attach an external analysis to a change, and push a configuration. The full
 schema is served by the application at `/api/v1/openapi.json`.
 
@@ -71,7 +71,8 @@ The body maps each declared resource to the complete current list of its objects
 ```
 
 This body fits a push source that declares `unifi-networks: id, name, vlanId`. Each object needs
-the key field of its resource (`id`), or the post is refused with 422 `bad_object`.
+the key field of its resource (`id`); otherwise that resource fails with `bad_object`. The post
+answers 422 only when no resource could be read; otherwise it answers 200 with `status` `partial`.
 
 A resource that is not in the post keeps its previous state; an empty list means every object of
 it is gone. Fields that the source does not declare are dropped before anything is stored. The

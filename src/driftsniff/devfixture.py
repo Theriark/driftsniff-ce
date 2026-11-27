@@ -1,4 +1,4 @@
-"""Development-only synthetic changes, so the populated screens can be judged (docs/dev-fixture.md).
+"""Development-only synthetic changes, so the populated screens can be judged.
 
 On the Development site one push source and no change would leave the change list, the dashboard
 and the history empty. This module makes one clearly labelled push source and runs four synthetic

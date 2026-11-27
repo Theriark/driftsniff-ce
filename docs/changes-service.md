@@ -1,6 +1,6 @@
 # Change list, change detail, acknowledge, notes and mutes (services)
 
-This page is for people who build the change pages (task P10-T6) or call the services from
+This page is for people who build the change pages or call the services from
 somewhere else. The code is `src/driftsniff/changes/`. It holds the queries and the actions only:
 the routes, the templates, the field labels and the one-line summaries belong to the interface
 slice and are not here.

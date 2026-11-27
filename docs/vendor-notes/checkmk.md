@@ -9,10 +9,11 @@ the date it was read.
 
 The statements below were read from the Checkmk source code of the REST API (GitHub
 `Checkmk/checkmk`, tag `2.4.0`) and from the Checkmk REST API documentation on **2026-11-12**.
-**No lab Checkmk site was used**: nothing here is checked against a running site, and the contract
-tests run against `tests/contract/fake_checkmk.py`, which follows these notes. The built-in OpenAPI
-document of a site (`/check_mk/api/1.0/openapi-swagger-ui.json`) was not read, since no site was
-available. Names marked **UNVERIFIED** were not found in the code that builds the answers.
+On **2026-11-13** a lab site was read (see "Lab check" below); the statements in the table were
+written before that and keep their labels of 2026-11-12. The contract tests run against
+`tests/contract/fake_checkmk.py`, which follows these notes. The built-in OpenAPI document of a
+site (`/check_mk/api/1.0/openapi-swagger-ui.json`) was not read. Names marked **UNVERIFIED** were
+not found in the code that builds the answers.
 
 ## Lab check: Checkmk 2.5.0p14 Community (2026-11-13)
 
