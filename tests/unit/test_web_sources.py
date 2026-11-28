@@ -214,7 +214,14 @@ class World:
         return response
 
 
-def make_world(store: Database, *, probe: bool = True, scheduler: bool = True) -> World:
+def make_world(
+    store: Database,
+    *,
+    probe: bool = True,
+    scheduler: bool = True,
+    data_dir: Path | None = None,
+    known_resources: frozenset[str] | None = None,
+) -> World:
     auth = AuthService(store, hasher=make_password_hasher(memory_kib=8, time_cost=1))
     for role in ("viewer", "operator", "admin"):
         auth.create_user(role, CORRECT, role)
@@ -225,10 +232,19 @@ def make_world(store: Database, *, probe: bool = True, scheduler: bool = True) -
         targets.append(target)
         return FakeCollector(target)
 
-    pages = SourcePages(store, service, probe_factory=factory if probe else None, clock=lambda: NOW)
+    pages = SourcePages(
+        store,
+        service,
+        probe_factory=factory if probe else None,
+        clock=lambda: NOW,
+        known_resources=known_resources,
+    )
     fake = FakeScheduler()
+    env = {"DRIFTSNIFF_BASE_URL": ORIGIN}
+    if data_dir is not None:
+        env["DRIFTSNIFF_DATA_DIR"] = str(data_dir)
     app = create_app(
-        Settings.from_env({"DRIFTSNIFF_BASE_URL": ORIGIN}),
+        Settings.from_env(env),
         master_key=MASTER,
         auth=auth,
         sources=pages,
@@ -739,7 +755,7 @@ def test_a_ca_file_that_is_not_in_the_ca_folder_is_refused_on_the_form(tmp_path:
     )
     present = parse_form(fields, "unifi", data_dir=tmp_path)
     assert "tls_ca_file" not in present.errors
-    # without a data folder (the test connection form) the name alone is checked
+    # without a data folder the name alone is checked
     assert "tls_ca_file" not in parse_form(fields, "unifi").errors
 
 
@@ -812,6 +828,46 @@ def test_test_connection_of_a_stored_source_uses_the_stored_credential(world: Wo
     target = world.targets[-1]
     assert target.credential == UNIFI_CANARY.encode("utf-8")
     assert target.base_url == "https://controller.example"
+
+
+def test_test_connection_checks_the_ca_file_as_save_does(store: Database, tmp_path: Path) -> None:
+    world = make_world(store, data_dir=tmp_path)
+    with world.client:
+        source_id = add_unifi(world)
+        form = unifi_form(tls_mode="ca_file", tls_ca_file="lab-ca.pem")
+        htmx = {"HX-Request": "true"}
+        # a CA file that is not in the ca folder is refused before any probe, add form and edit form
+        for path in ("/sources/test", f"/sources/{source_id}/test"):
+            panel = world.post(path, form, extra=htmx)
+            assert panel.status_code == 200 and "Fix the form before the test" in panel.text
+            assert "does not exist" in panel.text and "ca folder" in panel.text
+            page = world.post(path, form)
+            assert page.status_code == 422 and "does not exist" in page.text
+        assert world.targets == []
+        (tmp_path / "ca").mkdir()
+        (tmp_path / "ca" / "lab-ca.pem").write_text(
+            "-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n", encoding="ascii"
+        )
+        for path in ("/sources/test", f"/sources/{source_id}/test"):
+            tested = world.post(path, form, extra=htmx)
+            assert "The controller answered" in tested.text
+            assert world.targets[-1].options["tls_ca_file"] == "lab-ca.pem"
+
+
+def test_test_connection_of_a_push_source_checks_its_type_tables(store: Database) -> None:
+    world = make_world(store, known_resources=frozenset({"unifi-networks"}))
+    with world.client:
+        source_id = add_push(world)
+        fields = {"full_form": "1", "type": "push", "name": "netbox"}
+        bad = {**fields, "push_fields": "unifi-networks: id\nnetbox-devices: id, name"}
+        for path in ("/sources/test", f"/sources/{source_id}/test"):
+            page = world.post(path, bad)
+            assert page.status_code == 422
+            assert "There is no type table for the resource netbox-devices" in page.text
+        good = {**fields, "push_fields": "unifi-networks: id"}
+        page = world.post(f"/sources/{source_id}/test", good)
+        assert page.status_code == 422 and "no type table" not in page.text
+        assert world.targets == []
 
 
 def test_test_connection_says_when_it_is_not_available(store: Database) -> None:

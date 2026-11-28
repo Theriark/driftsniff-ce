@@ -47,8 +47,10 @@ The first release. The full notes are in
   of another source.
 - An added or removed whole object says so on the change page, has its own rule instead of the
   unclassified one, and offers no mute.
-- A push source refuses a resource without a type table when it is saved; a CA file that is not
-  in the CA folder is refused when the source is saved.
+- A push source refuses a resource without a type table when it is saved or tested; a CA file
+  that is not in the CA folder is refused when the source is saved or its connection is tested.
+- The 3D change replay draws the card of a day with exactly one changed resource type (its
+  height was not a number, so no card showed).
 - The sender key page of a push source can be refreshed without making a new key; an expired
   form shows a page that says so; a malformed change address shows the not-found page; a
   reversed date range in the change list is swapped and the page says so.
