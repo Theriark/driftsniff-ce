@@ -23,6 +23,9 @@ The schema is created and upgraded by numbered Alembic revisions that ship insid
   prints a message and exits with code **3**. Start the newer version again, or restore a
   database backup made by this version.
 - Downgrades are not supported.
+- Revision 0008 adds the table `source_ids`, which hands out source ids (AUTOINCREMENT): an id is
+  never given twice, so what the audit trail recorded for a deleted source never names a newer
+  one.
 
 ## Stored configuration
 

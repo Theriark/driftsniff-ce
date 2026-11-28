@@ -384,7 +384,7 @@ def test_migrate_command_creates_the_database_and_can_run_twice(
     monkeypatch.setenv("DRIFTSNIFF_DATA_DIR", str(data_dir))
     assert main(["migrate"]) == 0
     assert main(["migrate"]) == 0
-    assert "revision 0007" in capsys.readouterr().out
+    assert "revision 0008" in capsys.readouterr().out
     assert database_path(data_dir).is_file()
 
 
