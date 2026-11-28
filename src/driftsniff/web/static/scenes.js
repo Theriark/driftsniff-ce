@@ -1090,7 +1090,8 @@ const REPLAY = {
       // side by side, a card and its shape apart (closer when many), the worst in the middle
       const step = cardStep(n);
       const places = Array.from({ length: n }, (_, k) => (k - (n - 1) / 2) * step).sort((a, b) => Math.abs(a) - Math.abs(b) || a - b);
-      const outer = Math.max(step, ((n - 1) / 2) * step);
+      // one card stands alone in the middle (step 0): never divide 0 by 0, or its height is NaN
+      const outer = Math.max(step, ((n - 1) / 2) * step) || 1;
       ofDay.forEach((cell, i) => {
         const x = places[i];
         const y = deviceTop + 0.32 + 0.18 * (1 - Math.abs(x) / outer) + (i % 2) * 0.05;
@@ -1155,7 +1156,8 @@ const REPLAY = {
       extent: { wide: widestDeck + 0.5, deep: 0.8, tall: deviceTop + 0.75, x: 0, y: deviceTop * 0.5 + 0.28, z: 0 },
       home: { yaw: -0.18, pitch: 0.3 },
       hint: "The cards are the resource types that changed on the day of the replay. Point at one to read it; select it to open those changes.",
-      info: () => ({ cells: data.cells.length, days: data.days, day: shown, cards: cards.length, type: data.type }),
+      // heights: where each card of the day comes to rest (a test reads that every one is a number)
+      info: () => ({ cells: data.cells.length, days: data.days, day: shown, cards: cards.length, heights: cards.map((c) => c.y), type: data.type }),
       recolour() {
         w.paint();
         paintCards();

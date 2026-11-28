@@ -10,10 +10,11 @@ Every page and every refused state is audited with axe at 1440, 768 and 390 pixe
 light and dark scheme (support.py); the screenshots land in E2E_ARTIFACT_DIR.
 """
 
+import math
 import re
 
 import pytest
-from playwright.sync_api import Browser, Page, expect
+from playwright.sync_api import Browser, Page, Route, expect
 
 from .server import LiveApp
 from .support import Accounts, Audit, Watch
@@ -262,6 +263,77 @@ def test_10_the_pages_work_without_javascript(
         expect(plain.get_by_text("e2e note without JavaScript")).to_be_visible()
     finally:
         context.close()
+
+
+REPLAY_CELL = re.compile(r'<a class="replay-cell[^"]*"[^>]*>.*?</a>', re.S)
+# WebGL 2 in a headless Chromium comes from the software renderer, which it no longer picks alone
+WEBGL_ARGS = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"]
+
+
+def keep_first_replay_cell(html: str) -> str:
+    """The source page with one heat-map cell left: its day has exactly one changed type."""
+    kept: list[str] = []
+
+    def one(match: re.Match[str]) -> str:
+        if kept:
+            return ""
+        kept.append(match.group(0))
+        return match.group(0)
+
+    return REPLAY_CELL.sub(one, html)
+
+
+# the scripts the replay journey runs in the page: the day of the one cell, the cursor moved to
+# it (as replay.js moves it), the day the scene shows, and one drawn frame with the scene's facts
+DAY_OF_CELL = "c => Number(c.getAttribute('data-day-index'))"
+MOVE_CURSOR = (
+    "(day) => { const s = document.querySelector('[data-replay]');"
+    " s.querySelector('[data-replay-cursor]')"
+    ".setAttribute('x', String(day * Number(s.getAttribute('data-pitch')))); }"
+)
+SHOWN_DAY = "(day) => document.querySelector('#replay-scene').scene.info().day === day"
+DRAW_AND_READ = (
+    "() => { const scene = document.querySelector('#replay-scene').scene;"
+    " scene.draw(); return scene.info(); }"
+)
+
+
+def test_11_the_3d_replay_draws_a_day_with_one_changed_resource_type(
+    browser: Browser, app: LiveApp, accounts: Accounts
+) -> None:
+    gl = browser.browser_type.launch(args=WEBGL_ARGS)
+    try:
+        context = gl.new_context(viewport={"width": 1440, "height": 900})
+        tab = context.new_page()
+        gl_watch = Watch()
+        gl_watch.attach(tab)
+        sign_in(tab, app, accounts.admin, accounts.admin_password)
+        open_page(tab, app, "/sources")
+        href = tab.get_by_role("link", name=FIXTURE_SOURCE).first.get_attribute("href")
+        assert href is not None and re.fullmatch(r"/sources/\d+", href), href
+
+        def one_cell(route: Route) -> None:
+            response = route.fetch()
+            route.fulfill(response=response, body=keep_first_replay_cell(response.text()))
+
+        context.route(f"{app.base_url}{href}", one_cell)
+        open_page(tab, app, href)
+        scene = tab.locator("#replay-scene")
+        expect(scene).to_have_attribute("data-scene-state", "ready", timeout=30_000)
+        scene.scroll_into_view_if_needed()
+        day = tab.eval_on_selector(".replay-cell", DAY_OF_CELL)
+        tab.evaluate(MOVE_CURSOR, day)
+        tab.wait_for_function(SHOWN_DAY, arg=day)
+        info = tab.evaluate(DRAW_AND_READ)
+        assert info["cells"] == 1 and info["cards"] == 1, info
+        # the lone card rests at a real height: it was NaN (0 / 0), so the card was not drawn and
+        # three.js logged "Computed radius is NaN"
+        assert all(math.isfinite(height) for height in info["heights"]), info
+        # the software renderer may log driver notes; a NaN or an uncaught error is the bug
+        errors = [e for e in gl_watch.drain() if "NaN" in e or e.startswith("page error")]
+        assert not errors, "\n".join(errors)
+    finally:
+        gl.close()
 
 
 def test_99_the_server_log_has_no_traceback(app: LiveApp) -> None:

@@ -714,7 +714,12 @@ async def test_new_source(
     """Test the connection of an add form: version and coverage rows, nothing stored."""
     fields = await read_fields(request, structured=True, multi=frozenset({RESOURCE_FIELD}))
     source_type = _type_of(fields.get("type"))
-    parsed = parse_form(fields, source_type, known_resources=pages.known_resources)
+    parsed = parse_form(
+        fields,
+        source_type,
+        known_resources=pages.known_resources,
+        data_dir=_data_dir(request),
+    )
     return await _test(request, user, pages, parsed, None)
 
 
@@ -929,7 +934,14 @@ async def test_source(
     """Test the edit form; an empty credential field tests with the stored credential."""
     view = await _find(pages, source_id)
     fields = await read_fields(request, structured=True, multi=frozenset({RESOURCE_FIELD}))
-    return await _test(request, user, pages, parse_form(fields, view.type, view), view)
+    parsed = parse_form(
+        fields,
+        view.type,
+        view,
+        known_resources=pages.known_resources,
+        data_dir=_data_dir(request),
+    )
+    return await _test(request, user, pages, parsed, view)
 
 
 # ---- run now, enable, disable, delete, sender key ------------------------------------------
