@@ -156,7 +156,7 @@ def test_every_resource_has_a_type_table() -> None:
         (VOLUMES, "modified", "encryptfs_bool", "1", "0", "high", "qnap.volumes.encryption_off"),
         (VOLUMES, "removed", "", None, None, "high", "builtin.floor.removed"),
         (SHARES, "removed", "", None, None, "high", "builtin.floor.removed"),
-        (APPS, "added", "", None, None, "medium", "builtin.unclassified"),
+        (APPS, "added", "", None, None, "medium", "builtin.object.added"),
         (APPS, "modified", "unofficial", "0", "1", "high", "qnap.apps.unofficial"),
         (APPS, "modified", "enable", "FALSE", "TRUE", "medium", "qnap.apps.enabled"),
         (APPS, "modified", "displayName", "a", "b", "low", "qnap.apps.display_name"),

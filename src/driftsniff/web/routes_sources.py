@@ -19,8 +19,9 @@ The credential is write-only. It is read from the post, handed to the source ser
 encrypts it) or to the test, and never put into a page, a JSON answer, a redirect or a field
 value; the edit form leaves it empty and keeps the stored one unless a new one is typed. The
 confirmation text of the TLS mode insecure is not filled back in either: it is typed each time.
-The one value shown is the sender key of a push source, once, in the answer of the post that
-made it (``source.push_key``); the source page only says whether one exists.
+The one value shown is the sender key of a push source, once: the post that made it
+(``source.push_key``) redirects to a page that takes the key out of a short-lived memory store,
+so a refresh shows no key and makes none; the source page only says whether one exists.
 
 Test connection and run now use interfaces that exist (``driftsniff.sources.probe`` and the
 scheduler's ``run_now``) and say plainly when the installation has neither: the collector factory
@@ -29,7 +30,13 @@ factory and no scheduler.
 """
 
 import dataclasses
+import secrets
+import threading
+import time
+from collections.abc import Callable
+from collections.abc import Set as AbstractSet
 from dataclasses import dataclass, field
+from pathlib import Path as FilePath
 from typing import Annotated, Any, Final
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Request
@@ -47,6 +54,8 @@ from driftsniff.collectors.tls import (
     OPTION_TLS_CA_FILE,
     OPTION_TLS_MODE,
     OPTION_TLS_PIN,
+    TlsConfigError,
+    load_ca_bundle,
 )
 from driftsniff.db.tables import SOURCE_TYPES
 from driftsniff.sources.probe import ProbeResult, ProbeTarget, start_probe
@@ -220,6 +229,12 @@ def _form_errors(errors: dict[str, str]) -> JSONResponse:
     return JSONResponse({"detail": "the form has errors", "fields": errors}, status_code=422)
 
 
+def _data_dir(request: Request) -> FilePath | None:
+    """The data folder of this installation (its ca folder holds the CA bundles)."""
+    settings = getattr(request.app.state, "settings", None)
+    return None if settings is None else FilePath(settings.data_dir)
+
+
 async def _find(pages: SourcePages, source_id: int) -> SourceView:
     try:
         return await run_in_threadpool(pages.service.get, source_id)
@@ -290,8 +305,14 @@ def _text(fields: dict[str, str], name: str) -> str | None:
     return None if value is None else value.strip()
 
 
-def _parse_push_fields(text: str) -> dict[str, list[str]] | str:
-    """``resource: field, field`` per line; the error sentence when a line is not that."""
+def _parse_push_fields(
+    text: str, known: AbstractSet[str] | None = None
+) -> dict[str, list[str]] | str:
+    """``resource: field, field`` per line; the error sentence when a line is not that.
+
+    ``known`` holds the resource types that have a type table: a resource outside it would make
+    every push of it fail, so it is refused here.
+    """
     declared: dict[str, list[str]] = {}
     for line in text.splitlines():
         if not line.strip():
@@ -305,6 +326,11 @@ def _parse_push_fields(text: str) -> dict[str, list[str]] | str:
             )
         if resource.strip() in declared:
             return f"The resource {resource.strip()[:40]} is declared twice."
+        if known is not None and resource.strip() not in known:
+            return (
+                f"There is no type table for the resource {resource.strip()[:40]}, so every push "
+                "of it would fail. Use a resource type name such as unifi-networks."
+            )
         declared[resource.strip()] = listed
     if not declared:
         return "Declare at least one resource and the fields the sender may send."
@@ -325,7 +351,11 @@ def _parse_interval(parsed: ParsedForm, raw: str | None, current: SourceView | N
 
 
 def _parse_tls(
-    parsed: ParsedForm, fields: dict[str, str], current: SourceView | None, full: bool
+    parsed: ParsedForm,
+    fields: dict[str, str],
+    current: SourceView | None,
+    full: bool,
+    data_dir: FilePath | None = None,
 ) -> None:
     options = parsed.options
     values = parsed.values
@@ -347,6 +377,14 @@ def _parse_tls(
     if mode == MODE_CA_FILE:
         if not values.tls_ca_file:
             parsed.errors[OPTION_TLS_CA_FILE] = "Enter the file name of the CA bundle."
+        elif data_dir is not None:
+            try:
+                load_ca_bundle(values.tls_ca_file, data_dir)
+            except TlsConfigError as error:
+                parsed.errors[OPTION_TLS_CA_FILE] = (
+                    f"{_sentence(str(error))} Put the PEM bundle in the ca folder of the data "
+                    "volume first."
+                )
         options[OPTION_TLS_CA_FILE] = values.tls_ca_file
     elif mode == MODE_PINNED:
         if not values.tls_pin:
@@ -402,9 +440,19 @@ def _parse_expiry(parsed: ParsedForm, fields: dict[str, str], current: SourceVie
 
 
 def parse_form(
-    fields: dict[str, str], source_type: str, current: SourceView | None = None
+    fields: dict[str, str],
+    source_type: str,
+    current: SourceView | None = None,
+    *,
+    known_resources: AbstractSet[str] | None = None,
+    data_dir: FilePath | None = None,
 ) -> ParsedForm:
-    """Read an add form (``current`` None) or the edit form of ``current``."""
+    """Read an add form (``current`` None) or the edit form of ``current``.
+
+    ``known_resources`` are the resource types with a type table; a push source may declare
+    only those (None skips the check). ``data_dir`` is where the CA folder is: a CA file that is
+    not there, or not a PEM bundle, is refused (None skips the check).
+    """
     full = fields.get(FULL_FORM) is not None
     parsed = ParsedForm(FormValues(source_type))
     values = parsed.values
@@ -422,7 +470,7 @@ def parse_form(
     else:
         values.name = current.name
     if source_type in POLLED_TYPES:
-        _parse_polled(parsed, fields, current, full)
+        _parse_polled(parsed, fields, current, full, data_dir)
     else:
         raw = fields.get(OPTION_PUSH_FIELDS)
         if raw is None and current is not None:
@@ -430,7 +478,7 @@ def parse_form(
                 parsed.options[OPTION_PUSH_FIELDS] = current.options[OPTION_PUSH_FIELDS]
         else:
             values.push_fields = raw or ""
-            declared = _parse_push_fields(values.push_fields)
+            declared = _parse_push_fields(values.push_fields, known_resources)
             if isinstance(declared, str):
                 parsed.errors[OPTION_PUSH_FIELDS] = declared
             else:
@@ -439,7 +487,11 @@ def parse_form(
 
 
 def _parse_polled(
-    parsed: ParsedForm, fields: dict[str, str], current: SourceView | None, full: bool
+    parsed: ParsedForm,
+    fields: dict[str, str],
+    current: SourceView | None,
+    full: bool,
+    data_dir: FilePath | None = None,
 ) -> None:
     values = parsed.values
     base_url = _text(fields, "base_url")
@@ -464,7 +516,7 @@ def _parse_polled(
     elif plain is not None and plain.strip().lower() in _TRUE:
         values.allow_plain_http = True
         parsed.options[OPTION_ALLOW_PLAIN_HTTP] = True
-    _parse_tls(parsed, fields, current, full)
+    _parse_tls(parsed, fields, current, full, data_dir)
     _parse_resources(parsed, fields, current, full)
     if values.source_type == "xo":
         _parse_expiry(parsed, fields, current)
@@ -587,10 +639,16 @@ async def create_source(
     if source_type not in SOURCE_TYPES:
         if html:
             values = FormValues("unifi")
-            errors = {"type": "Choose UniFi Network, Xen Orchestra or a push source."}
+            errors = {"type": "Choose the kind of system this source is."}
             return _form_page(request, user, pages, values, errors=errors, status=422)
-        return JSONResponse({"detail": "type must be unifi, xo or push"}, status_code=422)
-    parsed = parse_form(fields, source_type)
+        detail = f"type must be one of {', '.join(SOURCE_TYPES)}"
+        return JSONResponse({"detail": detail}, status_code=422)
+    parsed = parse_form(
+        fields,
+        source_type,
+        known_resources=pages.known_resources,
+        data_dir=_data_dir(request),
+    )
     if parsed.errors:
         if html:
             return _form_page(request, user, pages, parsed.values, errors=parsed.errors, status=422)
@@ -656,7 +714,7 @@ async def test_new_source(
     """Test the connection of an add form: version and coverage rows, nothing stored."""
     fields = await read_fields(request, structured=True, multi=frozenset({RESOURCE_FIELD}))
     source_type = _type_of(fields.get("type"))
-    parsed = parse_form(fields, source_type)
+    parsed = parse_form(fields, source_type, known_resources=pages.known_resources)
     return await _test(request, user, pages, parsed, None)
 
 
@@ -824,7 +882,13 @@ async def update_source(
     """Save the edit form. A field a JSON client leaves out keeps its stored value."""
     view = await _find(pages, source_id)
     fields = await read_fields(request, structured=True, multi=frozenset({RESOURCE_FIELD}))
-    parsed = parse_form(fields, view.type, view)
+    parsed = parse_form(
+        fields,
+        view.type,
+        view,
+        known_resources=pages.known_resources,
+        data_dir=_data_dir(request),
+    )
     html = wants_html(request)
     if parsed.errors:
         if html:
@@ -1001,6 +1065,58 @@ async def delete_source(
     return JSONResponse({"deleted": True, "removed_states": result.removed_states})
 
 
+@dataclass(frozen=True, slots=True)
+class _WaitingKey:
+    username: str
+    source_id: int
+    key: str = field(repr=False)
+    expires: float
+
+
+class OnceKeys:
+    """Sender keys waiting for the one page that shows them (post, redirect, get).
+
+    The post that makes a key puts it here under a random handle and redirects to the page with
+    that handle; the page takes it out, so a refresh shows no key and never makes a new one. A
+    key is held in memory only, for the user and the source it was made for, for at most two
+    minutes; a key nobody fetched is dropped (the stored SHA-256 still works; the admin makes
+    another key if the page was lost).
+    """
+
+    def __init__(self, clock: Callable[[], float] = time.monotonic) -> None:
+        self._clock = clock
+        self._guard = threading.Lock()
+        self._waiting: dict[str, _WaitingKey] = {}
+
+    def put(self, username: str, source_id: int, key: str) -> str:
+        """Hold ``key`` for one page; return the handle that fetches it."""
+        handle = secrets.token_urlsafe(16)
+        now = self._clock()
+        with self._guard:
+            self._waiting = {h: w for h, w in self._waiting.items() if w.expires > now}
+            self._waiting[handle] = _WaitingKey(username, source_id, key, now + ONCE_KEY_SECONDS)
+        return handle
+
+    def take(self, handle: str, username: str, source_id: int) -> str | None:
+        """The key behind ``handle``, once, for the same user and source; None otherwise."""
+        with self._guard:
+            waiting = self._waiting.pop(handle, None)
+        if waiting is None or waiting.expires <= self._clock():
+            return None
+        if (waiting.username, waiting.source_id) != (username, source_id):
+            return None
+        return waiting.key
+
+
+ONCE_KEY_SECONDS: Final = 120.0
+ONCE_KEYS: Final = OnceKeys()
+KEY_NOT_SHOWN_AGAIN: Final = (
+    "The sender key is not shown again",
+    "It was shown once. If you did not copy it, make a new one; the current key keeps working "
+    "until then.",
+)
+
+
 @router.post("/sources/{source_id}/push-key")
 async def make_push_key(
     request: Request,
@@ -1008,12 +1124,32 @@ async def make_push_key(
     pages: Pages,
     source_id: SourceId,
 ) -> Response:
-    """Make a new sender key for a push source and show it this once; an older key stops."""
+    """Make a new sender key for a push source; an older key stops.
+
+    A browser is redirected to the page that shows the key this once, so a refresh of that page
+    never makes another key; every other client gets the key in the JSON answer.
+    """
     view = await _find(pages, source_id)
     if view.type != "push":
         raise HTTPException(status_code=409, detail="only a push source has a sender key")
     key = await run_in_threadpool(pages.service.set_push_key, source_id, actor=user.username)
     if not wants_html(request):
         return JSONResponse({"push_key": key})
+    handle = ONCE_KEYS.put(user.username, source_id, key)
+    return _redirect(f"/sources/{source_id}/push-key?shown={handle}")
+
+
+@router.get("/sources/{source_id}/push-key")
+async def show_push_key(
+    request: Request,
+    user: Annotated[Principal, Depends(require_admin)],
+    pages: Pages,
+    source_id: SourceId,
+) -> Response:
+    """The source page with the sender key just made, once; later visits say it is gone."""
     detail = await _detail(pages, source_id)
+    handle = request.query_params.get("shown", "")
+    key = ONCE_KEYS.take(handle, user.username, source_id) if handle else None
+    if key is None:
+        return await _detail_page(request, user, detail, problem=KEY_NOT_SHOWN_AGAIN)
     return await _detail_page(request, user, detail, push_key=key)

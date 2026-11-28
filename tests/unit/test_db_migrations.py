@@ -140,6 +140,7 @@ def test_the_schema_has_every_table_of_the_report() -> None:
         "audit_events",
         "settings",
         "sessions",
+        "source_ids",
     }
 
 
@@ -180,10 +181,10 @@ def test_the_report_indexes_exist(migrated: Database) -> None:
 
 
 def test_migrate_records_the_head_revision_and_is_repeatable(migrated: Database) -> None:
-    assert head_revision() == "0007"
-    assert current_revisions(migrated) == ("0007",)
-    assert upgrade_to_head(migrated) == "0007"
-    assert current_revisions(migrated) == ("0007",)
+    assert head_revision() == "0008"
+    assert current_revisions(migrated) == ("0008",)
+    assert upgrade_to_head(migrated) == "0008"
+    assert current_revisions(migrated) == ("0008",)
 
 
 def test_migration_0002_adds_the_size_columns_to_existing_runs(database: Database) -> None:
@@ -198,7 +199,7 @@ def test_migration_0002_adds_the_size_columns_to_existing_runs(database: Databas
             "VALUES (1, '2026-10-20T00:00:00Z', 7)"
         )
     assert current_revisions(database) == ("0001",)
-    assert upgrade_to_head(database) == "0007"
+    assert upgrade_to_head(database) == "0008"
     with database.read() as connection:
         row = connection.exec_driver_sql(
             "SELECT bytes_fetched, new_state_bytes, manifest_bytes FROM runs"
@@ -216,7 +217,7 @@ def test_migration_0003_adds_sessions_and_keeps_existing_users(database: Databas
             "INSERT INTO users (id, username, password_hash, role, created_at) "
             "VALUES (1, 'ada', 'x', 'admin', '2026-10-22T00:00:00Z')"
         )
-    assert upgrade_to_head(database) == "0007"
+    assert upgrade_to_head(database) == "0008"
     with database.write() as connection:
         connection.exec_driver_sql(
             "INSERT INTO sessions (user_id, token_hash, csrf_token, created_at, last_seen_at, "
@@ -243,7 +244,7 @@ def test_migration_0004_adds_the_notification_columns_and_keeps_existing_rows(
             "INSERT INTO notification_channel (id, type, config_ciphertext) "
             "VALUES (1, 'webhook', 'x')"
         )
-    assert upgrade_to_head(database) == "0007"
+    assert upgrade_to_head(database) == "0008"
     with database.read() as connection:
         row = connection.exec_driver_sql(
             "SELECT type, config_ciphertext, key_id, min_severity FROM notification_channel"
@@ -383,7 +384,7 @@ def test_migrate_command_creates_the_database_and_can_run_twice(
     monkeypatch.setenv("DRIFTSNIFF_DATA_DIR", str(data_dir))
     assert main(["migrate"]) == 0
     assert main(["migrate"]) == 0
-    assert "revision 0007" in capsys.readouterr().out
+    assert "revision 0008" in capsys.readouterr().out
     assert database_path(data_dir).is_file()
 
 
@@ -440,9 +441,34 @@ def test_migration_0007_adds_the_account_columns_and_keeps_existing_users(
             "INSERT INTO users (id, username, password_hash, role, created_at) "
             "VALUES (1, 'ada', 'h', 'admin', '2026-11-15T00:00:00Z')"
         )
-    assert upgrade_to_head(database) == "0007"
+    assert upgrade_to_head(database) == "0008"
     with database.read() as connection:
         row = connection.exec_driver_sql(
             "SELECT username, display_name, avatar, avatar_type, avatar_version, theme FROM users"
         ).one()
     assert tuple(row) == ("ada", None, None, None, 0, "system")
+
+
+def test_migration_0008_starts_source_ids_above_every_id_ever_used(database: Database) -> None:
+    config = migrate._config()
+    with database.write() as connection:
+        config.attributes["connection"] = connection
+        command.upgrade(config, "0007")
+    with database.write() as connection:
+        connection.exec_driver_sql("INSERT INTO sources (id, name, type) VALUES (3, 'a', 'push')")
+        # Source 7 was deleted; only its audit trail is left.
+        connection.exec_driver_sql(
+            "INSERT INTO audit_events (at, actor, action, target, detail) "
+            "VALUES ('2026-11-28T00:00:00Z', 'admin', 'source.delete', 'source:7', '{}')"
+        )
+    assert upgrade_to_head(database) == "0008"
+    with database.write() as connection:
+        connection.exec_driver_sql("INSERT INTO source_ids DEFAULT VALUES")
+        taken = connection.exec_driver_sql("SELECT max(id) FROM source_ids").scalar_one()
+    assert taken == 8
+
+
+def test_migration_0008_on_an_empty_database_starts_at_one(migrated: Database) -> None:
+    with migrated.write() as connection:
+        connection.exec_driver_sql("INSERT INTO source_ids DEFAULT VALUES")
+        assert connection.exec_driver_sql("SELECT max(id) FROM source_ids").scalar_one() == 1

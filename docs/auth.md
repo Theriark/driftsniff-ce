@@ -1,6 +1,6 @@
 # Users, sign-in and sessions
 
-How people sign in to driftsniff CE. The code is in `driftsniff/web/auth.py` (rules and
+How people sign in to Driftsniff CE. The code is in `driftsniff/web/auth.py` (rules and
 storage), `driftsniff/web/deps.py` (role checks for routes) and `driftsniff/web/routes_ui.py`
 (the three posts). Migration `0003` adds the `sessions` table.
 

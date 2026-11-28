@@ -173,7 +173,7 @@ def test_a_plain_http_address_needs_the_option_in_a_form_too(factory: CollectorF
     result = start_probe(factory.for_target, refused)
     assert (result.ok, result.error_class) == (False, ERROR_NOT_STARTED)
     assert result.error_text is not None
-    assert "allow_plain_http" in result.error_text
+    assert "Allow a plain http address" in result.error_text
     allowed = ProbeTarget("xo", "http://203.0.113.10", CANARY.encode(), {"allow_plain_http": True})
     collector = factory.for_target(allowed)
     collector.close()

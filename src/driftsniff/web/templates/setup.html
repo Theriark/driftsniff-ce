@@ -14,7 +14,7 @@
   {{ banner("error", error.title, error.text) }}
   {% endif %}
   <form class="card auth__card stack" method="post" action="/setup">
-    {{ text_field("code", "code", "Setup code", help="Four groups of four characters. The container log printed it once at first start; driftsniff create-admin-code prints a new one.", error=field_errors.get("code", ""), autocomplete="one-time-code", autofocus=true, required=true, mono=true, autocapitalize="characters") }}
+    {{ text_field("code", "code", "Setup code", help="Four groups of four characters. The container log printed it once at first start. To get a new one, run docker compose exec driftsniff python -m driftsniff create-admin-code on the server.", error=field_errors.get("code", ""), autocomplete="one-time-code", autofocus=true, required=true, mono=true, autocapitalize="characters") }}
     {{ text_field("username", "username", "Admin user name", value=username, help="3 to 64 characters: letters, digits and . _ @ + -", error=field_errors.get("username", ""), autocomplete="username", required=true, autocapitalize="none") }}
     {{ text_field("password", "password", "Password", type="password", help="At least 12 characters. Length is the only rule, so a sentence you will remember works well.", error=field_errors.get("password", ""), autocomplete="new-password", required=true) }}
     <button class="btn btn--primary" type="submit">Create admin and sign in</button>

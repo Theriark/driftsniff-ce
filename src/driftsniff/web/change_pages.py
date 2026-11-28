@@ -192,6 +192,21 @@ def item_summary(item: ItemView) -> str:
     return f"{label} {kind_label(item.change_kind).lower()}"
 
 
+def whole_object_text(item: ItemView) -> str:
+    """What an added or removed whole object item says instead of an empty before and after.
+
+    The object is named by its display name when it has one; its fields are not repeated (an
+    unclassified field must never be shown in clear).
+    """
+    subject = item.object_name or "This object"
+    if item.change_kind == "added":
+        return (
+            f"{subject} was added: it was not there at the previous check. "
+            "Changes to its fields are listed one by one from now on."
+        )
+    return f"{subject} was removed: it was there at the previous check and is gone now."
+
+
 def fingerprint_words(fingerprint: str | None) -> str:
     """A short fingerprint in groups of four, or the word none for a side that had no value."""
     if not fingerprint:

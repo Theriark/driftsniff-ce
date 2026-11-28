@@ -227,7 +227,7 @@ def test_removing_a_firewall_rule_is_critical(engine: RuleEngine) -> None:
     assert result.severity == "critical"
     assert result.rule_id == "builtin.floor.removed"
     assert result.floored is True
-    assert result.matched_rule_id == UNCLASSIFIED_RULE_ID
+    assert result.matched_rule_id == "builtin.object.removed"
     assert result.rationale != ""
 
 
@@ -341,8 +341,22 @@ def test_an_item_no_rule_applies_to_is_medium_and_unclassified(engine: RuleEngin
 
 
 def test_a_resource_without_a_type_table_is_unclassified(engine: RuleEngine) -> None:
-    result = engine.classify(make("unknown_things", "added"))
+    result = engine.classify(make("unknown_things", "modified", "label", "a", "b"))
     assert (result.severity, result.rule_id) == ("medium", UNCLASSIFIED_RULE_ID)
+
+
+@pytest.mark.parametrize("kind", ["added", "removed"])
+def test_a_whole_object_no_rule_rates_has_its_own_rule_not_the_unclassified_one(
+    engine: RuleEngine, kind: ChangeKind
+) -> None:
+    result = engine.classify(make("unknown_things", kind))
+    assert (result.severity, result.rule_id) == ("medium", f"builtin.object.{kind}")
+    assert result.matched_rule_id == f"builtin.object.{kind}"
+    assert "unclassified" not in result.rationale
+    assert f"was {kind}" in result.rationale
+    # a floor of the type table still raises it
+    floored = engine.classify(make("fw_rules", "removed"))
+    assert (floored.severity, floored.matched_rule_id) == ("critical", "builtin.object.removed")
 
 
 def test_an_unclassified_field_of_a_resource_with_rules_is_unclassified(engine: RuleEngine) -> None:

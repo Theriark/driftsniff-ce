@@ -129,6 +129,22 @@ def test_a_write_without_the_value_is_refused(
     assert response.json() == {"detail": "the CSRF value is missing or wrong"}
 
 
+def test_an_expired_form_post_of_a_browser_gets_the_designed_page(
+    client: TestClient, session: Session
+) -> None:
+    headers = {
+        **session.headers(csrf=False),
+        "Accept": "text/html,application/xhtml+xml",
+        "Content-Type": FORM,
+    }
+    response = client.post("/probe/write", headers=headers, content=f"{CSRF_FIELD}=old-value")
+    assert response.status_code == 403
+    assert response.headers["content-type"].startswith("text/html")
+    assert "This form expired. Reload the page and try again." in response.text
+    assert "old-value" not in response.text
+    assert response.headers["Content-Security-Policy"] == CONTENT_SECURITY_POLICY
+
+
 @pytest.mark.parametrize("method", WRITE_METHODS)
 @pytest.mark.parametrize("wrong", ["x", "x" * 400, "CANARY-wrong", "0"])
 def test_a_write_with_a_wrong_value_is_refused(
@@ -342,7 +358,11 @@ def test_the_api_refuses_the_session_cookie(
 ) -> None:
     response = client.request(method, "/api/v1/probe", headers=session.headers())
     assert response.status_code == 403
-    assert response.json() == {"detail": "the API takes an API token, not a session cookie"}
+    detail = response.json()["detail"]
+    assert detail.startswith("the API takes an API token")
+    # a push sender is told which key it needs
+    assert "sender key in X-Driftsniff-Push-Key" in detail
+    assert detail.endswith("not a session cookie")
 
 
 def test_the_api_refuses_a_cookie_even_without_a_valid_session(client: TestClient) -> None:

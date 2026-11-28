@@ -735,7 +735,7 @@ def test_a_time_limit_stops_the_resources_that_are_not_reached(store: Database) 
     report = rig.run(collector)
     assert report.status == "partial"
     assert report.error_class == ERROR_RUN_TIMEOUT
-    assert report.error_summary == "failed: hosts (error)"
+    assert report.error_summary == "failed: hosts (the time limit of the run was reached)"
     assert collector.calls == ["networks"]
     assert coverage(store)["hosts"].last_status == "error"
     assert coverage(store)["networks"].last_status == "200"
@@ -793,7 +793,14 @@ def test_an_object_without_a_usable_key_fails_its_resource(
 ) -> None:
     report = rig.run(FakeCollector({"networks": objects, "hosts": hosts()}))
     assert (report.status, report.error_class) == ("partial", error_class)
-    assert report.error_summary == "failed: networks (error)"
+    # the summary names the real reason, not only the word error
+    assert report.error_summary in {
+        "failed: networks (an object has no usable _id)",
+        "failed: networks (an object is unreadable)",
+        "failed: networks (two objects have the same key)",
+    }
+    if objects == [{"name": "no key"}]:
+        assert report.error_summary == "failed: networks (an object has no usable _id)"
     assert coverage(rig.database)["networks"].last_status == "error"
     assert set(latest_snapshot_state(rig.database)) == {"hosts"}
 
@@ -1038,19 +1045,47 @@ def test_with_the_old_key_lost_fingerprints_are_restamped_without_a_comparison(
     assert audit_rows(store, "fingerprint_rekey") == []
 
 
-def test_a_partial_run_does_not_end_the_rekey(store: Database) -> None:
+def test_a_partial_run_with_a_resource_that_may_still_answer_does_not_end_the_rekey(
+    store: Database,
+) -> None:
     clock = Clock()
     data = {"networks": networks(), "hosts": hosts()}
     keyed_rig(store, OLD_MASTER, None, clock).run(FakeCollector(data))
     run_rekey(store, OLD_MASTER, NEW_MASTER, REKEY_AT)
     rig = keyed_rig(store, NEW_MASTER, OLD_MASTER, clock)
     collector = FakeCollector(data)
-    collector.script["hosts"] = [refused()]
+    collector.script["hosts"] = [FetchResult.failure(ERROR_CONNECTION, "no answer")]
     assert rig.run(collector).status == "partial"
     assert count(store, tables.change_items) == 0
     assert rekey_state(store).active is True
     assert rig.run(FakeCollector(data)).status == "ok"
     assert rekey_state(store).active is False
+
+
+@pytest.mark.parametrize("status", ["403", "404"])
+def test_a_refused_or_missing_resource_does_not_keep_the_rekey_open(
+    store: Database, status: str
+) -> None:
+    clock = Clock()
+    data = {"networks": networks(), "hosts": hosts()}
+    keyed_rig(store, OLD_MASTER, None, clock).run(FakeCollector(data))
+    run_rekey(store, OLD_MASTER, NEW_MASTER, REKEY_AT)
+    rig = keyed_rig(store, NEW_MASTER, OLD_MASTER, clock)
+    collector = FakeCollector(data)
+    # networks holds the secret: its old-key fingerprint stays stored while it is refused.
+    collector.script["networks"] = [refused(status)]
+    assert rig.run(collector).status == "partial"
+    assert rekey_state(store).active is False
+    # Read again after the rekey: the old-key fingerprint is re-stamped, not a changed secret.
+    after = keyed_rig(store, NEW_MASTER, None, clock)
+    report = after.run(FakeCollector(data))
+    assert (report.status, report.event_id) == ("ok", None)
+    assert count(store, tables.change_items) == 0
+    # From then on a real secret change is reported as usual.
+    changed = after.run(FakeCollector({**data, "networks": networks(secret=CANARY_SECOND)}))
+    assert changed.event_id is not None
+    (item,) = table_rows(store, tables.change_items)
+    assert (item.path, item.field_class) == ("passphrase", "secret")
 
 
 def test_a_rekey_to_a_key_this_process_does_not_hold_is_left_alone(store: Database) -> None:

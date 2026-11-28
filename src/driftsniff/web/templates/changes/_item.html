@@ -26,6 +26,8 @@
   <p>{{ item.order_detail.summary if item.order_detail and item.order_detail.summary else "The order of the list changed without a single moved entry." }}</p>
   {% elif item.change_kind == "schema_drift" %}
   <p>Fields that this version of the controller did not have before: <span class="mono">{{ item.path }}</span>. They are recorded once and not rated above low.</p>
+  {% elif item.change_kind in ("added", "removed") and not item.path | trim %}
+  <p>{{ whole_object_text(item) }}</p>
   {% else %}
   {% set shown_before = none if item.before is none else display_value(item.before) %}
   {% set shown_after = none if item.after is none else display_value(item.after) %}

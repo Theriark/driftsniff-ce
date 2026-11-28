@@ -1,6 +1,6 @@
-# driftsniff CE
+# Driftsniff CE
 
-driftsniff Community Edition (CE) is a self-hosted tool that records changes to the configuration
+Driftsniff Community Edition (CE) is a self-hosted tool that records changes to the configuration
 of your network, virtualisation, storage, home automation and monitoring systems, keeps the before
 and after values, and gives each change an explainable risk label.
 

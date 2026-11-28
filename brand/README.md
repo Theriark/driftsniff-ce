@@ -1,7 +1,7 @@
 # Driftsniff brand files
 
 This folder holds the approved Driftsniff brand assets (logos, icons, favicon) exactly as
-published in the product's brand asset folder. They are copied byte for byte by the crew's
+published in the product's brand asset folder. They are copied byte for byte by the
 brand publishing tool and listed in `MANIFEST.sha256`, which CI can check with:
 
 ```sh

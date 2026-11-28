@@ -1,8 +1,8 @@
 """A fake Synology DSM Web API on localhost for the contract tests.
 
 It serves what the Synology collector expects (docs/vendor-notes/synology.md; every ``SYNO.Core.*``
-name and field is unverified against a real DSM) and is written so that it can be ported to the
-company Mock Platform as the Development and Stage simulation of a NAS:
+name and field is unverified against a real DSM) and is written so that it can be reused as a
+simulated NAS for Development and Stage testing:
 
 * ``/webapi/query.cgi`` answers ``SYNO.API.Info`` ``query`` with the path and versions of every
   API; ``/webapi/entry.cgi`` serves ``SYNO.API.Auth`` (``login``, ``logout``) and the

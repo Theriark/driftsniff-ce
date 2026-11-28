@@ -761,6 +761,19 @@ def test_an_unknown_change_item_or_mute_is_not_found(world: World) -> None:
     # an id outside the range is not a route parameter at all
     assert world.get("/changes/0", html=False).status_code == 422
     assert world.get("/changes/abc", html=False).status_code == 422
+    # a browser gets the designed not-found page, never the raw validation JSON
+    for path in ("/changes/abc", "/changes/0"):
+        browsed = world.get(path)
+        assert browsed.status_code == 404, path
+        assert browsed.headers["content-type"].startswith("text/html"), path
+        assert "Page not found" in browsed.text and '"detail"' not in browsed.text, path
+
+
+def test_a_reversed_date_range_is_swapped_and_the_page_says_so(world: World) -> None:
+    html, _parsed = page(world, "/changes?from=2026-11-20&to=2026-11-01")
+    assert "The dates were the wrong way round" in html
+    plain, _parsed = page(world, "/changes?from=2026-11-01&to=2026-11-20")
+    assert "The dates were the wrong way round" not in plain
 
 
 def test_the_changes_entry_of_the_navigation_is_current_on_both_pages(world: World) -> None:

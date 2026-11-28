@@ -502,6 +502,8 @@ class SourcePages:
     ``service`` makes every change (create, update, enable, disable, delete, sender key).
     ``probe_factory`` builds the collector of a test connection; None means the test is not
     available on this installation (``serve`` has no collector factory yet).
+    ``known_resources`` are the resource types that have a type table; the form of a push source
+    refuses any other (None skips that check).
     """
 
     def __init__(
@@ -511,11 +513,13 @@ class SourcePages:
         *,
         probe_factory: ProbeFactory | None = None,
         clock: Callable[[], datetime] = _utc_now,
+        known_resources: frozenset[str] | None = None,
     ) -> None:
         self._db = database
         self.service = service
         self.probe_factory = probe_factory
         self._clock = clock
+        self.known_resources = known_resources
 
     def now(self) -> datetime:
         return self._clock()

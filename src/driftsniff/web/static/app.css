@@ -1,7 +1,7 @@
 /* driftsniff stylesheet. One file, no build step, served from /static/app.css.
    Part 1 are the design tokens: the colour values are copied from docs/design-colours.json and
    tests/unit/test_check_contrast.py fails when a value here differs from the JSON (the same
-   check guards docs/mockups/theme.css). Part 2 are the components of docs/design-direction.md,
+   check guards docs/mockups/theme.css). Part 2 are the components of docs/web-interface.md,
    carried over from the mock-up stylesheet. No style attribute and no inline style
    element is ever used by a template: the content security policy blocks both. */
 

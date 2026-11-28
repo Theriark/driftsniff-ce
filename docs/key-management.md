@@ -101,16 +101,21 @@ key once at start.
    the `environment` list of the service for this start, then run `docker compose up -d`. While
    the rekey runs, `serve` reads the rekey state from the database and refuses to start when the
    key file or the old key file is not the one the rekey expects.
-6. Let every enabled source finish one clean collection cycle: a run whose status is `ok` and in
-   which every resource was read. A failing or partial run does not count; the source waits for
-   its next clean run. During that cycle the collector
+6. Let every enabled source finish one clean collection cycle: a run in which every resource was
+   read, or refused or missing (an HTTP 401, 403, 404, 405, 410 or 501 answer, or a resource
+   without a type table). A resource that may still answer later (a timeout, a server error, no
+   connection) makes the run not count; the source waits for its next run. A source that cannot
+   finish a cycle at all: disable or delete it, and the rekey stops waiting for it. During that
+   cycle the collector
    computes each stored fingerprint again with the key that made it. Equal: the secret did not
    change, so it is stored again under the new key with no change item. Different: a real
    change, shown as usual. A restart in the middle simply continues the cycle.
 7. When every enabled source has finished its clean cycle, one system event `fingerprint_rekey`
    is written and the rekey is complete. Remove `DRIFTSNIFF_OLD_KEY_FILE` from the service, run
    `docker compose up -d`, back up the new key file and delete the old one. A later rekey can
-   start only after this event.
+   start only after this event, or when the rekey can no longer finish because every source it
+   still waits for is disabled or deleted: the new rekey then replaces it and writes the system
+   event `fingerprint_rekey_abandoned`.
 
 If `serve` starts during a rekey without `DRIFTSNIFF_OLD_KEY_FILE`, it logs a warning and
 re-stamps the stored fingerprints without a comparison: a secret that changed during that cycle
@@ -122,5 +127,7 @@ If the old key is lost, run step 4 with `rekey --old-key-lost` instead and witho
 are re-stamped without a comparison during the next cycle, and credentials made with the lost
 key cannot be recovered: enter them again.
 
-Limits: only one rekey runs at a time; a source that is disabled when the rekey starts is not
-waited for, so its fingerprints are re-stamped without a comparison if it is enabled later.
+Limits: only one rekey runs at a time; a source that is disabled when the rekey starts, or is
+disabled or deleted while it runs, is not waited for, so its fingerprints are re-stamped without
+a comparison if it is enabled later. The same holds for a resource that was refused or missing
+during the cycle and can be read again later.

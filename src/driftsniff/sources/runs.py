@@ -136,6 +136,34 @@ def _failure(
     return _Outcome(name, status, fetched, None, error_class, text)
 
 
+# Failures the pipeline itself finds; their texts are fixed and name the real reason (an object
+# without its key field, a resource without a type table), so the run summary shows them.
+_OWN_FAILURES: Final = frozenset(
+    {ERROR_BAD_OBJECT, ERROR_DUPLICATE_KEY, ERROR_UNKNOWN_RESOURCE, ERROR_RUN_TIMEOUT}
+)
+
+
+def _reason(outcome: _Outcome) -> str:
+    """Why a resource failed, for the run summary: the pipeline's own text, else the status."""
+    if outcome.error_class in _OWN_FAILURES and outcome.error_text:
+        return outcome.error_text
+    return outcome.status
+
+
+# Answers that waiting will not change: the account may not read the resource, or the system
+# does not have it.
+_REFUSED_STATUSES: Final = frozenset({"401", "403", "404", "405", "410", "501"})
+
+
+def _cannot_be_read(outcome: _Outcome) -> bool:
+    """True for a resource this source cannot read as it is set up (refused, missing, unknown).
+
+    Such a resource does not keep a rekey waiting: the run still counts as the source's clean
+    cycle (:mod:`driftsniff.secrets.rekey`).
+    """
+    return outcome.error_class == ERROR_UNKNOWN_RESOURCE or outcome.status in _REFUSED_STATUSES
+
+
 class _SourceLocks:
     """The sources that have a run going in this process."""
 
@@ -387,6 +415,11 @@ class RunPipeline:
         self._run_limit = run_limit_seconds
         self._locks = _SourceLocks()
 
+    @property
+    def known_resources(self) -> frozenset[str]:
+        """The resource types that have a type table; a run can read no other."""
+        return frozenset(self._engine.index.type_tables)
+
     def run(self, source_id: int, collector: Collector) -> RunReport:
         """Collect one source with ``collector`` and record the result.
 
@@ -604,9 +637,9 @@ class RunPipeline:
                 return _failure(name, ERROR_BAD_OBJECT, "an object is unreadable", fetched=fetched)
             key = _object_key(table, state)
             if key is None:
-                return _failure(
-                    name, ERROR_BAD_OBJECT, "an object has no usable key", fetched=fetched
-                )
+                field_name = table.object_key_field or "key"
+                text = f"an object has no usable {field_name}"
+                return _failure(name, ERROR_BAD_OBJECT, text, fetched=fetched)
             if key in seen:
                 return _failure(
                     name, ERROR_DUPLICATE_KEY, "two objects have the same key", fetched=fetched
@@ -653,7 +686,7 @@ class RunPipeline:
         failed_class = failed[0].error_class if failed else None
         failed_summary: str | None = None
         if failed:
-            listed = "; ".join(f"{outcome.name} ({outcome.status})" for outcome in failed)
+            listed = "; ".join(f"{outcome.name} ({_reason(outcome)})" for outcome in failed)
             failed_summary = f"failed: {listed}"
         if warned:
             repaired = "; ".join(
@@ -710,7 +743,10 @@ class RunPipeline:
                         rule_pack_version=self._engine.pack_version,
                     )
             _write_coverage(connection, source_id, outcomes, finished)
-            if restamp is not None and status == "ok":
+            # A resource that failed because it is refused or missing never ends a rekey's wait;
+            # one that may still answer (a timeout, a server error) does: the next run tries.
+            clean = all(_cannot_be_read(outcome) for outcome in failed)
+            if restamp is not None and clean:
                 state = record_clean_cycle(connection, source_id, restamped=restamped, at=finished)
                 if state is not None and not state.active:
                     logger.warning(
@@ -729,25 +765,30 @@ class RunPipeline:
         )
 
     def _restamp(self, connection: Connection, twins: Twins | None) -> Restamp | None:
-        """How this run reads stored fingerprints: None outside an active rekey.
+        """How this run reads stored fingerprints: None when no rekey was ever made.
 
         A rekey to a key this process does not hold (the rekey ran while the application was
-        up) is left alone until the application is restarted with the new key.
+        up) is left alone until the application is restarted with the new key. After a rekey
+        completed, a fingerprint of an earlier key can still be stored (a source that was
+        skipped, or a resource it could not read): it is re-stamped without a comparison instead
+        of being reported as a changed secret.
         """
         try:
             state = load_rekey_state(connection)
         except RekeyError as error:
             logger.warning("the rekey state cannot be read: %s", error)
             return None
-        if state is None or not state.active:
+        if state is None:
             return None
         current = self._fingerprinter.key_id
         if state.new_key_id != current:
-            logger.warning(
-                "a rekey to key %s is in progress but this process uses key %s: restart driftsniff",
-                state.new_key_id,
-                current,
-            )
+            if state.active:
+                logger.warning(
+                    "a rekey to key %s is in progress but this process uses key %s: "
+                    "restart driftsniff",
+                    state.new_key_id,
+                    current,
+                )
             return None
         old = self._old_fingerprinter
         if state.mode == MODE_OLD_KEY and old is not None and old.key_id == state.old_key_id:

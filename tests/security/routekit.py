@@ -69,6 +69,7 @@ ROUTE_TABLE: dict[tuple[str, str], Access] = {
     ("POST", "/sources/{source_id}/disable"): Access.ADMIN,
     ("POST", "/sources/{source_id}/delete"): Access.ADMIN,
     ("POST", "/sources/{source_id}/push-key"): Access.ADMIN,
+    ("GET", "/sources/{source_id}/push-key"): Access.ADMIN,
     # The change pages: a viewer reads, an operator acknowledges, notes and mutes.
     ("GET", "/changes"): Access.VIEWER,
     ("GET", "/changes/{event_id}"): Access.VIEWER,

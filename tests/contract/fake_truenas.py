@@ -1,6 +1,6 @@
 """A fake TrueNAS JSON-RPC 2.0 WebSocket API on localhost for the contract tests.
 
-It is meant to be ported to the company Mock Platform as the Dev/Stage simulation of TrueNAS, so
+It is meant to be reused as a simulated TrueNAS for Development and Stage testing, so
 it speaks the real wire protocol and does not import driftsniff: the WebSocket framing below is its
 own (RFC 6455, server side), independent of the client in ``collectors/truenas/websocket.py``.
 

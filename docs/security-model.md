@@ -1,6 +1,6 @@
 # Security model
 
-Threat-model review of driftsniff CE, written against `development` at commit `0ff6a65bc9a18544254f750def31edcd8efae3f2`. Each control names the test that proves it. A control with no test, or with a known weakness, is in the gap list. Test names were located by reading the test files; the review did not run the suite, so CI on the pull request is the execution evidence.
+Threat-model review of Driftsniff CE, written against `development` at commit `0ff6a65bc9a18544254f750def31edcd8efae3f2`. Each control names the test that proves it. A control with no test, or with a known weakness, is in the gap list. Test names were located by reading the test files; the review did not run the suite, so CI on the pull request is the execution evidence.
 
 ## What is sensitive
 

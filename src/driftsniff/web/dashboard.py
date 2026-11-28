@@ -1473,6 +1473,7 @@ def _activity(connection: Connection, names: Mapping[int, str]) -> tuple[Activit
         )
     audit_rows = connection.execute(
         sa.select(
+            audit_events.c.id,
             audit_events.c.at,
             audit_events.c.actor,
             audit_events.c.action,
@@ -1483,31 +1484,61 @@ def _activity(connection: Connection, names: Mapping[int, str]) -> tuple[Activit
         .order_by(audit_events.c.at.desc(), audit_events.c.id.desc())
         .limit(ACTIVITY_LIMIT)
     ).all()
+    created = _source_created_ids(connection, {str(row.target) for row in audit_rows})
     for audit_row in audit_rows:
         action = str(audit_row.action)
         verb = AUDIT_VERBS.get(action, action.replace(".", " ").replace("_", " "))
         target = "" if audit_row.target is None else str(audit_row.target)
         detail = audit_row.detail if isinstance(audit_row.detail, Mapping) else {}
-        label, href = audit_target(target, names, detail)
+        # An entry written before its source id was given to a newer source (databases from
+        # before source ids stopped being reused) belongs to a source that is gone.
+        current = int(audit_row.id) >= created.get(target, 0)
+        label, href = audit_target(target, names, detail, current=current)
         text = f"{audit_row.actor} {verb}" + (" " if label else "")
         entries.append(Activity("", text, label, href, "", parse_stamp(str(audit_row.at))))
     entries.sort(key=lambda entry: entry.when, reverse=True)
     return tuple(entries[:ACTIVITY_LIMIT])
 
 
+def _source_created_ids(connection: Connection, targets: set[str]) -> dict[str, int]:
+    """For each ``source:<id>`` target, the audit id of the newest ``source.create`` event."""
+    wanted = sorted(target for target in targets if target.startswith("source:"))
+    if not wanted:
+        return {}
+    rows = connection.execute(
+        sa.select(audit_events.c.target, sa.func.max(audit_events.c.id))
+        .where(audit_events.c.action == "source.create", audit_events.c.target.in_(wanted))
+        .group_by(audit_events.c.target)
+    ).all()
+    return {str(row[0]): int(row[1]) for row in rows}
+
+
 def audit_target(
-    target: str, names: Mapping[int, str], detail: Mapping[str, Any] | None = None
+    target: str,
+    names: Mapping[int, str],
+    detail: Mapping[str, Any] | None = None,
+    *,
+    current: bool = True,
 ) -> tuple[str, str]:
     """The readable label and the link of an audit target; never a raw ``kind:id`` text.
 
     A source gets its name and page, a change its number and page, a mute the resource type it
     applies to and the muted paths list. Any other target (a user name, a token prefix, a channel
     type) is already readable and stays as it is.
+
+    A source that was deleted (``current`` False: the entry belongs to an earlier source with
+    the same id) never takes the name of another source: it shows the name the entry recorded,
+    or "(removed)", and no link.
     """
     kind, _, rest = target.partition(":")
     if kind == "source" and rest.isdigit():
         source_id = int(rest)
-        return names.get(source_id, f"source {source_id}"), f"/sources/{source_id}"
+        if current and source_id in names:
+            return names[source_id], f"/sources/{source_id}"
+        recorded = (detail or {}).get("name")
+        if isinstance(recorded, str) and recorded:
+            return recorded, ""
+        return "(removed)", ""
     if kind == "event" and rest.isdigit():
         return f"change {number(int(rest))}", f"/changes/{int(rest)}"
     if kind == "mute" and rest.isdigit():

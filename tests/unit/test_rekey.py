@@ -3,12 +3,15 @@
 import pytest
 import sqlalchemy as sa
 
+from driftsniff.core.diff import ChangeItem
+from driftsniff.core.normalize import FieldClass
 from driftsniff.db.engine import Database
 from driftsniff.db.tables import DEFAULT_WORKSPACE_ID, audit_events, settings, sources
 from driftsniff.secrets.crypto import CredentialCipher, CredentialDecryptError
 from driftsniff.secrets.fingerprint import Fingerprinter
 from driftsniff.secrets.keys import KEY_BYTES, MasterKey
 from driftsniff.secrets.rekey import (
+    EVENT_ABANDONED,
     EVENT_BASELINE,
     EVENT_REKEY,
     MODE_OLD_KEY,
@@ -18,12 +21,15 @@ from driftsniff.secrets.rekey import (
     RekeyError,
     RekeyInProgressError,
     RekeyState,
+    Restamp,
     Verdict,
     begin_rekey,
     check_fingerprint,
     load_rekey_state,
     record_clean_cycle,
     rekey_credentials,
+    release_source,
+    restamp_items,
     run_rekey,
 )
 
@@ -426,3 +432,127 @@ def test_a_lost_key_is_not_a_change_for_any_stored_fingerprint() -> None:
     check = check_fingerprint(stored, NEW_FP, None, TYPE, PATH, CANARY)
     assert check.is_change is False
     assert check.verdict is Verdict.UNKNOWN
+
+
+# --- a rekey that sources cannot finish ----------------------------------------------------
+
+OLDEST = MasterKey(bytes([7]) * KEY_BYTES)
+
+
+def secret_item(before_fp: str, after_fp: str) -> ChangeItem:
+    return ChangeItem(
+        resource=TYPE,
+        object_key="r1",
+        object_name="rule one",
+        change_kind="modified",
+        path=PATH,
+        field_class=FieldClass.SECRET,
+        before_value=None,
+        after_value=None,
+        before_fp=before_fp,
+        after_fp=after_fp,
+        window_start=AT,
+        window_end=LATER,
+    )
+
+
+def test_a_disabled_or_deleted_source_is_released_and_recorded_as_skipped(
+    store: Database,
+) -> None:
+    add_source(store, 2)
+    run_rekey(store, OLD, NEW, AT)
+    with store.write() as connection:
+        state = release_source(connection, 2, at=AT)
+    assert state is not None
+    assert (state.active, state.remaining, state.skipped) == (True, (1,), (2,))
+    assert state_of(store) == state
+
+
+def test_releasing_the_last_source_completes_the_rekey(store: Database) -> None:
+    add_source(store, 2)
+    run_rekey(store, OLD, NEW, AT)
+    with store.write() as connection:
+        record_clean_cycle(connection, 1, restamped=2, at=AT)
+        done = release_source(connection, 2, at=LATER)
+    assert done is not None
+    assert done.status == STATUS_COMPLETE
+    assert done.completed_at == LATER
+    assert audit_actions(store) == [EVENT_REKEY]
+    with store.read() as connection:
+        detail = connection.execute(sa.select(audit_events.c.detail)).scalar_one()
+    assert detail["skipped_sources"] == [2]
+    assert detail["restamped"] == 2
+
+
+def test_releasing_changes_nothing_outside_a_rekey_or_for_a_stranger(store: Database) -> None:
+    with store.write() as connection:
+        assert release_source(connection, 1, at=AT) is None
+    run_rekey(store, OLD, NEW, AT)
+    with store.write() as connection:
+        state = release_source(connection, 99, at=AT)
+    assert state is not None
+    assert (state.remaining, state.skipped) == ((1,), ())
+
+
+def test_a_rekey_that_can_no_longer_finish_is_replaced_by_a_new_one(store: Database) -> None:
+    run_rekey(store, OLD, NEW, AT)
+    # A state left by an older version: the source was disabled without releasing it.
+    with store.write() as connection:
+        connection.execute(sa.update(sources).values(enabled=False))
+    third = MasterKey(bytes([9]) * KEY_BYTES)
+    result = run_rekey(store, NEW, third, LATER)
+    assert result.state.old_key_id == NEW.key_id
+    assert result.state.new_key_id == third.key_id
+    assert audit_actions(store) == [EVENT_ABANDONED, EVENT_REKEY]
+    with store.read() as connection:
+        detail = connection.execute(
+            sa.select(audit_events.c.detail).where(audit_events.c.action == EVENT_ABANDONED)
+        ).scalar_one()
+    assert detail["unfinished_sources"] == [1]
+    assert detail["new_key_id"] == NEW.key_id
+
+
+def test_a_rekey_with_a_deleted_source_left_can_be_replaced(store: Database) -> None:
+    add_source(store, 2)
+    run_rekey(store, OLD, NEW, AT)
+    with store.write() as connection:
+        record_clean_cycle(connection, 1, restamped=0, at=AT)
+        connection.execute(sa.delete(sources).where(sources.c.id == 2))
+    result = run_rekey(store, NEW, OLD, LATER)
+    assert result.state.active
+    assert EVENT_ABANDONED in audit_actions(store)
+
+
+def test_a_state_stored_without_skipped_sources_still_loads(store: Database) -> None:
+    text = (
+        '{"completed_at": null, "mode": "old_key", "new_key_id": "b", "old_key_id": "a", '
+        '"remaining": [1], "restamped": 0, "started_at": "2026-10-21T10:00:00Z", '
+        '"status": "active"}'
+    )
+    with store.write() as connection:
+        connection.execute(
+            sa.insert(settings).values(
+                workspace_id=DEFAULT_WORKSPACE_ID, key=REKEY_SETTING, value=text
+            )
+        )
+    state = state_of(store)
+    assert (state.remaining, state.skipped) == ((1,), ())
+
+
+def test_a_fingerprint_older_than_the_old_key_is_restamped_without_a_comparison() -> None:
+    oldest = Fingerprinter.from_master(OLDEST)
+    stored = oldest.fingerprint(TYPE, PATH, CANARY).marker()
+    fresh = NEW_FP.fingerprint(TYPE, PATH, CANARY).marker()
+    twin = OLD_FP.fingerprint(TYPE, PATH, CANARY).marker()
+    restamp = Restamp(NEW.key_id, OLD.key_id, {fresh: twin})
+    kept, restamped = restamp_items([secret_item(stored, fresh)], restamp)
+    assert (kept, restamped) == ([], 1)
+
+
+def test_an_old_key_fingerprint_of_another_secret_is_still_a_change() -> None:
+    stored = OLD_FP.fingerprint(TYPE, PATH, CANARY).marker()
+    fresh = NEW_FP.fingerprint(TYPE, PATH, "CANARY-secret-0002").marker()
+    twin = OLD_FP.fingerprint(TYPE, PATH, "CANARY-secret-0002").marker()
+    item = secret_item(stored, fresh)
+    kept, restamped = restamp_items([item], Restamp(NEW.key_id, OLD.key_id, {fresh: twin}))
+    assert (kept, restamped) == ([item], 0)

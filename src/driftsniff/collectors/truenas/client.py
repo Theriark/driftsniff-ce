@@ -8,8 +8,8 @@ TrueNAS was used.
 * The credential is ``username:API key``. The API key travels once per run, inside the
   ``auth.login_ex`` call (mechanism ``API_KEY_PLAIN``) on the open WebSocket, and nowhere else:
   never in a URL, a header, a log line or an error text. TrueNAS revokes an API key that is used
-  over plain http, so the client refuses http unless ``allow_plain_http`` is set (tests and the
-  mock platform only).
+  over plain http, so the client refuses http unless ``allow_plain_http`` is set (tests and
+  simulated test systems only).
 * ``probe()`` resolves and pins the address (``collectors/resolve.py``), opens the WebSocket at
   :data:`~driftsniff.collectors.truenas.resources.API_PATH`, signs in and reads ``system.version``.
   The connection stays open for the run and :meth:`close` ends it.

@@ -274,7 +274,7 @@
         <label for="ch-type-webhook">Webhook</label>
         <span class="help" id="ch-type-webhook-help">A signed JSON post to your chat bridge or ticket system.</span>
         <div class="choice__extra">
-          {{ text_field("ch-url", "url", "Address", type="url", help="The full https:// address. It is stored encrypted; this page shows only its host, so type it again to change it.", error=ch_errors.get("url", ""), autocomplete="off", placeholder="https://hooks.example/driftsniff", mono=true) }}
+          {{ text_field("ch-url", "url", "Address", type="url", help="The full address, starting with https:// (or http:// for a receiver on your own network). It is stored encrypted; this page shows only its host, so type it again to change it.", error=ch_errors.get("url", ""), autocomplete="off", placeholder="https://hooks.example/driftsniff", mono=true) }}
         </div>
       </div>
       <div class="choice">

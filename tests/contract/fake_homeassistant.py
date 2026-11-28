@@ -1,9 +1,8 @@
 """A fake Home Assistant WebSocket API on localhost for the contract tests.
 
-It is meant to be ported to the company Mock Platform as the Dev/Stage simulation of Home
-Assistant, so it speaks the real wire protocol and does not import driftsniff: the WebSocket framing
-below is its own (RFC 6455, server side), independent of the client in
-``collectors/truenas/websocket.py``.
+It is meant to be reused as a simulated Home Assistant for Development and Stage testing, so it
+speaks the real wire protocol and does not import driftsniff: the WebSocket framing below is its
+own (RFC 6455, server side), independent of the client in ``collectors/truenas/websocket.py``.
 
 Surface (docs/vendor-notes/homeassistant.md has the sources):
 

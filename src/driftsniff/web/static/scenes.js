@@ -1,5 +1,5 @@
 /*
- * The 3D views of the interface (docs/design-direction.md, "The 3D views"). One ES module for
+ * The 3D views of the interface (docs/web-interface.md). One ES module for
  * every scene; a page carries a block with data-scene="<kind>" and loads this file:
  * - lab: the dashboard's sources as devices on a desk, the severity shape of each source's worst
  *   open change on its status lights;

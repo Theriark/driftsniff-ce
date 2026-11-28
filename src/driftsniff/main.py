@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.concurrency import run_in_threadpool
+from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from driftsniff import __version__
@@ -33,7 +34,7 @@ from driftsniff.web.bearer import TokenService
 from driftsniff.web.change_pages import ChangePages
 from driftsniff.web.csrf import BrowserHardeningMiddleware
 from driftsniff.web.dashboard import DashboardService
-from driftsniff.web.pages import handle_http_exception
+from driftsniff.web.pages import handle_http_exception, handle_validation_error
 from driftsniff.web.replay import ReplayService
 from driftsniff.web.routes_ui import router as ui_router
 from driftsniff.web.settings_service import SettingsService
@@ -150,6 +151,7 @@ def create_app(
     app.state.openapi_cache = None
     app.add_middleware(BrowserHardeningMiddleware)
     app.add_exception_handler(StarletteHTTPException, handle_http_exception)
+    app.add_exception_handler(RequestValidationError, handle_validation_error)
     app.include_router(ui_router)
     app.include_router(routes_sources.router)
     app.include_router(routes_changes.router)

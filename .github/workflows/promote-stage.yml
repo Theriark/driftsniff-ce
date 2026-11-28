@@ -2,7 +2,7 @@ name: Promote - Stage
 
 run-name: ${{ inputs.dry_run && 'Promote - Stage (dry run)' || 'Promote - Stage' }}
 
-# One button, run from development (Gate 2 approval dispatches it with no inputs). It takes the
+# One button, run from development (the Stage approval dispatches it with no inputs). It takes the
 # exact commit Development runs (its /healthz commit and the digest the Development app runs),
 # requires the successful CI push run of that commit, runs the test suite at that commit, then
 # tags the next release candidate v27.<minor>.<patch>-rc.<n> (scripts/release_version.py

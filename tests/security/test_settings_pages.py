@@ -293,7 +293,10 @@ def test_a_blocked_address_is_refused_with_the_field_marked_and_not_filled_back(
     response = submit(kit, admin, "/notifications/channel", {"type": "webhook", "url": url})
     page = html(response, 422)
     marked(page, "ch-url")
-    assert "The address names an address that is never allowed." in page.text()
+    assert (
+        "The address points to a link-local or cloud metadata address, which is never allowed."
+        in page.text()
+    )
     assert "CANARY" not in response.text and page.by_id("ch-url").get("value") is None
     assert "notification.channel_saved" not in actions(kit)
 

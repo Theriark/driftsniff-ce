@@ -66,9 +66,11 @@ from driftsniff.db.tables import (
     resource_coverage,
     runs,
     snapshots,
+    source_ids,
     sources,
 )
 from driftsniff.secrets.crypto import CredentialCipher
+from driftsniff.secrets.rekey import RekeyError, release_source
 from driftsniff.sources.addresses import AddressError, validate_base_url
 
 logger = logging.getLogger(__name__)
@@ -440,6 +442,32 @@ def _audit_tls_insecure(connection: Connection, at: str, actor: str, source_id: 
     _audit(connection, at, actor, ACTION_TLS_INSECURE, source_id, {"set": True})
 
 
+def _next_source_id(connection: Connection) -> int:
+    """An id no source ever had, so a deleted source's audit trail never names a new source.
+
+    ``source_ids`` (AUTOINCREMENT) hands it out; a source stored with an explicit id (a test or
+    a development seed) is stepped over.
+    """
+    highest = connection.execute(sa.select(sa.func.max(sources.c.id))).scalar_one_or_none()
+    taken = int(connection.execute(sa.insert(source_ids).returning(source_ids.c.id)).scalar_one())
+    if highest is not None and taken <= int(highest):
+        stepped = sa.insert(source_ids).values(id=int(highest) + 1).returning(source_ids.c.id)
+        taken = int(connection.execute(stepped).scalar_one())
+    connection.execute(sa.delete(source_ids))
+    return taken
+
+
+def _release_from_rekey(connection: Connection, source_id: int, at: str) -> None:
+    """A disabled or deleted source no longer keeps a running rekey waiting.
+
+    A damaged rekey state is logged and left alone; it never blocks disabling or deleting.
+    """
+    try:
+        release_source(connection, source_id, at=at)
+    except RekeyError as error:
+        logger.warning("the rekey state cannot be read: %s", error)
+
+
 def interval_of(options: Mapping[str, object]) -> int:
     """The seconds between two runs of a source: its ``interval_seconds`` option, else 300.
 
@@ -502,6 +530,7 @@ class SourceService:
                 insert = (
                     sa.insert(sources)
                     .values(
+                        id=_next_source_id(connection),
                         workspace_id=DEFAULT_WORKSPACE_ID,
                         name=cleaned_name,
                         type=source_type,
@@ -597,7 +626,10 @@ class SourceService:
         return view
 
     def set_enabled(self, source_id: int, enabled: bool, *, actor: str) -> SourceView:
-        """Enable or disable a source. A disabled source is not collected."""
+        """Enable or disable a source. A disabled source is not collected.
+
+        Disabling a source also stops a running rekey from waiting for it.
+        """
         now = self._clock()
         with self._database.write() as connection:
             self._row(connection, source_id)
@@ -606,6 +638,8 @@ class SourceService:
             )
             action = ACTION_ENABLE if enabled else ACTION_DISABLE
             _audit(connection, now, actor, action, source_id, {})
+            if not enabled:
+                _release_from_rekey(connection, source_id, now)
             view = self._view(connection, source_id)
         logger.info("source %s %s", source_id, "enabled" if enabled else "disabled")
         return view
@@ -635,6 +669,7 @@ class SourceService:
                 "removed_states": collected.removed_count,
             }
             _audit(connection, now, actor, ACTION_DELETE, source_id, detail)
+            _release_from_rekey(connection, source_id, now)
         logger.info("source %s deleted", source_id)
         return DeleteResult(collected.removed_count, collected.freed_bytes)
 

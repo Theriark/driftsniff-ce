@@ -19,7 +19,8 @@ characters, starting with a letter or digit), so it cannot leave `/data/ca`. The
 text of at most 64 KB that holds only `CERTIFICATE` blocks (a private key in the file is refused),
 must not be a symbolic link, and must load in OpenSSL. There is no upload: put the PEM file in
 `/data/ca` on the data volume and type its file name in the source form (Certificate checks,
-**CA bundle file name**).
+**CA bundle file name**). Saving the form checks the file: one that is not there, is a link, is
+too large or holds anything but certificates is refused with a message on that field.
 
 ## Pinned
 

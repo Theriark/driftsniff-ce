@@ -20,6 +20,7 @@ from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from html.parser import HTMLParser
+from pathlib import Path
 from typing import Any, cast
 
 import pytest
@@ -40,7 +41,7 @@ from driftsniff.sources.probe import ProbeTarget
 from driftsniff.sources.scheduler import RunNowResult, RunNowStatus, Scheduler
 from driftsniff.sources.service import SourceService
 from driftsniff.web.auth import SESSION_COOKIE, AuthService, make_password_hasher
-from driftsniff.web.routes_sources import PUSH_NOTICES
+from driftsniff.web.routes_sources import PUSH_NOTICES, OnceKeys, parse_form
 from driftsniff.web.source_pages import SourcePages
 
 ORIGIN = "http://testserver"
@@ -675,11 +676,23 @@ def test_a_push_source_declares_fields_and_shows_its_sender_key_once(world: Worl
     assert world.service.get(source_id).options == {
         "push_fields": {"unifi-networks": ["id", "name", "vlanId"]}
     }
-    made = assert_page(world.post(f"/sources/{source_id}/push-key", {}))
+    posted = world.post(f"/sources/{source_id}/push-key", {})
+    # post, redirect, get: the key is on the page the post redirects to, never in the address
+    assert posted.status_code == 303
+    location = posted.headers["location"]
+    assert location.startswith(f"/sources/{source_id}/push-key?shown=")
+    made = assert_page(world.get(location))
     key_input = next(a for a in made.find("input") if a.get("name") == "push_key")
     key = str(key_input.get("value"))
+    assert key not in location
     target = world.service.push_target(source_id)
     assert target is not None and target.key_hash == hashlib.sha256(key.encode()).hexdigest()
+    # a refresh shows no key and makes no new one
+    again = world.get(location)
+    assert again.status_code == 200
+    assert key not in again.text and "The sender key is not shown again" in again.text
+    after = world.service.push_target(source_id)
+    assert after is not None and after.key_hash == target.key_hash
     later = world.get(f"/sources/{source_id}")
     assert key not in later.text and "Made; only its SHA-256 is stored" in later.text
     assert key not in world.get(f"/sources/{source_id}/edit").text
@@ -689,6 +702,60 @@ def test_a_push_source_declares_fields_and_shows_its_sender_key_once(world: Worl
         {"full_form": "1", "type": "push", "name": "x", "push_fields": "networks"},
     )
     assert bad.status_code == 422
+
+
+def test_a_waiting_sender_key_is_given_once_to_its_own_user_and_source_only() -> None:
+    now = [100.0]
+    keys = OnceKeys(clock=lambda: now[0])
+    handle = keys.put("admin", 3, "dsp_CANARY-key")
+    assert keys.take(handle, "other-admin", 3) is None  # and it is gone now
+    assert keys.take(handle, "admin", 3) is None
+    handle = keys.put("admin", 3, "dsp_CANARY-key")
+    assert keys.take(handle, "admin", 4) is None
+    handle = keys.put("admin", 3, "dsp_CANARY-key")
+    assert keys.take(handle, "admin", 3) == "dsp_CANARY-key"
+    assert keys.take(handle, "admin", 3) is None
+    late = keys.put("admin", 3, "dsp_CANARY-key")
+    now[0] += 121.0
+    assert keys.take(late, "admin", 3) is None
+    assert "CANARY" not in repr(keys._waiting)
+
+
+def test_a_ca_file_that_is_not_in_the_ca_folder_is_refused_on_the_form(tmp_path: Path) -> None:
+    fields = {
+        "full_form": "1",
+        "name": "lab",
+        "base_url": "https://203.0.113.10",
+        "credential": "key",
+        "tls_mode": "ca_file",
+        "tls_ca_file": "lab-ca.pem",
+    }
+    missing = parse_form(fields, "unifi", data_dir=tmp_path)
+    assert "does not exist" in missing.errors["tls_ca_file"]
+    assert "ca folder" in missing.errors["tls_ca_file"]
+    (tmp_path / "ca").mkdir()
+    (tmp_path / "ca" / "lab-ca.pem").write_text(
+        "-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n", encoding="ascii"
+    )
+    present = parse_form(fields, "unifi", data_dir=tmp_path)
+    assert "tls_ca_file" not in present.errors
+    # without a data folder (the test connection form) the name alone is checked
+    assert "tls_ca_file" not in parse_form(fields, "unifi").errors
+
+
+def test_a_push_resource_without_a_type_table_is_refused_on_the_form() -> None:
+    known = frozenset({"unifi-networks", "xo-vms"})
+    fields = {"full_form": "1", "type": "push", "name": "netbox"}
+    good = parse_form({**fields, "push_fields": PUSH_FIELDS_EXAMPLE}, "push", known_resources=known)
+    assert good.errors == {}
+    bad = parse_form(
+        {**fields, "push_fields": "unifi-networks: id\nnetbox-devices: id, name"},
+        "push",
+        known_resources=known,
+    )
+    assert "netbox-devices" in bad.errors["push_fields"]
+    assert "no type table" in bad.errors["push_fields"]
+    assert "push_fields" not in bad.options
 
 
 def test_the_push_hint_and_line_error_show_the_unifi_networks_example(world: World) -> None:

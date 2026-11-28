@@ -38,7 +38,7 @@ from driftsniff.changes.errors import (
     UnknownItemError,
     UnknownMuteError,
 )
-from driftsniff.changes.filters import parse_filters
+from driftsniff.changes.filters import dates_reversed, parse_filters
 from driftsniff.changes.paths import mute_refusal
 from driftsniff.changes.views import ChangeDetailView, ChangeFilters
 from driftsniff.web.auth import ROLE_RANK, Principal
@@ -64,6 +64,7 @@ from driftsniff.web.change_pages import (
     severity_choice,
     severity_params,
     split_difference,
+    whole_object_text,
 )
 from driftsniff.web.dashboard import parse_stamp, resource_label, window_text
 from driftsniff.web.deps import require_operator, require_viewer
@@ -208,6 +209,7 @@ async def list_changes(
         mutes=mutes,
         now=now,
         notice=_notice(request),
+        dates_swapped=dates_reversed(_query(request)),
         severity_choice=severity_choice(filters),
         severity_floors=list(SEVERITY_FLOOR_LABELS.items()),
         exact_severities=list(filters.severities) if exact else [],
@@ -288,6 +290,7 @@ def _detail_page(
         field_label=field_label,
         kind_label=kind_label,
         item_summary=item_summary,
+        whole_object_text=whole_object_text,
         move_text=move_text,
         fingerprint_words=fingerprint_words,
         display_value=display_value,

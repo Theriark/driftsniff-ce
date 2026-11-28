@@ -1,4 +1,4 @@
-# driftsniff CE documentation
+# Driftsniff CE documentation
 
 Documentation for **Driftsniff CE 27.0.0**. Screenshots taken on the Development site, synthetic
 data.

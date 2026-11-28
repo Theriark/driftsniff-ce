@@ -15,8 +15,10 @@ from driftsniff.core.snapshots import (
     store_if_changed,
 )
 from driftsniff.db.engine import Database
+from driftsniff.db.tables import DEFAULT_WORKSPACE_ID
 from driftsniff.secrets.crypto import CredentialCipher
 from driftsniff.secrets.keys import MasterKey
+from driftsniff.secrets.rekey import load_rekey_state, run_rekey
 from driftsniff.sources import service as service_module
 from driftsniff.sources.service import (
     ACTION_ALLOW_PLAIN_HTTP,
@@ -199,6 +201,46 @@ def test_create_update_enable_and_disable_write_audit_events(
             "SELECT detail FROM audit_events WHERE action = ?", (ACTION_UPDATE,)
         ).scalar_one()
     assert json.loads(detail) == {"changed": ["name", "base_url"]}
+
+
+def test_disabling_or_deleting_a_source_stops_a_rekey_from_waiting_for_it(
+    service: SourceService, store: Database
+) -> None:
+    other = make_unifi(service)
+    new_master = MasterKey(bytes(reversed(range(32))))
+    run_rekey(store, MASTER, new_master, NOW)
+    service.set_enabled(EXISTING_ID, False, actor=ACTOR)
+    with store.read() as connection:
+        waiting = load_rekey_state(connection)
+    assert waiting is not None
+    assert (waiting.active, waiting.remaining, waiting.skipped) == (True, (other.id,), (1,))
+    service.delete(other.id, actor=ACTOR)
+    with store.read() as connection:
+        done = load_rekey_state(connection)
+    assert done is not None
+    assert (done.active, done.remaining, done.skipped) == (False, (), (1, other.id))
+
+
+def test_a_deleted_source_id_is_never_given_to_a_new_source(service: SourceService) -> None:
+    first = make_unifi(service, "first")
+    service.delete(first.id, actor=ACTOR)
+    second = make_unifi(service, "second")
+    assert second.id > first.id
+    service.delete(second.id, actor=ACTOR)
+    service.delete(EXISTING_ID, actor=ACTOR)
+    third = make_unifi(service, "third")
+    assert third.id > second.id
+
+
+def test_a_damaged_rekey_state_never_blocks_disabling_a_source(
+    service: SourceService, store: Database
+) -> None:
+    with store.write() as connection:
+        connection.exec_driver_sql(
+            "INSERT INTO settings (workspace_id, key, value) VALUES (?, 'rekey_state', 'x')",
+            (DEFAULT_WORKSPACE_ID,),
+        )
+    assert service.set_enabled(EXISTING_ID, False, actor=ACTOR).enabled is False
 
 
 @pytest.mark.parametrize("extra", [{"base_url": ADDRESS}, {"credential": CANARY}])

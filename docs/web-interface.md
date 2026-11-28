@@ -259,7 +259,8 @@ red when chosen.
 | `POST /sources/{id}/run` | operator | run now; refused within 30 seconds of the last one (429 with `Retry-After` and the wait in words), while a run is going (409), for a disabled or push source (409) and when no scheduler runs (503) |
 | `POST /sources/{id}/enable`, `/disable` | admin | enable or disable; the scheduler is told at once |
 | `POST /sources/{id}/delete` | admin | delete; the typed name must equal the source name (spaces around it are ignored), else 422 and nothing is deleted |
-| `POST /sources/{id}/push-key` | admin | a new sender key for a push source, shown once in that answer |
+| `POST /sources/{id}/push-key` | admin | a new sender key for a push source; a browser is redirected to the page below, other clients get the key in the JSON answer |
+| `GET /sources/{id}/push-key` | admin | the source page with the key just made, shown once (a refresh shows no key and makes none) |
 
 **The credential is write-only.** It is read from the post and handed to the source service
 (which encrypts it) or to the test; no page, JSON answer, redirect or field value carries it.

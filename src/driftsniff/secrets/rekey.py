@@ -19,6 +19,14 @@ the rekey is complete and the admin is told to remove the old key file. Exactly 
 is written per rekey: ``fingerprint_rekey`` when it completes with the old key, or
 ``baseline_reestablished`` when the old key is lost.
 
+A source that can no longer finish its cycle does not hold the rekey open: disabling or
+deleting it releases it (:func:`release_source`, recorded under ``skipped``), and a run in which
+every resource that failed was refused or is missing (403, 404) counts as clean. Fingerprints
+such a source still holds are re-stamped without a comparison when it is read again (verdict
+``unknown``), also after the rekey completed. A rekey whose remaining sources are all disabled
+or deleted (for example one left over from an older version) is replaced by a new rekey, with
+the audit event ``fingerprint_rekey_abandoned``.
+
 The run pipeline (:mod:`driftsniff.sources.runs`) does this for every run while a rekey is
 active: it drops the re-stamps with :func:`restamp_items` and, after a clean run, calls
 :func:`record_clean_cycle` in the run's transaction. ``serve`` loads the old key file.
@@ -54,6 +62,7 @@ REKEY_SETTING = "rekey_state"
 SYSTEM_ACTOR = "system"
 EVENT_REKEY = "fingerprint_rekey"
 EVENT_BASELINE = "baseline_reestablished"
+EVENT_ABANDONED = "fingerprint_rekey_abandoned"
 
 MODE_OLD_KEY = "old_key"
 MODE_OLD_KEY_LOST = "old_key_lost"
@@ -172,7 +181,13 @@ def restamp_items(items: Sequence[ChangeItem], restamp: Restamp) -> tuple[list[C
                 lambda match: restamp.twins.get(match.group(0), match.group(0)), after
             )
         unknown = {key for key in stale if key != restamp.old_key_id}
-        blurred = unknown | {restamp.current_key_id} if unknown else set()
+        blurred: set[str] = set()
+        if unknown:
+            # The after side may hold old-key twins: blur them too, or a fingerprint of a key
+            # older than the old one would never match.
+            blurred = unknown | {restamp.current_key_id}
+            if restamp.old_key_id is not None:
+                blurred.add(restamp.old_key_id)
         if _blur(before, blurred) == _blur(after, blurred):
             restamped += len(stale)
         else:
@@ -192,6 +207,7 @@ class RekeyState:
     restamped: int
     started_at: str
     completed_at: str | None = None
+    skipped: tuple[int, ...] = ()
 
     @property
     def active(self) -> bool:
@@ -210,13 +226,17 @@ class RekeyState:
                 "restamped": self.restamped,
                 "started_at": self.started_at,
                 "completed_at": self.completed_at,
+                "skipped": list(self.skipped),
             },
             sort_keys=True,
         )
 
     @classmethod
     def from_json(cls, text: str) -> Self:
-        """Read the stored form; anything else is a RekeyError (the row was edited by hand)."""
+        """Read the stored form; anything else is a RekeyError (the row was edited by hand).
+
+        ``skipped`` is optional: a state stored by an earlier version has none.
+        """
         try:
             data: Any = json.loads(text)
             return cls(
@@ -228,8 +248,9 @@ class RekeyState:
                 restamped=int(data["restamped"]),
                 started_at=str(data["started_at"]),
                 completed_at=None if data["completed_at"] is None else str(data["completed_at"]),
+                skipped=tuple(int(item) for item in data.get("skipped", [])),
             )
-        except (ValueError, KeyError, TypeError):
+        except (ValueError, KeyError, TypeError, AttributeError):
             raise RekeyError("the stored rekey state is damaged") from None
 
 
@@ -276,8 +297,36 @@ def _finish(connection: sa.Connection, state: RekeyState, at: str) -> RekeyState
             "new_key_id": done.new_key_id,
             "restamped": done.restamped,
         }
+        if done.skipped:
+            detail["skipped_sources"] = list(done.skipped)
         _write_event(connection, EVENT_REKEY, at, detail)
     return done
+
+
+def _cannot_finish(connection: sa.Connection, state: RekeyState) -> bool:
+    """True when no source the rekey still waits for exists and is enabled."""
+    if not state.remaining:
+        return True
+    waiting = connection.execute(
+        sa.select(sources.c.id).where(
+            sources.c.id.in_(state.remaining), sources.c.enabled.is_(True)
+        )
+    ).first()
+    return waiting is None
+
+
+def _abandon(connection: sa.Connection, state: RekeyState, at: str) -> None:
+    """Record that a rekey which can no longer finish is replaced by a new one."""
+    detail: dict[str, JsonValue] = {
+        "old_key_id": state.old_key_id,
+        "new_key_id": state.new_key_id,
+        "unfinished_sources": list(state.remaining),
+        "message": (
+            "the previous rekey could not finish because every source it waited for is "
+            "disabled or deleted; their fingerprints are re-stamped without a comparison"
+        ),
+    }
+    _write_event(connection, EVENT_ABANDONED, at, detail)
 
 
 def begin_rekey(
@@ -292,7 +341,9 @@ def begin_rekey(
     """Start the collection cycle of a rekey.
 
     With ``mode`` old_key_lost the single ``baseline_reestablished`` event is written now.
-    A rekey with no source to wait for is complete at once.
+    A rekey with no source to wait for is complete at once. A rekey that is still active is
+    replaced only when it can no longer finish (every source it waits for is disabled or
+    deleted); the event ``fingerprint_rekey_abandoned`` records that.
     """
     if mode not in MODES:
         raise RekeyError(f"unknown rekey mode {mode!r}")
@@ -300,10 +351,12 @@ def begin_rekey(
         raise RekeyError("the old and the new master key are the same key")
     existing = load_rekey_state(connection)
     if existing is not None and existing.active:
-        raise RekeyInProgressError(
-            "a rekey is already in progress; wait until every source has finished one clean "
-            "collection cycle"
-        )
+        if not _cannot_finish(connection, existing):
+            raise RekeyInProgressError(
+                "a rekey is already in progress; wait until every enabled source has finished "
+                "one clean collection cycle, or disable a source that cannot finish one"
+            )
+        _abandon(connection, existing, at)
     state = RekeyState(
         status=STATUS_ACTIVE,
         mode=mode,
@@ -344,6 +397,29 @@ def record_clean_cycle(
         state,
         remaining=tuple(item for item in state.remaining if item != source_id),
         restamped=state.restamped + max(restamped, 0),
+    )
+    if not updated.remaining:
+        return _finish(connection, updated, at)
+    _save_state(connection, updated)
+    return updated
+
+
+def release_source(connection: sa.Connection, source_id: int, *, at: str) -> RekeyState | None:
+    """Stop waiting for a source that was disabled or deleted while a rekey runs.
+
+    The source is recorded under ``skipped``; its fingerprints are re-stamped without a
+    comparison when it is read again. Returns the new state, or None when no rekey is running.
+    When this was the last source the rekey completes, as after a clean cycle.
+    """
+    state = load_rekey_state(connection)
+    if state is None or not state.active:
+        return None
+    if source_id not in state.remaining:
+        return state
+    updated = replace(
+        state,
+        remaining=tuple(item for item in state.remaining if item != source_id),
+        skipped=tuple(sorted({*state.skipped, source_id})),
     )
     if not updated.remaining:
         return _finish(connection, updated, at)

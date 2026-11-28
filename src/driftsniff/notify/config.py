@@ -93,7 +93,9 @@ def validate_webhook_url(url: str) -> str:
     if parts.fragment:
         raise ChannelConfigError("url must not contain a fragment")
     if _blocked_literal(parts.hostname):
-        raise ChannelConfigError("url names an address that is never allowed")
+        raise ChannelConfigError(
+            "url points to a link-local or cloud metadata address, which is never allowed"
+        )
     return cleaned
 
 
@@ -114,7 +116,12 @@ def _recipients(text: str) -> tuple[str, ...]:
         raise ChannelConfigError(f"to_addresses must hold 1 to {MAX_RECIPIENTS} mail addresses")
     seen: dict[str, None] = {}
     for part in parts:
-        seen[_mail_address(part, "to_addresses")] = None
+        try:
+            seen[_mail_address(part, "to_addresses")] = None
+        except ChannelConfigError:
+            raise ChannelConfigError(
+                "to_addresses must hold only mail addresses, separated by commas"
+            ) from None
     return tuple(seen)
 
 
@@ -128,7 +135,9 @@ def _smtp_host(text: str) -> str:
         if _HOST_NAME.fullmatch(host) is None:
             raise ChannelConfigError("host is not a host name or an address") from None
     if _blocked_literal(host):
-        raise ChannelConfigError("host names an address that is never allowed")
+        raise ChannelConfigError(
+            "host is a link-local or cloud metadata address, which is never allowed"
+        )
     return host
 
 

@@ -927,7 +927,7 @@ jobs:
           .venv/bin/python -m pip install --require-hashes --no-deps -r requirements-dev.txt
           .venv/bin/python -m pip check
 
-      # The documented command of docs/ci-baseline.md section 10.2, run from the repository root
+      # The nightly property tests (docs/ci-cd.md), run from the repository root
       # with the interpreter of the locked virtual environment.
       - name: Run the nightly property tests
         id: properties

@@ -377,3 +377,13 @@ settings = sa.Table(
     sa.Column("value", sa.Text, nullable=False),
     sa.PrimaryKeyConstraint("workspace_id", "key"),
 )
+
+# Hands out source ids (AUTOINCREMENT): an id is never given twice, also after its source was
+# deleted, so the audit trail of a deleted source never names another one. Rows are removed
+# right after an id is taken; SQLite keeps the highest id in sqlite_sequence.
+source_ids = sa.Table(
+    "source_ids",
+    metadata,
+    sa.Column("id", sa.Integer, primary_key=True),
+    sqlite_autoincrement=True,
+)
