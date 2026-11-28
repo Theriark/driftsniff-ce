@@ -2112,6 +2112,19 @@ textarea.input {
   .data-table .col-hide-m {
     display: none;
   }
+
+  /* tablet width: tighter cells and a wrapping Change column, so the table fits its card
+     (at 768 px an "Acknowledged" status badge was cut at the right edge) */
+  .data-table th,
+  .data-table td {
+    padding-left: var(--sp-3);
+    padding-right: var(--sp-3);
+  }
+
+  .data-table .primary-cell {
+    min-width: 150px;
+    overflow-wrap: anywhere;
+  }
 }
 
 @media (max-width: 479px) {
