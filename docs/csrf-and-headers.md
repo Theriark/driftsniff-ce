@@ -1,6 +1,6 @@
 # CSRF, security headers and browser hardening
 
-How driftsniff CE protects the browser interface. The code is `driftsniff/web/csrf.py`
+How Driftsniff CE protects the browser interface. The code is `driftsniff/web/csrf.py`
 (one middleware, added in `driftsniff/main.py`); the tests are `tests/unit/test_web_csrf.py` and
 `tests/security/test_template_scan.py`. The sign-in side is described in [auth.md](auth.md).
 
@@ -9,9 +9,9 @@ How driftsniff CE protects the browser interface. The code is `driftsniff/web/cs
 | Request | Rule | Refusal |
 |---|---|---|
 | POST, PUT, PATCH or DELETE outside `/api/v1/` | If the browser sends an `Origin` header it must be the origin of `DRIFTSNIFF_BASE_URL` (scheme, host and port; `http://host` equals `http://host:80`). `Origin: null` and any other value are refused. | **403** |
-| The same, from a signed-in session | It must also carry the session's CSRF value, compared in constant time. | **403** (**413** for a form post over 16 KB) |
+| The same, from a signed-in session | It must also carry the session's CSRF value, compared in constant time. A browser (a request that accepts `text/html`) gets the designed page "This form expired. Reload the page and try again."; any other client gets the JSON answer. | **403** (**413** for a form post over 16 KB) |
 | `POST /login`, `POST /setup` | Origin check only. They create the session, so there is no per-session value to show yet. | **403** |
-| Anything under `/api/v1/` | Exempt from the CSRF value (it is authenticated by a key or token in a request header). A request that carries the `ds_session` cookie is refused, so a browser session never acts on the API. | **403** |
+| Anything under `/api/v1/` | Exempt from the CSRF value (it is authenticated by a key or token in a request header). A request that carries the `ds_session` cookie is refused, so a browser session never acts on the API; the answer names what to send instead (an API token, or for a push the sender key in `X-Driftsniff-Push-Key`). | **403** |
 | GET, HEAD, OPTIONS | Not checked (they must not change anything). | |
 
 A request without a session (or with an ended one) has no CSRF value to check; the route's own

@@ -22,7 +22,11 @@ from typing import Final
 from urllib.parse import quote
 
 from fastapi.concurrency import run_in_threadpool
-from fastapi.exception_handlers import http_exception_handler
+from fastapi.exception_handlers import (
+    http_exception_handler,
+    request_validation_exception_handler,
+)
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.requests import Request
@@ -201,6 +205,26 @@ def status_page(request: Request, principal: Principal | None, status: int) -> H
     title, text = STATUS_PAGES[status]
     shell = shell_for(request, principal, title)
     return page("status.html", shell, status=status, error=PageError(title, text))
+
+
+async def handle_validation_error(request: Request, exc: Exception) -> Response:
+    """An address whose id is not a number in range (``/changes/abc``) is a missing page.
+
+    A browser asking for a page gets the designed not-found page; every other client, and any
+    error that is not about the path, gets FastAPI's own 422 answer, unchanged.
+    """
+    if not isinstance(exc, RequestValidationError):
+        raise exc
+    in_path = all(error.get("loc", ("",))[0] == "path" for error in exc.errors())
+    if in_path and wants_html(request) and is_page_path(request.url.path):
+        auth: AuthService | None = request.app.state.auth
+        principal = None
+        if auth is not None:
+            principal = await run_in_threadpool(
+                auth.authenticate, request.cookies.get(SESSION_COOKIE)
+            )
+        return status_page(request, principal, 404)
+    return await request_validation_exception_handler(request, exc)
 
 
 async def handle_http_exception(request: Request, exc: Exception) -> Response:

@@ -192,7 +192,7 @@ search within it. Secret values are shown as fingerprints only.
 
 | Dashboard, 768 px, dark | Change replay, 768 px, dark | Sources, 768 px, viewer |
 |---|---|---|
-| ![The dashboard on a 768 px tablet, dark theme](images/dashboard-768-dark.png) | ![The change replay of a source on a 768 px tablet, dark theme](images/source-replay-768-dark.png) | ![The sources list on a 768 px tablet for a viewer](images/sources-768-viewer.png) |
+| ![The dashboard on a 768 px tablet, dark theme](images/dashboard-768-dark.png) | ![The change replay panel of a source on a 768 px tablet (cropped to the 704 px panel), dark theme](images/source-replay-768-dark.png) | ![The sources list on a 768 px tablet for a viewer](images/sources-768-viewer.png) |
 
 | Dashboard, 768 px | Change, 768 px, operator | Dashboard, 390 px, dark |
 |---|---|---|

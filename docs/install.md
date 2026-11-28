@@ -1,6 +1,6 @@
 # Installation
 
-For Driftsniff CE 27.0.0. driftsniff CE runs as one container with two volumes: `data`
+For Driftsniff CE 27.0.0. Driftsniff CE runs as one container with two volumes: `data`
 (the database) and `keys` (the master key). It needs no separate database server.
 
 ## What you need

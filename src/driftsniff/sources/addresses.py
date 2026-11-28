@@ -111,7 +111,9 @@ def validate_base_url(url: str, *, allow_plain_http: bool = False) -> str:
     if parts.scheme not in ("https", "http"):
         raise AddressError("the base address must start with https://")
     if parts.scheme == "http" and not allow_plain_http:
-        raise AddressError("the base address must be https unless allow_plain_http is set")
+        raise AddressError(
+            "the address must start with https://, unless Allow a plain http address is ticked"
+        )
     if not parts.hostname:
         raise AddressError("the base address has no host")
     if parts.username is not None or parts.password is not None or "@" in parts.netloc:

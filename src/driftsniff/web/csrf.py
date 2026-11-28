@@ -28,10 +28,11 @@ from urllib.parse import parse_qs, urlsplit
 from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import MutableHeaders
 from starlette.requests import Request
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, Response
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from driftsniff.web.auth import SESSION_COOKIE
+from driftsniff.web.auth import SESSION_COOKIE, Principal
+from driftsniff.web.pages import PageError, page, shell_for, wants_html
 from driftsniff.web.routes_ui import MAX_FORM_BYTES, MAX_FORM_FIELDS
 
 CSRF_FIELD: Final = "csrf_token"
@@ -63,8 +64,15 @@ _DEFAULT_PORTS: Final = {"http": 80, "https": 443}
 
 _WRONG_ORIGIN: Final = "the request does not come from this site"
 _BAD_VALUE: Final = "the CSRF value is missing or wrong"
-_API_COOKIE: Final = "the API takes an API token, not a session cookie"
+_API_COOKIE: Final = (
+    "the API takes an API token (a push takes its sender key in X-Driftsniff-Push-Key), "
+    "not a session cookie"
+)
 _TOO_LARGE: Final = "the request body is too large"
+# The page a browser gets when a form post carries no CSRF value or an old one (a form left open
+# past its session, or a page loaded before the user signed in again).
+EXPIRED_TITLE: Final = "This form expired"
+EXPIRED_TEXT: Final = "This form expired. Reload the page and try again."
 
 
 class _BodyTooLargeError(Exception):
@@ -118,6 +126,14 @@ def token_matches(presented: str | None, expected: str) -> bool:
 
 def _refuse(status: int, detail: str) -> JSONResponse:
     return JSONResponse({"detail": detail}, status_code=status)
+
+
+def _expired(request: Request, principal: Principal) -> Response:
+    """The refusal of a CSRF value: the designed page for a browser, the JSON answer otherwise."""
+    if not wants_html(request):
+        return _refuse(403, _BAD_VALUE)
+    shell = shell_for(request, principal, EXPIRED_TITLE)
+    return page("status.html", shell, status=403, error=PageError(EXPIRED_TITLE, EXPIRED_TEXT))
 
 
 def _replay(body: bytes, receive: Receive) -> Receive:
@@ -178,7 +194,7 @@ async def _presented_token(request: Request, receive: Receive) -> tuple[str | No
     return _form_token(body), _replay(body, receive)
 
 
-async def _screen(scope: Scope, receive: Receive) -> tuple[JSONResponse | None, Receive]:
+async def _screen(scope: Scope, receive: Receive) -> tuple[Response | None, Receive]:
     """Decide whether the request may go on; the receive callable to give the application."""
     request = Request(scope, receive)
     path: str = scope["path"]
@@ -204,7 +220,7 @@ async def _screen(scope: Scope, receive: Receive) -> tuple[JSONResponse | None, 
     except _BodyTooLargeError:
         return _refuse(413, _TOO_LARGE), receive
     if not token_matches(presented, principal.csrf_token):
-        return _refuse(403, _BAD_VALUE), receive
+        return _expired(request, principal), receive
     return None, receive
 
 

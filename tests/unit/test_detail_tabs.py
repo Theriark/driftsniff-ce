@@ -328,6 +328,7 @@ def render_change(role: str = "operator") -> str:
         field_label=change_pages.field_label,
         kind_label=change_pages.kind_label,
         item_summary=change_pages.item_summary,
+        whole_object_text=change_pages.whole_object_text,
         move_text=change_pages.move_text,
         fingerprint_words=change_pages.fingerprint_words,
         display_value=change_pages.display_value,

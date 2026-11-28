@@ -1,4 +1,4 @@
-"""Load test and measurements. The method and the numbers are in docs/measurements.md.
+"""Load test and measurements. The method is below; the numbers go to the job summary.
 
 The fixture is synthetic only: 1,000 objects, 2,000 changes and 90 days of manifests, pushed to one
 push source through the real run pipeline (the shipped rules, the real normaliser, fingerprints
@@ -1334,7 +1334,7 @@ def _header(report: Mapping[str, Any], verdicts: Sequence[Verdict]) -> list[str]
 
 
 def render_markdown(report: Mapping[str, Any], verdicts: Sequence[Verdict]) -> str:
-    """The measurements as Markdown tables, for the job summary and docs/measurements.md."""
+    """The measurements as Markdown tables, for the job summary."""
     seed_part: Mapping[str, Any] = report["seed"]
     server: Mapping[str, Any] = report["server"]
     noisy_part: Mapping[str, Any] = report["noisy"]

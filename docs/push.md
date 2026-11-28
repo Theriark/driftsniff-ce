@@ -16,7 +16,7 @@ The collector is `driftsniff.collectors.push.PushCollector`, the endpoint is in
    that resource fails with `bad_object` (the run is `partial`, or `failed` when no resource of
    the post could be read).
 3. Make a sender key: an admin selects **Make sender key** on the source page, which posts to
-   `POST /sources/{id}/push-key` (`SourceService.set_push_key` underneath). It is shown
+   `POST /sources/{id}/push-key` (`SourceService.set_push_key` underneath) and then opens the page that shows it
    once. Only its SHA-256 is stored (`push_token_hash`), so it cannot be shown again; make a new
    one to replace it, and the old one stops working at once. The audit event `source.push_key`
    records that a key was made and whether it replaced one, never the key.
@@ -24,8 +24,10 @@ The collector is `driftsniff.collectors.push.PushCollector`, the endpoint is in
 Rules for `push_fields`: a resource name is 1 to 100 characters of letters, digits, `_`, `.`,
 `:` or `-`, starting with a letter or digit; each resource lists 1 to 200 distinct, printable
 field names of at most 100 characters; at most 100 resources. Only a push source has the option.
-Each resource must also have a type table in the rule packs, or its run fails with
-`unknown_resource` (the other resources of the push still go through).
+Each resource must also have a type table in the rule packs: the add and edit forms (and the
+same requests sent as JSON) refuse a resource that has none, with a message that names it. A
+source stored before that check fails such a resource with `unknown_resource`; the other
+resources of the push still go through.
 
 ## The endpoint
 

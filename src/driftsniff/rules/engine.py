@@ -15,7 +15,9 @@ Order of decisions
    holds for a secret that changed, while a predicate about numbers or networks never holds for
    it). An added or removed whole object has no value on either side.
 3. An item no rule applies to is MEDIUM, rule id ``builtin.unclassified``, rationale
-   ``unclassified field, not reviewed``.
+   ``unclassified field, not reviewed``. A whole object that was added or removed is not a
+   field: with no rule for it, it is MEDIUM with rule id ``builtin.object.added`` or
+   ``builtin.object.removed`` and a rationale that says so.
 4. Floors raise the result, they never lower it. The final severity is the maximum of the rule and
    of every floor that applies:
 
@@ -73,6 +75,8 @@ UNCLASSIFIED_RATIONALE: Final = "unclassified field, not reviewed"
 FLOOR_RULE_PREFIX: Final = "builtin.floor."
 MOVE_RULE_ID: Final = "builtin.move.first_match"
 MOVE_BLOCKING_RULE_ID: Final = "builtin.move.blocking"
+OBJECT_RULE_PREFIX: Final = "builtin.object."
+_OBJECT_KINDS: Final = ("added", "removed")
 
 _RANK: Final[Mapping[str, int]] = {"low": 0, "medium": 1, "high": 2, "critical": 3}
 _FLOOR_KINDS: Final = ("added", "removed", "modified", "moved")
@@ -195,6 +199,14 @@ class RuleEngine:
             if compiled.predicate is None or compiled.predicate(before, after):
                 rule = compiled.rule
                 return Classification(rule.severity, rule.id, rule.rationale, rule.id)
+        if item.change_kind in _OBJECT_KINDS and item.path.strip() == "":
+            rule_id = f"{OBJECT_RULE_PREFIX}{item.change_kind}"
+            rationale = (
+                f"A whole object of type {item.resource} was {item.change_kind}. No rule of the "
+                "pack rates whole objects of this type, so it is medium; its type table can "
+                "raise it."
+            )
+            return Classification("medium", rule_id, rationale, rule_id)
         return Classification(
             "medium", UNCLASSIFIED_RULE_ID, UNCLASSIFIED_RATIONALE, UNCLASSIFIED_RULE_ID
         )

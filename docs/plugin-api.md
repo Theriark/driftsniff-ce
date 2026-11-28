@@ -1,6 +1,6 @@
 # Plugin API
 
-driftsniff CE has ten extension points. Each is a small typing protocol
+Driftsniff CE has ten extension points. Each is a small typing protocol
 (`driftsniff/plugins/interfaces.py`) with a CE default (`driftsniff/plugins/defaults.py`). CE calls
 only the defaults; a plugin replaces a default by providing another implementation of the same
 point. The registry (`driftsniff/plugins/registry.py`) finds the plugins, checks them **when the

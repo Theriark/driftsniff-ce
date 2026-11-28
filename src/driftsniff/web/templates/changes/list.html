@@ -19,6 +19,7 @@
 {% block topbar_search %}{% endblock %}
 {% block banners %}
 {% if notice %}<div class="page-banner">{{ success_banner(notice[0], notice[1]) }}</div>{% endif %}
+{% if dates_swapped %}<div class="page-banner">{{ banner("warn", "The dates were the wrong way round", "The From date was later than the To date, so the two were swapped. The list shows the changes between them.") }}</div>{% endif %}
 {% endblock %}
 {% block content %}
 {{ page_header("Changes", "Every detected change with its severity, rule and status. A muted path is hidden here but still stored.") }}

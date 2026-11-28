@@ -1,12 +1,13 @@
 """Contract tests for the two one-button workflows the gates dispatch.
 
-Gate 2 runs promote-stage.yml and Gate 3 runs release.yml, both from development with no
-required input and an optional dry_run. Neither may rebuild an image, every write step must be
-skipped by dry_run, and release.yml must never deploy or touch development. Neither workflow,
-nor a script it calls, may move a branch: the gate script fast-forwards stage after a Stage run
-and merges stage into main before release.yml, because the Actions token may not move a branch
-to a commit that changes workflow files. The tests read the workflow files as YAML and as text,
-so a typed input, a lost dry_run condition, a build step or a branch write fails the checks.
+The Stage approval runs promote-stage.yml and the release approval runs release.yml, both from
+development with no required input and an optional dry_run. Neither may rebuild an image, every
+write step must be skipped by dry_run, and release.yml must never deploy or touch development.
+Neither workflow, nor a script it calls, may move a branch: the gate script fast-forwards stage
+after a Stage run and merges stage into main before release.yml, because the Actions token may
+not move a branch to a commit that changes workflow files. The tests read the workflow files as
+YAML and as text, so a typed input, a lost dry_run condition, a build step or a branch write fails
+the checks.
 """
 
 import re

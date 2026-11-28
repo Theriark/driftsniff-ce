@@ -135,18 +135,38 @@ async def remove_channel(request: Request, admin: Admin, service: Service) -> Re
     return await _remove(request, admin, service)
 
 
+# What went wrong with a test message, in plain words (the error classes of driftsniff.notify).
+TEST_ERROR_WORDS: Final = {
+    "timeout": "The receiver did not answer in time.",
+    "connection": "No connection to the receiver could be made.",
+    "tls_error": "The certificate of the receiver was not accepted.",
+    "redirect": "The receiver answered with a redirect, which is never followed.",
+    "rejected": "The receiver refused the message.",
+    "server_error": "The receiver had an error of its own.",
+    "unexpected": "Something unexpected went wrong while sending.",
+    "unresolved": "The host name of the receiver could not be looked up.",
+    "blocked_address": "The receiver is at an address that is never allowed (such as a "
+    "link-local or cloud metadata address).",
+    "config_unreadable": "The stored channel cannot be read; enter it again.",
+    "smtp_login": "The mail server refused the user name or password.",
+    "smtp_refused": "The mail server refused the message.",
+    "smtp_temporary": "The mail server asked to try again later.",
+    "smtp_no_starttls": "The mail server does not offer STARTTLS.",
+}
+
+
 def _test_words(ok: bool, error_class: str | None, http_status: int | None) -> PageError:
     """What the settings page says after a test message."""
     if ok:
         return PageError(
             "Test message sent", "The channel took it. Check that it arrived where you expect."
         )
-    answer = error_class or "an error"
+    reason = TEST_ERROR_WORDS.get(error_class or "", "The message could not be delivered.")
     if http_status is not None:
-        answer = f"{answer} (HTTP {http_status})"
+        reason = f"{reason} The receiver answered HTTP {http_status}."
     return PageError(
         "The test message was not taken",
-        f"The channel answered with {answer}. Check the channel, then send another test.",
+        f"{reason} Check the channel, then send another test.",
     )
 
 

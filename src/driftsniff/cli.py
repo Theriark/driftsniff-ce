@@ -381,7 +381,10 @@ def _serve(settings: Settings) -> int:
                 # Test connection builds its collector with the factory; run now and the
                 # schedule use the scheduler, which create_app starts with the application.
                 sources=SourcePages(
-                    database, collection.service, probe_factory=collection.factory.for_target
+                    database,
+                    collection.service,
+                    probe_factory=collection.factory.for_target,
+                    known_resources=collection.pipeline.known_resources,
                 ),
                 change_pages=ChangePages(database),
                 history=HistoryService(database, Fingerprinter.from_master(master_key)),

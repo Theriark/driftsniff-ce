@@ -1,6 +1,6 @@
 # API tokens
 
-How programs get access to the `/api/v1` routes of driftsniff CE. The code is in
+How programs get access to the `/api/v1` routes of Driftsniff CE. The code is in
 `driftsniff/web/bearer.py` (rules and storage), `driftsniff/web/routes_api.py` (the admin routes)
 and `driftsniff/web/deps.py` (`require_token`). The table `api_tokens` exists since migration
 `0001`.

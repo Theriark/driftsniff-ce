@@ -501,7 +501,11 @@ def test_the_empty_attention_sentence_matches_the_sources() -> None:
 def test_audit_targets_read_as_names_and_never_as_raw_ids() -> None:
     names = {3: "office-xo"}
     assert audit_target("source:3", names) == ("office-xo", "/sources/3")
-    assert audit_target("source:9", names) == ("source 9", "/sources/9")
+    assert audit_target("source:9", names) == ("(removed)", "")
+    assert audit_target("source:9", names, {"name": "old-gw"}) == ("old-gw", "")
+    # an entry of an earlier source with the same id never takes the current name
+    assert audit_target("source:3", names, {"name": "old-gw"}, current=False) == ("old-gw", "")
+    assert audit_target("source:3", names, current=False) == ("(removed)", "")
     assert audit_target("event:2", names) == ("change 2", "/changes/2")
     detail = {"resource": "unifi-firewall-policies", "path_pattern": "name"}
     assert audit_target("mute:7", names, detail) == ("Firewall policies", MUTES_HREF)
@@ -1020,6 +1024,28 @@ def test_the_activity_names_every_target_and_lists_an_acknowledgement_once(
     muted = next(entry for entry in activity if entry.text == "ada muted a path of ")
     assert muted.href == MUTES_HREF
     assert "name" not in muted.tail and muted.tail == ""
+
+
+def test_the_activity_of_a_deleted_source_never_names_the_source_that_reused_its_id(
+    store: Database, service: DashboardService
+) -> None:
+    # A database from before ids stopped being reused: source 1 was deleted and its id given
+    # to a new source.
+    add_audit(store, at(hours=-3), "ada", "source.create", "source:1", {"name": "old-gw"})
+    add_audit(store, at(hours=-2), "ada", "source.disable", "source:1", {})
+    add_audit(store, at(hours=-1), "ada", "source.delete", "source:1", {"name": "old-gw"})
+    add_audit(store, at(minutes=-30), "ada", "source.create", "source:1", {"name": "x"})
+    texts = {
+        entry.text + entry.link_label: entry.href
+        for entry in service.load().activity
+        if entry.text.startswith("ada")
+    }
+    assert texts == {
+        "ada added source old-gw": "",
+        "ada disabled source (removed)": "",
+        "ada deleted source old-gw": "",
+        "ada added source lab-controller": "/sources/1",
+    }
 
 
 def test_the_activity_shows_eight_rows_and_keeps_the_rest_for_the_disclosure(

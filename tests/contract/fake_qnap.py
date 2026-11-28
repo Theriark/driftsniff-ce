@@ -1,4 +1,4 @@
-"""A fake QNAP QTS NAS on localhost for the contract tests, and later the Mock Platform port.
+"""A fake QNAP QTS NAS on localhost for the contract tests and simulated test systems.
 
 It serves the CGI shapes of docs/vendor-notes/qnap.md (every name UNVERIFIED) with synthetic
 values: no answer here was captured from a real NAS, the shapes follow captured answers of

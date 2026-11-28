@@ -1,7 +1,8 @@
 """The query string of the change list, read into :class:`ChangeFilters`.
 
 The parser never raises: a value that is not one of the allowed words, not a number or not a date
-is dropped, so a stale or hand-edited link still opens the list. The names are ``q`` (search),
+is dropped, so a stale or hand-edited link still opens the list; a ``from`` later than ``to`` is
+swapped (the page says so). The names are ``q`` (search),
 ``source``, ``severity`` (may repeat), ``status``, ``resource``, ``from`` and ``to`` (dates like
 2026-10-22), ``sort`` (newest, oldest or severity), ``page`` and ``muted`` (``1`` shows changes
 whose every item is muted).
@@ -43,6 +44,12 @@ def _day(text: str) -> date | None:
         return None
 
 
+def dates_reversed(params: Mapping[str, Sequence[str]]) -> bool:
+    """True when ``from`` is a later date than ``to``: :func:`parse_filters` swaps them."""
+    first, last = _day(_first(params, "from")), _day(_first(params, "to"))
+    return first is not None and last is not None and first > last
+
+
 def parse_filters(params: Mapping[str, Sequence[str]]) -> ChangeFilters:
     """The filters of a query string (``params`` maps a name to all its values)."""
     severities: list[str] = []
@@ -53,6 +60,10 @@ def parse_filters(params: Mapping[str, Sequence[str]]) -> ChangeFilters:
     status = _first(params, "status").lower()
     resource = _first(params, "resource")
     sort = _first(params, "sort").lower()
+    created_from, created_to = _day(_first(params, "from")), _day(_first(params, "to"))
+    if dates_reversed(params):
+        # A range typed the wrong way round is read the right way round; the page says so.
+        created_from, created_to = created_to, created_from
     return ChangeFilters(
         search=_first(params, "q"),
         source_id=_number(_first(params, "source"), MAX_SOURCE_ID),
@@ -60,8 +71,8 @@ def parse_filters(params: Mapping[str, Sequence[str]]) -> ChangeFilters:
         severities=tuple(severities),
         status=status if status in EVENT_STATUSES else None,
         resource=resource if 0 < len(resource) <= MAX_RESOURCE_CHARS else None,
-        created_from=_day(_first(params, "from")),
-        created_to=_day(_first(params, "to")),
+        created_from=created_from,
+        created_to=created_to,
         sort=sort if sort in SORTS else "newest",
         page=_number(_first(params, "page"), MAX_PAGE) or 1,
         include_muted=_first(params, "muted").lower() in _TRUE_WORDS,

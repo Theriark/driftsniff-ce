@@ -1,8 +1,8 @@
 """Development-only test accounts for browser checks.
 
-One account per role (admin, operator, viewer) lets the crew sign in to the Development site in a
-real browser. The passwords are not made here: the deployment controller generates them from the
-``token24`` entries of ``deploy/dokploy.json`` and hands them to the container as
+One account per role (admin, operator, viewer) lets the maintainers sign in to the Development
+site in a real browser. The passwords are not made here: the deployment controller generates them
+from the ``token24`` entries of ``deploy/dokploy.json`` and hands them to the container as
 ``DRIFTSNIFF_DEV_<ROLE>_PASSWORD``. Rules, and why:
 
 - At start-up the application seeds the accounts by itself, but only when all three password

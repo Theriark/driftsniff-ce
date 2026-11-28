@@ -1,4 +1,4 @@
-# driftsniff CE container image.
+# Driftsniff CE container image.
 #
 # Stage one downloads wheels for the hash-locked requirements (--require-hashes, binary wheels
 # only, so no compiler is needed). The final stage installs only those wheels and the application.

@@ -1,4 +1,4 @@
-# driftsniff CE: one service, two named volumes, hardened runtime.
+# Driftsniff CE: one service, two named volumes, hardened runtime.
 #
 #   docker compose up --build -d
 #

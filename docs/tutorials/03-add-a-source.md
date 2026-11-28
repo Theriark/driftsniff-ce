@@ -42,8 +42,9 @@ Select **Test connection**. driftsniff reads the version and every resource once
 shows for each resource what answered. Nothing is stored. Fix the address, the key or the TLS mode
 if a resource fails, and test again.
 
-Select **Add source**. The source is listed under **Sources** and is checked at once and then at
-every interval.
+Select **Add source**. The source is listed under **Sources**. Its first check runs within a few
+minutes (at most a tenth of its interval), or at once when you select **Run now**; after that it
+is checked at every interval.
 
 ![The sources list with each source's status, last attempt, version and drift line](../images/sources-1440.png)
 

@@ -2,7 +2,7 @@ name: Release
 
 run-name: ${{ inputs.dry_run && 'Release (dry run)' || 'Release' }}
 
-# One button, run from development (Gate 3 approval dispatches it with no inputs). It releases
+# One button, run from development (the release approval dispatches it, no inputs). It releases
 # exactly what Stage runs and never rebuilds: the stage branch head, the image the Stage app runs
 # (its /healthz must report that commit and the image must be the one published for it) and the
 # release candidate tag at that commit. scripts/release_version.py gives the stable version; while

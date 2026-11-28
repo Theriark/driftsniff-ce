@@ -12,7 +12,8 @@ from typing import Any
 
 import pytest
 
-from driftsniff.changes.filters import parse_filters
+from driftsniff.changes.filters import dates_reversed, parse_filters
+from driftsniff.changes.paths import mute_refusal
 from driftsniff.changes.views import ChangeFilters, ChangePageView, ItemView, MoveView
 from driftsniff.web.change_pages import (
     EXACT_SEVERITIES,
@@ -34,6 +35,7 @@ from driftsniff.web.change_pages import (
     severity_params,
     severity_words,
     split_difference,
+    whole_object_text,
 )
 
 
@@ -90,6 +92,33 @@ def test_a_change_kind_reads_as_a_word_and_an_unknown_one_is_spelled_out() -> No
     assert kind_label("removed") == "Removed"
     assert kind_label("schema_drift") == "New fields"
     assert kind_label("some_new_kind") == "Some new kind"
+
+
+def test_a_date_range_typed_the_wrong_way_round_is_swapped() -> None:
+    reversed_range = {"from": ["2026-11-20"], "to": ["2026-11-01"]}
+    filters = parse_filters(reversed_range)
+    assert (filters.created_from, filters.created_to) == (date(2026, 11, 1), date(2026, 11, 20))
+    assert dates_reversed(reversed_range) is True
+    assert dates_reversed({"from": ["2026-11-01"], "to": ["2026-11-20"]}) is False
+    assert dates_reversed({"from": ["2026-11-20"]}) is False
+    same = parse_filters({"from": ["2026-11-01"], "to": ["2026-11-20"]})
+    assert (same.created_from, same.created_to) == (date(2026, 11, 1), date(2026, 11, 20))
+
+
+def test_a_whole_object_item_says_what_was_added_or_removed() -> None:
+    added = whole_object_text(item(change_kind="added", path="", before=None, after=None))
+    assert added.startswith("Guest was added: it was not there at the previous check.")
+    removed = whole_object_text(item(change_kind="removed", path="", object_name=None))
+    assert removed == "This object was removed: it was there at the previous check and is gone now."
+
+
+def test_an_item_about_a_whole_object_offers_no_mute() -> None:
+    for kind in ("added", "removed", "moved"):
+        assert mute_refusal("medium", kind, "") == (
+            "an item about a whole object has no field path to mute"
+        )
+        assert mute_refusal("medium", kind, "  ") is not None
+    assert mute_refusal("medium", "modified", "vlan") is None
 
 
 def test_the_item_summary_names_the_field_and_what_happened() -> None:

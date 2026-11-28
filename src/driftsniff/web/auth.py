@@ -653,7 +653,9 @@ class AuthService:
         try:
             check_password_policy(new)
         except PasswordPolicyError as error:
-            raise AccountInputError("password", f"the new {error}") from error
+            # "the password must have ..." becomes "the new password must have ...".
+            rule = str(error).removeprefix("the ")
+            raise AccountInputError("password", f"the new {rule}") from error
         if new.lower() == principal.username:
             raise AccountInputError("password", "the new password must not be the user name")
         password_hash = self._hasher.hash(new)

@@ -196,7 +196,9 @@ and the type tables.
    that changed and a predicate about numbers or networks never holds for it. An added or removed
    whole object has no value on either side.
 3. No rule applies: MEDIUM, rule id `builtin.unclassified`, rationale `unclassified field, not
-   reviewed`.
+   reviewed`. A whole object that was added or removed is not a field: with no rule for it
+   (a `**` rule of its resource is one), it is MEDIUM with rule id `builtin.object.added` or
+   `builtin.object.removed`.
 4. Floors only raise. The final severity is the maximum of the rule and of the floors below. When a
    floor is higher than the rule it is the result (`floored` is true, and `matched_rule_id` keeps
    the rule that matched); when the rule is as high as the floor, the rule is the result.
